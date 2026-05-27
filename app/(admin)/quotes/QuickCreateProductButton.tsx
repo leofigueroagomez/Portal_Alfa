@@ -12,8 +12,11 @@ type Product = {
   category: string | null;
   category_id: number | null;
   image_url: string | null;
+  cost_price: number | null;
+  cost_currency: string | null;
   calculated_sale_price: number;
   sale_currency: string;
+  labor_unit_cost: number | null;
   labor_unit_sale_price: number;
   is_favorite: boolean | null;
 };
@@ -187,7 +190,7 @@ export default function QuickCreateProductButton({
         is_active: true,
       })
       .select(
-        "id, brand, model, name, category, category_id, image_url, calculated_sale_price, sale_currency, labor_unit_sale_price, is_favorite"
+        "id, brand, model, name, category, category_id, image_url, cost_price, cost_currency, calculated_sale_price, sale_currency, labor_unit_cost, labor_unit_sale_price, is_favorite"
       )
       .single();
 

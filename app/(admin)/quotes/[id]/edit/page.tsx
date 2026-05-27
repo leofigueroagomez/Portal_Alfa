@@ -16,8 +16,11 @@ type Product = {
   category: string | null;
   category_id: number | null;
   image_url: string | null;
+  cost_price: number | null;
+  cost_currency: string | null;
   calculated_sale_price: number;
   sale_currency: string;
+  labor_unit_cost: number | null;
   labor_unit_sale_price: number;
   is_favorite: boolean | null;
   product_categories?: {
@@ -50,6 +53,24 @@ function getEquipmentUnitPriceUsd(
   }
 
   return item.calculated_sale_price;
+}
+
+function normalizeToMXN(
+  value: number | null | undefined,
+  currency: string | null | undefined,
+  exchangeRate: number
+) {
+  if ((currency || "USD").toUpperCase() === "MXN") {
+    return Number(value || 0);
+  }
+
+  return Number(value || 0) * exchangeRate;
+}
+
+function getMarginColorClass(percent: number) {
+  if (percent >= 30) return "text-[#8CE0B6]";
+  if (percent >= 15) return "text-[#F4C66A]";
+  return "text-[#F28B82]";
 }
 
 type Quote = {
@@ -317,26 +338,42 @@ export default function EditQuotePage() {
       });
 
       const savedItems = (itemsData || []) as SavedItem[];
+      const productsById = new Map(
+        ((productsData || []) as Product[]).map((product) => [
+          product.id,
+          product,
+        ])
+      );
       const hydratedSections = ((sectionsData || []) as SavedSection[]).map(
         (section) => ({
           id: String(section.id),
           name: section.name || "Sistema sin nombre",
           items: savedItems
             .filter((item) => item.quote_section_id === section.id)
-            .map((item) => ({
-              id: item.product_id || 0,
-              brand: item.product_brand || "",
-              model: item.product_model || "",
-              name: item.product_name || "",
-              category: null,
-              category_id: null,
-              image_url: item.product_image_url,
-              calculated_sale_price: Number(item.unit_equipment_price || 0),
-              sale_currency: item.sale_currency || "USD",
-              labor_unit_sale_price: Number(item.unit_labor_price || 0),
-              is_favorite: false,
-              quantity: Number(item.quantity || 0),
-            })),
+            .map((item) => {
+              const catalogProduct = item.product_id
+                ? productsById.get(item.product_id)
+                : null;
+
+              return {
+                id: item.product_id || 0,
+                brand: item.product_brand || "",
+                model: item.product_model || "",
+                name: item.product_name || "",
+                category: null,
+                category_id: null,
+                image_url: item.product_image_url,
+                cost_price: catalogProduct?.cost_price ?? 0,
+                cost_currency:
+                  catalogProduct?.cost_currency || item.sale_currency || "USD",
+                calculated_sale_price: Number(item.unit_equipment_price || 0),
+                sale_currency: item.sale_currency || "USD",
+                labor_unit_cost: catalogProduct?.labor_unit_cost ?? 0,
+                labor_unit_sale_price: Number(item.unit_labor_price || 0),
+                is_favorite: false,
+                quantity: Number(item.quantity || 0),
+              };
+            }),
         })
       );
 
@@ -614,6 +651,38 @@ export default function EditQuotePage() {
   const ivaMXN = taxableBaseMXN * 0.16;
   const totalMXN = taxableBaseMXN + ivaMXN;
   const grandTotalMXN = totalMXN;
+  const equipmentCostMXN = sections.reduce((sectionSum, section) => {
+    const total = section.items.reduce((sum, item) => {
+      return (
+        sum +
+        normalizeToMXN(
+          item.cost_price,
+          item.cost_currency || item.sale_currency,
+          numericExchangeRate
+        ) *
+          item.quantity
+      );
+    }, 0);
+
+    return sectionSum + total;
+  }, 0);
+  const laborCostMXN = sections.reduce((sectionSum, section) => {
+    const total = section.items.reduce((sum, item) => {
+      return sum + Number(item.labor_unit_cost || 0) * item.quantity;
+    }, 0);
+
+    return sectionSum + total;
+  }, 0);
+  const totalSaleBeforeIVA = taxableBaseMXN;
+  const totalCostMXN = equipmentCostMXN + laborCostMXN;
+  const operatingMarginMXN = totalSaleBeforeIVA - totalCostMXN;
+  const operatingMarginPercent =
+    totalSaleBeforeIVA > 0
+      ? (operatingMarginMXN / totalSaleBeforeIVA) * 100
+      : 0;
+  const operatingMarginColorClass = getMarginColorClass(
+    operatingMarginPercent
+  );
   const isDraft = quote?.status === "draft";
 
   function getSectionEquipmentTotal(section: QuoteSection) {
@@ -1374,6 +1443,26 @@ export default function EditQuotePage() {
                 <div className="flex justify-between text-xl font-bold">
                   <span>Total MXN</span>
                   <span>{formatCurrency(totalMXN, "MXN")}</span>
+                </div>
+
+                <div className="rounded-xl border border-[#2A2A30] bg-[#101114] p-4">
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-[#77777D]">
+                    Informacion interna
+                  </p>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-[#B3B3B8]">Margen operativo</span>
+                      <span className={operatingMarginColorClass}>
+                        {formatCurrency(operatingMarginMXN, "MXN")}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[#B3B3B8]">Margen operativo %</span>
+                      <span className={operatingMarginColorClass}>
+                        {operatingMarginPercent.toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
                 <p className="text-xs font-normal leading-relaxed text-[#77777D]">
