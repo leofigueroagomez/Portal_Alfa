@@ -7,7 +7,7 @@ import {
   getPurchaseLineVariation,
   summarizePendingBySupplier,
   summarizePurchaseTotalsByCurrency,
-  summarizePurchaseVariationByCurrency,
+  summarizePurchaseVariationMxn,
 } from "@/lib/projectPurchases";
 import ProjectPurchaseActions, {
   PurchaseEventAction,
@@ -28,6 +28,7 @@ type Client = {
 type Quote = {
   id: number;
   quote_number: string | null;
+  exchange_rate: number | null;
 };
 
 type QuoteItem = {
@@ -59,6 +60,7 @@ type PurchaseLine = PurchaseLineAction & {
   notes: string | null;
   purchase_status: string | null;
   product_image_url?: string | null;
+  exchange_rate?: number | null;
 };
 
 type PurchaseEvent = PurchaseEventAction & {
@@ -66,6 +68,7 @@ type PurchaseEvent = PurchaseEventAction & {
   quantity: number | null;
   unit_cost: number | null;
   cost_currency: string | null;
+  exchange_rate: number | null;
   supplier: string | null;
   invoice_reference: string | null;
   notes: string | null;
@@ -161,7 +164,7 @@ export default async function ProjectPurchasesPage({
       : Promise.resolve({ data: null }),
     supabase
       .from("quotes")
-      .select("id, quote_number")
+      .select("id, quote_number, exchange_rate")
       .eq("client_project_id", projectData.id)
       .eq("status", "approved")
       .order("created_at", { ascending: true }),
@@ -170,6 +173,9 @@ export default async function ProjectPurchasesPage({
   const clientData = client as Client | null;
   const quotes = (approvedQuotes || []) as Quote[];
   const quoteIds = quotes.map((quote) => quote.id);
+  const exchangeRateByQuoteId = new Map(
+    quotes.map((quote) => [quote.id, Number(quote.exchange_rate || 0)])
+  );
 
   let purchaseSqlError: string | null = null;
   const [{ data: rawQuoteItems }, existingLinesResult] =
@@ -279,6 +285,7 @@ export default async function ProjectPurchasesPage({
     return {
       ...line,
       product_image_url: productItem?.image_url || quoteItem?.product_image_url || null,
+      exchange_rate: quoteItem ? exchangeRateByQuoteId.get(quoteItem.quote_id) || null : null,
     };
   });
 
@@ -288,7 +295,7 @@ export default async function ProjectPurchasesPage({
       ? await supabase
           .from("project_purchase_events")
           .select(
-            "id, project_purchase_line_id, purchase_date, quantity, unit_cost, cost_currency, supplier, invoice_reference, warehouse_status, notes"
+            "id, project_purchase_line_id, purchase_date, quantity, unit_cost, cost_currency, exchange_rate, supplier, invoice_reference, warehouse_status, notes"
           )
           .in("project_purchase_line_id", lineIds)
           .order("purchase_date", { ascending: false })
@@ -305,7 +312,7 @@ export default async function ProjectPurchasesPage({
   const totalsByCurrency = summarizePurchaseTotalsByCurrency(lines);
   const pendingBySupplier = summarizePendingBySupplier(lines);
   const progressPercent = getPurchaseProgressPercent(lines);
-  const variationByCurrency = summarizePurchaseVariationByCurrency(lines, eventsByLine);
+  const variationMxn = summarizePurchaseVariationMxn(lines, eventsByLine);
   const linesWithVariation = lines
     .map((line) => ({
       ...line,
@@ -341,6 +348,7 @@ export default async function ProjectPurchasesPage({
     total_required_cost: Number(line.total_required_cost || 0),
     total_purchased_cost: Number(line.total_purchased_cost || 0),
     total_pending_cost: Number(line.total_pending_cost || 0),
+    exchange_rate: Number(line.exchange_rate || 0) || null,
   }));
   const actionEvents: PurchaseEventAction[] = events.map((eventItem) => ({
     id: eventItem.id,
@@ -417,40 +425,28 @@ export default async function ProjectPurchasesPage({
       </section>
 
       <section className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">
-        {Array.from(variationByCurrency.entries()).map(([currency, totals]) => (
-          <div
-            key={currency}
-            className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5"
+        <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5">
+          <p className="mb-2 text-sm text-[#B3B3B8]">Ahorro total MXN</p>
+          <p className="text-2xl font-bold text-[#8CE0B6]">
+            {formatCurrency(variationMxn.saving, "MXN")}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5">
+          <p className="mb-2 text-sm text-[#B3B3B8]">Sobrecosto total MXN</p>
+          <p className="text-2xl font-bold text-[#FFB19C]">
+            {formatCurrency(variationMxn.overrun, "MXN")}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5">
+          <p className="mb-2 text-sm text-[#B3B3B8]">Variacion neta MXN</p>
+          <p
+            className={`text-2xl font-bold ${
+              variationMxn.net >= 0 ? "text-[#8CE0B6]" : "text-[#FFB19C]"
+            }`}
           >
-            <p className="mb-3 text-sm text-[#B3B3B8]">
-              Variacion compras {currency}
-            </p>
-            <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
-              <div>
-                <p className="text-[#77777D]">Ahorro</p>
-                <p className="font-semibold text-[#8CE0B6]">
-                  {formatCurrency(totals.saving, currency)}
-                </p>
-              </div>
-              <div>
-                <p className="text-[#77777D]">Sobrecosto</p>
-                <p className="font-semibold text-[#FFB19C]">
-                  {formatCurrency(totals.overrun, currency)}
-                </p>
-              </div>
-              <div>
-                <p className="text-[#77777D]">Neta</p>
-                <p
-                  className={`font-semibold ${
-                    totals.net >= 0 ? "text-[#8CE0B6]" : "text-[#FFB19C]"
-                  }`}
-                >
-                  {formatCurrency(totals.net, currency)}
-                </p>
-              </div>
-            </div>
-          </div>
-        ))}
+            {formatCurrency(variationMxn.net, "MXN")}
+          </p>
+        </div>
       </section>
 
       <section className="mb-8 rounded-2xl border border-[#1F1F24] bg-[#151518] p-5 sm:p-6">
@@ -572,10 +568,23 @@ export default async function ProjectPurchasesPage({
                               <p className="font-semibold">
                                 {formatCurrency(
                                   line.variation.estimatedUnitCost,
-                                  line.variation.currency
+                                  line.variation.estimatedCurrency
                                 )}
                               </p>
                             </div>
+                            {line.variation.estimatedCurrency === "USD" ? (
+                              <div>
+                                <p className="text-[#77777D]">Costo est. unit. MXN</p>
+                                <p className="font-semibold">
+                                  {line.variation.estimatedExchangeRate > 0
+                                    ? formatCurrency(
+                                        line.variation.estimatedUnitCostMxn,
+                                        "MXN"
+                                      )
+                                    : "Falta TC"}
+                                </p>
+                              </div>
+                            ) : null}
                             <div>
                               <p className="text-[#77777D]">Total requerido</p>
                               <p className="font-semibold">
@@ -600,7 +609,7 @@ export default async function ProjectPurchasesPage({
                                 {line.variation.purchasedQuantity > 0
                                   ? formatCurrency(
                                       line.variation.realUnitCostAverage,
-                                      line.variation.currency
+                                      "MXN"
                                     )
                                   : "Sin compras"}
                               </p>
@@ -611,7 +620,7 @@ export default async function ProjectPurchasesPage({
                                 {line.variation.purchasedQuantity > 0
                                   ? formatCurrency(
                                       line.variation.estimated,
-                                      line.variation.currency
+                                      "MXN"
                                     )
                                   : "Sin compras"}
                               </p>
@@ -622,7 +631,7 @@ export default async function ProjectPurchasesPage({
                                 {line.variation.purchasedQuantity > 0
                                   ? formatCurrency(
                                       line.variation.real,
-                                      line.variation.currency
+                                      "MXN"
                                     )
                                   : "Sin compras"}
                               </p>
@@ -658,7 +667,7 @@ export default async function ProjectPurchasesPage({
                                   >
                                     {formatCurrency(
                                       line.variation.variation,
-                                      line.variation.currency
+                                      "MXN"
                                     )}
                                   </p>
                                   <p className="text-xs text-[#77777D]">
@@ -695,10 +704,15 @@ export default async function ProjectPurchasesPage({
                                     </p>
                                     <p className="mt-1 text-[#B3B3B8]">
                                       {formatCurrency(
-                                        eventItem.unit_cost,
-                                        eventItem.cost_currency
-                                      )}{" "}
-                                      unitario - {eventItem.supplier || supplier}
+                                      eventItem.unit_cost,
+                                      eventItem.cost_currency
+                                    )}{" "}
+                                      unitario
+                                      {eventItem.cost_currency === "USD" &&
+                                      eventItem.exchange_rate ? (
+                                        <> / TC {formatNumber(eventItem.exchange_rate)}</>
+                                      ) : null}{" "}
+                                      - {eventItem.supplier || supplier}
                                     </p>
                                   </div>
                                   <div>

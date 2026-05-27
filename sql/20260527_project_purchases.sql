@@ -28,6 +28,7 @@ create table if not exists public.project_purchase_events (
   quantity numeric(14,2) not null check (quantity > 0),
   unit_cost numeric(14,2) not null default 0,
   cost_currency text not null check (cost_currency in ('USD', 'MXN')),
+  exchange_rate numeric(14,4),
   supplier text,
   invoice_reference text,
   warehouse_status text not null default 'pending'
@@ -35,6 +36,9 @@ create table if not exists public.project_purchase_events (
   notes text,
   created_at timestamptz not null default now()
 );
+
+alter table public.project_purchase_events
+  add column if not exists exchange_rate numeric(14,4);
 
 create unique index if not exists project_purchase_lines_quote_item_id_key
   on public.project_purchase_lines(quote_item_id)

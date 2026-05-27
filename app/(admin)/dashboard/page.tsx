@@ -4,7 +4,7 @@ import { formatCurrency, formatNumber } from "@/lib/format";
 import {
   getPurchaseLineVariation,
   getPurchaseProgressPercent,
-  summarizePurchaseVariationByCurrency,
+  summarizePurchaseVariationMxn,
 } from "@/lib/projectPurchases";
 import {
   normalizeSalesStage,
@@ -40,6 +40,7 @@ type Quote = {
   status: string | null;
   total_mxn?: number | null;
   grand_total?: number | null;
+  exchange_rate?: number | null;
 };
 
 type EngineeringQuote = {
@@ -51,6 +52,8 @@ type EngineeringQuote = {
 };
 
 type QuoteItem = {
+  id?: number;
+  quote_id?: number | null;
   product_name: string | null;
   product_brand: string | null;
 };
@@ -58,6 +61,7 @@ type QuoteItem = {
 type PurchaseLine = {
   id: number;
   client_project_id: number | null;
+  quote_item_id: number | null;
   supplier: string | null;
   cost_currency: string | null;
   quantity_required: number | null;
@@ -66,6 +70,7 @@ type PurchaseLine = {
   total_required_cost: number | null;
   total_purchased_cost: number | null;
   total_pending_cost: number | null;
+  exchange_rate?: number | null;
 };
 
 type PurchaseEvent = {
@@ -73,6 +78,7 @@ type PurchaseEvent = {
   quantity: number | null;
   unit_cost: number | null;
   cost_currency: string | null;
+  exchange_rate?: number | null;
 };
 
 function isOpenStatus(status: string | null) {
@@ -130,19 +136,19 @@ export default async function DashboardPage() {
       supabase.from("clients").select("id, name"),
       supabase
         .from("quotes")
-        .select("id, client_id, client_project_id, status, total_mxn, grand_total"),
+        .select("id, client_id, client_project_id, status, total_mxn, grand_total, exchange_rate"),
       supabase
         .from("engineering_quotes")
         .select("id, client_id, client_project_id, status, total_mxn"),
-      supabase.from("quote_items").select("product_name, product_brand"),
+      supabase.from("quote_items").select("id, quote_id, product_name, product_brand"),
       supabase
         .from("project_purchase_lines")
         .select(
-          "id, client_project_id, supplier, cost_currency, quantity_required, quantity_purchased, unit_cost, total_required_cost, total_purchased_cost, total_pending_cost"
+          "id, client_project_id, quote_item_id, supplier, cost_currency, quantity_required, quantity_purchased, unit_cost, total_required_cost, total_purchased_cost, total_pending_cost"
         ),
       supabase
         .from("project_purchase_events")
-        .select("project_purchase_line_id, quantity, unit_cost, cost_currency"),
+        .select("project_purchase_line_id, quantity, unit_cost, cost_currency, exchange_rate"),
     ]);
 
   const projects = (projectData || []) as ClientProject[];
@@ -274,16 +280,34 @@ export default async function DashboardPage() {
       eventItem,
     ]);
   });
-  const purchaseVariationByCurrency = summarizePurchaseVariationByCurrency(
-    purchaseLines,
+  const exchangeRateByQuoteId = new Map(
+    quoteList.map((quote) => [quote.id, Number(quote.exchange_rate || 0)])
+  );
+  const quoteIdByItemId = new Map(
+    itemList
+      .filter((item) => item.id && item.quote_id)
+      .map((item) => [Number(item.id), Number(item.quote_id)])
+  );
+  const purchaseLinesForVariation = purchaseLines.map((line) => {
+    const quoteId = line.quote_item_id
+      ? quoteIdByItemId.get(Number(line.quote_item_id))
+      : null;
+
+    return {
+      ...line,
+      exchange_rate: quoteId ? exchangeRateByQuoteId.get(quoteId) || null : null,
+    };
+  });
+  const purchaseVariationMxn = summarizePurchaseVariationMxn(
+    purchaseLinesForVariation,
     purchaseEventsByLine
   );
-  const purchaseProgressGlobal = getPurchaseProgressPercent(purchaseLines);
+  const purchaseProgressGlobal = getPurchaseProgressPercent(purchaseLinesForVariation);
   const projectNames = new Map(
     projects.map((project) => [project.id, project.name || `Proyecto #${project.id}`])
   );
   const purchaseVariationByProject = Array.from(
-    purchaseLines.reduce((map, line) => {
+    purchaseLinesForVariation.reduce((map, line) => {
       const projectId = Number(line.client_project_id || 0);
       if (!projectId || !line.id) return map;
 
@@ -291,22 +315,14 @@ export default async function DashboardPage() {
         line,
         purchaseEventsByLine.get(line.id) || []
       );
-      const currencyTotals = map.get(projectId) || new Map<string, number>();
-      currencyTotals.set(
-        variation.currency,
-        Number(currencyTotals.get(variation.currency) || 0) + variation.variation
-      );
-      map.set(projectId, currencyTotals);
+      map.set(projectId, Number(map.get(projectId) || 0) + variation.variation);
       return map;
-    }, new Map<number, Map<string, number>>())
-  ).map(([projectId, currencyTotals]) => {
-    const net = Array.from(currencyTotals.values()).reduce((sum, value) => sum + value, 0);
-
+    }, new Map<number, number>())
+  ).map(([projectId, net]) => {
     return {
       projectId,
       name: projectNames.get(projectId) || `Proyecto #${projectId}`,
       net,
-      currencyTotals,
     };
   });
   const topPurchaseSavings = purchaseVariationByProject
@@ -317,15 +333,6 @@ export default async function DashboardPage() {
     .filter((project) => project.net < 0)
     .sort((a, b) => a.net - b.net)
     .slice(0, 5);
-
-  function formatCurrencyTotals(currencyTotals: Map<string, number>) {
-    const entries = Array.from(currencyTotals.entries());
-    if (entries.length === 0) return formatCurrency(0, "MXN");
-
-    return entries
-      .map(([currency, value]) => formatCurrency(value, currency))
-      .join(" / ");
-  }
 
   return (
     <main className="min-h-screen bg-[#0B0D0F] p-4 text-white md:p-8 xl:p-10">
@@ -472,42 +479,28 @@ export default async function DashboardPage() {
         ) : (
           <>
             <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-              {Array.from(purchaseVariationByCurrency.entries()).map(
-                ([currency, totals]) => (
-                  <div
-                    key={currency}
-                    className="rounded-xl border border-[#2A2A30] bg-[#1A1A1F] p-4"
-                  >
-                    <p className="mb-3 text-sm text-[#B3B3B8]">
-                      Variacion {currency}
-                    </p>
-                    <div className="space-y-2 text-sm">
-                      <p>
-                        Ahorro:{" "}
-                        <span className="font-semibold text-[#8CE0B6]">
-                          {formatCurrency(totals.saving, currency)}
-                        </span>
-                      </p>
-                      <p>
-                        Sobrecosto:{" "}
-                        <span className="font-semibold text-[#FFB19C]">
-                          {formatCurrency(totals.overrun, currency)}
-                        </span>
-                      </p>
-                      <p>
-                        Neta:{" "}
-                        <span
-                          className={`font-semibold ${
-                            totals.net >= 0 ? "text-[#8CE0B6]" : "text-[#FFB19C]"
-                          }`}
-                        >
-                          {formatCurrency(totals.net, currency)}
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-                )
-              )}
+              <div className="rounded-xl border border-[#2A2A30] bg-[#1A1A1F] p-4">
+                <p className="mb-3 text-sm text-[#B3B3B8]">Ahorro total MXN</p>
+                <p className="text-2xl font-bold text-[#8CE0B6]">
+                  {formatCurrency(purchaseVariationMxn.saving, "MXN")}
+                </p>
+              </div>
+              <div className="rounded-xl border border-[#2A2A30] bg-[#1A1A1F] p-4">
+                <p className="mb-3 text-sm text-[#B3B3B8]">Sobrecosto total MXN</p>
+                <p className="text-2xl font-bold text-[#FFB19C]">
+                  {formatCurrency(purchaseVariationMxn.overrun, "MXN")}
+                </p>
+              </div>
+              <div className="rounded-xl border border-[#2A2A30] bg-[#1A1A1F] p-4">
+                <p className="mb-3 text-sm text-[#B3B3B8]">Variacion neta MXN</p>
+                <p
+                  className={`text-2xl font-bold ${
+                    purchaseVariationMxn.net >= 0 ? "text-[#8CE0B6]" : "text-[#FFB19C]"
+                  }`}
+                >
+                  {formatCurrency(purchaseVariationMxn.net, "MXN")}
+                </p>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
@@ -525,7 +518,7 @@ export default async function DashboardPage() {
                       >
                         <span className="font-semibold">{project.name}</span>
                         <span className="text-[#8CE0B6]">
-                          {formatCurrencyTotals(project.currencyTotals)}
+                          {formatCurrency(project.net, "MXN")}
                         </span>
                       </Link>
                     ))
@@ -549,7 +542,7 @@ export default async function DashboardPage() {
                       >
                         <span className="font-semibold">{project.name}</span>
                         <span className="text-[#FFB19C]">
-                          {formatCurrencyTotals(project.currencyTotals)}
+                          {formatCurrency(project.net, "MXN")}
                         </span>
                       </Link>
                     ))

@@ -6,6 +6,7 @@ export type PurchaseSummaryInput = {
   quantity_required: number | null;
   quantity_purchased: number | null;
   unit_cost?: number | null;
+  exchange_rate?: number | null;
   total_required_cost: number | null;
   total_purchased_cost: number | null;
   total_pending_cost: number | null;
@@ -94,6 +95,13 @@ export function getPurchaseLineVariation(
     quantityRequired > 0
       ? Number(line.total_required_cost || 0) / quantityRequired
       : Number(line.unit_cost || 0);
+  const estimatedExchangeRate = Number(line.exchange_rate || 0);
+  const estimatedUnitCostMxn =
+    lineCurrency === "USD"
+      ? estimatedExchangeRate > 0
+        ? estimatedUnitCost * estimatedExchangeRate
+        : 0
+      : estimatedUnitCost;
   let purchasedQuantity = 0;
   let estimated = 0;
   let real = 0;
@@ -103,36 +111,40 @@ export function getPurchaseLineVariation(
   events.forEach((eventItem) => {
     const quantity = Number(eventItem.quantity || 0);
     const eventCurrency = (eventItem.cost_currency || lineCurrency).toUpperCase();
+    const eventExchangeRate = Number(eventItem.exchange_rate || 0);
 
     if (quantity <= 0) return;
 
-    if (eventCurrency !== lineCurrency) {
-      if (
-        lineCurrency === "MXN" &&
-        eventCurrency === "USD" &&
-        Number(eventItem.exchange_rate || 0) > 0
-      ) {
-        purchasedQuantity += quantity;
-        estimated += estimatedUnitCost * quantity;
-        real += Number(eventItem.unit_cost || 0) * quantity * Number(eventItem.exchange_rate);
-        return;
-      }
-
+    if (lineCurrency === "USD" && estimatedExchangeRate <= 0) {
       missingExchangeRate = true;
       skippedQuantity += quantity;
       return;
     }
 
+    if (eventCurrency === "USD" && eventExchangeRate <= 0) {
+      missingExchangeRate = true;
+      skippedQuantity += quantity;
+      return;
+    }
+
+    const realUnitCostMxn =
+      eventCurrency === "USD"
+        ? Number(eventItem.unit_cost || 0) * eventExchangeRate
+        : Number(eventItem.unit_cost || 0);
+
     purchasedQuantity += quantity;
-    estimated += estimatedUnitCost * quantity;
-    real += Number(eventItem.unit_cost || 0) * quantity;
+    estimated += estimatedUnitCostMxn * quantity;
+    real += realUnitCostMxn * quantity;
   });
   const net = estimated - real;
   const realUnitCostAverage = purchasedQuantity > 0 ? real / purchasedQuantity : 0;
 
   return {
-    currency: lineCurrency,
+    currency: "MXN",
+    estimatedCurrency: lineCurrency,
     estimatedUnitCost,
+    estimatedUnitCostMxn,
+    estimatedExchangeRate,
     realUnitCostAverage,
     purchasedQuantity,
     estimated,
@@ -154,11 +166,17 @@ export function getPurchaseLineVariation(
   };
 }
 
-export function summarizePurchaseVariationByCurrency(
+export function summarizePurchaseVariationMxn(
   lines: PurchaseSummaryInput[],
   eventsByLine: Map<number, PurchaseEventSummaryInput[]>
 ) {
-  const totals = new Map<string, PurchaseVariationSummary>();
+  const totals: PurchaseVariationSummary = {
+    estimated: 0,
+    real: 0,
+    saving: 0,
+    overrun: 0,
+    net: 0,
+  };
 
   lines.forEach((line) => {
     if (!line.id) return;
@@ -167,21 +185,11 @@ export function summarizePurchaseVariationByCurrency(
       line,
       eventsByLine.get(line.id) || []
     );
-    const current = totals.get(variation.currency) || {
-      estimated: 0,
-      real: 0,
-      saving: 0,
-      overrun: 0,
-      net: 0,
-    };
-
-    totals.set(variation.currency, {
-      estimated: current.estimated + variation.estimated,
-      real: current.real + variation.real,
-      saving: current.saving + Math.max(variation.variation, 0),
-      overrun: current.overrun + Math.max(-variation.variation, 0),
-      net: current.net + variation.variation,
-    });
+    totals.estimated += variation.estimated;
+    totals.real += variation.real;
+    totals.saving += Math.max(variation.variation, 0);
+    totals.overrun += Math.max(-variation.variation, 0);
+    totals.net += variation.variation;
   });
 
   return totals;

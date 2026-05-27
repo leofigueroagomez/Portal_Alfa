@@ -18,6 +18,7 @@ export type PurchaseLineAction = {
   total_required_cost: number;
   total_purchased_cost: number;
   total_pending_cost: number;
+  exchange_rate: number | null;
 };
 
 export type PurchaseEventAction = {
@@ -74,6 +75,7 @@ export default function ProjectPurchaseActions({
   const [quantity, setQuantity] = useState("");
   const [unitCost, setUnitCost] = useState("");
   const [costCurrency, setCostCurrency] = useState<Currency>("USD");
+  const [exchangeRate, setExchangeRate] = useState("");
   const [supplier, setSupplier] = useState("");
   const [invoiceReference, setInvoiceReference] = useState("");
   const [notes, setNotes] = useState("");
@@ -89,6 +91,7 @@ export default function ProjectPurchaseActions({
     );
     setUnitCost(String(Number(line.unit_cost || 0)));
     setCostCurrency((line.cost_currency || "USD").toUpperCase() as Currency);
+    setExchangeRate(line.exchange_rate ? String(Number(line.exchange_rate).toFixed(4)) : "");
     setSupplier(line.supplier || "");
     setPurchaseDate(today());
     setInvoiceReference("");
@@ -106,6 +109,7 @@ export default function ProjectPurchaseActions({
 
     const numericQuantity = Number(quantity);
     const numericUnitCost = Number(unitCost);
+    const numericExchangeRate = costCurrency === "USD" ? Number(exchangeRate) : null;
 
     if (!purchaseDate) {
       alert("Selecciona la fecha de compra.");
@@ -122,6 +126,11 @@ export default function ProjectPurchaseActions({
       return;
     }
 
+    if (costCurrency === "USD" && (!numericExchangeRate || numericExchangeRate <= 0)) {
+      alert("Captura el tipo de cambio para compras en USD.");
+      return;
+    }
+
     setSaving(true);
 
     const { error: eventError } = await supabase.from("project_purchase_events").insert({
@@ -130,6 +139,7 @@ export default function ProjectPurchaseActions({
       quantity: numericQuantity,
       unit_cost: numericUnitCost,
       cost_currency: costCurrency,
+      exchange_rate: numericExchangeRate,
       supplier: supplier.trim() || selectedLine.supplier || null,
       invoice_reference: invoiceReference.trim() || null,
       warehouse_status: "pending",
@@ -329,6 +339,20 @@ export default function ProjectPurchaseActions({
                   <option value="USD">USD</option>
                   <option value="MXN">MXN</option>
                 </select>
+              </label>
+
+              <label className="space-y-2">
+                <span className="text-sm text-[#B3B3B8]">Tipo de cambio</span>
+                <input
+                  type="number"
+                  step="0.0001"
+                  min="0"
+                  disabled={costCurrency === "MXN"}
+                  className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none disabled:text-[#77777D]"
+                  value={exchangeRate}
+                  onChange={(event) => setExchangeRate(event.target.value)}
+                  placeholder="Requerido si es USD"
+                />
               </label>
 
               <label className="space-y-2">
