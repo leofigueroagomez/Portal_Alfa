@@ -146,8 +146,16 @@ export default function ProjectPurchaseActions({
       Number(selectedLine.quantity_purchased || 0) + numericQuantity;
     const nextPurchasedCost =
       Number(selectedLine.total_purchased_cost || 0) + numericQuantity * numericUnitCost;
+    const estimatedUnitCost =
+      Number(selectedLine.quantity_required || 0) > 0
+        ? Number(selectedLine.total_required_cost || 0) /
+          Number(selectedLine.quantity_required || 0)
+        : Number(selectedLine.unit_cost || 0);
+    const estimatedPurchasedCost =
+      Number(selectedLine.quantity_purchased || 0) * estimatedUnitCost +
+      numericQuantity * estimatedUnitCost;
     const nextPendingCost = Math.max(
-      Number(selectedLine.total_required_cost || 0) - nextPurchasedCost,
+      Number(selectedLine.total_required_cost || 0) - estimatedPurchasedCost,
       0
     );
 
@@ -155,8 +163,6 @@ export default function ProjectPurchaseActions({
       .from("project_purchase_lines")
       .update({
         supplier: supplier.trim() || selectedLine.supplier || null,
-        cost_currency: costCurrency,
-        unit_cost: numericUnitCost,
         quantity_purchased: nextQuantityPurchased,
         total_purchased_cost: nextPurchasedCost,
         total_pending_cost: nextPendingCost,

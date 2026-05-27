@@ -107,12 +107,15 @@ function getWarehouseLabel(status: string | null | undefined) {
 function getVariationLabel(status: string) {
   if (status === "saving") return "Ahorro";
   if (status === "overrun") return "Sobrecosto";
+  if (status === "no_purchases") return "Sin compras registradas";
+  if (status === "missing_exchange_rate") return "Falta TC para calcular variacion";
   return "Sin variacion";
 }
 
 function getVariationClass(status: string) {
   if (status === "saving") return "border-[#1F7A4D] bg-[#143D2A] text-[#8CE0B6]";
   if (status === "overrun") return "border-[#7A2E1F] bg-[#3D1C14] text-[#FFB19C]";
+  if (status === "missing_exchange_rate") return "border-[#614620] bg-[#322514] text-[#F4C66A]";
   return "border-[#3A3A42] bg-[#222228] text-[#B3B3B8]";
 }
 
@@ -331,7 +334,10 @@ export default async function ProjectPurchasesPage({
     quantity_required: Number(line.quantity_required || 0),
     quantity_purchased: Number(line.quantity_purchased || 0),
     cost_currency: line.cost_currency || "USD",
-    unit_cost: Number(line.unit_cost || 0),
+    unit_cost:
+      Number(line.quantity_required || 0) > 0
+        ? Number(line.total_required_cost || 0) / Number(line.quantity_required || 0)
+        : Number(line.unit_cost || 0),
     total_required_cost: Number(line.total_required_cost || 0),
     total_purchased_cost: Number(line.total_purchased_cost || 0),
     total_pending_cost: Number(line.total_pending_cost || 0),
@@ -562,9 +568,12 @@ export default async function ProjectPurchasesPage({
                               </p>
                             </div>
                             <div>
-                              <p className="text-[#77777D]">Costo unitario</p>
+                              <p className="text-[#77777D]">Costo estimado unit.</p>
                               <p className="font-semibold">
-                                {formatCurrency(line.unit_cost, line.cost_currency)}
+                                {formatCurrency(
+                                  line.variation.estimatedUnitCost,
+                                  line.variation.currency
+                                )}
                               </p>
                             </div>
                             <div>
@@ -586,6 +595,39 @@ export default async function ProjectPurchasesPage({
                               </p>
                             </div>
                             <div>
+                              <p className="text-[#77777D]">Costo real prom.</p>
+                              <p className="font-semibold">
+                                {line.variation.purchasedQuantity > 0
+                                  ? formatCurrency(
+                                      line.variation.realUnitCostAverage,
+                                      line.variation.currency
+                                    )
+                                  : "Sin compras"}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-[#77777D]">Estimado comprado</p>
+                              <p className="font-semibold">
+                                {line.variation.purchasedQuantity > 0
+                                  ? formatCurrency(
+                                      line.variation.estimated,
+                                      line.variation.currency
+                                    )
+                                  : "Sin compras"}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-[#77777D]">Real comprado</p>
+                              <p className="font-semibold">
+                                {line.variation.purchasedQuantity > 0
+                                  ? formatCurrency(
+                                      line.variation.real,
+                                      line.variation.currency
+                                    )
+                                  : "Sin compras"}
+                              </p>
+                            </div>
+                            <div>
                               <p className="text-[#77777D]">Variacion</p>
                               <span
                                 className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getVariationClass(
@@ -597,21 +639,33 @@ export default async function ProjectPurchasesPage({
                             </div>
                             <div>
                               <p className="text-[#77777D]">Monto variacion</p>
-                              <p
-                                className={`font-semibold ${
-                                  line.variation.variation >= 0
-                                    ? "text-[#8CE0B6]"
-                                    : "text-[#FFB19C]"
-                                }`}
-                              >
-                                {formatCurrency(
-                                  line.variation.variation,
-                                  line.variation.currency
-                                )}
-                              </p>
-                              <p className="text-xs text-[#77777D]">
-                                {formatNumber(line.variation.percent)}%
-                              </p>
+                              {line.variation.status === "no_purchases" ? (
+                                <p className="font-semibold text-[#77777D]">
+                                  Sin compras registradas
+                                </p>
+                              ) : line.variation.status === "missing_exchange_rate" ? (
+                                <p className="font-semibold text-[#F4C66A]">
+                                  Falta TC para calcular variacion
+                                </p>
+                              ) : (
+                                <>
+                                  <p
+                                    className={`font-semibold ${
+                                      line.variation.variation >= 0
+                                        ? "text-[#8CE0B6]"
+                                        : "text-[#FFB19C]"
+                                    }`}
+                                  >
+                                    {formatCurrency(
+                                      line.variation.variation,
+                                      line.variation.currency
+                                    )}
+                                  </p>
+                                  <p className="text-xs text-[#77777D]">
+                                    {formatNumber(line.variation.percent)}%
+                                  </p>
+                                </>
+                              )}
                             </div>
                           </div>
 
