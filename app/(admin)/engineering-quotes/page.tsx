@@ -91,7 +91,7 @@ export default async function EngineeringQuotesPage() {
       <div className="mb-10 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div>
           <p className="mb-3 text-sm tracking-[0.3em] text-[#9E1B32]">ALFA OS</p>
-          <h1 className="text-4xl font-bold">Ingenierías</h1>
+          <h1 className="text-3xl font-bold sm:text-4xl">Ingenierías</h1>
         </div>
         <Link href="/engineering-quotes/new" className="rounded-xl bg-[#9E1B32] px-6 py-3 font-semibold hover:bg-[#B91C3C]">
           Nueva ingeniería

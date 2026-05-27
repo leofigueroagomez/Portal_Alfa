@@ -60,7 +60,7 @@ export default async function ClientDetailPage({
 
   if (error || !client) {
     return (
-      <main className="min-h-screen bg-[#0B0D0F] text-white p-10">
+      <main className="min-h-screen bg-[#0B0D0F] p-4 text-white md:p-8 xl:p-10">
         <Link href="/clients" className="text-[#B3B3B8] hover:text-white">
           Volver a clientes
         </Link>
@@ -100,8 +100,8 @@ export default async function ClientDetailPage({
   const projectList = (projects || []) as ClientProject[];
 
   return (
-    <main className="min-h-screen bg-[#0B0D0F] text-white p-10">
-      <div className="flex items-start justify-between mb-10">
+    <main className="min-h-screen bg-[#0B0D0F] p-4 text-white md:p-8 xl:p-10">
+      <div className="mb-10 flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <Link
             href="/clients"
@@ -114,7 +114,7 @@ export default async function ClientDetailPage({
             CLIENTE {formatClientNumber(clientData.client_number)}
           </p>
 
-          <h1 className="text-4xl font-bold mb-3">
+          <h1 className="mb-3 break-words text-3xl font-bold sm:text-4xl">
             {clientData.name || "Sin nombre"}
           </h1>
 
@@ -131,24 +131,24 @@ export default async function ClientDetailPage({
         </Link>
       </div>
 
-      <section className="grid grid-cols-4 gap-6 mb-10">
-        <div className="bg-[#151518] border border-[#1F1F24] rounded-2xl p-6">
+      <section className="mb-10 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4 xl:gap-6">
+        <div className="bg-[#151518] border border-[#1F1F24] rounded-2xl p-4 sm:p-6">
           <p className="text-[#B3B3B8] mb-2">Email</p>
           <p className="font-semibold">{clientData.email || "Sin email"}</p>
         </div>
 
-        <div className="bg-[#151518] border border-[#1F1F24] rounded-2xl p-6">
+        <div className="bg-[#151518] border border-[#1F1F24] rounded-2xl p-4 sm:p-6">
           <p className="text-[#B3B3B8] mb-2">Teléfono</p>
           <p className="font-semibold">{clientData.phone || "Sin teléfono"}</p>
         </div>
 
-        <div className="bg-[#151518] border border-[#1F1F24] rounded-2xl p-6 col-span-2">
+        <div className="bg-[#151518] border border-[#1F1F24] rounded-2xl p-4 sm:p-6 md:col-span-2">
           <p className="text-[#B3B3B8] mb-2">Dirección</p>
           <p className="font-semibold">{clientData.address || "Sin dirección"}</p>
         </div>
       </section>
 
-      <section className="bg-[#151518] border border-[#1F1F24] rounded-2xl p-6 mb-10">
+      <section className="mb-10 rounded-2xl border border-[#1F1F24] bg-[#151518] p-4 sm:p-6">
         <h2 className="text-2xl font-semibold mb-3">Notas</h2>
         <p className="text-[#B3B3B8] whitespace-pre-wrap">
           {clientData.notes || "Sin notas"}
@@ -156,7 +156,7 @@ export default async function ClientDetailPage({
       </section>
 
       <section className="bg-[#151518] border border-[#1F1F24] rounded-2xl overflow-hidden">
-        <div className="flex items-center justify-between p-6 border-b border-[#2A2A30]">
+        <div className="flex flex-col gap-4 border-b border-[#2A2A30] p-4 sm:p-6 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="text-2xl font-semibold">
               Proyectos / oportunidades
@@ -169,6 +169,7 @@ export default async function ClientDetailPage({
           <AddClientProjectButton clientId={clientData.id} />
         </div>
 
+        <div className="overflow-x-auto">
         <div className="grid min-w-[1280px] grid-cols-[110px_1.1fr_1.4fr_180px_150px_100px_140px_170px] gap-4 px-5 py-4 border-b border-[#2A2A30] text-[#B3B3B8] text-sm font-semibold">
           <p>Número</p>
           <p>Nombre</p>
@@ -185,7 +186,7 @@ export default async function ClientDetailPage({
             No hay proyectos u oportunidades para este cliente.
           </div>
         ) : (
-          <div className="divide-y divide-[#2A2A30] overflow-x-auto">
+          <div className="divide-y divide-[#2A2A30]">
             {projectList.map((project) => (
               <div
                 key={project.id}
@@ -216,6 +217,7 @@ export default async function ClientDetailPage({
             ))}
           </div>
         )}
+        </div>
       </section>
     </main>
   );

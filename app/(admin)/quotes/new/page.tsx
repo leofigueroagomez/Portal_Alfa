@@ -747,7 +747,7 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
           ALFA OS
         </p>
 
-        <h1 className="text-4xl font-bold mb-3">
+        <h1 className="mb-3 text-3xl font-bold sm:text-4xl">
           Nueva cotización
         </h1>
 
@@ -756,7 +756,7 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
         </p>
       </section>
 
-      <section className="bg-[#151518] border border-[#1F1F24] rounded-2xl p-6 mb-8">
+      <section className="mb-8 rounded-2xl border border-[#1F1F24] bg-[#151518] p-4 sm:p-6">
         <h2 className="text-2xl font-semibold mb-6">
           Cliente y proyecto
         </h2>
@@ -793,7 +793,7 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
         </div>
       </section>
 
-      <section className="bg-[#151518] border border-[#1F1F24] rounded-2xl p-6 mb-8">
+      <section className="mb-8 rounded-2xl border border-[#1F1F24] bg-[#151518] p-4 sm:p-6">
         <h2 className="text-2xl font-semibold mb-4">
           Aclaraciones / Notas especiales
         </h2>
@@ -806,7 +806,7 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
         />
       </section>
 
-      <section className="bg-[#151518] border border-[#1F1F24] rounded-2xl p-6 mb-8">
+      <section className="mb-8 rounded-2xl border border-[#1F1F24] bg-[#151518] p-4 sm:p-6">
         <h2 className="text-2xl font-semibold mb-6">
           Términos comerciales
         </h2>
@@ -882,7 +882,7 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
 
       <section className="grid grid-cols-1 gap-8 xl:grid-cols-3">
         <div className="space-y-8 xl:col-span-2">
-          <div className="bg-[#151518] border border-[#1F1F24] rounded-2xl p-6">
+          <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-4 sm:p-6">
             <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <h2 className="text-2xl font-semibold">
                 Sistemas / secciones
@@ -932,7 +932,7 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
               return (
                 <div
                   key={section.id}
-                  className="bg-[#151518] border border-[#1F1F24] rounded-2xl p-6"
+                  className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-4 sm:p-6"
                 >
                   <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between mb-6">
                     <div className="flex-1 min-w-0">
@@ -942,7 +942,7 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
                           onChange={(e) =>
                             renameSection(section.id, e.target.value)
                           }
-                          className="w-full sm:max-w-md bg-[#222228] border border-[#2A2A30] focus:border-[#9E1B32] rounded-xl px-4 py-3 outline-none text-2xl font-semibold"
+                          className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 text-xl font-semibold outline-none focus:border-[#9E1B32] sm:max-w-md sm:text-2xl"
                         />
 
                         <button
@@ -1071,13 +1071,13 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
             })}
           </div>
 
-          <div className="bg-[#151518] border border-[#1F1F24] rounded-2xl p-6">
+          <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-4 sm:p-6">
             <div className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <h2 className="text-2xl font-semibold">
                 Biblioteca de productos
               </h2>
 
-              <div className="flex flex-wrap justify-end gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row xl:justify-end">
                 <QuickCreateProductButton
                   onProductCreated={handleProductCreated}
                 />
@@ -1133,6 +1133,7 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
               Se agregará al sistema seleccionado.
             </p>
 
+            <div className="overflow-x-auto">
             <div className="grid min-w-[680px] grid-cols-[120px_1fr_160px_90px] gap-4 border-b border-[#2A2A30] px-2 pb-4 font-semibold text-[#B3B3B8]">
               <p>Imagen</p>
               <p>Descripción / Modelo</p>
@@ -1140,7 +1141,7 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
               <p>Acción</p>
             </div>
 
-            <div className="overflow-x-auto divide-y divide-[#2A2A30]">
+            <div className="divide-y divide-[#2A2A30]">
               {filteredProducts.map((product) => (
                 <div
                   key={product.id}
@@ -1201,9 +1202,10 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
             </div>
           </div>
         </div>
+        </div>
 
         <aside className="space-y-6">
-          <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-6 xl:sticky xl:top-8">
+          <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-4 sm:p-6 xl:sticky xl:top-8">
             <h2 className="text-2xl font-semibold mb-6">
               Resumen
             </h2>

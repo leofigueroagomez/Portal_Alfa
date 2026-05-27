@@ -196,7 +196,7 @@ export default function NewEngineeringQuotePage() {
     <main className="min-h-screen bg-[#0B0D0F] p-4 text-white md:p-8 xl:p-10">
       <section className="mb-10">
         <p className="mb-3 text-sm tracking-[0.3em] text-[#9E1B32]">ALFA OS</p>
-        <h1 className="mb-3 text-4xl font-bold">Nueva ingeniería</h1>
+        <h1 className="mb-3 text-3xl font-bold sm:text-4xl">Nueva ingeniería</h1>
         <p className="text-[#B3B3B8]">
           Cotización para proyecto ejecutivo de sistemas residenciales.
         </p>
@@ -278,7 +278,7 @@ export default function NewEngineeringQuotePage() {
         </div>
 
         <aside className="space-y-6">
-          <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-6 xl:sticky xl:top-8">
+          <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-4 sm:p-6 xl:sticky xl:top-8">
             <h2 className="mb-6 text-2xl font-semibold">Resumen</h2>
             <div className="space-y-4 text-sm">
               <div className="flex justify-between">

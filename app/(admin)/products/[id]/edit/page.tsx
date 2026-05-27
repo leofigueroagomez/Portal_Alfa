@@ -310,7 +310,7 @@ export default function EditProductPage() {
           Volver a productos
         </Link>
         <p className="text-[#9E1B32] tracking-[0.3em] text-sm mb-3">ALFA OS</p>
-        <h1 className="text-4xl font-bold mb-3">Editar producto</h1>
+        <h1 className="mb-3 text-3xl font-bold sm:text-4xl">Editar producto</h1>
         <p className="text-[#B3B3B8]">
           Actualiza catalogo, precios, mano de obra e informacion fiscal.
         </p>
@@ -318,7 +318,7 @@ export default function EditProductPage() {
 
       <form className="grid grid-cols-1 gap-8 xl:grid-cols-3">
         <div className="space-y-8 xl:col-span-2">
-          <div className="bg-[#151518] border border-[#1F1F24] rounded-2xl p-6">
+            <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-4 sm:p-6">
             <h2 className="text-2xl font-semibold mb-6">Informacion general</h2>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <input className="bg-[#222228] rounded-xl p-4 outline-none" placeholder="SKU" value={form.sku} onChange={(e) => updateField("sku", e.target.value)} />
@@ -351,7 +351,7 @@ export default function EditProductPage() {
             </div>
           </div>
 
-          <div className="bg-[#151518] border border-[#1F1F24] rounded-2xl p-6">
+            <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-4 sm:p-6">
             <h2 className="text-2xl font-semibold mb-6">Pricing y mano de obra</h2>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
               <input className="bg-[#222228] rounded-xl p-4 outline-none" placeholder="Costo" value={form.cost_price} onChange={(e) => updateField("cost_price", e.target.value)} />
@@ -382,7 +382,7 @@ export default function EditProductPage() {
             </div>
           </div>
 
-          <div className="bg-[#151518] border border-[#1F1F24] rounded-2xl p-6">
+            <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-4 sm:p-6">
             <h2 className="text-2xl font-semibold mb-6">Datos SAT</h2>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-4">
               <input className="bg-[#222228] rounded-xl p-4 outline-none" placeholder="Clave SAT producto" value={form.sat_product_key} onChange={(e) => updateField("sat_product_key", e.target.value)} />

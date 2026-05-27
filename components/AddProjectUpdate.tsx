@@ -54,8 +54,8 @@ export default function AddProjectUpdate({ projectId, userId }: Props) {
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-6">
-          <div className="w-full max-w-lg bg-[#151518] border border-[#1F1F24] rounded-2xl p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 sm:p-6">
+          <div className="max-h-[calc(100vh-24px)] w-full max-w-lg overflow-y-auto rounded-2xl border border-[#1F1F24] bg-[#151518] p-4 sm:p-6">
             <div className="flex items-start justify-between mb-6">
               <div>
                 <h3 className="text-2xl font-bold">
@@ -90,7 +90,7 @@ export default function AddProjectUpdate({ projectId, userId }: Props) {
                 onChange={(e) => setDescription(e.target.value)}
               />
 
-              <div className="flex gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row">
                 <button
                   type="button"
                   onClick={() => setOpen(false)}

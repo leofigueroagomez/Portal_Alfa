@@ -43,7 +43,7 @@ export default async function ProductsPage() {
           <p className="text-[#9E1B32] tracking-[0.3em] text-sm mb-3">
             ALFA OS
           </p>
-          <h1 className="text-4xl font-bold">Productos</h1>
+          <h1 className="text-3xl font-bold sm:text-4xl">Productos</h1>
         </div>
 
         <div className="flex flex-wrap gap-3">

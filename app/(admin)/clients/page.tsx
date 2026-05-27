@@ -43,7 +43,7 @@ export default async function ClientsPage() {
             ALFA OS
           </p>
 
-          <h1 className="text-4xl font-bold">
+          <h1 className="text-3xl font-bold sm:text-4xl">
             Clientes
           </h1>
         </div>

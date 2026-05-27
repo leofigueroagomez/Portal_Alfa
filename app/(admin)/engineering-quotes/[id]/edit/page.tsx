@@ -167,7 +167,7 @@ export default function EditEngineeringQuotePage() {
         <Link href={`/engineering-quotes/${quoteId}`} className="mb-8 inline-block text-[#B3B3B8]">
           Volver a ingeniería
         </Link>
-        <section className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-8">
+        <section className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-4 sm:p-6 lg:p-8">
           <h1 className="mb-3 text-3xl font-bold">{quote.quote_number}</h1>
           <p className="text-[#B3B3B8]">
             Esta cotización de ingeniería no se puede editar porque no está en borrador.
@@ -186,7 +186,7 @@ export default function EditEngineeringQuotePage() {
         <p className="mb-3 text-sm tracking-[0.3em] text-[#9E1B32]">
           {quote.quote_number || "Sin folio"}
         </p>
-        <h1 className="mb-3 text-4xl font-bold">Editar ingeniería</h1>
+        <h1 className="mb-3 text-3xl font-bold sm:text-4xl">Editar ingeniería</h1>
       </section>
 
       <section className="grid grid-cols-1 gap-8 xl:grid-cols-3">
@@ -229,7 +229,7 @@ export default function EditEngineeringQuotePage() {
         </div>
 
         <aside className="space-y-6">
-          <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-6 xl:sticky xl:top-8">
+          <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-4 sm:p-6 xl:sticky xl:top-8">
             <h2 className="mb-6 text-2xl font-semibold">Resumen</h2>
             <div className="space-y-4">
               <input className="w-full rounded-xl bg-[#222228] p-4 outline-none" placeholder="Total MXN" value={form.total_mxn} onChange={(event) => updateField("total_mxn", event.target.value)} />

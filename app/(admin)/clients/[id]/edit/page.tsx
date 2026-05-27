@@ -111,14 +111,14 @@ export default function EditClientPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#0B0D0F] text-white p-10">
+      <main className="min-h-screen bg-[#0B0D0F] p-4 text-white md:p-8 xl:p-10">
         <p className="text-[#B3B3B8]">Cargando cliente...</p>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#0B0D0F] text-white p-10">
+    <main className="min-h-screen bg-[#0B0D0F] p-4 text-white md:p-8 xl:p-10">
       <section className="mb-10">
         <Link
           href={`/clients/${clientId}`}
@@ -131,7 +131,7 @@ export default function EditClientPage() {
           ALFA OS
         </p>
 
-        <h1 className="text-4xl font-bold mb-3">
+        <h1 className="mb-3 text-3xl font-bold sm:text-4xl">
           Editar cliente
         </h1>
 
@@ -140,13 +140,13 @@ export default function EditClientPage() {
         </p>
       </section>
 
-      <section className="grid grid-cols-3 gap-8">
-        <div className="col-span-2 bg-[#151518] border border-[#1F1F24] rounded-2xl p-6">
+      <section className="grid grid-cols-1 gap-6 xl:grid-cols-3 xl:gap-8">
+        <div className="bg-[#151518] border border-[#1F1F24] rounded-2xl p-4 sm:p-6 xl:col-span-2">
           <h2 className="text-2xl font-semibold mb-6">
             Información del cliente
           </h2>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <input className="bg-[#222228] rounded-xl p-4 outline-none" placeholder="Número de cliente" value={form.client_number} onChange={(e) => updateField("client_number", e.target.value)} />
             <input className="bg-[#222228] rounded-xl p-4 outline-none" placeholder="Nombre" value={form.name} onChange={(e) => updateField("name", e.target.value)} />
             <input className="bg-[#222228] rounded-xl p-4 outline-none" placeholder="Empresa" value={form.company_name} onChange={(e) => updateField("company_name", e.target.value)} />
@@ -159,7 +159,7 @@ export default function EditClientPage() {
         </div>
 
         <aside className="space-y-6">
-          <div className="bg-[#151518] border border-[#1F1F24] rounded-2xl p-6">
+          <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-4 sm:p-6">
             <h2 className="text-2xl font-semibold mb-4">
               Folios futuros
             </h2>

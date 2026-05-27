@@ -114,7 +114,7 @@ export default async function EngineeringQuoteDetailPage({
             <p className="mb-3 text-sm tracking-[0.3em] text-[#9E1B32]">
               {quoteData.quote_number || "Sin folio"}
             </p>
-            <h1 className="mb-3 text-4xl font-bold">Ingeniería #{quoteData.id}</h1>
+            <h1 className="mb-3 text-3xl font-bold sm:text-4xl">Ingeniería #{quoteData.id}</h1>
             <p className="text-[#B3B3B8]">
               Creada el {formatDate(quoteData.created_at)}
             </p>

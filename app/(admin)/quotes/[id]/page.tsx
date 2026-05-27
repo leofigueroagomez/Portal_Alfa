@@ -228,7 +228,7 @@ export default async function QuoteDetailPage({
               {quoteData.quote_number || "Sin folio"}
             </p>
 
-            <h1 className="text-4xl font-bold mb-3">
+            <h1 className="mb-3 break-words text-3xl font-bold sm:text-4xl">
               Cotización #{quoteData.id}
             </h1>
 
@@ -383,7 +383,7 @@ export default async function QuoteDetailPage({
               key={section.id}
               className="bg-[#151518] border border-[#1F1F24] rounded-2xl p-6"
             >
-              <div className="flex items-start justify-between gap-6 mb-6">
+              <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                 <div>
                   <h2 className="text-2xl font-semibold mb-1">
                     {section.name || "Sin nombre"}

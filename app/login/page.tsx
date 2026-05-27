@@ -1,8 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
-import { supabase } from "@/services/supabase";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/services/supabase";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -27,45 +28,58 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#0B0B0D] text-white flex items-center justify-center">
-      <form
-        onSubmit={handleLogin}
-        className="w-full max-w-md bg-[#151518] border border-[#1F1F24] rounded-2xl p-8"
-      >
-        <p className="text-[#9E1B32] tracking-[0.3em] text-sm mb-4">
-          ALFA IT
-        </p>
+    <main className="min-h-screen overflow-hidden bg-[#07080A] px-4 py-8 text-white">
+      <section className="relative mx-auto flex min-h-[calc(100vh-64px)] w-full max-w-md flex-col items-center justify-center">
+        <div className="pointer-events-none absolute inset-0 -z-0 bg-[radial-gradient(circle_at_top,rgba(158,27,50,0.24),transparent_38%)]" />
 
-        <h1 className="text-3xl font-bold mb-2">
-          Iniciar sesión
-        </h1>
-
-        <p className="text-[#B3B3B8] mb-8">
-          Accede a tu portal de proyectos.
-        </p>
-
-        <div className="space-y-5">
-          <input
-            type="email"
-            placeholder="Correo electrónico"
-            className="w-full bg-[#222228] rounded-xl p-4 outline-none"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+        <div className="relative mb-8 w-full text-center">
+          <Image
+            src="/logo-alfa-os.png"
+            alt="ALFA OS"
+            width={420}
+            height={220}
+            priority
+            className="mx-auto h-auto w-full max-w-[250px] object-contain sm:max-w-[320px]"
           />
-
-          <input
-            type="password"
-            placeholder="Contraseña"
-            className="w-full bg-[#222228] rounded-xl p-4 outline-none"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-
-          <button className="w-full bg-[#9E1B32] hover:bg-[#B91C3C] rounded-xl py-4 font-semibold">
-            Entrar
-          </button>
+          <p className="mt-5 text-sm font-medium text-white/62">
+            Sistema interno
+          </p>
+          <p className="mt-2 text-sm text-white/42">
+            CRM · Cotizaciones · Ingenierías · Proyectos
+          </p>
         </div>
-      </form>
+
+        <form
+          onSubmit={handleLogin}
+          className="relative w-full rounded border border-white/10 bg-white/[0.055] p-5 shadow-2xl shadow-black/25 backdrop-blur-xl sm:p-6"
+        >
+          <div className="space-y-4">
+            <input
+              type="email"
+              placeholder="Correo electrónico"
+              autoComplete="email"
+              required
+              className="h-12 w-full rounded border border-white/10 bg-[#101115] px-4 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#E05062] focus:ring-2 focus:ring-[#9E1B32]/25"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+
+            <input
+              type="password"
+              placeholder="Contraseña"
+              autoComplete="current-password"
+              required
+              className="h-12 w-full rounded border border-white/10 bg-[#101115] px-4 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#E05062] focus:ring-2 focus:ring-[#9E1B32]/25"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+
+            <button className="h-12 w-full rounded bg-[#F4F4F5] px-5 text-sm font-semibold text-[#08090B] transition hover:bg-white">
+              Entrar
+            </button>
+          </div>
+        </form>
+      </section>
     </main>
   );
 }

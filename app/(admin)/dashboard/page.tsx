@@ -228,7 +228,7 @@ export default async function DashboardPage() {
           <p className="mb-3 text-sm tracking-[0.3em] text-[#9E1B32]">
             ALFA OS
           </p>
-          <h1 className="text-4xl font-bold">Dashboard comercial</h1>
+          <h1 className="text-3xl font-bold sm:text-4xl">Dashboard comercial</h1>
           <p className="mt-3 text-[#B3B3B8]">
             Vista operativa de pipeline, cotizaciones y oportunidades.
           </p>

@@ -139,7 +139,7 @@ export default async function QuotesPage() {
             ALFA OS
           </p>
 
-          <h1 className="text-4xl font-bold">
+          <h1 className="text-3xl font-bold sm:text-4xl">
             Cotizaciones
           </h1>
         </div>
@@ -153,7 +153,7 @@ export default async function QuotesPage() {
       </div>
 
       {quoteList.length === 0 ? (
-        <section className="bg-[#151518] border border-[#1F1F24] rounded-2xl p-8">
+        <section className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-4 sm:p-6 lg:p-8">
           <p className="text-[#B3B3B8]">
             No hay cotizaciones guardadas.
           </p>
@@ -165,7 +165,7 @@ export default async function QuotesPage() {
               key={quote.id}
               className="bg-[#151518] border border-[#1F1F24] hover:border-[#9E1B32] rounded-2xl p-6 transition"
             >
-              <div className="flex items-start justify-between gap-6 mb-6">
+              <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                 <Link href={`/quotes/${quote.id}`} className="block flex-1">
                   <div>
                     <p className="text-xs text-[#9E1B32] uppercase tracking-[0.2em] mb-2">
