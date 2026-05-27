@@ -24,6 +24,8 @@ export default function LoginPage() {
       return;
     }
 
+    await supabase.rpc("ensure_current_user_profile");
+
     router.push("/dashboard");
   }
 

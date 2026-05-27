@@ -30,6 +30,8 @@ export default function HomeLoginForm() {
       return;
     }
 
+    await supabase.rpc("ensure_current_user_profile");
+
     router.refresh();
     router.push("/dashboard");
   }

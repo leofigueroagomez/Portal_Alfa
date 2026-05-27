@@ -1,9 +1,12 @@
 import AdminShell from "@/components/AdminShell";
+import { getCurrentUserProfile } from "@/services/profile";
 
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <AdminShell>{children}</AdminShell>;
+  const profile = await getCurrentUserProfile();
+
+  return <AdminShell profile={profile}>{children}</AdminShell>;
 }

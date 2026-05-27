@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Building2,
   FileText,
   FolderOpen,
   Gauge,
+  LogOut,
   Menu,
   Package,
   PlusCircle,
@@ -15,6 +16,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
+import { supabase } from "@/services/supabase";
+import type { UserProfile } from "@/services/profile";
 
 type NavItem = {
   href: string;
@@ -22,54 +25,46 @@ type NavItem = {
   icon: LucideIcon;
 };
 
+type AdminShellProps = {
+  children: React.ReactNode;
+  profile: UserProfile | null;
+};
+
 const navItems: NavItem[] = [
-  {
-    href: "/dashboard",
-    label: "Dashboard",
-    icon: Gauge,
-  },
-  {
-    href: "/clients",
-    label: "Clientes",
-    icon: Building2,
-  },
-  {
-    href: "/products",
-    label: "Productos",
-    icon: Package,
-  },
-  {
-    href: "/quotes",
-    label: "Cotizaciones",
-    icon: FileText,
-  },
-  {
-    href: "/quotes/new",
-    label: "Nueva cotización",
-    icon: PlusCircle,
-  },
-  {
-    href: "/engineering-quotes",
-    label: "Ingenierías",
-    icon: Ruler,
-  },
-  {
-    href: "/dashboard",
-    label: "Proyectos",
-    icon: FolderOpen,
-  },
+  { href: "/dashboard", label: "Dashboard", icon: Gauge },
+  { href: "/clients", label: "Clientes", icon: Building2 },
+  { href: "/products", label: "Productos", icon: Package },
+  { href: "/quotes", label: "Cotizaciones", icon: FileText },
+  { href: "/quotes/new", label: "Nueva cotización", icon: PlusCircle },
+  { href: "/engineering-quotes", label: "Ingenierías", icon: Ruler },
+  { href: "/dashboard", label: "Proyectos", icon: FolderOpen },
 ];
 
-export default function AdminShell({ children }: { children: React.ReactNode }) {
+const roleLabels: Record<UserProfile["role"], string> = {
+  admin: "Admin",
+  sales: "Ventas",
+  engineering: "Ingeniería",
+};
+
+export default function AdminShell({ children, profile }: AdminShellProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
+  const displayName = profile?.full_name?.trim() || "Usuario ALFA";
+  const roleLabel = profile?.role ? roleLabels[profile.role] : "Interno";
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    router.refresh();
+    router.push("/");
+  }
 
   return (
     <div className="min-h-screen bg-[#0B0D0F] text-white lg:flex">
       <header className="sticky top-0 z-40 flex items-center justify-between border-b border-[#1A1A1F] bg-[#0B0D0F]/95 px-4 py-3 backdrop-blur lg:hidden">
-        <div>
+        <div className="min-w-0">
           <p className="text-xs tracking-[0.28em] text-[#9E1B32]">ALFA OS</p>
-          <p className="mt-1 text-sm font-semibold">Administración</p>
+          <p className="mt-1 truncate text-sm font-semibold">{displayName}</p>
         </div>
 
         <button
@@ -93,12 +88,12 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       ) : null}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-[82vw] max-w-80 border-r border-[#1A1A1F] bg-[#0B0D0F] p-5 shadow-2xl shadow-black/40 transition-transform duration-200 lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:w-20 lg:max-w-none lg:translate-x-0 lg:p-4 lg:shadow-none xl:w-72 xl:p-6 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-[82vw] max-w-80 flex-col border-r border-[#1A1A1F] bg-[#0B0D0F] p-5 shadow-2xl shadow-black/40 transition-transform duration-200 lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:w-20 lg:max-w-none lg:translate-x-0 lg:p-4 lg:shadow-none xl:w-72 xl:p-6 ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="mb-8 flex items-start justify-between gap-4 xl:mb-10">
-          <div>
+          <div className="min-w-0">
             <p className="mb-3 text-sm tracking-[0.3em] text-[#9E1B32]">
               ALFA OS
             </p>
@@ -106,6 +101,11 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             <h2 className="text-2xl font-bold lg:hidden xl:block">
               Administración
             </h2>
+
+            <div className="mt-4 hidden rounded-xl border border-[#1F1F24] bg-[#151518] p-3 xl:block">
+              <p className="truncate text-sm font-semibold">{displayName}</p>
+              <p className="mt-1 text-xs text-[#B3B3B8]">{roleLabel}</p>
+            </div>
           </div>
 
           <button
@@ -141,6 +141,22 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             );
           })}
         </nav>
+
+        <div className="mt-auto border-t border-[#1A1A1F] pt-4">
+          <div className="mb-3 rounded-xl border border-[#1F1F24] bg-[#151518] p-3 xl:hidden">
+            <p className="truncate text-sm font-semibold">{displayName}</p>
+            <p className="mt-1 text-xs text-[#B3B3B8]">{roleLabel}</p>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[#B3B3B8] transition hover:bg-[#151518] hover:text-white lg:justify-center xl:justify-start"
+          >
+            <LogOut size={20} />
+            <span className="lg:hidden xl:inline">Cerrar sesión</span>
+          </button>
+        </div>
       </aside>
 
       <div className="min-w-0 flex-1">{children}</div>
