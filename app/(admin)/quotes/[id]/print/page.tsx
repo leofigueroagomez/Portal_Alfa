@@ -279,7 +279,7 @@ export default async function QuotePrintPage({
       <style>{`
         @page {
           size: letter;
-          margin: 14mm;
+          margin: 10mm;
         }
 
         .print-root {
@@ -291,7 +291,6 @@ export default async function QuotePrintPage({
         .totals-box,
         .notes-box,
         .terms-box,
-        .section-block,
         .line-item-row {
           break-inside: avoid;
           page-break-inside: avoid;
@@ -307,6 +306,7 @@ export default async function QuotePrintPage({
           html,
           body {
             background: white !important;
+            font-size: 10.5px !important;
           }
 
           body > div > aside,
@@ -330,27 +330,186 @@ export default async function QuotePrintPage({
             box-shadow: none !important;
             margin: 0 !important;
             padding: 0 !important;
+            font-size: 10.5px !important;
+            line-height: 1.35 !important;
           }
 
-          .section,
-          .print-keep-together,
           .print-avoid-break,
           .totals-box,
           .notes-box,
           .terms-box,
-          .section-block,
           .line-item-row {
             break-inside: avoid;
             page-break-inside: avoid;
+          }
+
+          .quote-print-header {
+            margin-bottom: 10px !important;
+            padding-bottom: 8px !important;
+          }
+
+          .quote-print-logo-wrap {
+            height: 28px !important;
+            margin-bottom: 6px !important;
+          }
+
+          .quote-print-logo {
+            max-height: 28px !important;
+            max-width: 112px !important;
+          }
+
+          .quote-print-kicker {
+            font-size: 8.5px !important;
+            letter-spacing: 0.12em !important;
+          }
+
+          .quote-print-meta {
+            font-size: 9px !important;
+            line-height: 1.35 !important;
+          }
+
+          .quote-print-folio {
+            font-size: 14px !important;
+            line-height: 1.2 !important;
+          }
+
+          .client-project-grid {
+            gap: 8px !important;
+            margin-bottom: 12px !important;
+            font-size: 10px !important;
+          }
+
+          .client-project-card {
+            padding: 8px 10px !important;
+          }
+
+          .client-project-label {
+            margin-bottom: 2px !important;
+            font-size: 8.5px !important;
+            letter-spacing: 0.1em !important;
+          }
+
+          .client-project-title {
+            font-size: 12px !important;
+            line-height: 1.25 !important;
+          }
+
+          .quote-sections {
+            margin-top: 0 !important;
+          }
+
+          .quote-sections > :not([hidden]) ~ :not([hidden]) {
+            margin-top: 12px !important;
+          }
+
+          .section-block {
+            break-inside: auto;
+            page-break-inside: auto;
+          }
+
+          .section-heading {
+            margin-bottom: 4px !important;
+            padding-bottom: 4px !important;
+            break-after: avoid;
+            page-break-after: avoid;
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+
+          .section-heading h2 {
+            font-size: 13px !important;
+            line-height: 1.25 !important;
+          }
+
+          .section-heading-meta {
+            font-size: 9px !important;
+          }
+
+          .quote-items-table {
+            break-inside: auto;
+            page-break-inside: auto;
+            font-size: 9px !important;
+          }
+
+          .quote-items-table thead {
+            display: table-header-group;
+            break-after: avoid;
+            page-break-after: avoid;
+          }
+
+          .quote-items-table tbody {
+            break-inside: auto;
+            page-break-inside: auto;
+          }
+
+          .quote-items-table th,
+          .quote-items-table td {
+            padding: 3px 5px !important;
+            line-height: 1.25 !important;
+          }
+
+          .quote-items-table tr {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+
+          .quote-items-table tbody tr:nth-child(-n + 2) {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+
+          .product-image-box {
+            width: 36px !important;
+            height: 36px !important;
+          }
+
+          .product-image {
+            max-width: 36px !important;
+            max-height: 36px !important;
+          }
+
+          .section-subtotal {
+            margin-top: 4px !important;
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+
+          .section-subtotal > div {
+            width: 210px !important;
+            font-size: 9px !important;
           }
 
           .totals-box {
             break-before: auto;
             break-inside: avoid;
             page-break-inside: avoid;
+            width: 250px !important;
+            padding: 10px !important;
+            font-size: 10px !important;
           }
 
-          tr,
+          .totals-box .total-line {
+            font-size: 13px !important;
+          }
+
+          .notes-box,
+          .terms-box {
+            margin-top: 14px !important;
+            padding-top: 10px !important;
+          }
+
+          .notes-box h3,
+          .terms-box h3 {
+            font-size: 12px !important;
+            margin-bottom: 4px !important;
+          }
+
+          .terms-box ol,
+          .notes-box div {
+            font-size: 9px !important;
+            line-height: 1.35 !important;
+          }
+
           img {
             break-inside: avoid;
             page-break-inside: avoid;
@@ -366,22 +525,22 @@ export default async function QuotePrintPage({
       </div>
 
       <article className="document mx-auto w-[8.5in] min-h-[11in] max-w-[calc(100vw-32px)] bg-white px-10 py-8 shadow-xl">
-        <header className="mb-5 flex items-start justify-between border-b border-[#D6D1C8] pb-4">
+        <header className="quote-print-header mb-5 flex items-start justify-between border-b border-[#D6D1C8] pb-4">
           <div>
-            <div className="mb-3 flex h-11 items-center">
+            <div className="quote-print-logo-wrap mb-3 flex h-11 items-center">
               <img
                 src="/logo-print.png"
                 alt="ALFA OS"
-                className="max-h-11 max-w-36"
+                className="quote-print-logo max-h-11 max-w-36"
               />
             </div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#9E1B32]">
+            <p className="quote-print-kicker text-[10px] font-semibold uppercase tracking-[0.28em] text-[#9E1B32]">
               Propuesta comercial
             </p>
           </div>
 
-          <div className="text-right text-[11px] leading-5 text-[#555963]">
-            <p className="text-xl font-semibold text-[#111318]">
+          <div className="quote-print-meta text-right text-[11px] leading-5 text-[#555963]">
+            <p className="quote-print-folio text-xl font-semibold text-[#111318]">
               {quoteData.quote_number || "Sin folio"}
             </p>
             <p>Status: {quoteData.status || "Sin estado"}</p>
@@ -394,12 +553,12 @@ export default async function QuotePrintPage({
           </div>
         </header>
 
-        <section className="mb-6 grid grid-cols-2 gap-4 text-xs">
-          <div className="border border-[#E1DDD5] p-4">
-            <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#9E1B32]">
+        <section className="client-project-grid mb-6 grid grid-cols-2 gap-4 text-xs">
+          <div className="client-project-card border border-[#E1DDD5] p-4">
+            <p className="client-project-label mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#9E1B32]">
               Atencion a
             </p>
-            <p className="text-base font-semibold">
+            <p className="client-project-title text-base font-semibold">
               {clientData?.name || "Sin cliente"}
             </p>
             <p className="mt-1 text-[#555963]">
@@ -407,34 +566,34 @@ export default async function QuotePrintPage({
             </p>
           </div>
 
-          <div className="border border-[#E1DDD5] p-4">
-            <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#9E1B32]">
+          <div className="client-project-card border border-[#E1DDD5] p-4">
+            <p className="client-project-label mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#9E1B32]">
               Proyecto / oportunidad
             </p>
-            <p className="text-base font-semibold">
+            <p className="client-project-title text-base font-semibold">
               {projectData?.name || "Sin proyecto"}
             </p>
           </div>
         </section>
 
-        <section className="space-y-6">
+        <section className="quote-sections space-y-6">
           {quoteSections.map((section) => {
             const sectionItems = getSectionItems(section.id);
 
             return (
-              <div key={section.id} className="section section-block print-keep-together">
-                <div className="print-avoid-break mb-2 flex items-end justify-between border-b border-[#D6D1C8] pb-2">
+              <div key={section.id} className="section section-block">
+                <div className="section-heading print-avoid-break mb-2 flex items-end justify-between border-b border-[#D6D1C8] pb-2">
                   <h2 className="text-base font-semibold">
                     {section.name || "Sin sistema"}
                   </h2>
-                  <div className="text-right text-[11px] text-[#555963]">
+                  <div className="section-heading-meta text-right text-[11px] text-[#555963]">
                     <span>{formatCurrency(section.equipment_total, "USD")}</span>
                     <span className="mx-2">/</span>
                     <span>{formatCurrency(section.labor_total, "MXN")}</span>
                   </div>
                 </div>
 
-                <table className="w-full border-collapse text-[11px]">
+                <table className="quote-items-table w-full border-collapse text-[11px]">
                   <thead>
                     <tr className="border-b border-[#E1DDD5] bg-[#F7F5F1] text-left text-[#555963]">
                       <th className="w-14 px-2 py-2">Img</th>
@@ -449,12 +608,12 @@ export default async function QuotePrintPage({
                     {sectionItems.map((item) => (
                       <tr key={item.id} className="line-item-row border-b border-[#EFECE6]">
                         <td className="px-2 py-2">
-                          <div className="flex h-[50px] w-[50px] items-center justify-center bg-[#F7F5F1]">
+                          <div className="product-image-box flex h-[50px] w-[50px] items-center justify-center bg-[#F7F5F1]">
                             {item.product_image_url ? (
                               <img
                                 src={item.product_image_url}
                                 alt={item.product_name || "Producto"}
-                                className="max-h-[50px] max-w-[50px] object-contain"
+                                className="product-image max-h-[50px] max-w-[50px] object-contain"
                               />
                             ) : (
                               <span className="text-[9px] text-[#8A8D94]">
@@ -492,7 +651,7 @@ export default async function QuotePrintPage({
                   </tbody>
                 </table>
 
-                <div className="print-avoid-break mt-2 flex justify-end">
+                <div className="section-subtotal print-avoid-break mt-2 flex justify-end">
                   <div className="w-64 space-y-1 text-[11px]">
                     <div className="flex justify-between">
                       <span className="text-[#555963]">Subtotal equipo</span>
@@ -547,7 +706,7 @@ export default async function QuotePrintPage({
               <span className="text-[#555963]">IVA 16%</span>
               <span>{formatCurrency(ivaMXN, "MXN")}</span>
             </div>
-            <div className="flex justify-between border-t border-[#D6D1C8] pt-3 text-base font-semibold">
+            <div className="total-line flex justify-between border-t border-[#D6D1C8] pt-3 text-base font-semibold">
               <span>Total</span>
               <span>{formatCurrency(totalMXN, "MXN")}</span>
             </div>
