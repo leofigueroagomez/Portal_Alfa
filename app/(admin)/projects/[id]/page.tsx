@@ -50,12 +50,18 @@ type Quote = {
 const pendingText = "En espera de llenado";
 
 const futureModules = [
-  "Visitas de obra",
   "Estado de cuenta",
   "Compras",
   "Agenda",
   "Control de cambios",
 ];
+
+type SiteVisit = {
+  id: number;
+  visit_date: string | null;
+  title: string | null;
+  created_at: string | null;
+};
 
 function formatDate(value: string | null | undefined) {
   if (!value) return "Sin fecha";
@@ -149,7 +155,7 @@ export default async function ProjectDetailPage({
   }
 
   const projectData = project as ClientProject;
-  const [{ data: client }, { data: approvedQuotes }] = await Promise.all([
+  const [{ data: client }, { data: approvedQuotes }, visitsResult] = await Promise.all([
     projectData.client_id
       ? supabase
           .from("clients")
@@ -163,10 +169,20 @@ export default async function ProjectDetailPage({
       .eq("client_project_id", projectData.id)
       .eq("status", "approved")
       .order("created_at", { ascending: false }),
+    supabase
+      .from("project_site_visits")
+      .select("id, visit_date, title, created_at")
+      .eq("client_project_id", projectData.id)
+      .order("visit_date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(3),
   ]);
 
   const clientData = client as Client | null;
   const authorizedQuotes = (approvedQuotes || []) as Quote[];
+  const recentVisits = visitsResult.error
+    ? []
+    : ((visitsResult.data || []) as SiteVisit[]);
   const approvedTotal = authorizedQuotes.reduce(
     (sum, quote) => sum + getQuoteTotal(quote),
     0
@@ -344,6 +360,55 @@ export default async function ProjectDetailPage({
                 ))}
               </div>
             )}
+          </section>
+
+          <section className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5 sm:p-6">
+            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-2xl font-semibold">Visitas de obra</h2>
+                <p className="mt-1 text-sm text-[#B3B3B8]">
+                  Reportes de supervision, acuerdos y compromisos.
+                </p>
+              </div>
+              <Link
+                href={`/projects/${projectData.id}/site-visits/new`}
+                className="inline-flex w-fit items-center gap-2 rounded-xl bg-[#9E1B32] px-5 py-3 font-semibold hover:bg-[#B91C3C]"
+              >
+                Nueva visita de obra
+              </Link>
+            </div>
+
+            {visitsResult.error ? (
+              <div className="rounded-xl border border-[#614620] bg-[#322514] p-4 text-sm text-[#F4C66A]">
+                Ejecuta el SQL del modulo para habilitar visitas de obra.
+              </div>
+            ) : recentVisits.length === 0 ? (
+              <p className="text-[#77777D]">Aun no hay visitas registradas.</p>
+            ) : (
+              <div className="space-y-3">
+                {recentVisits.map((visit) => (
+                  <Link
+                    key={visit.id}
+                    href={`/projects/${projectData.id}/site-visits/${visit.id}`}
+                    className="grid grid-cols-1 gap-2 rounded-xl border border-[#2A2A30] bg-[#222228] p-4 text-sm hover:bg-[#2A2A30] md:grid-cols-[1fr_auto]"
+                  >
+                    <span className="font-semibold">
+                      {visit.title || "Visita de obra"}
+                    </span>
+                    <span className="text-[#B3B3B8]">
+                      {formatDate(visit.visit_date || visit.created_at)}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            )}
+
+            <Link
+              href={`/projects/${projectData.id}/site-visits`}
+              className="mt-4 inline-flex text-sm font-semibold text-[#D7A8FF] hover:text-white"
+            >
+              Ver todas las visitas
+            </Link>
           </section>
 
           <section className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5 sm:p-6">
