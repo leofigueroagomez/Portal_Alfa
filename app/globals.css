@@ -24,3 +24,26 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@media print {
+  .no-print,
+  .admin-shell > .mobile-admin-header,
+  .admin-shell > .admin-sidebar,
+  .admin-shell > .admin-menu-overlay,
+  .mobile-admin-header,
+  .admin-sidebar,
+  .admin-nav,
+  .admin-menu-button,
+  .admin-menu-overlay,
+  .admin-user-card,
+  [data-admin-chrome="true"] {
+    display: none !important;
+  }
+
+  .admin-print-route,
+  .admin-shell {
+    display: block !important;
+    min-height: auto !important;
+    background: white !important;
+  }
+}

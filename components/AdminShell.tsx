@@ -50,6 +50,7 @@ export default function AdminShell({ children, profile }: AdminShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
+  const isPrintRoute = pathname.endsWith("/print");
   const displayName = profile?.full_name?.trim() || "Usuario ALFA";
   const roleLabel = profile?.role ? roleLabels[profile.role] : "Interno";
 
@@ -59,9 +60,13 @@ export default function AdminShell({ children, profile }: AdminShellProps) {
     router.push("/");
   }
 
+  if (isPrintRoute) {
+    return <div className="admin-print-route min-h-screen">{children}</div>;
+  }
+
   return (
-    <div className="min-h-screen bg-[#0B0D0F] text-white lg:flex">
-      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-[#1A1A1F] bg-[#0B0D0F]/95 px-4 py-3 backdrop-blur lg:hidden">
+    <div className="admin-shell min-h-screen bg-[#0B0D0F] text-white lg:flex">
+      <header className="mobile-admin-header no-print sticky top-0 z-40 flex items-center justify-between border-b border-[#1A1A1F] bg-[#0B0D0F]/95 px-4 py-3 backdrop-blur lg:hidden">
         <div className="min-w-0">
           <p className="text-xs tracking-[0.28em] text-[#9E1B32]">ALFA OS</p>
           <p className="mt-1 truncate text-sm font-semibold">{displayName}</p>
@@ -70,7 +75,7 @@ export default function AdminShell({ children, profile }: AdminShellProps) {
         <button
           type="button"
           onClick={() => setIsOpen((current) => !current)}
-          className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-[#2A2A30] bg-[#151518] text-white"
+          className="admin-menu-button no-print inline-flex h-11 w-11 items-center justify-center rounded-xl border border-[#2A2A30] bg-[#151518] text-white"
           aria-label={isOpen ? "Cerrar menú" : "Abrir menú"}
           aria-expanded={isOpen}
         >
@@ -82,13 +87,13 @@ export default function AdminShell({ children, profile }: AdminShellProps) {
         <button
           type="button"
           aria-label="Cerrar menú"
-          className="fixed inset-0 z-40 bg-black/60 lg:hidden"
+          className="admin-menu-overlay no-print fixed inset-0 z-40 bg-black/60 lg:hidden"
           onClick={() => setIsOpen(false)}
         />
       ) : null}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[82vw] max-w-80 flex-col border-r border-[#1A1A1F] bg-[#0B0D0F] p-5 shadow-2xl shadow-black/40 transition-transform duration-200 lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:w-20 lg:max-w-none lg:translate-x-0 lg:p-4 lg:shadow-none xl:w-72 xl:p-6 ${
+        className={`admin-sidebar no-print fixed inset-y-0 left-0 z-50 flex w-[82vw] max-w-80 flex-col border-r border-[#1A1A1F] bg-[#0B0D0F] p-5 shadow-2xl shadow-black/40 transition-transform duration-200 lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:w-20 lg:max-w-none lg:translate-x-0 lg:p-4 lg:shadow-none xl:w-72 xl:p-6 ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -102,7 +107,7 @@ export default function AdminShell({ children, profile }: AdminShellProps) {
               Administración
             </h2>
 
-            <div className="mt-4 hidden rounded-xl border border-[#1F1F24] bg-[#151518] p-3 xl:block">
+            <div className="admin-user-card mt-4 hidden rounded-xl border border-[#1F1F24] bg-[#151518] p-3 xl:block">
               <p className="truncate text-sm font-semibold">{displayName}</p>
               <p className="mt-1 text-xs text-[#B3B3B8]">{roleLabel}</p>
             </div>
@@ -118,7 +123,7 @@ export default function AdminShell({ children, profile }: AdminShellProps) {
           </button>
         </div>
 
-        <nav className="space-y-2">
+        <nav className="admin-nav no-print space-y-2">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive =
@@ -143,7 +148,7 @@ export default function AdminShell({ children, profile }: AdminShellProps) {
         </nav>
 
         <div className="mt-auto border-t border-[#1A1A1F] pt-4">
-          <div className="mb-3 rounded-xl border border-[#1F1F24] bg-[#151518] p-3 xl:hidden">
+          <div className="admin-user-card mb-3 rounded-xl border border-[#1F1F24] bg-[#151518] p-3 xl:hidden">
             <p className="truncate text-sm font-semibold">{displayName}</p>
             <p className="mt-1 text-xs text-[#B3B3B8]">{roleLabel}</p>
           </div>

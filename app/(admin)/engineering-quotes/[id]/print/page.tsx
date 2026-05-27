@@ -92,12 +92,21 @@ export default async function EngineeringQuotePrintPage({
 
           body > div > aside,
           body aside,
+          body header:not(.quote-print-header),
           nav,
+          .admin-sidebar,
+          .admin-nav,
+          .mobile-admin-header,
+          .admin-menu-button,
+          .admin-menu-overlay,
+          .admin-user-card,
+          .no-print,
           .print-actions {
             display: none !important;
           }
 
           body > div,
+          .admin-print-route,
           main {
             display: block !important;
             min-height: auto !important;
@@ -128,7 +137,7 @@ export default async function EngineeringQuotePrintPage({
       </div>
 
       <article className="document mx-auto w-[8.5in] min-h-[11in] max-w-[calc(100vw-32px)] bg-white px-10 py-8 shadow-xl">
-        <header className="mb-6 flex items-start justify-between border-b border-[#D6D1C8] pb-4">
+        <header className="quote-print-header mb-6 flex items-start justify-between border-b border-[#D6D1C8] pb-4">
           <div>
             <div className="mb-3 flex h-11 items-center">
               <img src="/logo-print.png" alt="ALFA" className="max-h-11 max-w-36" />

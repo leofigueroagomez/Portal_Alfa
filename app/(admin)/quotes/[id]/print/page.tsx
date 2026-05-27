@@ -311,12 +311,21 @@ export default async function QuotePrintPage({
 
           body > div > aside,
           body aside,
+          body header:not(.quote-print-header),
           nav,
+          .admin-sidebar,
+          .admin-nav,
+          .mobile-admin-header,
+          .admin-menu-button,
+          .admin-menu-overlay,
+          .admin-user-card,
+          .no-print,
           .print-actions {
             display: none !important;
           }
 
           body > div,
+          .admin-print-route,
           main {
             display: block !important;
             min-height: auto !important;
