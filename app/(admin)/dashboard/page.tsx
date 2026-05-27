@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatNumber } from "@/lib/format";
+import {
+  getPurchaseLineVariation,
+  getPurchaseProgressPercent,
+  summarizePurchaseVariationByCurrency,
+} from "@/lib/projectPurchases";
 import {
   normalizeSalesStage,
   salesStageClasses,
@@ -50,6 +55,26 @@ type QuoteItem = {
   product_brand: string | null;
 };
 
+type PurchaseLine = {
+  id: number;
+  client_project_id: number | null;
+  supplier: string | null;
+  cost_currency: string | null;
+  quantity_required: number | null;
+  quantity_purchased: number | null;
+  unit_cost: number | null;
+  total_required_cost: number | null;
+  total_purchased_cost: number | null;
+  total_pending_cost: number | null;
+};
+
+type PurchaseEvent = {
+  project_purchase_line_id: number | null;
+  quantity: number | null;
+  unit_cost: number | null;
+  cost_currency: string | null;
+};
+
 function isOpenStatus(status: string | null) {
   return !["approved", "archived", "lost", "closed"].includes(
     (status || "draft").toLowerCase()
@@ -94,8 +119,14 @@ export default async function DashboardPage() {
     projectData = fallback.data as ClientProject[] | null;
   }
 
-  const [{ data: clients }, { data: quotes }, { data: engineeringQuotes }, { data: quoteItems }] =
-    await Promise.all([
+  const [
+    { data: clients },
+    { data: quotes },
+    { data: engineeringQuotes },
+    { data: quoteItems },
+    purchaseLinesResult,
+    purchaseEventsResult,
+  ] = await Promise.all([
       supabase.from("clients").select("id, name"),
       supabase
         .from("quotes")
@@ -104,6 +135,14 @@ export default async function DashboardPage() {
         .from("engineering_quotes")
         .select("id, client_id, client_project_id, status, total_mxn"),
       supabase.from("quote_items").select("product_name, product_brand"),
+      supabase
+        .from("project_purchase_lines")
+        .select(
+          "id, client_project_id, supplier, cost_currency, quantity_required, quantity_purchased, unit_cost, total_required_cost, total_purchased_cost, total_pending_cost"
+        ),
+      supabase
+        .from("project_purchase_events")
+        .select("project_purchase_line_id, quantity, unit_cost, cost_currency"),
     ]);
 
   const projects = (projectData || []) as ClientProject[];
@@ -112,6 +151,12 @@ export default async function DashboardPage() {
   const quoteList = (quotes || []) as Quote[];
   const engineeringList = (engineeringQuotes || []) as EngineeringQuote[];
   const itemList = (quoteItems || []) as QuoteItem[];
+  const purchaseLines = purchaseLinesResult.error
+    ? []
+    : ((purchaseLinesResult.data || []) as PurchaseLine[]);
+  const purchaseEvents = purchaseEventsResult.error
+    ? []
+    : ((purchaseEventsResult.data || []) as PurchaseEvent[]);
 
   function getQuoteValue(quote: Quote) {
     return Number(quote.total_mxn ?? quote.grand_total ?? 0);
@@ -220,6 +265,67 @@ export default async function DashboardPage() {
     .map(([name, count]) => ({ name, count }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 6);
+  const purchaseEventsByLine = new Map<number, PurchaseEvent[]>();
+  purchaseEvents.forEach((eventItem) => {
+    if (!eventItem.project_purchase_line_id) return;
+    const existing = purchaseEventsByLine.get(eventItem.project_purchase_line_id) || [];
+    purchaseEventsByLine.set(eventItem.project_purchase_line_id, [
+      ...existing,
+      eventItem,
+    ]);
+  });
+  const purchaseVariationByCurrency = summarizePurchaseVariationByCurrency(
+    purchaseLines,
+    purchaseEventsByLine
+  );
+  const purchaseProgressGlobal = getPurchaseProgressPercent(purchaseLines);
+  const projectNames = new Map(
+    projects.map((project) => [project.id, project.name || `Proyecto #${project.id}`])
+  );
+  const purchaseVariationByProject = Array.from(
+    purchaseLines.reduce((map, line) => {
+      const projectId = Number(line.client_project_id || 0);
+      if (!projectId || !line.id) return map;
+
+      const variation = getPurchaseLineVariation(
+        line,
+        purchaseEventsByLine.get(line.id) || []
+      );
+      const currencyTotals = map.get(projectId) || new Map<string, number>();
+      currencyTotals.set(
+        variation.currency,
+        Number(currencyTotals.get(variation.currency) || 0) + variation.variation
+      );
+      map.set(projectId, currencyTotals);
+      return map;
+    }, new Map<number, Map<string, number>>())
+  ).map(([projectId, currencyTotals]) => {
+    const net = Array.from(currencyTotals.values()).reduce((sum, value) => sum + value, 0);
+
+    return {
+      projectId,
+      name: projectNames.get(projectId) || `Proyecto #${projectId}`,
+      net,
+      currencyTotals,
+    };
+  });
+  const topPurchaseSavings = purchaseVariationByProject
+    .filter((project) => project.net > 0)
+    .sort((a, b) => b.net - a.net)
+    .slice(0, 5);
+  const topPurchaseOverruns = purchaseVariationByProject
+    .filter((project) => project.net < 0)
+    .sort((a, b) => a.net - b.net)
+    .slice(0, 5);
+
+  function formatCurrencyTotals(currencyTotals: Map<string, number>) {
+    const entries = Array.from(currencyTotals.entries());
+    if (entries.length === 0) return formatCurrency(0, "MXN");
+
+    return entries
+      .map(([currency, value]) => formatCurrency(value, currency))
+      .join(" / ");
+  }
 
   return (
     <main className="min-h-screen bg-[#0B0D0F] p-4 text-white md:p-8 xl:p-10">
@@ -341,6 +447,118 @@ export default async function DashboardPage() {
             )}
           </div>
         </div>
+      </section>
+
+      <section className="mt-8 rounded-2xl border border-[#1F1F24] bg-[#151518] p-6">
+        <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-2xl font-semibold">KPIs internos de compras</h2>
+            <p className="mt-1 text-sm text-[#B3B3B8]">
+              Ahorros y sobrecostos contra costo estimado de equipo.
+            </p>
+          </div>
+          <p className="text-sm text-[#B3B3B8]">
+            Avance global:{" "}
+            <span className="font-semibold text-white">
+              {formatNumber(purchaseProgressGlobal)}%
+            </span>
+          </p>
+        </div>
+
+        {purchaseLinesResult.error ? (
+          <div className="rounded-xl border border-[#614620] bg-[#322514] p-4 text-sm text-[#F4C66A]">
+            Ejecuta el SQL del modulo de compras para habilitar KPIs globales.
+          </div>
+        ) : (
+          <>
+            <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+              {Array.from(purchaseVariationByCurrency.entries()).map(
+                ([currency, totals]) => (
+                  <div
+                    key={currency}
+                    className="rounded-xl border border-[#2A2A30] bg-[#1A1A1F] p-4"
+                  >
+                    <p className="mb-3 text-sm text-[#B3B3B8]">
+                      Variacion {currency}
+                    </p>
+                    <div className="space-y-2 text-sm">
+                      <p>
+                        Ahorro:{" "}
+                        <span className="font-semibold text-[#8CE0B6]">
+                          {formatCurrency(totals.saving, currency)}
+                        </span>
+                      </p>
+                      <p>
+                        Sobrecosto:{" "}
+                        <span className="font-semibold text-[#FFB19C]">
+                          {formatCurrency(totals.overrun, currency)}
+                        </span>
+                      </p>
+                      <p>
+                        Neta:{" "}
+                        <span
+                          className={`font-semibold ${
+                            totals.net >= 0 ? "text-[#8CE0B6]" : "text-[#FFB19C]"
+                          }`}
+                        >
+                          {formatCurrency(totals.net, currency)}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                )
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+              <div>
+                <h3 className="mb-3 text-lg font-semibold">Top proyectos con mayor ahorro</h3>
+                <div className="space-y-3">
+                  {topPurchaseSavings.length === 0 ? (
+                    <p className="text-sm text-[#77777D]">Sin ahorros registrados.</p>
+                  ) : (
+                    topPurchaseSavings.map((project) => (
+                      <Link
+                        key={project.projectId}
+                        href={`/projects/${project.projectId}/purchases`}
+                        className="flex items-center justify-between gap-4 rounded-xl bg-[#222228] px-4 py-3 text-sm hover:bg-[#2A2A30]"
+                      >
+                        <span className="font-semibold">{project.name}</span>
+                        <span className="text-[#8CE0B6]">
+                          {formatCurrencyTotals(project.currencyTotals)}
+                        </span>
+                      </Link>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <h3 className="mb-3 text-lg font-semibold">
+                  Top proyectos con mayor sobrecosto
+                </h3>
+                <div className="space-y-3">
+                  {topPurchaseOverruns.length === 0 ? (
+                    <p className="text-sm text-[#77777D]">Sin sobrecostos registrados.</p>
+                  ) : (
+                    topPurchaseOverruns.map((project) => (
+                      <Link
+                        key={project.projectId}
+                        href={`/projects/${project.projectId}/purchases`}
+                        className="flex items-center justify-between gap-4 rounded-xl bg-[#222228] px-4 py-3 text-sm hover:bg-[#2A2A30]"
+                      >
+                        <span className="font-semibold">{project.name}</span>
+                        <span className="text-[#FFB19C]">
+                          {formatCurrencyTotals(project.currencyTotals)}
+                        </span>
+                      </Link>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </section>
     </main>
   );

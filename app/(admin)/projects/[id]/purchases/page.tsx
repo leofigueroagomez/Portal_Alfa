@@ -4,8 +4,10 @@ import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { formatCurrency, formatNumber } from "@/lib/format";
 import {
   getPurchaseProgressPercent,
+  getPurchaseLineVariation,
   summarizePendingBySupplier,
   summarizePurchaseTotalsByCurrency,
+  summarizePurchaseVariationByCurrency,
 } from "@/lib/projectPurchases";
 import ProjectPurchaseActions, {
   PurchaseEventAction,
@@ -100,6 +102,18 @@ function getWarehouseLabel(status: string | null | undefined) {
   if (status === "received") return "Recibido en bodega";
   if (status === "delivered_to_site") return "Entregado a obra";
   return "Pendiente de recibir";
+}
+
+function getVariationLabel(status: string) {
+  if (status === "saving") return "Ahorro";
+  if (status === "overrun") return "Sobrecosto";
+  return "Sin variacion";
+}
+
+function getVariationClass(status: string) {
+  if (status === "saving") return "border-[#1F7A4D] bg-[#143D2A] text-[#8CE0B6]";
+  if (status === "overrun") return "border-[#7A2E1F] bg-[#3D1C14] text-[#FFB19C]";
+  return "border-[#3A3A42] bg-[#222228] text-[#B3B3B8]";
 }
 
 export default async function ProjectPurchasesPage({
@@ -288,13 +302,24 @@ export default async function ProjectPurchasesPage({
   const totalsByCurrency = summarizePurchaseTotalsByCurrency(lines);
   const pendingBySupplier = summarizePendingBySupplier(lines);
   const progressPercent = getPurchaseProgressPercent(lines);
+  const variationByCurrency = summarizePurchaseVariationByCurrency(lines, eventsByLine);
+  const linesWithVariation = lines
+    .map((line) => ({
+      ...line,
+      variation: getPurchaseLineVariation(line, eventsByLine.get(line.id) || []),
+    }))
+    .sort(
+      (a, b) =>
+        Math.abs(b.variation.variation) - Math.abs(a.variation.variation) ||
+        Number(b.total_required_cost || 0) - Number(a.total_required_cost || 0)
+    );
   const groupedLines = Array.from(
-    lines.reduce((map, line) => {
+    linesWithVariation.reduce((map, line) => {
       const supplier = getSupplier(line.supplier);
       const existing = map.get(supplier) || [];
       map.set(supplier, [...existing, line]);
       return map;
-    }, new Map<string, PurchaseLine[]>())
+    }, new Map<string, typeof linesWithVariation>())
   ).sort(([a], [b]) => a.localeCompare(b));
 
   const actionLines: PurchaseLineAction[] = lines.map((line) => ({
@@ -385,6 +410,43 @@ export default async function ProjectPurchasesPage({
         </div>
       </section>
 
+      <section className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">
+        {Array.from(variationByCurrency.entries()).map(([currency, totals]) => (
+          <div
+            key={currency}
+            className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5"
+          >
+            <p className="mb-3 text-sm text-[#B3B3B8]">
+              Variacion compras {currency}
+            </p>
+            <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
+              <div>
+                <p className="text-[#77777D]">Ahorro</p>
+                <p className="font-semibold text-[#8CE0B6]">
+                  {formatCurrency(totals.saving, currency)}
+                </p>
+              </div>
+              <div>
+                <p className="text-[#77777D]">Sobrecosto</p>
+                <p className="font-semibold text-[#FFB19C]">
+                  {formatCurrency(totals.overrun, currency)}
+                </p>
+              </div>
+              <div>
+                <p className="text-[#77777D]">Neta</p>
+                <p
+                  className={`font-semibold ${
+                    totals.net >= 0 ? "text-[#8CE0B6]" : "text-[#FFB19C]"
+                  }`}
+                >
+                  {formatCurrency(totals.net, currency)}
+                </p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </section>
+
       <section className="mb-8 rounded-2xl border border-[#1F1F24] bg-[#151518] p-5 sm:p-6">
         <h2 className="mb-4 text-2xl font-semibold">Pendiente por proveedor</h2>
         {pendingBySupplier.size === 0 ? (
@@ -434,7 +496,7 @@ export default async function ProjectPurchasesPage({
                 {supplierLines
                   .sort(
                     (a, b) =>
-                      Number(b.total_required_cost || 0) -
+                        Number(b.total_required_cost || 0) -
                       Number(a.total_required_cost || 0)
                   )
                   .map((line) => {
@@ -521,6 +583,34 @@ export default async function ProjectPurchasesPage({
                                   line.total_pending_cost,
                                   line.cost_currency
                                 )}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-[#77777D]">Variacion</p>
+                              <span
+                                className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getVariationClass(
+                                  line.variation.status
+                                )}`}
+                              >
+                                {getVariationLabel(line.variation.status)}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="text-[#77777D]">Monto variacion</p>
+                              <p
+                                className={`font-semibold ${
+                                  line.variation.variation >= 0
+                                    ? "text-[#8CE0B6]"
+                                    : "text-[#FFB19C]"
+                                }`}
+                              >
+                                {formatCurrency(
+                                  line.variation.variation,
+                                  line.variation.currency
+                                )}
+                              </p>
+                              <p className="text-xs text-[#77777D]">
+                                {formatNumber(line.variation.percent)}%
                               </p>
                             </div>
                           </div>
