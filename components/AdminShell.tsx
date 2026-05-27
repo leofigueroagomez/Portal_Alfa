@@ -31,13 +31,13 @@ type AdminShellProps = {
 };
 
 const navItems: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: Gauge },
+  { href: "/dashboard", label: "Dashboard comercial", icon: Gauge },
   { href: "/clients", label: "Clientes", icon: Building2 },
   { href: "/products", label: "Productos", icon: Package },
   { href: "/quotes", label: "Cotizaciones", icon: FileText },
   { href: "/quotes/new", label: "Nueva cotización", icon: PlusCircle },
   { href: "/engineering-quotes", label: "Ingenierías", icon: Ruler },
-  { href: "/dashboard", label: "Proyectos", icon: FolderOpen },
+  { href: "/projects", label: "Proyectos", icon: FolderOpen },
 ];
 
 const roleLabels: Record<UserProfile["role"], string> = {
