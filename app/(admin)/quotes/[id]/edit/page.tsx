@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { arrayMove } from "@dnd-kit/sortable";
 import { supabase } from "@/services/supabase";
 import { formatCurrency, formatNumber } from "@/lib/format";
+import ProjectStageSelect from "@/components/ProjectStageSelect";
 import QuickCreateProductButton from "../../QuickCreateProductButton";
 
 type Product = {
@@ -77,6 +78,7 @@ type Quote = {
   id: number;
   quote_number: string | null;
   status: string | null;
+  client_project_id?: number | null;
   exchange_rate: number | null;
   exchange_rate_source: string | null;
   exchange_rate_date: string | null;
@@ -84,6 +86,12 @@ type Quote = {
   discount_percent?: number | null;
   discount_amount_mxn?: number | null;
   notes?: string | null;
+};
+
+type ClientProject = {
+  id: number;
+  name: string | null;
+  sales_stage?: string | null;
 };
 
 type QuoteTermsSettings = {
@@ -165,6 +173,7 @@ export default function EditQuotePage() {
   const [discountPercent, setDiscountPercent] = useState("");
   const [discountAmountMXN, setDiscountAmountMXN] = useState("");
   const [notes, setNotes] = useState("");
+  const [clientProject, setClientProject] = useState<ClientProject | null>(null);
   const [termsSettings, setTermsSettings] =
     useState<QuoteTermsSettings>(defaultTermsSettings);
 
@@ -195,7 +204,7 @@ export default function EditQuotePage() {
     async function loadQuote() {
       let { data: quoteData, error: quoteError } = (await supabase
         .from("quotes")
-        .select("id, quote_number, status, exchange_rate, exchange_rate_source, exchange_rate_date, discount_type, discount_percent, discount_amount_mxn, notes")
+        .select("id, quote_number, status, client_project_id, exchange_rate, exchange_rate_source, exchange_rate_date, discount_type, discount_percent, discount_amount_mxn, notes")
         .eq("id", quoteId)
         .single()) as {
         data: Quote | null;
@@ -214,7 +223,7 @@ export default function EditQuotePage() {
       ) {
         const fallback = (await supabase
           .from("quotes")
-          .select("id, quote_number, status, exchange_rate")
+          .select("id, quote_number, status, client_project_id, exchange_rate")
           .eq("id", quoteId)
           .single()) as {
           data: Quote | null;
@@ -244,6 +253,24 @@ export default function EditQuotePage() {
       setDiscountPercent(String(quoteData.discount_percent || ""));
       setDiscountAmountMXN(String(quoteData.discount_amount_mxn || ""));
       setNotes(quoteData.notes || "");
+
+      if (quoteData.client_project_id) {
+        const { data: projectData, error: projectError } = await supabase
+          .from("client_projects")
+          .select("id, name, sales_stage")
+          .eq("id", quoteData.client_project_id)
+          .maybeSingle();
+
+        if (projectError) {
+          reportStepError("leer etapa de oportunidad", projectError);
+          setLoading(false);
+          return;
+        }
+
+        setClientProject((projectData || null) as ClientProject | null);
+      } else {
+        setClientProject(null);
+      }
 
       const { data: productsData, error: productsError } = await supabase
         .from("products")
@@ -1358,6 +1385,18 @@ export default function EditQuotePage() {
             <h2 className="text-2xl font-semibold mb-6">Resumen</h2>
 
             <div className="space-y-4 text-sm">
+              {clientProject ? (
+                <div className="rounded-xl border border-[#2A2A30] bg-[#222228] p-4">
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-[#77777D]">
+                    Etapa oportunidad
+                  </p>
+                  <ProjectStageSelect
+                    projectId={clientProject.id}
+                    currentStage={clientProject.sales_stage || null}
+                  />
+                </div>
+              ) : null}
+
               <div className="flex justify-between">
                 <span className="text-[#B3B3B8]">Sistemas</span>
                 <span>{sections.length}</span>

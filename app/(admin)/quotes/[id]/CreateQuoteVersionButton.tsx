@@ -47,6 +47,7 @@ type SourceQuote = {
   id: number;
   quote_group_id: number;
   quote_base_number: string | null;
+  client_project_id?: number | null;
   currency: string | null;
   equipment_total: number | null;
   labor_total: number | null;
@@ -65,6 +66,10 @@ type SourceQuote = {
   exchange_rate_date?: string | null;
   notes?: string | null;
 };
+
+function shouldMoveVersionProjectToQuoted(stage: string | null | undefined) {
+  return ["lead", "site_visit", "engineering"].includes(stage || "");
+}
 
 export default function CreateQuoteVersionButton({
   quoteId,
@@ -102,7 +107,7 @@ export default function CreateQuoteVersionButton({
     let { data: quote, error: quoteError } = (await supabase
       .from("quotes")
       .select(
-        "id, quote_group_id, quote_base_number, currency, equipment_total, labor_total, tax_total, discount_total, grand_total, discount_type, discount_percent, discount_amount_mxn, subtotal_mxn, taxable_base_mxn, iva_mxn, total_mxn, exchange_rate, exchange_rate_source, exchange_rate_date, notes"
+        "id, quote_group_id, quote_base_number, client_project_id, currency, equipment_total, labor_total, tax_total, discount_total, grand_total, discount_type, discount_percent, discount_amount_mxn, subtotal_mxn, taxable_base_mxn, iva_mxn, total_mxn, exchange_rate, exchange_rate_source, exchange_rate_date, notes"
       )
       .eq("id", quoteId)
       .single()) as {
@@ -120,7 +125,7 @@ export default function CreateQuoteVersionButton({
       const fallback = (await supabase
         .from("quotes")
         .select(
-          "id, quote_group_id, quote_base_number, currency, equipment_total, labor_total, tax_total, discount_total, grand_total, exchange_rate"
+          "id, quote_group_id, quote_base_number, client_project_id, currency, equipment_total, labor_total, tax_total, discount_total, grand_total, exchange_rate"
         )
         .eq("id", quoteId)
         .single()) as {
@@ -214,6 +219,7 @@ export default function CreateQuoteVersionButton({
       version: nextVersion,
       quote_number: `${quoteBaseNumber}-V${nextVersion}`,
       parent_quote_id: quoteId,
+      client_project_id: quote.client_project_id,
       status: "draft",
       is_latest: true,
       currency: quote.currency,
@@ -245,12 +251,14 @@ export default function CreateQuoteVersionButton({
       newQuoteResult.error?.code === "PGRST204" &&
       (newQuoteResult.error.message.includes("exchange_rate_source") ||
         newQuoteResult.error.message.includes("exchange_rate_date") ||
+        newQuoteResult.error.message.includes("client_project_id") ||
         newQuoteResult.error.message.includes("notes") ||
         newQuoteResult.error.message.includes("total_mxn"))
     ) {
       const {
         exchange_rate_source,
         exchange_rate_date,
+        client_project_id,
         discount_type,
         discount_percent,
         discount_amount_mxn,
@@ -346,6 +354,33 @@ export default function CreateQuoteVersionButton({
         reportStepError("crear nuevos quote_items", insertItemsError);
         setCreating(false);
         return;
+      }
+    }
+
+    if (quote.client_project_id) {
+      const { data: project, error: projectError } = await supabase
+        .from("client_projects")
+        .select("sales_stage")
+        .eq("id", quote.client_project_id)
+        .maybeSingle();
+
+      if (projectError) {
+        reportStepError("leer etapa de oportunidad", projectError);
+        setCreating(false);
+        return;
+      }
+
+      if (shouldMoveVersionProjectToQuoted(project?.sales_stage)) {
+        const { error: stageError } = await supabase
+          .from("client_projects")
+          .update({ sales_stage: "quoted" })
+          .eq("id", quote.client_project_id);
+
+        if (stageError) {
+          reportStepError("actualizar etapa de oportunidad", stageError);
+          setCreating(false);
+          return;
+        }
       }
     }
 

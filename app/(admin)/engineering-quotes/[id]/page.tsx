@@ -5,6 +5,7 @@ import {
   formatDate,
   formatMoneyMXN,
 } from "../constants";
+import ProjectStageSelect from "@/components/ProjectStageSelect";
 import CreateEngineeringVersionButton from "./CreateEngineeringVersionButton";
 import ApproveEngineeringQuoteButton from "./ApproveEngineeringQuoteButton";
 
@@ -36,8 +37,10 @@ type Client = {
 };
 
 type ClientProject = {
+  id: number;
   name: string | null;
   project_number: number | null;
+  sales_stage?: string | null;
 };
 
 function ListBlock({ title, items }: { title: string; items: string[] | null }) {
@@ -93,7 +96,7 @@ export default async function EngineeringQuoteDetailPage({
   const { data: project } = quoteData.client_project_id
     ? await supabase
         .from("client_projects")
-        .select("name, project_number")
+        .select("id, name, project_number, sales_stage")
         .eq("id", quoteData.client_project_id)
         .maybeSingle()
     : { data: null };
@@ -126,6 +129,17 @@ export default async function EngineeringQuoteDetailPage({
                 Proyecto: <span className="text-white">{quoteData.project_name || projectData?.name || "Sin proyecto"}</span>
               </p>
             </div>
+            {projectData ? (
+              <div className="mt-5 max-w-xs rounded-2xl border border-[#1F1F24] bg-[#151518] p-4">
+                <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-[#77777D]">
+                  Etapa oportunidad
+                </p>
+                <ProjectStageSelect
+                  projectId={projectData.id}
+                  currentStage={projectData.sales_stage || null}
+                />
+              </div>
+            ) : null}
           </div>
 
           <div className="flex flex-wrap items-center gap-3 xl:justify-end">

@@ -98,6 +98,10 @@ function getMarginColorClass(percent: number) {
   return "text-[#F28B82]";
 }
 
+function canMarkProjectQuoted(stage: string | null | undefined) {
+  return !["won", "installed", "closed"].includes(stage || "");
+}
+
 export default function NewQuotePage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [productCategories, setProductCategories] = useState<TaxonomyOption[]>(
@@ -787,6 +791,44 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
       );
       setSavingQuote(false);
       return;
+    }
+
+    if (selectedClientProjectId) {
+      const projectId = Number(selectedClientProjectId);
+      const { data: project, error: projectError } = await supabase
+        .from("client_projects")
+        .select("sales_stage")
+        .eq("id", projectId)
+        .maybeSingle();
+
+      if (projectError) {
+        console.error("Error leyendo etapa de oportunidad:", projectError);
+        alert(
+          "Cotización guardada, pero no se pudo leer la etapa de oportunidad: " +
+            JSON.stringify(projectError) +
+            (projectError.message ? ` ${projectError.message}` : "")
+        );
+        setSavingQuote(false);
+        return;
+      }
+
+      if (canMarkProjectQuoted(project?.sales_stage)) {
+        const { error: stageError } = await supabase
+          .from("client_projects")
+          .update({ sales_stage: "quoted" })
+          .eq("id", projectId);
+
+        if (stageError) {
+          console.error("Error actualizando etapa de oportunidad:", stageError);
+          alert(
+            "Cotización guardada, pero no se pudo actualizar la etapa de oportunidad: " +
+              JSON.stringify(stageError) +
+              (stageError.message ? ` ${stageError.message}` : "")
+          );
+          setSavingQuote(false);
+          return;
+        }
+      }
     }
 
     setSavingQuote(false);

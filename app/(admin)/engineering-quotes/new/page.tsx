@@ -22,6 +22,7 @@ type ClientProject = {
   client_id: number;
   project_number: number | null;
   name: string | null;
+  sales_stage?: string | null;
 };
 
 function parseLines(value: string) {
@@ -29,6 +30,10 @@ function parseLines(value: string) {
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
+}
+
+function shouldMoveProjectToEngineering(stage: string | null | undefined) {
+  return ["lead", "site_visit"].includes(stage || "");
 }
 
 export default function NewEngineeringQuotePage() {
@@ -125,7 +130,7 @@ export default function NewEngineeringQuotePage() {
 
       const { data, error } = await supabase
         .from("client_projects")
-        .select("id, client_id, project_number, name")
+        .select("id, client_id, project_number, name, sales_stage")
         .eq("client_id", Number(selectedClientId))
         .order("project_number", { ascending: true });
 
@@ -186,6 +191,19 @@ export default function NewEngineeringQuotePage() {
         error || { message: "No se recibió engineering_quote" }
       );
       return;
+    }
+
+    if (shouldMoveProjectToEngineering(selectedProject.sales_stage)) {
+      const { error: stageError } = await supabase
+        .from("client_projects")
+        .update({ sales_stage: "engineering" })
+        .eq("id", selectedProject.id);
+
+      if (stageError) {
+        setSaving(false);
+        reportError("actualizar etapa de oportunidad", stageError);
+        return;
+      }
     }
 
     alert("Cotización de ingeniería guardada");

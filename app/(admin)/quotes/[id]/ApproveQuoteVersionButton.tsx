@@ -7,12 +7,14 @@ import { supabase } from "@/services/supabase";
 type Props = {
   quoteId: number;
   quoteGroupId: number | null;
+  clientProjectId?: number | null;
   status: string | null;
 };
 
 export default function ApproveQuoteVersionButton({
   quoteId,
   quoteGroupId,
+  clientProjectId,
   status,
 }: Props) {
   const router = useRouter();
@@ -77,6 +79,19 @@ export default function ApproveQuoteVersionButton({
       reportStepError("actualizar quote_groups.approved_quote_id", approveGroupError);
       setApproving(false);
       return;
+    }
+
+    if (clientProjectId) {
+      const { error: projectStageError } = await supabase
+        .from("client_projects")
+        .update({ sales_stage: "won" })
+        .eq("id", clientProjectId);
+
+      if (projectStageError) {
+        reportStepError("actualizar etapa de oportunidad a ganado", projectStageError);
+        setApproving(false);
+        return;
+      }
     }
 
     router.refresh();

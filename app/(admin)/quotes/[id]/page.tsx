@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { formatCurrency, formatNumber } from "@/lib/format";
+import ProjectStageSelect from "@/components/ProjectStageSelect";
 import CreateQuoteVersionButton from "./CreateQuoteVersionButton";
 import ApproveQuoteVersionButton from "./ApproveQuoteVersionButton";
 
@@ -59,6 +60,12 @@ type QuoteItem = {
   product_name: string | null;
   product_image_url: string | null;
   sort_order: number | null;
+};
+
+type ClientProject = {
+  id: number;
+  name: string | null;
+  sales_stage?: string | null;
 };
 
 function formatDate(value: string | null) {
@@ -184,10 +191,11 @@ export default async function QuoteDetailPage({
   const { data: clientProject } = quoteData.client_project_id
     ? await supabase
         .from("client_projects")
-        .select("id, name")
+        .select("id, name, sales_stage")
         .eq("id", quoteData.client_project_id)
         .maybeSingle()
     : { data: null };
+  const projectData = clientProject as ClientProject | null;
 
   const quoteSections = (sections || []) as QuoteSection[];
   const quoteItems = (items || []) as QuoteItem[];
@@ -250,6 +258,17 @@ export default async function QuoteDetailPage({
                 </span>
               </p>
             </div>
+            {projectData ? (
+              <div className="mt-5 max-w-xs rounded-2xl border border-[#1F1F24] bg-[#151518] p-4">
+                <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-[#77777D]">
+                  Etapa oportunidad
+                </p>
+                <ProjectStageSelect
+                  projectId={projectData.id}
+                  currentStage={projectData.sales_stage || null}
+                />
+              </div>
+            ) : null}
           </div>
 
           <div className="flex flex-wrap items-center gap-3 xl:justify-end">
@@ -288,6 +307,7 @@ export default async function QuoteDetailPage({
             <ApproveQuoteVersionButton
               quoteId={quoteData.id}
               quoteGroupId={quoteData.quote_group_id}
+              clientProjectId={quoteData.client_project_id}
               status={quoteData.status}
             />
           </div>
