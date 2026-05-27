@@ -14,6 +14,7 @@ import ProjectPurchaseActions, {
   PurchaseLineAction,
   WarehouseEventActions,
 } from "./ProjectPurchaseActions";
+import RecalculatePurchaseLinesButton from "./RecalculatePurchaseLinesButton";
 
 type ClientProject = {
   id: number;
@@ -223,12 +224,8 @@ export default async function ProjectPurchasesPage({
       .map((item) => {
         const productItem = item.product_id ? productsById.get(item.product_id) : null;
         const quantityRequired = Number(item.quantity || 0);
-        const costCurrency =
-          (productItem?.cost_currency || item.sale_currency || "USD").toUpperCase();
-        const unitCost =
-          Number(productItem?.cost_price) ||
-          Number(item.unit_equipment_price_usd) ||
-          Number(item.unit_equipment_price || 0);
+        const costCurrency = (productItem?.cost_currency || "USD").toUpperCase();
+        const unitCost = Number(productItem?.cost_price || 0);
         const totalRequiredCost = quantityRequired * unitCost;
 
         return {
@@ -379,7 +376,10 @@ export default async function ProjectPurchasesPage({
           </p>
         </div>
 
-        <ProjectPurchaseActions lines={actionLines} events={actionEvents} />
+        <div className="flex flex-wrap gap-3 xl:justify-end">
+          <RecalculatePurchaseLinesButton projectId={projectData.id} />
+          <ProjectPurchaseActions lines={actionLines} events={actionEvents} />
+        </div>
       </section>
 
       {purchaseSqlError ? (
