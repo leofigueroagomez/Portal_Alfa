@@ -162,8 +162,15 @@ export default async function ProjectAccountStatementPrintPage({
   const pendingEquipmentUsd = Math.max(totalEquipmentUsd - paidEquipmentUsd, 0);
   const pendingLaborMxn = Math.max(totalLaborMxn - paidLaborMxn, 0);
   const pendingTotalMxn = Math.max(approvedTotalMxn - totalPaidMxn, 0);
-  const paidPercent =
-    approvedTotalMxn > 0 ? Math.min((totalPaidMxn / approvedTotalMxn) * 100, 100) : 0;
+  let runningPaidMxn = 0;
+  const paymentRows = payments.map((payment) => {
+    runningPaidMxn += getPaymentAmountMxn(payment);
+
+    return {
+      ...payment,
+      updatedBalanceMxn: Math.max(approvedTotalMxn - runningPaidMxn, 0),
+    };
+  });
 
   return (
     <main className="print-root min-h-screen bg-[#EDEBE6] py-5 text-[#111318]">
@@ -260,13 +267,12 @@ export default async function ProjectAccountStatementPrintPage({
               />
             </div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#9E1B32]">
-              Estado de cuenta interno
+              Estado de cuenta
             </p>
           </div>
 
           <div className="text-right text-[11px] leading-5 text-[#555963]">
-            <p>Fecha: {formatDate(new Date().toISOString())}</p>
-            <p>Cotizaciones aprobadas: {quotes.length}</p>
+            <p>Fecha de emision: {formatDate(new Date().toISOString())}</p>
             <p className="mt-2 text-xl font-semibold text-[#111318]">
               {projectData.name || "Proyecto operativo"}
             </p>
@@ -289,8 +295,8 @@ export default async function ProjectAccountStatementPrintPage({
               Resumen
             </p>
             <p>Total proyecto: {formatCurrency(approvedTotalMxn, "MXN")}</p>
-            <p>Cobrado: {formatCurrency(totalPaidMxn, "MXN")}</p>
-            <p>Saldo: {formatCurrency(pendingTotalMxn, "MXN")}</p>
+            <p>Pagos registrados: {formatCurrency(totalPaidMxn, "MXN")}</p>
+            <p>Saldo pendiente actualizado: {formatCurrency(pendingTotalMxn, "MXN")}</p>
           </div>
         </section>
 
@@ -321,27 +327,9 @@ export default async function ProjectAccountStatementPrintPage({
           </div>
         </section>
 
-        <section className="mb-6 border-t border-[#D6D1C8] pt-4">
-          <h2 className="mb-3 text-sm font-semibold">Dashboard interno</h2>
-          <div className="grid grid-cols-3 gap-3 text-[11px]">
-            <div className="border border-[#E1DDD5] p-3">
-              <p className="text-[#555963]">% cobrado</p>
-              <p className="font-semibold">{formatNumber(paidPercent)}%</p>
-            </div>
-            <div className="border border-[#E1DDD5] p-3">
-              <p className="text-[#555963]">Saldo pendiente</p>
-              <p className="font-semibold">{formatCurrency(pendingTotalMxn, "MXN")}</p>
-            </div>
-            <div className="border border-[#E1DDD5] p-3">
-              <p className="text-[#555963]">Tipo cambio referencia</p>
-              <p className="font-semibold">{formatNumber(projectExchangeRate)}</p>
-            </div>
-          </div>
-        </section>
-
         <section className="mb-6">
           <h2 className="mb-3 border-b border-[#D6D1C8] pb-2 text-sm font-semibold">
-            Cotizaciones aprobadas
+            Conceptos autorizados
           </h2>
           <table className="statement-table w-full border-collapse text-[10px]">
             <thead>
@@ -395,10 +383,11 @@ export default async function ProjectAccountStatementPrintPage({
                   <th className="px-2 py-2 text-right">Monto</th>
                   <th className="px-2 py-2 text-right">TC</th>
                   <th className="px-2 py-2 text-right">MXN</th>
+                  <th className="px-2 py-2 text-right">Saldo actualizado</th>
                 </tr>
               </thead>
               <tbody>
-                {payments.map((payment) => (
+                {paymentRows.map((payment) => (
                   <tr key={payment.id} className="payment-row border-b border-[#EFECE6]">
                     <td className="px-2 py-2">{formatDate(payment.payment_date)}</td>
                     <td className="px-2 py-2">{payment.payment_method || "-"}</td>
@@ -416,11 +405,23 @@ export default async function ProjectAccountStatementPrintPage({
                     <td className="px-2 py-2 text-right">
                       {formatCurrency(getPaymentAmountMxn(payment), "MXN")}
                     </td>
+                    <td className="px-2 py-2 text-right font-semibold">
+                      {formatCurrency(payment.updatedBalanceMxn, "MXN")}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           )}
+        </section>
+
+        <section className="summary-box mt-6 border-t border-[#D6D1C8] pt-4 text-right">
+          <p className="text-[10px] uppercase tracking-[0.16em] text-[#9E1B32]">
+            Saldo pendiente actualizado
+          </p>
+          <p className="mt-1 text-lg font-semibold">
+            {formatCurrency(pendingTotalMxn, "MXN")}
+          </p>
         </section>
       </article>
     </main>
