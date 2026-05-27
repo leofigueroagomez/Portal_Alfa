@@ -1,0 +1,507 @@
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
+import { createSupabaseServerClient } from "@/services/supabaseServer";
+import { formatCurrency, formatNumber } from "@/lib/format";
+import CreateQuoteVersionButton from "./CreateQuoteVersionButton";
+import ApproveQuoteVersionButton from "./ApproveQuoteVersionButton";
+
+type Quote = {
+  id: number;
+  quote_number: string | null;
+  quote_group_id: number | null;
+  quote_base_number: string | null;
+  version: number | null;
+  client_id: number | null;
+  client_project_id?: number | null;
+  status: string | null;
+  currency: string | null;
+  equipment_total: number | null;
+  labor_total: number | null;
+  grand_total: number | null;
+  discount_type?: string | null;
+  discount_percent?: number | null;
+  discount_amount_mxn?: number | null;
+  subtotal_mxn?: number | null;
+  taxable_base_mxn?: number | null;
+  iva_mxn?: number | null;
+  total_mxn?: number | null;
+  exchange_rate: number | null;
+  exchange_rate_source: string | null;
+  exchange_rate_date: string | null;
+  notes?: string | null;
+  created_at: string | null;
+};
+
+type QuoteSection = {
+  id: number;
+  quote_id: number;
+  name: string | null;
+  sort_order: number | null;
+  equipment_total: number | null;
+  labor_total: number | null;
+  total: number | null;
+};
+
+type QuoteItem = {
+  id: number;
+  quote_id: number;
+  quote_section_id: number;
+  product_id: number | null;
+  quantity: number | null;
+  sale_currency: string | null;
+  unit_equipment_price: number | null;
+  unit_equipment_price_usd?: number | null;
+  equipment_total_usd?: number | null;
+  unit_labor_price: number | null;
+  line_total: number | null;
+  product_brand: string | null;
+  product_model: string | null;
+  product_name: string | null;
+  product_image_url: string | null;
+  sort_order: number | null;
+};
+
+function formatDate(value: string | null) {
+  if (!value) return "Sin fecha";
+
+  return new Date(value).toLocaleDateString("es-MX");
+}
+
+function getEquipmentUnitPriceUsd(
+  item: QuoteItem,
+  exchangeRate: number
+) {
+  if (item.unit_equipment_price_usd != null) {
+    return Number(item.unit_equipment_price_usd || 0);
+  }
+
+  if ((item.sale_currency || "USD").toUpperCase() === "MXN") {
+    return exchangeRate > 0
+      ? Number(item.unit_equipment_price || 0) / exchangeRate
+      : 0;
+  }
+
+  return Number(item.unit_equipment_price || 0);
+}
+
+export default async function QuoteDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const supabase = await createSupabaseServerClient();
+  const { id } = await params;
+
+  let { data: quote, error } = (await supabase
+    .from("quotes")
+    .select(
+      "id, quote_number, quote_group_id, quote_base_number, version, client_id, client_project_id, status, currency, equipment_total, labor_total, grand_total, discount_type, discount_percent, discount_amount_mxn, subtotal_mxn, taxable_base_mxn, iva_mxn, total_mxn, exchange_rate, exchange_rate_source, exchange_rate_date, notes, created_at"
+    )
+    .eq("id", id)
+    .single()) as {
+    data: Quote | null;
+    error: { code?: string; message: string } | null;
+  };
+
+  if (
+    error &&
+    error.code === "PGRST204" &&
+    (error.message.includes("client_project_id") ||
+      error.message.includes("exchange_rate_source") ||
+      error.message.includes("exchange_rate_date") ||
+      error.message.includes("notes") ||
+      error.message.includes("total_mxn"))
+  ) {
+    const fallback = (await supabase
+      .from("quotes")
+      .select(
+        "id, quote_number, quote_group_id, quote_base_number, version, client_id, status, currency, equipment_total, labor_total, grand_total, exchange_rate, created_at"
+      )
+      .eq("id", id)
+      .single()) as {
+      data: Quote | null;
+      error: { code?: string; message: string } | null;
+    };
+
+    quote = fallback.data;
+    error = fallback.error;
+  }
+
+  if (error || !quote) {
+    return (
+      <main className="min-h-screen bg-[#0B0D0F] p-4 text-white md:p-8 xl:p-10">
+        <Link
+          href="/quotes"
+          className="inline-flex items-center gap-2 text-[#B3B3B8] mb-8"
+        >
+          <ArrowLeft size={18} />
+          Volver a cotizaciones
+        </Link>
+
+        <h1 className="text-3xl font-bold">
+          Cotización no encontrada
+        </h1>
+      </main>
+    );
+  }
+
+  const { data: sections } = await supabase
+    .from("quote_sections")
+    .select("id, quote_id, name, sort_order, equipment_total, labor_total, total")
+    .eq("quote_id", id)
+    .order("sort_order", { ascending: true });
+
+  let { data: items, error: itemsError } = await supabase
+    .from("quote_items")
+    .select(
+      "id, quote_id, quote_section_id, product_id, quantity, sale_currency, unit_equipment_price, unit_equipment_price_usd, equipment_total_usd, unit_labor_price, line_total, product_brand, product_model, product_name, product_image_url, sort_order"
+    )
+    .eq("quote_id", id)
+    .order("sort_order", { ascending: true });
+
+  if (itemsError) {
+    const fallbackItems = await supabase
+      .from("quote_items")
+      .select(
+        "id, quote_id, quote_section_id, product_id, quantity, sale_currency, unit_equipment_price, unit_labor_price, line_total, product_brand, product_model, product_name, product_image_url, sort_order"
+      )
+      .eq("quote_id", id)
+      .order("sort_order", { ascending: true });
+
+    items = fallbackItems.data as typeof items;
+  }
+
+  const quoteData = quote as Quote;
+
+  const { data: client } = quoteData.client_id
+    ? await supabase
+        .from("clients")
+        .select("id, name")
+        .eq("id", quoteData.client_id)
+        .maybeSingle()
+    : { data: null };
+
+  const { data: clientProject } = quoteData.client_project_id
+    ? await supabase
+        .from("client_projects")
+        .select("id, name")
+        .eq("id", quoteData.client_project_id)
+        .maybeSingle()
+    : { data: null };
+
+  const quoteSections = (sections || []) as QuoteSection[];
+  const quoteItems = (items || []) as QuoteItem[];
+  const detailExchangeRate = Number(quoteData.exchange_rate || 1);
+  const subtotalMXN =
+    Number(quoteData.subtotal_mxn) ||
+    Number(quoteData.equipment_total || 0) * detailExchangeRate +
+      Number(quoteData.labor_total || 0);
+  const discountMXN = Number(quoteData.discount_amount_mxn || 0);
+  const taxableBaseMXN =
+    Number(quoteData.taxable_base_mxn) || subtotalMXN - discountMXN;
+  const ivaMXN = Number(quoteData.iva_mxn) || taxableBaseMXN * 0.16;
+  const totalMXN =
+    Number(quoteData.total_mxn) ||
+    Number(quoteData.grand_total) ||
+    taxableBaseMXN + ivaMXN;
+
+  function getSectionItems(sectionId: number) {
+    return quoteItems.filter(
+      (item) => item.quote_section_id === sectionId
+    );
+  }
+
+  return (
+    <main className="min-h-screen bg-[#0B0D0F] p-4 text-white md:p-8 xl:p-10">
+      <Link
+        href="/quotes"
+        className="inline-flex items-center gap-2 text-[#B3B3B8] mb-8"
+      >
+        <ArrowLeft size={18} />
+        Volver a cotizaciones
+      </Link>
+
+      <section className="mb-10">
+        <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+          <div>
+            <p className="text-[#9E1B32] tracking-[0.3em] text-sm mb-3">
+              {quoteData.quote_number || "Sin folio"}
+            </p>
+
+            <h1 className="text-4xl font-bold mb-3">
+              Cotización #{quoteData.id}
+            </h1>
+
+            <p className="text-[#B3B3B8]">
+              Creada el {formatDate(quoteData.created_at)}
+            </p>
+
+            <div className="mt-5 space-y-1 text-[#B3B3B8]">
+              <p>
+                Atención a:{" "}
+                <span className="text-white">
+                  {client?.name || "Sin cliente"}
+                </span>
+              </p>
+              <p>
+                Proyecto:{" "}
+                <span className="text-white">
+                  {clientProject?.name || "Sin proyecto"}
+                </span>
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 xl:justify-end">
+            <span
+              className={`border rounded-full px-4 py-2 text-sm ${
+                quoteData.status === "approved"
+                  ? "bg-[#143D2A] border-[#1F7A4D] text-[#8CE0B6]"
+                  : "bg-[#222228] border-[#2A2A30] text-[#B3B3B8]"
+              }`}
+            >
+              {quoteData.status || "Sin estado"}
+            </span>
+
+            {quoteData.status === "draft" && (
+              <Link
+                href={`/quotes/${quoteData.id}/edit`}
+                className="bg-[#222228] hover:bg-[#2A2A30] border border-[#2A2A30] text-[#B3B3B8] rounded-xl px-5 py-3 font-semibold"
+              >
+                Editar
+              </Link>
+            )}
+
+            <Link
+              href={`/quotes/${quoteData.id}/print`}
+              className="bg-[#222228] hover:bg-[#2A2A30] border border-[#2A2A30] text-[#B3B3B8] rounded-xl px-5 py-3 font-semibold"
+            >
+              Imprimir / PDF
+            </Link>
+
+            <CreateQuoteVersionButton
+              quoteId={quoteData.id}
+              quoteGroupId={quoteData.quote_group_id}
+              quoteBaseNumber={quoteData.quote_base_number}
+            />
+
+            <ApproveQuoteVersionButton
+              quoteId={quoteData.id}
+              quoteGroupId={quoteData.quote_group_id}
+              status={quoteData.status}
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className="mb-10 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+        <div className="bg-[#151518] border border-[#1F1F24] rounded-2xl p-6">
+          <p className="text-[#B3B3B8] mb-2">Equipos USD</p>
+          <h2 className="text-2xl font-bold">
+            {formatCurrency(quoteData.equipment_total, "USD")}
+          </h2>
+        </div>
+
+        <div className="bg-[#151518] border border-[#1F1F24] rounded-2xl p-6">
+          <p className="text-[#B3B3B8] mb-2">Mano de obra MXN</p>
+          <h2 className="text-2xl font-bold">
+            {formatCurrency(quoteData.labor_total, "MXN")}
+          </h2>
+        </div>
+
+        <div className="bg-[#151518] border border-[#1F1F24] rounded-2xl p-6">
+          <p className="text-[#B3B3B8] mb-2">Tipo de cambio</p>
+          <h2 className="text-2xl font-bold">
+            {formatNumber(quoteData.exchange_rate || 1)}
+          </h2>
+          <p className="text-xs text-[#77777D] mt-2">
+            {quoteData.exchange_rate_source || "manual"}{" "}
+            {quoteData.exchange_rate_date || ""}
+          </p>
+        </div>
+
+        <div className="bg-[#151518] border border-[#1F1F24] rounded-2xl p-6">
+          <p className="text-[#B3B3B8] mb-2">Total estimado MXN</p>
+          <h2 className="text-2xl font-bold text-[#9E1B32]">
+            {formatCurrency(totalMXN, "MXN")}
+          </h2>
+        </div>
+      </section>
+
+      <section className="mb-10 rounded-2xl border border-[#1F1F24] bg-[#151518] p-6">
+        <h2 className="mb-6 text-2xl font-semibold">Resumen fiscal</h2>
+        <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2 xl:grid-cols-4">
+          <div>
+            <p className="mb-1 text-[#77777D]">Subtotal MXN</p>
+            <p>{formatCurrency(subtotalMXN, "MXN")}</p>
+          </div>
+          {discountMXN > 0 ? (
+            <div>
+              <p className="mb-1 text-[#77777D]">Descuento</p>
+              <p className="text-[#F4C66A]">-{formatCurrency(discountMXN, "MXN")}</p>
+            </div>
+          ) : null}
+          <div>
+            <p className="mb-1 text-[#77777D]">IVA 16%</p>
+            <p>{formatCurrency(ivaMXN, "MXN")}</p>
+          </div>
+          <div>
+            <p className="mb-1 text-[#77777D]">Total MXN</p>
+            <p className="font-semibold text-[#9E1B32]">
+              {formatCurrency(totalMXN, "MXN")}
+            </p>
+          </div>
+        </div>
+        <p className="mt-5 text-xs leading-relaxed text-[#77777D]">
+          El total en MXN es estimado. El tipo de cambio aplicable será el
+          publicado por el DOF el día hábil de pago.
+        </p>
+      </section>
+
+      <p className="text-xs text-[#77777D] leading-relaxed mb-8">
+        Tipo de cambio informativo. Los pagos se liquidarán conforme al tipo de
+        cambio DOF aplicable al día hábil de pago.
+      </p>
+
+      {quoteData.notes?.trim() ? (
+        <section className="mb-10 rounded-2xl border border-[#1F1F24] bg-[#151518] p-6">
+          <h2 className="mb-4 text-2xl font-semibold">
+            Aclaraciones / Notas especiales
+          </h2>
+          <div className="whitespace-pre-line leading-relaxed text-[#B3B3B8]">
+            {quoteData.notes}
+          </div>
+        </section>
+      ) : null}
+
+      <section className="space-y-6">
+        {quoteSections.map((section) => {
+          const sectionItems = getSectionItems(section.id);
+
+          return (
+            <div
+              key={section.id}
+              className="bg-[#151518] border border-[#1F1F24] rounded-2xl p-6"
+            >
+              <div className="flex items-start justify-between gap-6 mb-6">
+                <div>
+                  <h2 className="text-2xl font-semibold mb-1">
+                    {section.name || "Sin nombre"}
+                  </h2>
+
+                  <p className="text-sm text-[#B3B3B8]">
+                    {sectionItems.length} partidas
+                  </p>
+                </div>
+
+                <div className="text-right text-sm">
+                  <p>
+                    Equipo: {formatCurrency(section.equipment_total, "USD")}
+                  </p>
+
+                  <p className="text-[#B3B3B8]">
+                    MO: {formatCurrency(section.labor_total, "MXN")}
+                  </p>
+
+                  <p className="font-semibold mt-1">
+                    Total estimado:{" "}
+                    {formatCurrency(
+                      Number(section.equipment_total || 0) *
+                        Number(quoteData.exchange_rate || 1) +
+                        Number(section.labor_total || 0),
+                      "MXN"
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              {sectionItems.length === 0 ? (
+                <p className="text-[#77777D]">
+                  No hay partidas en este sistema.
+                </p>
+              ) : (
+                <div className="space-y-4 overflow-x-auto">
+                  {sectionItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className="grid min-w-[860px] grid-cols-[70px_1fr_90px_140px_140px_140px] items-center gap-4 rounded-xl bg-[#222228] p-4"
+                    >
+                      <div className="w-16 h-16 bg-[#151518] rounded-xl overflow-hidden flex items-center justify-center">
+                        {item.product_image_url ? (
+                          <img
+                            src={item.product_image_url}
+                            alt={item.product_name || "Producto"}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-xs text-[#77777D]">
+                            Sin img
+                          </span>
+                        )}
+                      </div>
+
+                      <div>
+                        <p className="font-semibold">
+                          {item.product_brand || "Sin marca"}{" "}
+                          {item.product_model || ""}
+                        </p>
+
+                        <p className="text-sm text-[#B3B3B8]">
+                          {item.product_name || "Sin nombre"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-[#77777D] text-xs mb-1">Cant.</p>
+                        <p>{item.quantity || 0}</p>
+                      </div>
+
+                      <div>
+                        <p className="text-[#77777D] text-xs mb-1">Equipo</p>
+                        <p>
+                          {formatCurrency(
+                            item.unit_equipment_price,
+                            item.sale_currency || quoteData.currency
+                          )}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-[#77777D] text-xs mb-1">MO</p>
+                        <p>
+                          {formatCurrency(
+                            item.unit_labor_price,
+                            "MXN"
+                          )}
+                        </p>
+                      </div>
+
+                      <div className="text-right">
+                        <p className="text-[#77777D] text-xs mb-1">
+                          Total estimado
+                        </p>
+                        <p className="font-semibold">
+                          {formatCurrency(
+                            getEquipmentUnitPriceUsd(
+                              item,
+                              Number(quoteData.exchange_rate || 1)
+                            ) *
+                              Number(item.quantity || 0) *
+                              Number(quoteData.exchange_rate || 1) +
+                              Number(item.unit_labor_price || 0) *
+                                Number(item.quantity || 0),
+                            "MXN"
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </section>
+    </main>
+  );
+}
