@@ -8,6 +8,7 @@ import {
   HardHat,
   MapPin,
   Pencil,
+  ShoppingCart,
   UserRound,
   WalletCards,
 } from "lucide-react";
@@ -51,7 +52,6 @@ type Quote = {
 const pendingText = "En espera de llenado";
 
 const futureModules = [
-  "Compras",
   "Agenda",
   "Control de cambios",
 ];
@@ -348,6 +348,24 @@ export default async function ProjectDetailPage({
               >
                 <WalletCards size={18} />
                 Ver estado
+              </Link>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5 sm:p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-2xl font-semibold">Compras de equipo</h2>
+                <p className="mt-2 text-sm text-[#B3B3B8]">
+                  Control interno de equipo comprado, pendiente, bodega y obra.
+                </p>
+              </div>
+              <Link
+                href={`/projects/${projectData.id}/purchases`}
+                className="inline-flex w-fit items-center gap-2 rounded-xl border border-[#2A2A30] bg-[#222228] px-5 py-3 font-semibold text-[#B3B3B8] hover:bg-[#2A2A30] hover:text-white"
+              >
+                <ShoppingCart size={18} />
+                Ver compras
               </Link>
             </div>
           </section>
