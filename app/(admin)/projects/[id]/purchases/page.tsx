@@ -35,6 +35,7 @@ type Quote = {
 type QuoteItem = {
   id: number;
   quote_id: number;
+  quote_section_id: number | null;
   product_id: number | null;
   quantity: number | null;
   sale_currency: string | null;
@@ -44,6 +45,12 @@ type QuoteItem = {
   product_model: string | null;
   product_name: string | null;
   product_image_url: string | null;
+};
+
+type QuoteSection = {
+  id: number;
+  quote_id: number;
+  name: string | null;
 };
 
 type Product = {
@@ -137,6 +144,66 @@ function getVariationClass(status: string) {
   return "border-[#3A3A42] bg-[#222228] text-[#B3B3B8]";
 }
 
+function getConsolidationKey(line: PurchaseLine) {
+  if (line.product_id) return `product:${line.product_id}`;
+
+  return [
+    "manual",
+    getSupplier(line.supplier).toLowerCase(),
+    (line.product_brand || "").trim().toLowerCase(),
+    (line.product_model || "").trim().toLowerCase(),
+    (line.product_name || "").trim().toLowerCase(),
+    (line.cost_currency || "USD").toUpperCase(),
+    Number(line.unit_cost || 0).toFixed(4),
+  ].join("|");
+}
+
+function combineVariations(
+  childLines: Array<PurchaseLine & { variation: ReturnType<typeof getPurchaseLineVariation> }>
+) {
+  const purchasedQuantity = childLines.reduce(
+    (sum, line) => sum + Number(line.variation.purchasedQuantity || 0),
+    0
+  );
+  const estimated = childLines.reduce(
+    (sum, line) => sum + Number(line.variation.estimated || 0),
+    0
+  );
+  const real = childLines.reduce((sum, line) => sum + Number(line.variation.real || 0), 0);
+  const variation = estimated - real;
+  const missingExchangeRate = childLines.some((line) => line.variation.missingExchangeRate);
+  const firstLine = childLines[0];
+
+  return {
+    currency: "MXN",
+    estimatedCurrency: firstLine?.variation.estimatedCurrency || "USD",
+    estimatedUnitCost: firstLine?.variation.estimatedUnitCost || 0,
+    estimatedUnitCostMxn: firstLine?.variation.estimatedUnitCostMxn || 0,
+    estimatedExchangeRate: firstLine?.variation.estimatedExchangeRate || 0,
+    realUnitCostAverage: purchasedQuantity > 0 ? real / purchasedQuantity : 0,
+    purchasedQuantity,
+    estimated,
+    real,
+    variation,
+    percent: estimated > 0 ? (variation / estimated) * 100 : 0,
+    status:
+      purchasedQuantity <= 0
+        ? "no_purchases"
+        : missingExchangeRate
+          ? "missing_exchange_rate"
+          : variation > 0
+            ? "saving"
+            : variation < 0
+              ? "overrun"
+              : "neutral",
+    missingExchangeRate,
+    skippedQuantity: childLines.reduce(
+      (sum, line) => sum + Number(line.variation.skippedQuantity || 0),
+      0
+    ),
+  };
+}
+
 export default async function ProjectPurchasesPage({
   params,
 }: {
@@ -191,29 +258,39 @@ export default async function ProjectPurchasesPage({
   const exchangeRateByQuoteId = new Map(
     quotes.map((quote) => [quote.id, Number(quote.exchange_rate || 0)])
   );
+  const quoteNumberById = new Map(
+    quotes.map((quote) => [quote.id, quote.quote_number || `Cotizacion ${quote.id}`])
+  );
 
   let purchaseSqlError: string | null = null;
-  const [{ data: rawQuoteItems }, existingLinesResult] =
+  const [{ data: rawQuoteItems }, { data: rawQuoteSections }, existingLinesResult] =
     quoteIds.length > 0
       ? await Promise.all([
           supabase
             .from("quote_items")
             .select(
-              "id, quote_id, product_id, quantity, sale_currency, unit_equipment_price, unit_equipment_price_usd, product_brand, product_model, product_name, product_image_url"
+              "id, quote_id, quote_section_id, product_id, quantity, sale_currency, unit_equipment_price, unit_equipment_price_usd, product_brand, product_model, product_name, product_image_url"
             )
+            .in("quote_id", quoteIds),
+          supabase
+            .from("quote_sections")
+            .select("id, quote_id, name")
             .in("quote_id", quoteIds),
           supabase
             .from("project_purchase_lines")
             .select("id, quote_item_id")
             .eq("client_project_id", projectData.id),
         ])
-      : [{ data: [] }, { data: [], error: null }];
+      : [{ data: [] }, { data: [] }, { data: [], error: null }];
 
   if (existingLinesResult.error) {
     purchaseSqlError = existingLinesResult.error.message;
   }
 
   const quoteItems = (rawQuoteItems || []) as QuoteItem[];
+  const quoteSections = (rawQuoteSections || []) as QuoteSection[];
+  const quoteItemsById = new Map(quoteItems.map((item) => [item.id, item]));
+  const quoteSectionsById = new Map(quoteSections.map((section) => [section.id, section]));
   const productIds = Array.from(
     new Set(quoteItems.map((item) => item.product_id).filter(Boolean) as number[])
   );
@@ -290,7 +367,7 @@ export default async function ProjectPurchasesPage({
   const lines = ((rawLines || []) as PurchaseLine[]).map((line) => {
     const productItem = line.product_id ? productsById.get(line.product_id) : null;
     const quoteItem = line.quote_item_id
-      ? quoteItems.find((item) => item.id === line.quote_item_id)
+      ? quoteItemsById.get(line.quote_item_id)
       : null;
 
     return {
@@ -334,33 +411,131 @@ export default async function ProjectPurchasesPage({
         Math.abs(b.variation.variation) - Math.abs(a.variation.variation) ||
         Number(b.total_required_cost || 0) - Number(a.total_required_cost || 0)
     );
-  const groupedLines = Array.from(
+  const consolidatedLines = Array.from(
     linesWithVariation.reduce((map, line) => {
-      const supplier = getSupplier(line.supplier);
-      const existing = map.get(supplier) || [];
-      map.set(supplier, [...existing, line]);
+      const key = getConsolidationKey(line);
+      const existing = map.get(key) || [];
+      map.set(key, [...existing, line]);
       return map;
     }, new Map<string, typeof linesWithVariation>())
-  ).sort(([a], [b]) => a.localeCompare(b));
+  )
+    .map(([key, childLines]) => {
+      const representative = childLines[0];
+      const quantityRequired = childLines.reduce(
+        (sum, line) => sum + Number(line.quantity_required || 0),
+        0
+      );
+      const quantityPurchased = childLines.reduce(
+        (sum, line) => sum + Number(line.quantity_purchased || 0),
+        0
+      );
+      const totalRequiredCost = childLines.reduce(
+        (sum, line) => sum + Number(line.total_required_cost || 0),
+        0
+      );
+      const totalPurchasedCost = childLines.reduce(
+        (sum, line) => sum + Number(line.total_purchased_cost || 0),
+        0
+      );
+      const totalPendingCost = childLines.reduce(
+        (sum, line) => sum + Number(line.total_pending_cost || 0),
+        0
+      );
+      const eventsForGroup = childLines.flatMap((line) => eventsByLine.get(line.id) || []);
+      const variation = combineVariations(childLines);
+      const origins = Array.from(
+        new Set(
+          childLines.map((line) => {
+            const quoteItem = line.quote_item_id ? quoteItemsById.get(line.quote_item_id) : null;
+            const quoteLabel = quoteItem
+              ? quoteNumberById.get(quoteItem.quote_id) || `Cotizacion ${quoteItem.quote_id}`
+              : "Sin cotizacion";
+            const sectionLabel = quoteItem?.quote_section_id
+              ? quoteSectionsById.get(quoteItem.quote_section_id)?.name
+              : null;
 
-  const actionLines: PurchaseLineAction[] = lines.map((line) => ({
-    id: line.id,
-    supplier: line.supplier,
-    product_brand: line.product_brand,
-    product_model: line.product_model,
-    product_name: line.product_name,
-    quantity_required: Number(line.quantity_required || 0),
-    quantity_purchased: Number(line.quantity_purchased || 0),
-    cost_currency: line.cost_currency || "USD",
-    unit_cost:
-      Number(line.quantity_required || 0) > 0
-        ? Number(line.total_required_cost || 0) / Number(line.quantity_required || 0)
-        : Number(line.unit_cost || 0),
-    total_required_cost: Number(line.total_required_cost || 0),
-    total_purchased_cost: Number(line.total_purchased_cost || 0),
-    total_pending_cost: Number(line.total_pending_cost || 0),
-    exchange_rate: Number(line.exchange_rate || 0) || null,
-  }));
+            return sectionLabel ? `${quoteLabel} - ${sectionLabel}` : quoteLabel;
+          })
+        )
+      );
+      const displayStatus = getDisplayStatus(
+        quantityPurchased >= quantityRequired
+          ? "purchased"
+          : quantityPurchased > 0
+            ? "partial"
+            : "pending",
+        eventsForGroup
+      );
+      const unitCost =
+        Number(representative.quantity_required || 0) > 0
+          ? Number(representative.total_required_cost || 0) /
+            Number(representative.quantity_required || 0)
+          : Number(representative.unit_cost || 0);
+      const actionLine: PurchaseLineAction = {
+        id: representative.id,
+        supplier: representative.supplier,
+        product_brand: representative.product_brand,
+        product_model: representative.product_model,
+        product_name: representative.product_name,
+        quantity_required: quantityRequired,
+        quantity_purchased: quantityPurchased,
+        cost_currency: representative.cost_currency || "USD",
+        unit_cost: unitCost,
+        total_required_cost: totalRequiredCost,
+        total_purchased_cost: totalPurchasedCost,
+        total_pending_cost: totalPendingCost,
+        exchange_rate: Number(representative.exchange_rate || 0) || null,
+        child_lines: childLines
+          .sort((a, b) => {
+            const aPending =
+              Number(a.quantity_required || 0) - Number(a.quantity_purchased || 0);
+            const bPending =
+              Number(b.quantity_required || 0) - Number(b.quantity_purchased || 0);
+            return Number(bPending > 0) - Number(aPending > 0) || a.id - b.id;
+          })
+          .map((line) => ({
+            id: line.id,
+            supplier: line.supplier,
+            quantity_required: Number(line.quantity_required || 0),
+            quantity_purchased: Number(line.quantity_purchased || 0),
+            unit_cost:
+              Number(line.quantity_required || 0) > 0
+                ? Number(line.total_required_cost || 0) / Number(line.quantity_required || 0)
+                : Number(line.unit_cost || 0),
+            total_required_cost: Number(line.total_required_cost || 0),
+            total_purchased_cost: Number(line.total_purchased_cost || 0),
+          })),
+      };
+
+      return {
+        key,
+        representative,
+        childLines,
+        events: eventsForGroup,
+        origins,
+        originText: origins.join(" / "),
+        quantity_required: quantityRequired,
+        quantity_purchased: quantityPurchased,
+        total_required_cost: totalRequiredCost,
+        total_purchased_cost: totalPurchasedCost,
+        total_pending_cost: totalPendingCost,
+        displayStatus,
+        variation,
+        actionLine,
+      };
+    })
+    .sort(
+      (a, b) =>
+        getSupplier(a.representative.supplier).localeCompare(
+          getSupplier(b.representative.supplier)
+        ) ||
+        Math.abs(b.variation.variation) - Math.abs(a.variation.variation) ||
+        Number(b.total_required_cost || 0) - Number(a.total_required_cost || 0)
+    );
+
+  const actionLines: PurchaseLineAction[] = consolidatedLines.map(
+    (line) => line.actionLine
+  );
   const actionEvents: PurchaseEventAction[] = events.map((eventItem) => ({
     id: eventItem.id,
     project_purchase_line_id: eventItem.project_purchase_line_id,
@@ -409,8 +584,8 @@ export default async function ProjectPurchasesPage({
           <p className="mt-1 text-lg font-bold">{formatNumber(progressPercent)}%</p>
         </div>
         <div className="rounded-lg border border-[#1F1F24] bg-[#151518] p-3">
-          <p className="text-xs text-[#B3B3B8]">Lineas</p>
-          <p className="mt-1 text-lg font-bold">{lines.length}</p>
+          <p className="text-xs text-[#B3B3B8]">Lineas consolidadas</p>
+          <p className="mt-1 text-lg font-bold">{consolidatedLines.length}</p>
         </div>
         <div className="rounded-lg border border-[#1F1F24] bg-[#151518] p-3">
           <p className="text-xs text-[#B3B3B8]">Ahorro</p>
@@ -463,19 +638,20 @@ export default async function ProjectPurchasesPage({
       ) : null}
 
       <section className="rounded-xl border border-[#1F1F24] bg-[#151518]">
-        {linesWithVariation.length === 0 ? (
+        {consolidatedLines.length === 0 ? (
           <div className="p-8 text-[#77777D]">
             No hay partidas de equipo sincronizadas para este proyecto.
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1480px] border-collapse text-xs">
+            <table className="w-full min-w-[1580px] border-collapse text-xs">
               <thead>
                 <tr className="border-b border-[#2A2A30] bg-[#101114] text-left text-[#B3B3B8]">
                   <th className="px-3 py-2 font-semibold">Proveedor</th>
                   <th className="px-3 py-2 font-semibold">Marca</th>
                   <th className="px-3 py-2 font-semibold">Modelo</th>
                   <th className="px-3 py-2 font-semibold">Descripcion</th>
+                  <th className="px-3 py-2 font-semibold">Origen</th>
                   <th className="px-3 py-2 text-right font-semibold">Req.</th>
                   <th className="px-3 py-2 text-right font-semibold">Comprado</th>
                   <th className="px-3 py-2 text-right font-semibold">Pendiente</th>
@@ -489,16 +665,12 @@ export default async function ProjectPurchasesPage({
                 </tr>
               </thead>
               <tbody>
-                {linesWithVariation.map((line) => {
+                {consolidatedLines.map((line) => {
+                  const representative = line.representative;
                   const pendingQuantity = Math.max(
                     Number(line.quantity_required || 0) -
                       Number(line.quantity_purchased || 0),
                     0
-                  );
-                  const lineEvents = eventsByLine.get(line.id) || [];
-                  const displayStatus = getDisplayStatus(
-                    line.purchase_status,
-                    lineEvents
                   );
                   const variationIsVisible =
                     line.variation.status !== "no_purchases" &&
@@ -506,16 +678,22 @@ export default async function ProjectPurchasesPage({
 
                   return (
                     <tr
-                      key={line.id}
+                      key={line.key}
                       className="border-b border-[#222228] align-top hover:bg-[#1A1A1F]"
                     >
-                      <td className="px-3 py-2">{getSupplier(line.supplier)}</td>
-                      <td className="px-3 py-2">{line.product_brand || "-"}</td>
+                      <td className="px-3 py-2">{getSupplier(representative.supplier)}</td>
+                      <td className="px-3 py-2">{representative.product_brand || "-"}</td>
                       <td className="px-3 py-2 font-semibold">
-                        {line.product_model || "-"}
+                        {representative.product_model || "-"}
                       </td>
                       <td className="max-w-[260px] truncate px-3 py-2 text-[#B3B3B8]">
-                        {line.product_name || "Sin descripcion"}
+                        {representative.product_name || "Sin descripcion"}
+                      </td>
+                      <td
+                        className="max-w-[240px] truncate px-3 py-2 text-[#77777D]"
+                        title={line.originText}
+                      >
+                        {line.originText || "Sin origen"}
                       </td>
                       <td className="px-3 py-2 text-right">
                         {formatNumber(line.quantity_required)}
@@ -585,10 +763,10 @@ export default async function ProjectPurchasesPage({
                       <td className="px-3 py-2">
                         <span
                           className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-semibold ${getStatusClass(
-                            displayStatus
+                            line.displayStatus
                           )}`}
                         >
-                          {getStatusLabel(displayStatus)}
+                          {getStatusLabel(line.displayStatus)}
                         </span>
                       </td>
                       <td className="px-3 py-2">
@@ -596,16 +774,16 @@ export default async function ProjectPurchasesPage({
                           <ProjectPurchaseActions
                             lines={actionLines}
                             events={actionEvents}
-                            triggerLineId={line.id}
+                            triggerLineId={line.actionLine.id}
                             triggerLabel="Comprar"
                           />
-                          {lineEvents.length > 0 ? (
+                          {line.events.length > 0 ? (
                             <details className="rounded-lg border border-[#2A2A30] bg-[#101114] px-2 py-1">
                               <summary className="cursor-pointer text-[11px] font-semibold text-[#B3B3B8]">
-                                {lineEvents.length} compras
+                                {line.events.length} compras
                               </summary>
                               <div className="mt-2 space-y-2">
-                                {lineEvents.map((eventItem) => (
+                                {line.events.map((eventItem) => (
                                   <div
                                     key={eventItem.id}
                                     className="rounded-md border border-[#2A2A30] p-2"
@@ -631,7 +809,7 @@ export default async function ProjectPurchasesPage({
                                     <div className="mt-2">
                                       <WarehouseEventActions
                                         eventId={eventItem.id}
-                                        lineId={line.id}
+                                        lineId={eventItem.project_purchase_line_id}
                                         currentStatus={eventItem.warehouse_status}
                                       />
                                     </div>

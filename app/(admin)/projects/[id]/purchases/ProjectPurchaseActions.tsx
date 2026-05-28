@@ -19,12 +19,23 @@ export type PurchaseLineAction = {
   total_purchased_cost: number;
   total_pending_cost: number;
   exchange_rate: number | null;
+  child_lines?: PurchaseLineAllocation[];
 };
 
 export type PurchaseEventAction = {
   id: number;
   project_purchase_line_id: number;
   warehouse_status: string | null;
+};
+
+type PurchaseLineAllocation = {
+  id: number;
+  supplier: string | null;
+  quantity_required: number;
+  quantity_purchased: number;
+  unit_cost: number;
+  total_required_cost: number;
+  total_purchased_cost: number;
 };
 
 type Props = {
@@ -57,6 +68,12 @@ function getStatus(quantityPurchased: number, quantityRequired: number) {
   if (quantityPurchased <= 0) return "pending";
   if (quantityPurchased >= quantityRequired) return "purchased";
   return "partial";
+}
+
+function getEstimatedUnitCost(line: PurchaseLineAllocation | PurchaseLineAction) {
+  return Number(line.quantity_required || 0) > 0
+    ? Number(line.total_required_cost || 0) / Number(line.quantity_required || 0)
+    : Number(line.unit_cost || 0);
 }
 
 export default function ProjectPurchaseActions({
@@ -131,20 +148,71 @@ export default function ProjectPurchaseActions({
       return;
     }
 
+    const targetLines =
+      selectedLine.child_lines && selectedLine.child_lines.length > 0
+        ? selectedLine.child_lines
+        : [
+            {
+              id: selectedLine.id,
+              supplier: selectedLine.supplier,
+              quantity_required: selectedLine.quantity_required,
+              quantity_purchased: selectedLine.quantity_purchased,
+              unit_cost: selectedLine.unit_cost,
+              total_required_cost: selectedLine.total_required_cost,
+              total_purchased_cost: selectedLine.total_purchased_cost,
+            },
+          ];
+    const totalPendingQuantity = targetLines.reduce(
+      (sum, line) =>
+        sum +
+        Math.max(Number(line.quantity_required || 0) - Number(line.quantity_purchased || 0), 0),
+      0
+    );
+
+    if (numericQuantity > totalPendingQuantity + 0.0001) {
+      alert("La cantidad capturada excede la cantidad pendiente del grupo.");
+      return;
+    }
+
+    let remainingQuantity = numericQuantity;
+    const allocations = targetLines
+      .map((line, index) => {
+        const pendingQuantity = Math.max(
+          Number(line.quantity_required || 0) - Number(line.quantity_purchased || 0),
+          0
+        );
+        const isLast = index === targetLines.length - 1;
+        const allocatedQuantity = Math.min(
+          remainingQuantity,
+          isLast ? remainingQuantity : pendingQuantity
+        );
+        remainingQuantity -= allocatedQuantity;
+
+        return {
+          line,
+          quantity: allocatedQuantity,
+        };
+      })
+      .filter((allocation) => allocation.quantity > 0);
+
     setSaving(true);
 
-    const { error: eventError } = await supabase.from("project_purchase_events").insert({
-      project_purchase_line_id: selectedLine.id,
+    const eventRows = allocations.map((allocation) => ({
+      project_purchase_line_id: allocation.line.id,
       purchase_date: purchaseDate,
-      quantity: numericQuantity,
+      quantity: allocation.quantity,
       unit_cost: numericUnitCost,
       cost_currency: costCurrency,
       exchange_rate: numericExchangeRate,
-      supplier: supplier.trim() || selectedLine.supplier || null,
+      supplier: supplier.trim() || selectedLine.supplier || allocation.line.supplier || null,
       invoice_reference: invoiceReference.trim() || null,
       warehouse_status: "pending",
       notes: notes.trim() || null,
-    });
+    }));
+
+    const { error: eventError } = await supabase
+      .from("project_purchase_events")
+      .insert(eventRows);
 
     if (eventError) {
       setSaving(false);
@@ -152,42 +220,40 @@ export default function ProjectPurchaseActions({
       return;
     }
 
-    const nextQuantityPurchased =
-      Number(selectedLine.quantity_purchased || 0) + numericQuantity;
-    const nextPurchasedCost =
-      Number(selectedLine.total_purchased_cost || 0) + numericQuantity * numericUnitCost;
-    const estimatedUnitCost =
-      Number(selectedLine.quantity_required || 0) > 0
-        ? Number(selectedLine.total_required_cost || 0) /
-          Number(selectedLine.quantity_required || 0)
-        : Number(selectedLine.unit_cost || 0);
-    const estimatedPurchasedCost =
-      Number(selectedLine.quantity_purchased || 0) * estimatedUnitCost +
-      numericQuantity * estimatedUnitCost;
-    const nextPendingCost = Math.max(
-      Number(selectedLine.total_required_cost || 0) - estimatedPurchasedCost,
-      0
-    );
+    for (const allocation of allocations) {
+      const targetLine = allocation.line;
+      const estimatedUnitCost = getEstimatedUnitCost(targetLine);
+      const nextQuantityPurchased =
+        Number(targetLine.quantity_purchased || 0) + allocation.quantity;
+      const nextPurchasedCost =
+        Number(targetLine.total_purchased_cost || 0) +
+        allocation.quantity * numericUnitCost;
+      const estimatedPurchasedCost = nextQuantityPurchased * estimatedUnitCost;
+      const nextPendingCost = Math.max(
+        Number(targetLine.total_required_cost || 0) - estimatedPurchasedCost,
+        0
+      );
 
-    const { error: lineError } = await supabase
-      .from("project_purchase_lines")
-      .update({
-        supplier: supplier.trim() || selectedLine.supplier || null,
-        quantity_purchased: nextQuantityPurchased,
-        total_purchased_cost: nextPurchasedCost,
-        total_pending_cost: nextPendingCost,
-        purchase_status: getStatus(
-          nextQuantityPurchased,
-          Number(selectedLine.quantity_required || 0)
-        ),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", selectedLine.id);
+      const { error: lineError } = await supabase
+        .from("project_purchase_lines")
+        .update({
+          supplier: supplier.trim() || selectedLine.supplier || targetLine.supplier || null,
+          quantity_purchased: nextQuantityPurchased,
+          total_purchased_cost: nextPurchasedCost,
+          total_pending_cost: nextPendingCost,
+          purchase_status: getStatus(
+            nextQuantityPurchased,
+            Number(targetLine.quantity_required || 0)
+          ),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", targetLine.id);
 
-    if (lineError) {
-      setSaving(false);
-      reportError("actualizar linea de compra", lineError);
-      return;
+      if (lineError) {
+        setSaving(false);
+        reportError("actualizar linea de compra", lineError);
+        return;
+      }
     }
 
     setSaving(false);
