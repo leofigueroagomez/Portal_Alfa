@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, CalendarDays, FileText, UserRound } from "lucide-react";
+import { ArrowLeft, CalendarDays, FileText, Pencil, UserRound } from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 
 type ServerSupabaseStorage = Awaited<ReturnType<typeof createSupabaseServerClient>>["storage"];
@@ -172,13 +172,22 @@ export default async function SiteVisitDetailPage({
           </p>
         </div>
 
-        <Link
-          href={`/projects/${id}/site-visits/${visitId}/print`}
-          className="inline-flex w-fit items-center gap-2 rounded-xl bg-[#9E1B32] px-5 py-3 font-semibold hover:bg-[#B91C3C]"
-        >
-          <FileText size={18} />
-          Imprimir / PDF
-        </Link>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Link
+            href={`/projects/${id}/site-visits/${visitId}/edit`}
+            className="inline-flex w-fit items-center gap-2 rounded-xl border border-[#2A2A30] bg-[#222228] px-5 py-3 font-semibold text-[#B3B3B8] hover:bg-[#2A2A30] hover:text-white"
+          >
+            <Pencil size={18} />
+            Editar reporte
+          </Link>
+          <Link
+            href={`/projects/${id}/site-visits/${visitId}/print`}
+            className="inline-flex w-fit items-center gap-2 rounded-xl bg-[#9E1B32] px-5 py-3 font-semibold hover:bg-[#B91C3C]"
+          >
+            <FileText size={18} />
+            Imprimir / PDF
+          </Link>
+        </div>
       </section>
 
       <section className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">

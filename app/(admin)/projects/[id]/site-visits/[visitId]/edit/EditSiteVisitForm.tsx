@@ -1,36 +1,53 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/services/supabase";
 
-type EvidencePhotoForm = {
-  file: File;
-  previewUrl: string;
+type ExistingPhoto = {
+  id: number;
+  image_url: string | null;
   caption: string;
+  sort_order: number | null;
+  displayUrl: string;
 };
 
-type VisitNoteForm = {
+type EditablePhoto = ExistingPhoto & {
+  file?: File;
+  previewUrl?: string;
+  isNew?: boolean;
+};
+
+type EditableNote = {
+  id?: number;
   note_text: string;
   informed_to: string;
   commitment_date: string;
-  photos: EvidencePhotoForm[];
+  photos: EditablePhoto[];
+};
+
+type InitialVisit = {
+  title: string;
+  visit_date: string;
+  general_notes: string;
+  notes: EditableNote[];
 };
 
 type Props = {
   projectId: number;
+  visitId: number;
+  initialVisit: InitialVisit;
 };
 
-const emptyNote: VisitNoteForm = {
-  note_text: "",
-  informed_to: "",
-  commitment_date: "",
-  photos: [],
-};
-
-function createEmptyNote(): VisitNoteForm {
-  return { ...emptyNote, photos: [] };
+function createEmptyNote(): EditableNote {
+  return {
+    note_text: "",
+    informed_to: "",
+    commitment_date: "",
+    photos: [],
+  };
 }
 
 function sanitizeFileName(fileName: string) {
@@ -42,17 +59,41 @@ function sanitizeFileName(fileName: string) {
     .toLowerCase();
 }
 
-export default function NewSiteVisitForm({ projectId }: Props) {
+export default function EditSiteVisitForm({
+  projectId,
+  visitId,
+  initialVisit,
+}: Props) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
-  const [title, setTitle] = useState("");
-  const [visitDate, setVisitDate] = useState(new Date().toISOString().slice(0, 10));
-  const [generalNotes, setGeneralNotes] = useState("");
-  const [notes, setNotes] = useState<VisitNoteForm[]>([createEmptyNote()]);
+  const [title, setTitle] = useState(initialVisit.title);
+  const [visitDate, setVisitDate] = useState(initialVisit.visit_date);
+  const [generalNotes, setGeneralNotes] = useState(initialVisit.general_notes);
+  const [notes, setNotes] = useState<EditableNote[]>(
+    initialVisit.notes.length ? initialVisit.notes : [createEmptyNote()]
+  );
+
+  const initialNoteIds = useMemo(
+    () => initialVisit.notes.flatMap((note) => (note.id ? [note.id] : [])),
+    [initialVisit.notes]
+  );
+
+  function reportError(step: string, error: unknown) {
+    const message =
+      error &&
+      typeof error === "object" &&
+      "message" in error &&
+      typeof error.message === "string"
+        ? ` ${error.message}`
+        : "";
+
+    console.error(`Error en ${step}:`, error);
+    alert(`Error en ${step}: ${JSON.stringify(error)}${message}`);
+  }
 
   function updateNote(
     index: number,
-    field: Exclude<keyof VisitNoteForm, "photos">,
+    field: Exclude<keyof EditableNote, "id" | "photos">,
     value: string
   ) {
     setNotes((current) =>
@@ -67,6 +108,16 @@ export default function NewSiteVisitForm({ projectId }: Props) {
   }
 
   function removeNote(index: number) {
+    const note = notes[index];
+    const hasPhotos = (note?.photos.length || 0) > 0;
+    const confirmed = window.confirm(
+      hasPhotos
+        ? "Esta nota tiene fotos. Si la eliminas tambien se eliminaran sus fotos relacionadas. Continuar?"
+        : "Eliminar esta nota?"
+    );
+
+    if (!confirmed) return;
+
     setNotes((current) =>
       current.length === 1
         ? [createEmptyNote()]
@@ -79,10 +130,15 @@ export default function NewSiteVisitForm({ projectId }: Props) {
 
     const photos = Array.from(files)
       .filter((file) => file.type.startsWith("image/"))
-      .map((file) => ({
+      .map((file, index) => ({
+        id: -Date.now() - index,
+        image_url: null,
+        caption: "",
+        sort_order: null,
+        displayUrl: "",
         file,
         previewUrl: URL.createObjectURL(file),
-        caption: "",
+        isNew: true,
       }));
 
     if (photos.length === 0) {
@@ -99,7 +155,11 @@ export default function NewSiteVisitForm({ projectId }: Props) {
     );
   }
 
-  function updatePhotoCaption(noteIndex: number, photoIndex: number, caption: string) {
+  function updatePhotoCaption(
+    noteIndex: number,
+    photoIndex: number,
+    caption: string
+  ) {
     setNotes((current) =>
       current.map((note, currentIndex) =>
         currentIndex === noteIndex
@@ -115,34 +175,54 @@ export default function NewSiteVisitForm({ projectId }: Props) {
   }
 
   function removePhoto(noteIndex: number, photoIndex: number) {
+    const confirmed = window.confirm("Eliminar esta foto del reporte?");
+    if (!confirmed) return;
+
     setNotes((current) =>
       current.map((note, currentIndex) => {
         if (currentIndex !== noteIndex) return note;
 
         const photoToRemove = note.photos[photoIndex];
-        if (photoToRemove) {
+        if (photoToRemove?.previewUrl) {
           URL.revokeObjectURL(photoToRemove.previewUrl);
         }
 
         return {
           ...note,
-          photos: note.photos.filter((_, currentPhotoIndex) => currentPhotoIndex !== photoIndex),
+          photos: note.photos.filter(
+            (_, currentPhotoIndex) => currentPhotoIndex !== photoIndex
+          ),
         };
       })
     );
   }
 
-  function reportError(step: string, error: unknown) {
-    const message =
-      error &&
-      typeof error === "object" &&
-      "message" in error &&
-      typeof error.message === "string"
-        ? ` ${error.message}`
-        : "";
+  async function uploadPhoto(
+    noteId: number,
+    photo: EditablePhoto,
+    photoIndex: number
+  ) {
+    if (!photo.file) return null;
 
-    console.error(`Error en ${step}:`, error);
-    alert(`Error en ${step}: ${JSON.stringify(error)}${message}`);
+    const safeName = sanitizeFileName(photo.file.name);
+    const filePath = `site-visits/${visitId}/${noteId}/${Date.now()}-${photoIndex}-${safeName}`;
+    const { error: uploadError } = await supabase.storage
+      .from("project-photos")
+      .upload(filePath, photo.file, {
+        cacheControl: "3600",
+        upsert: false,
+      });
+
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    return {
+      project_site_visit_note_id: noteId,
+      image_url: filePath,
+      caption: photo.caption.trim() || null,
+      sort_order: photoIndex,
+    };
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -155,10 +235,10 @@ export default function NewSiteVisitForm({ projectId }: Props) {
 
     const cleanNotes = notes
       .map((note) => ({
+        ...note,
         note_text: note.note_text.trim(),
         informed_to: note.informed_to.trim(),
         commitment_date: note.commitment_date,
-        photos: note.photos,
       }))
       .filter((note) => note.note_text);
 
@@ -169,112 +249,175 @@ export default function NewSiteVisitForm({ projectId }: Props) {
 
     setSaving(true);
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+    const { error: visitError } = await supabase
+      .from("project_site_visits")
+      .update({
+        title: title.trim(),
+        visit_date: visitDate,
+        general_notes: generalNotes.trim() || null,
+      })
+      .eq("id", visitId)
+      .eq("client_project_id", projectId);
 
-    if (userError) {
+    if (visitError) {
       setSaving(false);
-      reportError("leer usuario actual", userError);
+      reportError("actualizar visita de obra", visitError);
       return;
     }
 
-    const { data: visit, error: visitError } = await supabase
-      .from("project_site_visits")
-      .insert({
-        client_project_id: projectId,
-        created_by_user_id: user?.id || null,
-        visit_date: visitDate,
-        title: title.trim(),
-        general_notes: generalNotes.trim() || null,
-      })
-      .select("id")
-      .single();
+    const keptExistingNoteIds = cleanNotes.flatMap((note) =>
+      note.id ? [note.id] : []
+    );
+    const noteIdsToDelete = initialNoteIds.filter(
+      (noteId) => !keptExistingNoteIds.includes(noteId)
+    );
 
-    if (visitError || !visit) {
-      setSaving(false);
-      reportError(
-        "crear visita de obra",
-        visitError || { message: "No se recibio visita creada" }
-      );
-      return;
+    if (noteIdsToDelete.length > 0) {
+      const { error: deleteNotesError } = await supabase
+        .from("project_site_visit_notes")
+        .delete()
+        .in("id", noteIdsToDelete)
+        .eq("project_site_visit_id", visitId);
+
+      if (deleteNotesError) {
+        setSaving(false);
+        reportError("eliminar notas quitadas", deleteNotesError);
+        return;
+      }
     }
 
     for (const [noteIndex, note] of cleanNotes.entries()) {
-      const { data: savedNote, error: noteError } = await supabase
-        .from("project_site_visit_notes")
-        .insert({
-          project_site_visit_id: visit.id,
-          note_text: note.note_text,
-          informed_to: note.informed_to || null,
-          commitment_date: note.commitment_date || null,
-        })
-        .select("id")
-        .single();
+      let noteId = note.id || null;
 
-      if (noteError || !savedNote) {
-        setSaving(false);
-        reportError(
-          `guardar nota ${noteIndex + 1}`,
-          noteError || { message: "No se recibio nota creada" }
-        );
-        return;
-      }
+      if (noteId) {
+        const { error: updateNoteError } = await supabase
+          .from("project_site_visit_notes")
+          .update({
+            note_text: note.note_text,
+            informed_to: note.informed_to || null,
+            commitment_date: note.commitment_date || null,
+          })
+          .eq("id", noteId)
+          .eq("project_site_visit_id", visitId);
 
-      const uploadedPhotos = [];
-
-      for (const [photoIndex, photo] of note.photos.entries()) {
-        const safeName = sanitizeFileName(photo.file.name);
-        const filePath = `site-visits/${visit.id}/${savedNote.id}/${Date.now()}-${photoIndex}-${safeName}`;
-        const { error: uploadError } = await supabase.storage
-          .from("project-photos")
-          .upload(filePath, photo.file, {
-            cacheControl: "3600",
-            upsert: false,
-          });
-
-        if (uploadError) {
+        if (updateNoteError) {
           setSaving(false);
-          reportError(`subir foto ${photoIndex + 1} de nota ${noteIndex + 1}`, uploadError);
+          reportError(`actualizar nota ${noteIndex + 1}`, updateNoteError);
+          return;
+        }
+      } else {
+        const { data: savedNote, error: insertNoteError } = await supabase
+          .from("project_site_visit_notes")
+          .insert({
+            project_site_visit_id: visitId,
+            note_text: note.note_text,
+            informed_to: note.informed_to || null,
+            commitment_date: note.commitment_date || null,
+          })
+          .select("id")
+          .single();
+
+        if (insertNoteError || !savedNote) {
+          setSaving(false);
+          reportError(
+            `crear nota ${noteIndex + 1}`,
+            insertNoteError || { message: "No se recibio nota creada" }
+          );
           return;
         }
 
-        uploadedPhotos.push({
-          project_site_visit_note_id: savedNote.id,
-          image_url: filePath,
-          caption: photo.caption.trim() || null,
-          sort_order: photoIndex,
-        });
+        noteId = savedNote.id;
       }
 
-      if (uploadedPhotos.length > 0) {
-        const { error: photosError } = await supabase
-          .from("project_site_visit_note_photos")
-          .insert(uploadedPhotos);
+      if (!noteId) {
+        setSaving(false);
+        reportError(`resolver nota ${noteIndex + 1}`, {
+          message: "No se pudo obtener id de nota",
+        });
+        return;
+      }
 
-        if (photosError) {
+      const existingPhotoIds = initialVisit.notes
+        .find((initialNote) => initialNote.id === note.id)
+        ?.photos.flatMap((photo) => (!photo.isNew ? [photo.id] : [])) || [];
+      const keptExistingPhotoIds = note.photos.flatMap((photo) =>
+        !photo.isNew && photo.id > 0 ? [photo.id] : []
+      );
+      const photoIdsToDelete = existingPhotoIds.filter(
+        (photoId) => !keptExistingPhotoIds.includes(photoId)
+      );
+
+      if (photoIdsToDelete.length > 0) {
+        const { error: deletePhotosError } = await supabase
+          .from("project_site_visit_note_photos")
+          .delete()
+          .in("id", photoIdsToDelete)
+          .eq("project_site_visit_note_id", noteId);
+
+        if (deletePhotosError) {
           setSaving(false);
-          reportError(`guardar fotos de nota ${noteIndex + 1}`, photosError);
+          reportError(`eliminar fotos de nota ${noteIndex + 1}`, deletePhotosError);
+          return;
+        }
+      }
+
+      const photosToInsert = [];
+
+      for (const [photoIndex, photo] of note.photos.entries()) {
+        if (photo.isNew) {
+          try {
+            const uploadedPhoto = await uploadPhoto(noteId, photo, photoIndex);
+            if (uploadedPhoto) photosToInsert.push(uploadedPhoto);
+          } catch (error) {
+            setSaving(false);
+            reportError(
+              `subir foto ${photoIndex + 1} de nota ${noteIndex + 1}`,
+              error
+            );
+            return;
+          }
+          continue;
+        }
+
+        const { error: updatePhotoError } = await supabase
+          .from("project_site_visit_note_photos")
+          .update({
+            caption: photo.caption.trim() || null,
+            sort_order: photoIndex,
+          })
+          .eq("id", photo.id)
+          .eq("project_site_visit_note_id", noteId);
+
+        if (updatePhotoError) {
+          setSaving(false);
+          reportError(
+            `actualizar foto ${photoIndex + 1} de nota ${noteIndex + 1}`,
+            updatePhotoError
+          );
+          return;
+        }
+      }
+
+      if (photosToInsert.length > 0) {
+        const { error: insertPhotosError } = await supabase
+          .from("project_site_visit_note_photos")
+          .insert(photosToInsert);
+
+        if (insertPhotosError) {
+          setSaving(false);
+          reportError(`guardar fotos de nota ${noteIndex + 1}`, insertPhotosError);
           return;
         }
       }
     }
 
-    fetch("/api/notifications/site-visit-created", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ projectId, visitId: visit.id }),
-    }).catch((error) => {
-      console.error("Error enviando notificacion de visita:", error);
-    });
-
-    router.push(`/projects/${projectId}/site-visits/${visit.id}`);
+    router.push(`/projects/${projectId}/site-visits/${visitId}`);
     router.refresh();
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* TODO: Restringir edicion por roles admin/pm/creador cuando exista matriz de permisos. */}
       <section className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-4 sm:p-6">
         <h2 className="mb-5 text-2xl font-semibold">Datos de la visita</h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -313,7 +456,7 @@ export default function NewSiteVisitForm({ projectId }: Props) {
           <div>
             <h2 className="text-2xl font-semibold">Notas independientes</h2>
             <p className="mt-1 text-sm text-[#B3B3B8]">
-              Cada nota puede tener responsable informado y fecha compromiso.
+              Edita compromisos, responsables y evidencia por nota.
             </p>
           </div>
           <button
@@ -329,7 +472,7 @@ export default function NewSiteVisitForm({ projectId }: Props) {
         <div className="space-y-4">
           {notes.map((note, index) => (
             <div
-              key={index}
+              key={note.id || `new-${index}`}
               className="rounded-xl border border-[#2A2A30] bg-[#222228] p-4"
             >
               <div className="mb-3 flex items-center justify-between gap-3">
@@ -337,10 +480,10 @@ export default function NewSiteVisitForm({ projectId }: Props) {
                 <button
                   type="button"
                   onClick={() => removeNote(index)}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#2A2A30] bg-[#151518] text-[#B3B3B8] hover:text-white"
-                  aria-label="Quitar nota"
+                  className="inline-flex items-center gap-2 rounded-xl border border-[#2A2A30] bg-[#151518] px-3 py-2 text-sm text-[#F28B82] hover:text-white"
                 >
-                  <Trash2 size={17} />
+                  <Trash2 size={16} />
+                  Eliminar nota
                 </button>
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -378,12 +521,13 @@ export default function NewSiteVisitForm({ projectId }: Props) {
                   />
                 </label>
               </div>
+
               <div className="mt-5 rounded-xl border border-[#2A2A30] bg-[#151518] p-4">
                 <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="font-semibold">Fotos de evidencia</p>
                     <p className="mt-1 text-sm text-[#B3B3B8]">
-                      Opcionales, se guardan junto a esta nota.
+                      Puedes agregar fotos nuevas, editar captions o quitar registros.
                     </p>
                   </div>
                   <label className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 text-sm font-semibold text-[#B3B3B8] hover:bg-[#2A2A30] hover:text-white">
@@ -406,12 +550,12 @@ export default function NewSiteVisitForm({ projectId }: Props) {
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {note.photos.map((photo, photoIndex) => (
                       <div
-                        key={`${photo.previewUrl}-${photoIndex}`}
+                        key={`${photo.id}-${photo.previewUrl || photo.displayUrl}`}
                         className="overflow-hidden rounded-xl border border-[#2A2A30] bg-[#222228]"
                       >
                         <img
-                          src={photo.previewUrl}
-                          alt={`Evidencia ${photoIndex + 1}`}
+                          src={photo.previewUrl || photo.displayUrl}
+                          alt={photo.caption || `Evidencia ${photoIndex + 1}`}
                           className="h-32 w-full object-cover"
                         />
                         <div className="space-y-2 p-3">
@@ -419,36 +563,52 @@ export default function NewSiteVisitForm({ projectId }: Props) {
                             className="w-full rounded-lg border border-[#2A2A30] bg-[#151518] px-3 py-2 text-sm outline-none"
                             value={photo.caption}
                             onChange={(event) =>
-                              updatePhotoCaption(index, photoIndex, event.target.value)
+                              updatePhotoCaption(
+                                index,
+                                photoIndex,
+                                event.target.value
+                              )
                             }
                             placeholder="Caption opcional"
                           />
                           <button
                             type="button"
                             onClick={() => removePhoto(index, photoIndex)}
-                            className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[#2A2A30] px-3 py-2 text-sm text-[#B3B3B8] hover:text-white"
+                            className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[#2A2A30] px-3 py-2 text-sm text-[#F28B82] hover:text-white"
                           >
                             <Trash2 size={15} />
-                            Quitar foto
+                            Eliminar foto
                           </button>
                         </div>
                       </div>
                     ))}
                   </div>
-                ) : null}
+                ) : (
+                  <p className="text-sm text-[#77777D]">
+                    Esta nota no tiene fotos.
+                  </p>
+                )}
               </div>
             </div>
           ))}
         </div>
       </section>
 
-      <button
-        type="submit"
-        disabled={saving}
-        className="w-full rounded-xl bg-[#9E1B32] px-5 py-4 font-semibold hover:bg-[#B91C3C] disabled:bg-[#222228] disabled:text-[#77777D]"
-      >
-        {saving ? "Guardando..." : "Guardar visita de obra"}
-      </button>
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <Link
+          href={`/projects/${projectId}/site-visits/${visitId}`}
+          className="inline-flex flex-1 items-center justify-center rounded-xl border border-[#2A2A30] bg-[#222228] px-5 py-4 font-semibold text-[#B3B3B8] hover:bg-[#2A2A30] hover:text-white"
+        >
+          Cancelar
+        </Link>
+        <button
+          type="submit"
+          disabled={saving}
+          className="flex-1 rounded-xl bg-[#9E1B32] px-5 py-4 font-semibold hover:bg-[#B91C3C] disabled:bg-[#222228] disabled:text-[#77777D]"
+        >
+          {saving ? "Guardando..." : "Guardar cambios"}
+        </button>
+      </div>
     </form>
   );
 }

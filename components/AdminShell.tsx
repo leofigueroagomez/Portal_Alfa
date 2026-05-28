@@ -10,6 +10,7 @@ import {
   Gauge,
   LogOut,
   Menu,
+  MessageCircle,
   Package,
   PlusCircle,
   Ruler,
@@ -40,6 +41,11 @@ const navItems: NavItem[] = [
   { href: "/quotes/new", label: "Nueva cotización", icon: PlusCircle },
   { href: "/engineering-quotes", label: "Ingenierías", icon: Ruler },
   { href: "/projects", label: "Proyectos", icon: FolderOpen },
+  {
+    href: "/notifications/recipients",
+    label: "Notificaciones",
+    icon: MessageCircle,
+  },
 ];
 
 const roleLabels: Record<UserProfile["role"], string> = {

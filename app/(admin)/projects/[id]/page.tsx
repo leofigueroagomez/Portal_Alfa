@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { formatCurrency } from "@/lib/format";
+import UploadAuthorizedPlanButton from "@/components/UploadAuthorizedPlanButton";
 import {
   normalizeSalesStage,
   salesStageClasses,
@@ -60,6 +61,13 @@ type SiteVisit = {
   id: number;
   visit_date: string | null;
   title: string | null;
+  created_at: string | null;
+};
+
+type ProjectDocument = {
+  id: number;
+  name: string | null;
+  file_url: string | null;
   created_at: string | null;
 };
 
@@ -155,7 +163,12 @@ export default async function ProjectDetailPage({
   }
 
   const projectData = project as ClientProject;
-  const [{ data: client }, { data: approvedQuotes }, visitsResult] = await Promise.all([
+  const [
+    { data: client },
+    { data: approvedQuotes },
+    visitsResult,
+    authorizedPlanResult,
+  ] = await Promise.all([
     projectData.client_id
       ? supabase
           .from("clients")
@@ -176,6 +189,14 @@ export default async function ProjectDetailPage({
       .order("visit_date", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(3),
+    supabase
+      .from("documents")
+      .select("id, name, file_url, created_at")
+      .eq("project_id", projectData.id)
+      .eq("type", "authorized_plan")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
 
   const clientData = client as Client | null;
@@ -183,6 +204,9 @@ export default async function ProjectDetailPage({
   const recentVisits = visitsResult.error
     ? []
     : ((visitsResult.data || []) as SiteVisit[]);
+  const authorizedPlan = authorizedPlanResult.error
+    ? null
+    : (authorizedPlanResult.data as ProjectDocument | null);
   const approvedTotal = authorizedQuotes.reduce(
     (sum, quote) => sum + getQuoteTotal(quote),
     0
@@ -455,19 +479,30 @@ export default async function ProjectDetailPage({
                   Seccion preparada para el archivo validado de ejecucion.
                 </p>
               </div>
-              <span className="inline-flex w-fit rounded-full border border-[#3A3A42] bg-[#222228] px-3 py-1 text-xs text-[#B3B3B8]">
-                No cargado
+              <span
+                className={`inline-flex w-fit rounded-full border px-3 py-1 text-xs ${
+                  authorizedPlan
+                    ? "border-[#1F7A4D] bg-[#143D2A] text-[#8CE0B6]"
+                    : "border-[#3A3A42] bg-[#222228] text-[#B3B3B8]"
+                }`}
+              >
+                {authorizedPlan ? "Cargado" : "No cargado"}
               </span>
             </div>
 
-            <button
-              type="button"
-              disabled
-              className="inline-flex cursor-not-allowed items-center gap-2 rounded-xl border border-[#2A2A30] bg-[#222228] px-5 py-3 font-semibold text-[#77777D]"
-            >
-              <FileText size={18} />
-              Subir plano
-            </button>
+            {authorizedPlan ? (
+              <a
+                href={authorizedPlan.file_url || "#"}
+                target="_blank"
+                rel="noreferrer"
+                className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-[#B3B3B8] hover:text-white"
+              >
+                <FileText size={16} />
+                {authorizedPlan.name || "Plano autorizado"}
+              </a>
+            ) : null}
+
+            <UploadAuthorizedPlanButton projectId={projectData.id} />
           </section>
         </div>
 

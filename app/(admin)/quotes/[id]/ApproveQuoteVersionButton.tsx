@@ -92,6 +92,14 @@ export default function ApproveQuoteVersionButton({
         setApproving(false);
         return;
       }
+
+      fetch("/api/notifications/quote-approved", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: clientProjectId, quoteId }),
+      }).catch((error) => {
+        console.error("Error enviando notificacion de cotizacion:", error);
+      });
     }
 
     router.refresh();
