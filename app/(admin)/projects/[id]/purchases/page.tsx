@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, PackageSearch } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { formatCurrency, formatNumber } from "@/lib/format";
 import {
@@ -89,7 +89,8 @@ function getStatusLabel(status: string | null | undefined) {
     pending: "Pendiente",
     partial: "Parcial",
     purchased: "Comprado",
-    in_warehouse: "En bodega / obra",
+    in_warehouse: "En bodega",
+    delivered_to_site: "Entregado obra",
   };
 
   return labels[status || "pending"] || "Pendiente";
@@ -98,8 +99,21 @@ function getStatusLabel(status: string | null | undefined) {
 function getStatusClass(status: string | null | undefined) {
   if (status === "purchased") return "border-[#1F7A4D] bg-[#143D2A] text-[#8CE0B6]";
   if (status === "in_warehouse") return "border-[#345A9E] bg-[#172D53] text-[#AFCBFF]";
+  if (status === "delivered_to_site") return "border-[#1F7A4D] bg-[#143D2A] text-[#8CE0B6]";
   if (status === "partial") return "border-[#614620] bg-[#322514] text-[#F4C66A]";
   return "border-[#3A3A42] bg-[#222228] text-[#B3B3B8]";
+}
+
+function getDisplayStatus(status: string | null | undefined, events: PurchaseEvent[]) {
+  if (events.some((eventItem) => eventItem.warehouse_status === "delivered_to_site")) {
+    return "delivered_to_site";
+  }
+
+  if (events.some((eventItem) => eventItem.warehouse_status === "received")) {
+    return "in_warehouse";
+  }
+
+  return status || "pending";
 }
 
 function getWarehouseLabel(status: string | null | undefined) {
@@ -389,357 +403,251 @@ export default async function ProjectPurchasesPage({
         </section>
       ) : null}
 
-      <section className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5">
-          <p className="mb-2 text-sm text-[#B3B3B8]">% avance compras</p>
-          <p className="text-2xl font-bold">{formatNumber(progressPercent)}%</p>
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#222228]">
-            <div
-              className="h-full rounded-full bg-[#9E1B32]"
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
+      <section className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-6">
+        <div className="rounded-lg border border-[#1F1F24] bg-[#151518] p-3">
+          <p className="text-xs text-[#B3B3B8]">Avance</p>
+          <p className="mt-1 text-lg font-bold">{formatNumber(progressPercent)}%</p>
         </div>
-        {Array.from(totalsByCurrency.entries()).map(([currency, totals]) => (
-          <div
-            key={currency}
-            className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5"
-          >
-            <p className="mb-2 text-sm text-[#B3B3B8]">Pendiente {currency}</p>
-            <p className="text-2xl font-bold text-[#F4C66A]">
-              {formatCurrency(totals.pending, currency)}
-            </p>
-            <p className="mt-2 text-xs text-[#77777D]">
-              Comprado {formatCurrency(totals.purchased, currency)} / Requerido{" "}
-              {formatCurrency(totals.required, currency)}
-            </p>
-          </div>
-        ))}
-        <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5">
-          <p className="mb-2 text-sm text-[#B3B3B8]">Lineas de compra</p>
-          <p className="text-2xl font-bold">{lines.length}</p>
-          <p className="mt-2 text-xs text-[#77777D]">
-            Desde {quotes.length} cotizaciones aprobadas
-          </p>
+        <div className="rounded-lg border border-[#1F1F24] bg-[#151518] p-3">
+          <p className="text-xs text-[#B3B3B8]">Lineas</p>
+          <p className="mt-1 text-lg font-bold">{lines.length}</p>
         </div>
-      </section>
-
-      <section className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">
-        <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5">
-          <p className="mb-2 text-sm text-[#B3B3B8]">Ahorro total MXN</p>
-          <p className="text-2xl font-bold text-[#8CE0B6]">
+        <div className="rounded-lg border border-[#1F1F24] bg-[#151518] p-3">
+          <p className="text-xs text-[#B3B3B8]">Ahorro</p>
+          <p className="mt-1 text-lg font-bold text-[#8CE0B6]">
             {formatCurrency(variationMxn.saving, "MXN")}
           </p>
         </div>
-        <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5">
-          <p className="mb-2 text-sm text-[#B3B3B8]">Sobrecosto total MXN</p>
-          <p className="text-2xl font-bold text-[#FFB19C]">
+        <div className="rounded-lg border border-[#1F1F24] bg-[#151518] p-3">
+          <p className="text-xs text-[#B3B3B8]">Sobrecosto</p>
+          <p className="mt-1 text-lg font-bold text-[#FFB19C]">
             {formatCurrency(variationMxn.overrun, "MXN")}
           </p>
         </div>
-        <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5">
-          <p className="mb-2 text-sm text-[#B3B3B8]">Variacion neta MXN</p>
+        <div className="rounded-lg border border-[#1F1F24] bg-[#151518] p-3">
+          <p className="text-xs text-[#B3B3B8]">Neta</p>
           <p
-            className={`text-2xl font-bold ${
+            className={`mt-1 text-lg font-bold ${
               variationMxn.net >= 0 ? "text-[#8CE0B6]" : "text-[#FFB19C]"
             }`}
           >
             {formatCurrency(variationMxn.net, "MXN")}
           </p>
         </div>
+        <div className="rounded-lg border border-[#1F1F24] bg-[#151518] p-3">
+          <p className="text-xs text-[#B3B3B8]">Pendiente</p>
+          <p className="mt-1 truncate text-sm font-semibold text-[#F4C66A]">
+            {Array.from(totalsByCurrency.entries())
+              .map(([currency, totals]) => formatCurrency(totals.pending, currency))
+              .join(" / ") || "Sin pendiente"}
+          </p>
+        </div>
       </section>
 
-      <section className="mb-8 rounded-2xl border border-[#1F1F24] bg-[#151518] p-5 sm:p-6">
-        <h2 className="mb-4 text-2xl font-semibold">Pendiente por proveedor</h2>
-        {pendingBySupplier.size === 0 ? (
-          <p className="text-[#77777D]">Sin pendientes de compra.</p>
-        ) : (
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+      {pendingBySupplier.size > 0 ? (
+        <section className="mb-5 rounded-lg border border-[#1F1F24] bg-[#151518] p-3">
+          <div className="flex flex-wrap gap-2 text-xs">
             {Array.from(pendingBySupplier.entries()).map(([supplier, currencyTotals]) => (
-              <div key={supplier} className="rounded-xl border border-[#2A2A30] bg-[#222228] p-4">
-                <p className="mb-2 font-semibold">{supplier}</p>
-                <div className="space-y-1 text-sm text-[#B3B3B8]">
-                  {Array.from(currencyTotals.entries()).map(([currency, total]) => (
-                    <p key={currency}>
-                      {currency}:{" "}
-                      <span className="text-[#F4C66A]">
-                        {formatCurrency(total, currency)}
-                      </span>
-                    </p>
-                  ))}
-                </div>
-              </div>
+              <span
+                key={supplier}
+                className="inline-flex rounded-full border border-[#2A2A30] bg-[#222228] px-3 py-1 text-[#B3B3B8]"
+              >
+                {supplier}:{" "}
+                {Array.from(currencyTotals.entries())
+                  .map(([currency, total]) => formatCurrency(total, currency))
+                  .join(" / ")}
+              </span>
             ))}
           </div>
-        )}
-      </section>
+        </section>
+      ) : null}
 
-      <section className="space-y-6">
-        {groupedLines.length === 0 ? (
-          <section className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-8 text-[#77777D]">
+      <section className="rounded-xl border border-[#1F1F24] bg-[#151518]">
+        {linesWithVariation.length === 0 ? (
+          <div className="p-8 text-[#77777D]">
             No hay partidas de equipo sincronizadas para este proyecto.
-          </section>
+          </div>
         ) : (
-          groupedLines.map(([supplier, supplierLines]) => (
-            <section
-              key={supplier}
-              className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5 sm:p-6"
-            >
-              <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <h2 className="text-2xl font-semibold">{supplier}</h2>
-                  <p className="mt-1 text-sm text-[#B3B3B8]">
-                    {supplierLines.length} lineas de compra
-                  </p>
-                </div>
-              </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1480px] border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-[#2A2A30] bg-[#101114] text-left text-[#B3B3B8]">
+                  <th className="px-3 py-2 font-semibold">Proveedor</th>
+                  <th className="px-3 py-2 font-semibold">Marca</th>
+                  <th className="px-3 py-2 font-semibold">Modelo</th>
+                  <th className="px-3 py-2 font-semibold">Descripcion</th>
+                  <th className="px-3 py-2 text-right font-semibold">Req.</th>
+                  <th className="px-3 py-2 text-right font-semibold">Comprado</th>
+                  <th className="px-3 py-2 text-right font-semibold">Pendiente</th>
+                  <th className="px-3 py-2 text-right font-semibold">Estimado Unit.</th>
+                  <th className="px-3 py-2 text-right font-semibold">Real Unit.</th>
+                  <th className="px-3 py-2 text-right font-semibold">Estimado Total</th>
+                  <th className="px-3 py-2 text-right font-semibold">Real Comprado</th>
+                  <th className="px-3 py-2 text-right font-semibold">Variacion</th>
+                  <th className="px-3 py-2 font-semibold">Estado</th>
+                  <th className="px-3 py-2 font-semibold">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {linesWithVariation.map((line) => {
+                  const pendingQuantity = Math.max(
+                    Number(line.quantity_required || 0) -
+                      Number(line.quantity_purchased || 0),
+                    0
+                  );
+                  const lineEvents = eventsByLine.get(line.id) || [];
+                  const displayStatus = getDisplayStatus(
+                    line.purchase_status,
+                    lineEvents
+                  );
+                  const variationIsVisible =
+                    line.variation.status !== "no_purchases" &&
+                    line.variation.status !== "missing_exchange_rate";
 
-              <div className="space-y-4">
-                {supplierLines
-                  .sort(
-                    (a, b) =>
-                        Number(b.total_required_cost || 0) -
-                      Number(a.total_required_cost || 0)
-                  )
-                  .map((line) => {
-                    const pendingQuantity = Math.max(
-                      Number(line.quantity_required || 0) -
-                        Number(line.quantity_purchased || 0),
-                      0
-                    );
-                    const lineEvents = eventsByLine.get(line.id) || [];
-
-                    return (
-                      <article
-                        key={line.id}
-                        className="rounded-xl border border-[#2A2A30] bg-[#222228] p-4"
-                      >
-                        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[72px_1.4fr_1fr_auto] xl:items-center">
-                          <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-xl bg-[#151518]">
-                            {line.product_image_url ? (
-                              <img
-                                src={line.product_image_url}
-                                alt={line.product_name || "Equipo"}
-                                className="h-full w-full object-cover"
-                              />
-                            ) : (
-                              <PackageSearch size={22} className="text-[#77777D]" />
-                            )}
-                          </div>
-
-                          <div>
-                            <p className="font-semibold">
-                              {line.product_brand || "Sin marca"}{" "}
-                              {line.product_model || ""}
-                            </p>
-                            <p className="mt-1 text-sm text-[#B3B3B8]">
-                              {line.product_name || "Sin descripcion"}
-                            </p>
-                            <span
-                              className={`mt-3 inline-flex rounded-full border px-3 py-1 text-xs ${getStatusClass(
-                                line.purchase_status
-                              )}`}
+                  return (
+                    <tr
+                      key={line.id}
+                      className="border-b border-[#222228] align-top hover:bg-[#1A1A1F]"
+                    >
+                      <td className="px-3 py-2">{getSupplier(line.supplier)}</td>
+                      <td className="px-3 py-2">{line.product_brand || "-"}</td>
+                      <td className="px-3 py-2 font-semibold">
+                        {line.product_model || "-"}
+                      </td>
+                      <td className="max-w-[260px] truncate px-3 py-2 text-[#B3B3B8]">
+                        {line.product_name || "Sin descripcion"}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        {formatNumber(line.quantity_required)}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        {formatNumber(line.quantity_purchased)}
+                      </td>
+                      <td className="px-3 py-2 text-right text-[#F4C66A]">
+                        {formatNumber(pendingQuantity)}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <p>
+                          {formatCurrency(
+                            line.variation.estimatedUnitCost,
+                            line.variation.estimatedCurrency
+                          )}
+                        </p>
+                        {line.variation.estimatedCurrency === "USD" ? (
+                          <p className="text-[10px] text-[#77777D]">
+                            {line.variation.estimatedExchangeRate > 0
+                              ? formatCurrency(line.variation.estimatedUnitCostMxn, "MXN")
+                              : "Falta TC"}
+                          </p>
+                        ) : null}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        {line.variation.purchasedQuantity > 0
+                          ? formatCurrency(line.variation.realUnitCostAverage, "MXN")
+                          : "Sin compras"}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        {line.variation.purchasedQuantity > 0
+                          ? formatCurrency(line.variation.estimated, "MXN")
+                          : "Sin compras"}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        {line.variation.purchasedQuantity > 0
+                          ? formatCurrency(line.variation.real, "MXN")
+                          : "Sin compras"}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        {variationIsVisible ? (
+                          <>
+                            <p
+                              className={`font-semibold ${
+                                line.variation.variation >= 0
+                                  ? "text-[#8CE0B6]"
+                                  : "text-[#FFB19C]"
+                              }`}
                             >
-                              {getStatusLabel(line.purchase_status)}
-                            </span>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-3 text-sm md:grid-cols-3 xl:grid-cols-2">
-                            <div>
-                              <p className="text-[#77777D]">Requerido</p>
-                              <p className="font-semibold">
-                                {formatNumber(line.quantity_required)}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-[#77777D]">Comprado</p>
-                              <p className="font-semibold">
-                                {formatNumber(line.quantity_purchased)}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-[#77777D]">Pendiente</p>
-                              <p className="font-semibold text-[#F4C66A]">
-                                {formatNumber(pendingQuantity)}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-[#77777D]">Costo estimado unit.</p>
-                              <p className="font-semibold">
-                                {formatCurrency(
-                                  line.variation.estimatedUnitCost,
-                                  line.variation.estimatedCurrency
-                                )}
-                              </p>
-                            </div>
-                            {line.variation.estimatedCurrency === "USD" ? (
-                              <div>
-                                <p className="text-[#77777D]">Costo est. unit. MXN</p>
-                                <p className="font-semibold">
-                                  {line.variation.estimatedExchangeRate > 0
-                                    ? formatCurrency(
-                                        line.variation.estimatedUnitCostMxn,
-                                        "MXN"
-                                      )
-                                    : "Falta TC"}
-                                </p>
-                              </div>
-                            ) : null}
-                            <div>
-                              <p className="text-[#77777D]">Total requerido</p>
-                              <p className="font-semibold">
-                                {formatCurrency(
-                                  line.total_required_cost,
-                                  line.cost_currency
-                                )}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-[#77777D]">Costo pendiente</p>
-                              <p className="font-semibold text-[#F4C66A]">
-                                {formatCurrency(
-                                  line.total_pending_cost,
-                                  line.cost_currency
-                                )}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-[#77777D]">Costo real prom.</p>
-                              <p className="font-semibold">
-                                {line.variation.purchasedQuantity > 0
-                                  ? formatCurrency(
-                                      line.variation.realUnitCostAverage,
-                                      "MXN"
-                                    )
-                                  : "Sin compras"}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-[#77777D]">Estimado comprado</p>
-                              <p className="font-semibold">
-                                {line.variation.purchasedQuantity > 0
-                                  ? formatCurrency(
-                                      line.variation.estimated,
-                                      "MXN"
-                                    )
-                                  : "Sin compras"}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-[#77777D]">Real comprado</p>
-                              <p className="font-semibold">
-                                {line.variation.purchasedQuantity > 0
-                                  ? formatCurrency(
-                                      line.variation.real,
-                                      "MXN"
-                                    )
-                                  : "Sin compras"}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-[#77777D]">Variacion</p>
-                              <span
-                                className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getVariationClass(
-                                  line.variation.status
-                                )}`}
-                              >
-                                {getVariationLabel(line.variation.status)}
-                              </span>
-                            </div>
-                            <div>
-                              <p className="text-[#77777D]">Monto variacion</p>
-                              {line.variation.status === "no_purchases" ? (
-                                <p className="font-semibold text-[#77777D]">
-                                  Sin compras registradas
-                                </p>
-                              ) : line.variation.status === "missing_exchange_rate" ? (
-                                <p className="font-semibold text-[#F4C66A]">
-                                  Falta TC para calcular variacion
-                                </p>
-                              ) : (
-                                <>
-                                  <p
-                                    className={`font-semibold ${
-                                      line.variation.variation >= 0
-                                        ? "text-[#8CE0B6]"
-                                        : "text-[#FFB19C]"
-                                    }`}
-                                  >
-                                    {formatCurrency(
-                                      line.variation.variation,
-                                      "MXN"
-                                    )}
-                                  </p>
-                                  <p className="text-xs text-[#77777D]">
-                                    {formatNumber(line.variation.percent)}%
-                                  </p>
-                                </>
-                              )}
-                            </div>
-                          </div>
-
+                              {formatCurrency(line.variation.variation, "MXN")}
+                            </p>
+                            <p className="text-[10px] text-[#77777D]">
+                              {formatNumber(line.variation.percent)}%
+                            </p>
+                          </>
+                        ) : (
+                          <span
+                            className={`inline-flex rounded-full border px-2 py-1 text-[10px] ${getVariationClass(
+                              line.variation.status
+                            )}`}
+                          >
+                            {getVariationLabel(line.variation.status)}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        <span
+                          className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-semibold ${getStatusClass(
+                            displayStatus
+                          )}`}
+                        >
+                          {getStatusLabel(displayStatus)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex min-w-[170px] flex-col gap-2">
                           <ProjectPurchaseActions
                             lines={actionLines}
                             events={actionEvents}
                             triggerLineId={line.id}
                             triggerLabel="Comprar"
                           />
-                        </div>
-
-                        {lineEvents.length > 0 ? (
-                          <div className="mt-4 border-t border-[#2A2A30] pt-4">
-                            <p className="mb-3 text-sm font-semibold text-[#B3B3B8]">
-                              Compras registradas
-                            </p>
-                            <div className="space-y-3">
-                              {lineEvents.map((eventItem) => (
-                                <div
-                                  key={eventItem.id}
-                                  className="grid grid-cols-1 gap-3 rounded-xl border border-[#2A2A30] bg-[#151518] p-3 text-sm lg:grid-cols-[1fr_1fr_auto]"
-                                >
-                                  <div>
+                          {lineEvents.length > 0 ? (
+                            <details className="rounded-lg border border-[#2A2A30] bg-[#101114] px-2 py-1">
+                              <summary className="cursor-pointer text-[11px] font-semibold text-[#B3B3B8]">
+                                {lineEvents.length} compras
+                              </summary>
+                              <div className="mt-2 space-y-2">
+                                {lineEvents.map((eventItem) => (
+                                  <div
+                                    key={eventItem.id}
+                                    className="rounded-md border border-[#2A2A30] p-2"
+                                  >
                                     <p className="font-semibold">
                                       {formatDate(eventItem.purchase_date)} /{" "}
-                                      {formatNumber(eventItem.quantity)} piezas
+                                      {formatNumber(eventItem.quantity)} pzas
                                     </p>
-                                    <p className="mt-1 text-[#B3B3B8]">
+                                    <p className="text-[#B3B3B8]">
                                       {formatCurrency(
-                                      eventItem.unit_cost,
-                                      eventItem.cost_currency
-                                    )}{" "}
-                                      unitario
+                                        eventItem.unit_cost,
+                                        eventItem.cost_currency
+                                      )}
                                       {eventItem.cost_currency === "USD" &&
                                       eventItem.exchange_rate ? (
                                         <> / TC {formatNumber(eventItem.exchange_rate)}</>
-                                      ) : null}{" "}
-                                      - {eventItem.supplier || supplier}
+                                      ) : null}
                                     </p>
-                                  </div>
-                                  <div>
-                                    <p className="text-[#77777D]">Referencia</p>
-                                    <p className="font-semibold">
-                                      {eventItem.invoice_reference || "-"}
-                                    </p>
-                                    <p className="mt-1 text-[#B3B3B8]">
+                                    <p className="text-[#77777D]">
+                                      {eventItem.invoice_reference || "Sin referencia"} -{" "}
                                       {getWarehouseLabel(eventItem.warehouse_status)}
                                     </p>
+                                    <div className="mt-2">
+                                      <WarehouseEventActions
+                                        eventId={eventItem.id}
+                                        lineId={line.id}
+                                        currentStatus={eventItem.warehouse_status}
+                                      />
+                                    </div>
                                   </div>
-                                  <WarehouseEventActions
-                                    eventId={eventItem.id}
-                                    lineId={line.id}
-                                    currentStatus={eventItem.warehouse_status}
-                                  />
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ) : null}
-                      </article>
-                    );
-                  })}
-              </div>
-            </section>
-          ))
+                                ))}
+                              </div>
+                            </details>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
     </main>
