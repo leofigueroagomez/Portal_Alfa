@@ -19,6 +19,7 @@ type Product = {
   labor_unit_cost: number | null;
   labor_unit_sale_price: number;
   is_favorite: boolean | null;
+  partner_discount_eligible: boolean | null;
 };
 
 type TaxonomyOption = {
@@ -49,6 +50,7 @@ const INITIAL_FORM = {
   unit_name: "",
   tax_rate: "16",
   is_favorite: false,
+  partner_discount_eligible: true,
 };
 
 type Props = {
@@ -63,7 +65,7 @@ export default function QuickCreateProductButton({
   const [categories, setCategories] = useState<TaxonomyOption[]>([]);
   const [form, setForm] = useState(INITIAL_FORM);
 
-  function updateField(field: string, value: string) {
+  function updateField(field: string, value: string | boolean) {
     setForm((current) => ({
       ...current,
       [field]: value,
@@ -187,10 +189,11 @@ export default function QuickCreateProductButton({
         unit_name: form.unit_name,
         tax_rate: Number(form.tax_rate) || 16,
         is_favorite: form.is_favorite,
+        partner_discount_eligible: form.partner_discount_eligible,
         is_active: true,
       })
       .select(
-        "id, brand, model, name, category, category_id, image_url, cost_price, cost_currency, calculated_sale_price, sale_currency, labor_unit_cost, labor_unit_sale_price, is_favorite"
+        "id, brand, model, name, category, category_id, image_url, cost_price, cost_currency, calculated_sale_price, sale_currency, labor_unit_cost, labor_unit_sale_price, is_favorite, partner_discount_eligible"
       )
       .single();
 
@@ -290,14 +293,20 @@ export default function QuickCreateProductButton({
               <input
                 type="checkbox"
                 checked={form.is_favorite}
-                onChange={(e) =>
-                  setForm((current) => ({
-                    ...current,
-                    is_favorite: e.target.checked,
-                  }))
-                }
+                onChange={(e) => updateField("is_favorite", e.target.checked)}
               />
               Favorito ALFA
+            </label>
+
+            <label className="mb-6 flex items-center gap-3 rounded-xl bg-[#222228] p-4 text-[#B3B3B8]">
+              <input
+                type="checkbox"
+                checked={form.partner_discount_eligible}
+                onChange={(e) =>
+                  updateField("partner_discount_eligible", e.target.checked)
+                }
+              />
+              Permite descuento de aliado comercial
             </label>
 
             <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-[180px_1fr]">

@@ -37,6 +37,7 @@ type ProductForm = {
   tax_rate: string;
   is_active: boolean;
   is_favorite: boolean;
+  partner_discount_eligible: boolean;
 };
 
 const emptyForm: ProductForm = {
@@ -63,6 +64,7 @@ const emptyForm: ProductForm = {
   tax_rate: "16",
   is_active: true,
   is_favorite: false,
+  partner_discount_eligible: true,
 };
 
 export default function EditProductPage() {
@@ -163,6 +165,7 @@ export default function EditProductPage() {
         tax_rate: String(data.tax_rate || "16"),
         is_active: Boolean(data.is_active),
         is_favorite: Boolean(data.is_favorite),
+        partner_discount_eligible: data.partner_discount_eligible !== false,
       });
       setCategories((categoriesResult.data || []) as TaxonomyOption[]);
       setTags((tagsResult.data || []) as TaxonomyOption[]);
@@ -249,6 +252,7 @@ export default function EditProductPage() {
         tax_rate: Number(form.tax_rate) || 16,
         is_active: form.is_active,
         is_favorite: form.is_favorite,
+        partner_discount_eligible: form.partner_discount_eligible,
       })
       .eq("id", productId)
       .select("id")
@@ -423,6 +427,10 @@ export default function EditProductPage() {
             <label className="flex items-center gap-3 text-[#B3B3B8]">
               <input type="checkbox" checked={form.is_favorite} onChange={(e) => updateField("is_favorite", e.target.checked)} />
               Favorito ALFA
+            </label>
+            <label className="mt-4 flex items-center gap-3 text-[#B3B3B8]">
+              <input type="checkbox" checked={form.partner_discount_eligible} onChange={(e) => updateField("partner_discount_eligible", e.target.checked)} />
+              Permite descuento de aliado comercial
             </label>
           </div>
 

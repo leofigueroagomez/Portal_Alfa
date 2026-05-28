@@ -34,6 +34,7 @@ type ProductForm = {
   unit_name: string;
   tax_rate: string;
   is_favorite: boolean;
+  partner_discount_eligible: boolean;
 };
 
 const emptyForm: ProductForm = {
@@ -59,6 +60,7 @@ const emptyForm: ProductForm = {
   unit_name: "",
   tax_rate: "16",
   is_favorite: false,
+  partner_discount_eligible: true,
 };
 
 export default function NewProductPage() {
@@ -192,6 +194,7 @@ export default function NewProductPage() {
         unit_name: form.unit_name,
         tax_rate: Number(form.tax_rate) || 16,
         is_favorite: form.is_favorite,
+        partner_discount_eligible: form.partner_discount_eligible,
         is_active: true,
       })
       .select("id")
@@ -350,6 +353,10 @@ export default function NewProductPage() {
             <label className="flex items-center gap-3 text-[#B3B3B8]">
               <input type="checkbox" checked={form.is_favorite} onChange={(e) => updateField("is_favorite", e.target.checked)} />
               Favorito ALFA
+            </label>
+            <label className="mt-4 flex items-center gap-3 text-[#B3B3B8]">
+              <input type="checkbox" checked={form.partner_discount_eligible} onChange={(e) => updateField("partner_discount_eligible", e.target.checked)} />
+              Permite descuento de aliado comercial
             </label>
           </div>
 

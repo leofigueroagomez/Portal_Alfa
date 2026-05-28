@@ -57,6 +57,17 @@ type SourceQuote = {
   discount_type?: string | null;
   discount_percent?: number | null;
   discount_amount_mxn?: number | null;
+  includes_travel_expenses_detail?: boolean | null;
+  travel_fuel_mxn?: number | null;
+  travel_tolls_mxn?: number | null;
+  travel_food_mxn?: number | null;
+  travel_total_mxn?: number | null;
+  is_partner_quote?: boolean | null;
+  partner_equipment_discount_percent?: number | null;
+  partner_labor_discount_percent?: number | null;
+  partner_equipment_discount_mxn?: number | null;
+  partner_labor_discount_mxn?: number | null;
+  partner_total_discount_mxn?: number | null;
   subtotal_mxn?: number | null;
   taxable_base_mxn?: number | null;
   iva_mxn?: number | null;
@@ -107,7 +118,7 @@ export default function CreateQuoteVersionButton({
     let { data: quote, error: quoteError } = (await supabase
       .from("quotes")
       .select(
-        "id, quote_group_id, quote_base_number, client_project_id, currency, equipment_total, labor_total, tax_total, discount_total, grand_total, discount_type, discount_percent, discount_amount_mxn, subtotal_mxn, taxable_base_mxn, iva_mxn, total_mxn, exchange_rate, exchange_rate_source, exchange_rate_date, notes"
+        "id, quote_group_id, quote_base_number, client_project_id, currency, equipment_total, labor_total, tax_total, discount_total, grand_total, discount_type, discount_percent, discount_amount_mxn, includes_travel_expenses_detail, travel_fuel_mxn, travel_tolls_mxn, travel_food_mxn, travel_total_mxn, is_partner_quote, partner_equipment_discount_percent, partner_labor_discount_percent, partner_equipment_discount_mxn, partner_labor_discount_mxn, partner_total_discount_mxn, subtotal_mxn, taxable_base_mxn, iva_mxn, total_mxn, exchange_rate, exchange_rate_source, exchange_rate_date, notes"
       )
       .eq("id", quoteId)
       .single()) as {
@@ -120,6 +131,7 @@ export default function CreateQuoteVersionButton({
       (quoteError.message.includes("exchange_rate_source") ||
         quoteError.message.includes("exchange_rate_date") ||
         quoteError.message.includes("notes") ||
+        quoteError.message.includes("is_partner_quote") ||
         quoteError.message.includes("total_mxn"))
     ) {
       const fallback = (await supabase
@@ -231,6 +243,18 @@ export default function CreateQuoteVersionButton({
       discount_type: quote.discount_type,
       discount_percent: quote.discount_percent,
       discount_amount_mxn: quote.discount_amount_mxn,
+      includes_travel_expenses_detail: quote.includes_travel_expenses_detail,
+      travel_fuel_mxn: quote.travel_fuel_mxn,
+      travel_tolls_mxn: quote.travel_tolls_mxn,
+      travel_food_mxn: quote.travel_food_mxn,
+      travel_total_mxn: quote.travel_total_mxn,
+      is_partner_quote: quote.is_partner_quote,
+      partner_equipment_discount_percent:
+        quote.partner_equipment_discount_percent,
+      partner_labor_discount_percent: quote.partner_labor_discount_percent,
+      partner_equipment_discount_mxn: quote.partner_equipment_discount_mxn,
+      partner_labor_discount_mxn: quote.partner_labor_discount_mxn,
+      partner_total_discount_mxn: quote.partner_total_discount_mxn,
       subtotal_mxn: quote.subtotal_mxn,
       taxable_base_mxn: quote.taxable_base_mxn,
       iva_mxn: quote.iva_mxn,
@@ -253,6 +277,7 @@ export default function CreateQuoteVersionButton({
         newQuoteResult.error.message.includes("exchange_rate_date") ||
         newQuoteResult.error.message.includes("client_project_id") ||
         newQuoteResult.error.message.includes("notes") ||
+        newQuoteResult.error.message.includes("is_partner_quote") ||
         newQuoteResult.error.message.includes("total_mxn"))
     ) {
       const {
@@ -262,6 +287,17 @@ export default function CreateQuoteVersionButton({
         discount_type,
         discount_percent,
         discount_amount_mxn,
+        includes_travel_expenses_detail,
+        travel_fuel_mxn,
+        travel_tolls_mxn,
+        travel_food_mxn,
+        travel_total_mxn,
+        is_partner_quote,
+        partner_equipment_discount_percent,
+        partner_labor_discount_percent,
+        partner_equipment_discount_mxn,
+        partner_labor_discount_mxn,
+        partner_total_discount_mxn,
         subtotal_mxn,
         taxable_base_mxn,
         iva_mxn,
@@ -352,6 +388,35 @@ export default function CreateQuoteVersionButton({
 
       if (insertItemsError) {
         reportStepError("crear nuevos quote_items", insertItemsError);
+        setCreating(false);
+        return;
+      }
+    }
+
+    const { data: terms, error: termsError } = await supabase
+      .from("quote_terms_settings")
+      .select(
+        "payment_100_equipment, labor_payment_mode, payment_100_advance, is_local_guadalajara, includes_travel_expenses, includes_conduit, includes_cabling"
+      )
+      .eq("quote_id", quoteId)
+      .maybeSingle();
+
+    if (termsError && termsError.code !== "PGRST116") {
+      reportStepError("leer quote_terms_settings", termsError);
+      setCreating(false);
+      return;
+    }
+
+    if (terms) {
+      const { error: insertTermsError } = await supabase
+        .from("quote_terms_settings")
+        .insert({
+          quote_id: newQuote.id,
+          ...terms,
+        });
+
+      if (insertTermsError) {
+        reportStepError("crear quote_terms_settings", insertTermsError);
         setCreating(false);
         return;
       }

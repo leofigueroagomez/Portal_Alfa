@@ -22,6 +22,15 @@ type Quote = {
   discount_type?: string | null;
   discount_percent?: number | null;
   discount_amount_mxn?: number | null;
+  includes_travel_expenses_detail?: boolean | null;
+  travel_fuel_mxn?: number | null;
+  travel_tolls_mxn?: number | null;
+  travel_food_mxn?: number | null;
+  travel_total_mxn?: number | null;
+  is_partner_quote?: boolean | null;
+  partner_equipment_discount_mxn?: number | null;
+  partner_labor_discount_mxn?: number | null;
+  partner_total_discount_mxn?: number | null;
   subtotal_mxn?: number | null;
   taxable_base_mxn?: number | null;
   iva_mxn?: number | null;
@@ -102,7 +111,7 @@ export default async function QuoteDetailPage({
   let { data: quote, error } = (await supabase
     .from("quotes")
     .select(
-      "id, quote_number, quote_group_id, quote_base_number, version, client_id, client_project_id, status, currency, equipment_total, labor_total, grand_total, discount_type, discount_percent, discount_amount_mxn, subtotal_mxn, taxable_base_mxn, iva_mxn, total_mxn, exchange_rate, exchange_rate_source, exchange_rate_date, notes, created_at"
+      "id, quote_number, quote_group_id, quote_base_number, version, client_id, client_project_id, status, currency, equipment_total, labor_total, grand_total, discount_type, discount_percent, discount_amount_mxn, includes_travel_expenses_detail, travel_fuel_mxn, travel_tolls_mxn, travel_food_mxn, travel_total_mxn, is_partner_quote, partner_equipment_discount_mxn, partner_labor_discount_mxn, partner_total_discount_mxn, subtotal_mxn, taxable_base_mxn, iva_mxn, total_mxn, exchange_rate, exchange_rate_source, exchange_rate_date, notes, created_at"
     )
     .eq("id", id)
     .single()) as {
@@ -117,6 +126,7 @@ export default async function QuoteDetailPage({
       error.message.includes("exchange_rate_source") ||
       error.message.includes("exchange_rate_date") ||
       error.message.includes("notes") ||
+      error.message.includes("is_partner_quote") ||
       error.message.includes("total_mxn"))
   ) {
     const fallback = (await supabase
@@ -205,13 +215,29 @@ export default async function QuoteDetailPage({
     Number(quoteData.equipment_total || 0) * detailExchangeRate +
       Number(quoteData.labor_total || 0);
   const discountMXN = Number(quoteData.discount_amount_mxn || 0);
+  const partnerEquipmentDiscountMXN = Number(
+    quoteData.partner_equipment_discount_mxn || 0
+  );
+  const partnerLaborDiscountMXN = Number(
+    quoteData.partner_labor_discount_mxn || 0
+  );
+  const partnerDiscountMXN = Number(
+    quoteData.partner_total_discount_mxn ||
+      partnerEquipmentDiscountMXN + partnerLaborDiscountMXN
+  );
   const taxableBaseMXN =
-    Number(quoteData.taxable_base_mxn) || subtotalMXN - discountMXN;
+    Number(quoteData.taxable_base_mxn) ||
+    subtotalMXN - partnerDiscountMXN - discountMXN;
   const ivaMXN = Number(quoteData.iva_mxn) || taxableBaseMXN * 0.16;
   const totalMXN =
     Number(quoteData.total_mxn) ||
     Number(quoteData.grand_total) ||
     taxableBaseMXN + ivaMXN;
+  const travelTotalMXN =
+    Number(quoteData.travel_total_mxn || 0) ||
+    Number(quoteData.travel_fuel_mxn || 0) +
+      Number(quoteData.travel_tolls_mxn || 0) +
+      Number(quoteData.travel_food_mxn || 0);
 
   function getSectionItems(sectionId: number) {
     return quoteItems.filter(
@@ -243,6 +269,11 @@ export default async function QuoteDetailPage({
             <p className="text-[#B3B3B8]">
               Creada el {formatDate(quoteData.created_at)}
             </p>
+            {quoteData.is_partner_quote ? (
+              <p className="mt-2 text-sm font-semibold text-[#F4C66A]">
+                Cotizacion para aliado comercial
+              </p>
+            ) : null}
 
             <div className="mt-5 space-y-1 text-[#B3B3B8]">
               <p>
@@ -357,8 +388,38 @@ export default async function QuoteDetailPage({
           </div>
           {discountMXN > 0 ? (
             <div>
-              <p className="mb-1 text-[#77777D]">Descuento</p>
+              <p className="mb-1 text-[#77777D]">
+                {quoteData.is_partner_quote
+                  ? "Descuento adicional"
+                  : "Descuento"}
+              </p>
               <p className="text-[#F4C66A]">-{formatCurrency(discountMXN, "MXN")}</p>
+            </div>
+          ) : null}
+          {quoteData.is_partner_quote && partnerEquipmentDiscountMXN > 0 ? (
+            <div>
+              <p className="mb-1 text-[#77777D]">
+                Descuento aliado equipo
+              </p>
+              <p className="text-[#F4C66A]">
+                -{formatCurrency(partnerEquipmentDiscountMXN, "MXN")}
+              </p>
+            </div>
+          ) : null}
+          {quoteData.is_partner_quote && partnerLaborDiscountMXN > 0 ? (
+            <div>
+              <p className="mb-1 text-[#77777D]">
+                Descuento aliado mano de obra
+              </p>
+              <p className="text-[#F4C66A]">
+                -{formatCurrency(partnerLaborDiscountMXN, "MXN")}
+              </p>
+            </div>
+          ) : null}
+          {travelTotalMXN > 0 || quoteData.includes_travel_expenses_detail ? (
+            <div>
+              <p className="mb-1 text-[#77777D]">Viaticos ref.</p>
+              <p>{formatCurrency(travelTotalMXN, "MXN")}</p>
             </div>
           ) : null}
           <div>

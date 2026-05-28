@@ -15,6 +15,17 @@ type Quote = {
   discount_type?: string | null;
   discount_percent?: number | null;
   discount_amount_mxn?: number | null;
+  includes_travel_expenses_detail?: boolean | null;
+  travel_fuel_mxn?: number | null;
+  travel_tolls_mxn?: number | null;
+  travel_food_mxn?: number | null;
+  travel_total_mxn?: number | null;
+  is_partner_quote?: boolean | null;
+  partner_equipment_discount_percent?: number | null;
+  partner_labor_discount_percent?: number | null;
+  partner_equipment_discount_mxn?: number | null;
+  partner_labor_discount_mxn?: number | null;
+  partner_total_discount_mxn?: number | null;
   subtotal_mxn?: number | null;
   taxable_base_mxn?: number | null;
   iva_mxn?: number | null;
@@ -112,7 +123,7 @@ export default async function QuotePrintPage({
   let { data: quote, error } = (await supabase
     .from("quotes")
     .select(
-      "id, quote_number, status, client_id, client_project_id, equipment_total, labor_total, grand_total, discount_type, discount_percent, discount_amount_mxn, subtotal_mxn, taxable_base_mxn, iva_mxn, total_mxn, exchange_rate, exchange_rate_source, exchange_rate_date, notes, created_at"
+      "id, quote_number, status, client_id, client_project_id, equipment_total, labor_total, grand_total, discount_type, discount_percent, discount_amount_mxn, includes_travel_expenses_detail, travel_fuel_mxn, travel_tolls_mxn, travel_food_mxn, travel_total_mxn, is_partner_quote, partner_equipment_discount_percent, partner_labor_discount_percent, partner_equipment_discount_mxn, partner_labor_discount_mxn, partner_total_discount_mxn, subtotal_mxn, taxable_base_mxn, iva_mxn, total_mxn, exchange_rate, exchange_rate_source, exchange_rate_date, notes, created_at"
     )
     .eq("id", id)
     .single()) as {
@@ -127,6 +138,8 @@ export default async function QuotePrintPage({
       error.message.includes("exchange_rate_source") ||
       error.message.includes("exchange_rate_date") ||
       error.message.includes("notes") ||
+      error.message.includes("includes_travel_expenses_detail") ||
+      error.message.includes("is_partner_quote") ||
       error.message.includes("total_mxn"))
   ) {
     const fallback = (await supabase
@@ -217,13 +230,34 @@ export default async function QuotePrintPage({
     Number(quoteData.subtotal_mxn) ||
     Number(quoteData.equipment_total || 0) * exchangeRate + laborTotal;
   const discountMXN = Number(quoteData.discount_amount_mxn || 0);
+  const partnerEquipmentDiscountMXN = Number(
+    quoteData.partner_equipment_discount_mxn || 0
+  );
+  const partnerLaborDiscountMXN = Number(
+    quoteData.partner_labor_discount_mxn || 0
+  );
+  const partnerDiscountMXN = Number(
+    quoteData.partner_total_discount_mxn ||
+      partnerEquipmentDiscountMXN + partnerLaborDiscountMXN
+  );
   const taxableBaseMXN =
-    Number(quoteData.taxable_base_mxn) || subtotalMXN - discountMXN;
+    Number(quoteData.taxable_base_mxn) ||
+    subtotalMXN - partnerDiscountMXN - discountMXN;
   const ivaMXN = Number(quoteData.iva_mxn) || taxableBaseMXN * 0.16;
   const totalMXN =
     Number(quoteData.total_mxn) ||
     Number(quoteData.grand_total) ||
     taxableBaseMXN + ivaMXN;
+  const travelFuelMXN = Number(quoteData.travel_fuel_mxn || 0);
+  const travelTollsMXN = Number(quoteData.travel_tolls_mxn || 0);
+  const travelFoodMXN = Number(quoteData.travel_food_mxn || 0);
+  const travelTotalMXN =
+    Number(quoteData.travel_total_mxn || 0) ||
+    travelFuelMXN + travelTollsMXN + travelFoodMXN;
+  const showTravelExpenses =
+    termsSettings.includes_travel_expenses ||
+    Boolean(quoteData.includes_travel_expenses_detail) ||
+    travelTotalMXN > 0;
 
   const paymentTerms = termsSettings.payment_100_advance
     ? ["Anticipo: 100% del total de la propuesta."]
@@ -552,6 +586,11 @@ export default async function QuotePrintPage({
             <p className="quote-print-folio text-xl font-semibold text-[#111318]">
               {quoteData.quote_number || "Sin folio"}
             </p>
+            {quoteData.is_partner_quote ? (
+              <p className="font-semibold text-[#9E1B32]">
+                Cotizacion para aliado comercial
+              </p>
+            ) : null}
             <p>Status: {quoteData.status || "Sin estado"}</p>
             <p>Fecha: {formatDate(quoteData.created_at)}</p>
             <p>TC USD/MXN: {formatNumber(exchangeRate)}</p>
@@ -705,9 +744,29 @@ export default async function QuotePrintPage({
               <span className="text-[#555963]">Subtotal</span>
               <span>{formatCurrency(subtotalMXN, "MXN")}</span>
             </div>
+            {quoteData.is_partner_quote && partnerEquipmentDiscountMXN > 0 ? (
+              <div className="mb-2 flex justify-between">
+                <span className="text-[#555963]">
+                  Descuento aliado equipo
+                </span>
+                <span>-{formatCurrency(partnerEquipmentDiscountMXN, "MXN")}</span>
+              </div>
+            ) : null}
+            {quoteData.is_partner_quote && partnerLaborDiscountMXN > 0 ? (
+              <div className="mb-2 flex justify-between">
+                <span className="text-[#555963]">
+                  Descuento aliado mano de obra
+                </span>
+                <span>-{formatCurrency(partnerLaborDiscountMXN, "MXN")}</span>
+              </div>
+            ) : null}
             {discountMXN > 0 ? (
               <div className="mb-2 flex justify-between">
-                <span className="text-[#555963]">Descuento</span>
+                <span className="text-[#555963]">
+                  {quoteData.is_partner_quote
+                    ? "Descuento adicional"
+                    : "Descuento"}
+                </span>
                 <span>-{formatCurrency(discountMXN, "MXN")}</span>
               </div>
             ) : null}
@@ -725,6 +784,36 @@ export default async function QuotePrintPage({
             </p>
           </div>
         </section>
+
+        {showTravelExpenses ? (
+          <section className="print-keep-together mt-6 flex justify-end">
+            <div className="totals-box w-72 border border-[#D6D1C8] bg-white p-4 text-xs">
+              <h3 className="mb-3 text-sm font-semibold">
+                Viaticos considerados
+              </h3>
+              <div className="mb-2 flex justify-between">
+                <span className="text-[#555963]">Gasolina</span>
+                <span>{formatCurrency(travelFuelMXN, "MXN")}</span>
+              </div>
+              <div className="mb-2 flex justify-between">
+                <span className="text-[#555963]">Casetas</span>
+                <span>{formatCurrency(travelTollsMXN, "MXN")}</span>
+              </div>
+              <div className="mb-2 flex justify-between">
+                <span className="text-[#555963]">Alimentos</span>
+                <span>{formatCurrency(travelFoodMXN, "MXN")}</span>
+              </div>
+              <div className="flex justify-between border-t border-[#D6D1C8] pt-3 font-semibold">
+                <span>Total viaticos</span>
+                <span>{formatCurrency(travelTotalMXN, "MXN")}</span>
+              </div>
+              <p className="mt-3 text-[9px] leading-4 text-[#555963]">
+                Los viaticos se muestran como referencia operativa y no forman
+                parte del subtotal comercial de equipos/mano de obra.
+              </p>
+            </div>
+          </section>
+        ) : null}
 
         {quoteData.notes?.trim() ? (
           <section className="notes-box print-keep-together mt-6 border-t border-[#D6D1C8] pt-4">

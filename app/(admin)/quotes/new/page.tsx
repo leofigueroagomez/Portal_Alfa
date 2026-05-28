@@ -21,6 +21,7 @@ type Product = {
   labor_unit_cost: number | null;
   labor_unit_sale_price: number;
   is_favorite: boolean | null;
+  partner_discount_eligible: boolean | null;
   product_categories?: {
     name: string | null;
   } | null;
@@ -132,6 +133,16 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
   const [discountType, setDiscountType] = useState("none");
   const [discountPercent, setDiscountPercent] = useState("");
   const [discountAmountMXN, setDiscountAmountMXN] = useState("");
+  const [includesTravelExpensesDetail, setIncludesTravelExpensesDetail] =
+    useState(false);
+  const [travelFuelMXN, setTravelFuelMXN] = useState("");
+  const [travelTollsMXN, setTravelTollsMXN] = useState("");
+  const [travelFoodMXN, setTravelFoodMXN] = useState("");
+  const [isPartnerQuote, setIsPartnerQuote] = useState(false);
+  const [partnerEquipmentDiscountPercent, setPartnerEquipmentDiscountPercent] =
+    useState("15");
+  const [partnerLaborDiscountPercent, setPartnerLaborDiscountPercent] =
+    useState("25");
   const [notes, setNotes] = useState("");
   const [termsSettings, setTermsSettings] = useState<QuoteTermsSettings>({
     payment_100_equipment: true,
@@ -491,17 +502,54 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
 
   const equipmentTotalMXN = equipmentTotalUSD * numericExchangeRate;
   const subtotalMXN = equipmentTotalMXN + laborTotalMXN;
+  const partnerEquipmentDiscountMXN = isPartnerQuote
+    ? sections.reduce((sectionSum, section) => {
+        const total = section.items.reduce((sum, item) => {
+          if (item.partner_discount_eligible === false) return sum;
+
+          return (
+            sum +
+            getEquipmentUnitPriceUsd(item, numericExchangeRate) *
+              item.quantity *
+              numericExchangeRate *
+              ((Number(partnerEquipmentDiscountPercent) || 0) / 100)
+          );
+        }, 0);
+
+        return sectionSum + total;
+      }, 0)
+    : 0;
+  const partnerLaborDiscountMXN = isPartnerQuote
+    ? laborTotalMXN * ((Number(partnerLaborDiscountPercent) || 0) / 100)
+    : 0;
+  const partnerTotalDiscountMXN =
+    partnerEquipmentDiscountMXN + partnerLaborDiscountMXN;
   const discountMXN =
     discountType === "percent"
       ? subtotalMXN * ((Number(discountPercent) || 0) / 100)
       : discountType === "amount"
         ? Number(discountAmountMXN) || 0
         : 0;
-  const cappedDiscountMXN = Math.min(Math.max(discountMXN, 0), subtotalMXN);
-  const taxableBaseMXN = subtotalMXN - cappedDiscountMXN;
+  const cappedPartnerDiscountMXN = Math.min(
+    Math.max(partnerTotalDiscountMXN, 0),
+    subtotalMXN
+  );
+  const remainingAfterPartnerDiscount = subtotalMXN - cappedPartnerDiscountMXN;
+  const cappedDiscountMXN = Math.min(
+    Math.max(discountMXN, 0),
+    remainingAfterPartnerDiscount
+  );
+  const taxableBaseMXN =
+    subtotalMXN - cappedPartnerDiscountMXN - cappedDiscountMXN;
   const ivaMXN = taxableBaseMXN * 0.16;
   const totalMXN = taxableBaseMXN + ivaMXN;
   const grandTotalMXN = totalMXN;
+  const travelTotalMXN =
+    (Number(travelFuelMXN) || 0) +
+    (Number(travelTollsMXN) || 0) +
+    (Number(travelFoodMXN) || 0);
+  const shouldShowTravelExpenses =
+    termsSettings.includes_travel_expenses || includesTravelExpensesDetail;
   const equipmentCostMXN = sections.reduce((sectionSum, section) => {
     const total = section.items.reduce((sum, item) => {
       return (
@@ -615,6 +663,18 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
       iva_mxn: ivaMXN,
       total_mxn: totalMXN,
       grand_total: grandTotalMXN,
+      includes_travel_expenses_detail: shouldShowTravelExpenses,
+      travel_fuel_mxn: Number(travelFuelMXN) || 0,
+      travel_tolls_mxn: Number(travelTollsMXN) || 0,
+      travel_food_mxn: Number(travelFoodMXN) || 0,
+      travel_total_mxn: travelTotalMXN,
+      is_partner_quote: isPartnerQuote,
+      partner_equipment_discount_percent:
+        Number(partnerEquipmentDiscountPercent) || 0,
+      partner_labor_discount_percent: Number(partnerLaborDiscountPercent) || 0,
+      partner_equipment_discount_mxn: partnerEquipmentDiscountMXN,
+      partner_labor_discount_mxn: partnerLaborDiscountMXN,
+      partner_total_discount_mxn: cappedPartnerDiscountMXN,
       notes: notes.trim() || null,
     };
 
@@ -673,6 +733,24 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
       if (quoteResult.error.message.includes("notes")) {
         delete quotePayloadToInsert.notes;
       }
+
+      [
+        "includes_travel_expenses_detail",
+        "travel_fuel_mxn",
+        "travel_tolls_mxn",
+        "travel_food_mxn",
+        "travel_total_mxn",
+        "is_partner_quote",
+        "partner_equipment_discount_percent",
+        "partner_labor_discount_percent",
+        "partner_equipment_discount_mxn",
+        "partner_labor_discount_mxn",
+        "partner_total_discount_mxn",
+      ].forEach((field) => {
+        if (quoteResult.error?.message.includes(field)) {
+          delete quotePayloadToInsert[field];
+        }
+      });
 
       quoteResult = await supabase
         .from("quotes")
@@ -973,6 +1051,42 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
             Incluye cableado
           </label>
         </div>
+
+        {shouldShowTravelExpenses ? (
+          <div className="mt-6 rounded-xl border border-[#2A2A30] bg-[#222228] p-4">
+            <h3 className="mb-4 text-lg font-semibold">
+              Viaticos considerados
+            </h3>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <input
+                className="rounded-xl bg-[#151518] px-3 py-3 outline-none"
+                placeholder="Gasto de gasolina"
+                value={travelFuelMXN}
+                onChange={(e) => setTravelFuelMXN(e.target.value)}
+              />
+              <input
+                className="rounded-xl bg-[#151518] px-3 py-3 outline-none"
+                placeholder="Gasto de casetas"
+                value={travelTollsMXN}
+                onChange={(e) => setTravelTollsMXN(e.target.value)}
+              />
+              <input
+                className="rounded-xl bg-[#151518] px-3 py-3 outline-none"
+                placeholder="Gasto de alimentos"
+                value={travelFoodMXN}
+                onChange={(e) => setTravelFoodMXN(e.target.value)}
+              />
+            </div>
+            <div className="mt-4 flex justify-between border-t border-[#2A2A30] pt-4 text-sm font-semibold">
+              <span>Total viaticos</span>
+              <span>{formatCurrency(travelTotalMXN, "MXN")}</span>
+            </div>
+            <p className="mt-3 text-xs leading-relaxed text-[#B3B3B8]">
+              Los viaticos se muestran como referencia operativa y no forman
+              parte del subtotal comercial de equipos/mano de obra.
+            </p>
+          </div>
+        ) : null}
       </section>
 
       <section className="grid grid-cols-1 gap-8 xl:grid-cols-3">
@@ -1331,7 +1445,57 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
               </div>
 
               <div className="space-y-3 rounded-xl border border-[#2A2A30] bg-[#222228] p-4">
-                <label className="block text-[#B3B3B8]">Descuento</label>
+                <label className="flex items-center gap-3 text-[#B3B3B8]">
+                  <input
+                    type="checkbox"
+                    checked={isPartnerQuote}
+                    onChange={(e) => setIsPartnerQuote(e.target.checked)}
+                  />
+                  Cotizacion para aliado comercial
+                </label>
+
+                {isPartnerQuote ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <input
+                        className="rounded-xl bg-[#151518] px-3 py-2 outline-none"
+                        placeholder="% equipo"
+                        value={partnerEquipmentDiscountPercent}
+                        onChange={(e) =>
+                          setPartnerEquipmentDiscountPercent(e.target.value)
+                        }
+                      />
+                      <input
+                        className="rounded-xl bg-[#151518] px-3 py-2 outline-none"
+                        placeholder="% mano de obra"
+                        value={partnerLaborDiscountPercent}
+                        onChange={(e) =>
+                          setPartnerLaborDiscountPercent(e.target.value)
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2 text-xs text-[#B3B3B8]">
+                      <div className="flex justify-between">
+                        <span>Descuento aliado equipo</span>
+                        <span>
+                          -{formatCurrency(partnerEquipmentDiscountMXN, "MXN")}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Descuento aliado mano de obra</span>
+                        <span>
+                          -{formatCurrency(partnerLaborDiscountMXN, "MXN")}
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                ) : null}
+              </div>
+
+              <div className="space-y-3 rounded-xl border border-[#2A2A30] bg-[#222228] p-4">
+                <label className="block text-[#B3B3B8]">
+                  {isPartnerQuote ? "Descuento adicional" : "Descuento"}
+                </label>
                 <select
                   className="w-full rounded-xl bg-[#151518] px-3 py-2 outline-none"
                   value={discountType}
@@ -1378,8 +1542,34 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
 
                 {cappedDiscountMXN > 0 ? (
                   <div className="flex justify-between text-[#F4C66A]">
-                    <span>Descuento</span>
+                    <span>
+                      {isPartnerQuote ? "Descuento adicional" : "Descuento"}
+                    </span>
                     <span>-{formatCurrency(cappedDiscountMXN, "MXN")}</span>
+                  </div>
+                ) : null}
+
+                {cappedPartnerDiscountMXN > 0 ? (
+                  <div className="space-y-2 text-[#F4C66A]">
+                    <div className="flex justify-between">
+                      <span>Descuento aliado equipo</span>
+                      <span>
+                        -{formatCurrency(partnerEquipmentDiscountMXN, "MXN")}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Descuento aliado mano de obra</span>
+                      <span>
+                        -{formatCurrency(partnerLaborDiscountMXN, "MXN")}
+                      </span>
+                    </div>
+                  </div>
+                ) : null}
+
+                {shouldShowTravelExpenses ? (
+                  <div className="flex justify-between border-t border-[#2A2A30] pt-3">
+                    <span className="text-[#B3B3B8]">Viaticos ref.</span>
+                    <span>{formatCurrency(travelTotalMXN, "MXN")}</span>
                   </div>
                 ) : null}
 
