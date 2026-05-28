@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Building2,
+  BarChart3,
   FileText,
   FolderOpen,
   Gauge,
@@ -32,6 +33,7 @@ type AdminShellProps = {
 
 const navItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard comercial", icon: Gauge },
+  { href: "/director-dashboard", label: "Dashboard direccion", icon: BarChart3 },
   { href: "/clients", label: "Clientes", icon: Building2 },
   { href: "/products", label: "Productos", icon: Package },
   { href: "/quotes", label: "Cotizaciones", icon: FileText },
