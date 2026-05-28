@@ -38,6 +38,7 @@ type Quote = {
   status: string | null;
   equipment_total: number | null;
   labor_total: number | null;
+  subtotal_mxn?: number | null;
   total_mxn: number | null;
   grand_total: number | null;
   exchange_rate: number | null;
@@ -97,7 +98,7 @@ function isThisMonth(value: string | null | undefined) {
 }
 
 function quoteTotalMxn(quote: Quote) {
-  return Number(quote.total_mxn ?? quote.grand_total ?? 0);
+  return Number(quote.total_mxn ?? quote.grand_total ?? quote.subtotal_mxn ?? 0);
 }
 
 function quoteExchangeRate(quote: Quote | null | undefined) {
@@ -110,6 +111,12 @@ function getPaymentMxn(payment: Payment) {
     return Number(payment.amount || 0) * Number(payment.exchange_rate || 0);
   }
   return Number(payment.amount || 0);
+}
+
+function getPaymentCategoryLabel(category: string | null | undefined) {
+  if (category === "equipment") return "Equipos";
+  if (category === "labor") return "Mano de obra";
+  return "Sin categoria";
 }
 
 function isPendingValue(value: string | null | undefined) {
@@ -152,7 +159,7 @@ function KpiCard({
 export default async function DirectorDashboardPage() {
   const supabase = await createSupabaseServerClient();
 
-  const [
+  let [
     projectsResult,
     clientsResult,
     quotesResult,
@@ -170,15 +177,14 @@ export default async function DirectorDashboardPage() {
     supabase
       .from("quotes")
       .select(
-        "id, quote_number, client_id, client_project_id, status, equipment_total, labor_total, total_mxn, grand_total, exchange_rate, approved_at, created_at"
+        "id, quote_number, client_id, client_project_id, status, equipment_total, labor_total, subtotal_mxn, total_mxn, grand_total, exchange_rate, approved_at, created_at"
       ),
     supabase
       .from("project_payments")
       .select(
         "id, client_project_id, payment_date, payment_method, payment_reference, payment_category, currency, amount, amount_mxn, exchange_rate"
       )
-      .order("payment_date", { ascending: false })
-      .limit(8),
+      .order("payment_date", { ascending: false }),
     supabase
       .from("project_purchase_lines")
       .select(
@@ -192,10 +198,31 @@ export default async function DirectorDashboardPage() {
     supabase.from("quote_items").select("id, quote_id"),
   ]);
 
+  if (projectsResult.error) {
+    console.warn("[director-dashboard] client_projects query fallback", {
+      message: projectsResult.error.message,
+    });
+    projectsResult = await supabase
+      .from("client_projects")
+      .select("id, client_id, name, sales_stage, estimated_value_mxn");
+  }
+
+  if (quotesResult.error) {
+    console.warn("[director-dashboard] quotes query fallback", {
+      message: quotesResult.error.message,
+    });
+    quotesResult = await supabase
+      .from("quotes")
+      .select(
+        "id, quote_number, client_id, client_project_id, status, equipment_total, labor_total, total_mxn, grand_total, exchange_rate, created_at"
+      );
+  }
+
   const projects = (projectsResult.data || []) as ClientProject[];
   const clients = (clientsResult.data || []) as Client[];
   const quotes = (quotesResult.data || []) as Quote[];
   const payments = paymentsResult.error ? [] : ((paymentsResult.data || []) as Payment[]);
+  const latestPayments = payments.slice(0, 8);
   const purchaseLines = purchaseLinesResult.error
     ? []
     : ((purchaseLinesResult.data || []) as PurchaseLine[]);
@@ -394,7 +421,12 @@ export default async function DirectorDashboardPage() {
   const topClientsByAmount = clients
     .map((client) => {
       const amount = approvedQuotes
-        .filter((quote) => quote.client_id === client.id)
+        .filter((quote) => {
+          const projectClientId = quote.client_project_id
+            ? projectClientIds.get(quote.client_project_id)
+            : null;
+          return (quote.client_id || projectClientId) === client.id;
+        })
         .reduce((sum, quote) => sum + quoteTotalMxn(quote), 0);
       return { id: client.id, name: client.name || "Sin cliente", amount };
     })
@@ -425,6 +457,24 @@ export default async function DirectorDashboardPage() {
     .sort((a, b) => b.value - a.value)
     .slice(0, 6);
 
+  console.info("[director-dashboard] counts", {
+    approvedQuotes: approvedQuotes.length,
+    activeProjects: activeProjects.length,
+    payments: payments.length,
+    purchaseLines: purchaseLines.length,
+    purchaseEvents: purchaseEvents.length,
+  });
+
+  const queryWarnings = [
+    projectsResult.error ? `Proyectos: ${projectsResult.error.message}` : null,
+    clientsResult.error ? `Clientes: ${clientsResult.error.message}` : null,
+    quotesResult.error ? `Cotizaciones: ${quotesResult.error.message}` : null,
+    paymentsResult.error ? `Pagos: ${paymentsResult.error.message}` : null,
+    purchaseLinesResult.error ? `Compras: ${purchaseLinesResult.error.message}` : null,
+    purchaseEventsResult.error ? `Eventos compra: ${purchaseEventsResult.error.message}` : null,
+    quoteItemsResult.error ? `Partidas: ${quoteItemsResult.error.message}` : null,
+  ].filter(Boolean) as string[];
+
   return (
     <main className="min-h-screen bg-[#0B0D0F] p-4 text-white md:p-8 xl:p-10">
       <section className="mb-8">
@@ -434,6 +484,17 @@ export default async function DirectorDashboardPage() {
           Vista ejecutiva de ventas, cobranza, compras y operacion.
         </p>
       </section>
+
+      {queryWarnings.length > 0 ? (
+        <section className="mb-8 rounded-xl border border-[#614620] bg-[#322514] p-4 text-sm text-[#F4C66A]">
+          <p className="font-semibold">Hay consultas con fallback o pendientes de SQL.</p>
+          <div className="mt-2 space-y-1">
+            {queryWarnings.map((warning) => (
+              <p key={warning}>{warning}</p>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <KpiCard
@@ -569,12 +630,22 @@ export default async function DirectorDashboardPage() {
         />
         <ExecutiveList
           title="Ultimos pagos registrados"
-          rows={payments.map((payment) => ({
-            label: projectNames.get(Number(payment.client_project_id || 0)) || "Proyecto sin nombre",
-            meta: `${payment.payment_date || "Sin fecha"} / ${payment.payment_method || "Sin metodo"}`,
-            value: formatCurrency(getPaymentMxn(payment), "MXN"),
-            tone: "green",
-          }))}
+          rows={latestPayments.map((payment) => {
+            const projectId = Number(payment.client_project_id || 0);
+            const clientId = projectClientIds.get(projectId);
+            const clientName = clientId ? clientNames.get(clientId) || "Sin cliente" : "Sin cliente";
+            const projectName = projectNames.get(projectId) || "Proyecto sin nombre";
+            const originalCurrency = payment.currency || "MXN";
+
+            return {
+              label: `${clientName} / ${projectName}`,
+              meta: `${payment.payment_date || "Sin fecha"} / ${getPaymentCategoryLabel(
+                payment.payment_category
+              )} / ${payment.payment_reference || payment.payment_method || "Sin referencia"}`,
+              value: formatCurrency(payment.amount, originalCurrency),
+              tone: "green" as const,
+            };
+          })}
           empty="Sin pagos registrados."
         />
         <ExecutiveList
