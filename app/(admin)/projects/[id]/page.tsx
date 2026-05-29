@@ -6,6 +6,7 @@ import {
   ExternalLink,
   FileText,
   HardHat,
+  Layers3,
   MapPin,
   PackageCheck,
   Pencil,
@@ -16,6 +17,7 @@ import {
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { formatCurrency } from "@/lib/format";
 import UploadAuthorizedPlanButton from "@/components/UploadAuthorizedPlanButton";
+import OperationalBaseSyncButton from "./OperationalBaseSyncButton";
 import {
   normalizeSalesStage,
   salesStageClasses,
@@ -169,6 +171,7 @@ export default async function ProjectDetailPage({
     { data: approvedQuotes },
     visitsResult,
     authorizedPlanResult,
+    operationalItemsResult,
   ] = await Promise.all([
     projectData.client_id
       ? supabase
@@ -198,6 +201,10 @@ export default async function ProjectDetailPage({
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
+    supabase
+      .from("project_operational_items")
+      .select("id", { count: "exact", head: true })
+      .eq("client_project_id", projectData.id),
   ]);
 
   const clientData = client as Client | null;
@@ -208,6 +215,9 @@ export default async function ProjectDetailPage({
   const authorizedPlan = authorizedPlanResult.error
     ? null
     : (authorizedPlanResult.data as ProjectDocument | null);
+  const operationalItemsCount = operationalItemsResult.error
+    ? null
+    : Number(operationalItemsResult.count || 0);
   const approvedTotal = authorizedQuotes.reduce(
     (sum, quote) => sum + getQuoteTotal(quote),
     0
@@ -356,6 +366,32 @@ export default async function ProjectDetailPage({
                 <FileText size={18} />
                 Ver / imprimir listado
               </Link>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5 sm:p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="flex items-center gap-2 text-2xl font-semibold">
+                  <Layers3 size={22} />
+                  Base operativa
+                </h2>
+                <p className="mt-2 text-sm text-[#B3B3B8]">
+                  Fuente interna preparada desde cotizaciones aprobadas, sin modificar la venta.
+                </p>
+                <p className="mt-3 text-sm font-semibold text-[#B3B3B8]">
+                  Items operativos:{" "}
+                  <span className="text-white">
+                    {operationalItemsCount === null
+                      ? "SQL pendiente"
+                      : operationalItemsCount}
+                  </span>
+                </p>
+              </div>
+              <OperationalBaseSyncButton
+                projectId={projectData.id}
+                approvedQuoteCount={authorizedQuotes.length}
+              />
             </div>
           </section>
 

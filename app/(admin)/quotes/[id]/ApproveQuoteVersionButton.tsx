@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { syncProjectOperationalItems } from "@/lib/projectOperationalItems";
 import { supabase } from "@/services/supabase";
 
 type Props = {
@@ -91,6 +92,16 @@ export default function ApproveQuoteVersionButton({
         reportStepError("actualizar etapa de oportunidad a ganado", projectStageError);
         setApproving(false);
         return;
+      }
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      try {
+        await syncProjectOperationalItems(supabase, clientProjectId, user?.id || null);
+      } catch (syncError) {
+        console.warn("No se pudo sincronizar base operativa al aprobar:", syncError);
       }
 
       fetch("/api/notifications/quote-approved", {
