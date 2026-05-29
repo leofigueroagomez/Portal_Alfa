@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Edit, FileText, Printer } from "lucide-react";
+import { ArrowLeft, Edit, FileText, Printer, Wrench } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import {
   formatServiceDate,
@@ -105,18 +105,34 @@ export default async function ServiceDetailPage({
         </div>
         <div className="flex flex-wrap gap-3">
           <Link
+            href={`/services/${id}/print`}
+            className="inline-flex items-center gap-2 rounded-xl border border-[#2A2A30] bg-[#222228] px-5 py-3 font-semibold text-[#B3B3B8] hover:text-white"
+          >
+            <Printer size={18} />
+            Ver reporte tecnico
+          </Link>
+          <Link
+            href={`/services/${id}/proposal`}
+            className="inline-flex items-center gap-2 rounded-xl bg-[#9E1B32] px-5 py-3 font-semibold hover:bg-[#B91C3C]"
+          >
+            <FileText size={18} />
+            Ver propuesta de reparacion
+          </Link>
+          {reportData.requires_parts && reportData.related_quote_id ? (
+            <Link
+              href={`/quotes/${reportData.related_quote_id}/edit`}
+              className="inline-flex items-center gap-2 rounded-xl border border-[#2A2A30] bg-[#222228] px-5 py-3 font-semibold text-[#B3B3B8] hover:text-white"
+            >
+              <Wrench size={18} />
+              Editar refacciones
+            </Link>
+          ) : null}
+          <Link
             href={`/services/${id}/edit`}
             className="inline-flex items-center gap-2 rounded-xl border border-[#2A2A30] bg-[#222228] px-5 py-3 font-semibold text-[#B3B3B8] hover:text-white"
           >
             <Edit size={18} />
             Editar
-          </Link>
-          <Link
-            href={`/services/${id}/print`}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#9E1B32] px-5 py-3 font-semibold hover:bg-[#B91C3C]"
-          >
-            <Printer size={18} />
-            Imprimir
           </Link>
         </div>
       </section>
@@ -168,15 +184,32 @@ export default async function ServiceDetailPage({
                 </p>
               ) : null}
             </div>
-            {!reportData.related_quote_id ? (
+            {reportData.related_quote_id ? (
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  href={`/services/${id}/proposal`}
+                  className="inline-flex w-fit items-center gap-2 rounded-xl bg-[#9E1B32] px-5 py-3 font-semibold text-white hover:bg-[#B91C3C]"
+                >
+                  <FileText size={18} />
+                  Ver propuesta de reparacion
+                </Link>
+                <Link
+                  href={`/quotes/${reportData.related_quote_id}`}
+                  className="inline-flex w-fit items-center gap-2 rounded-xl border border-[#2A2A30] bg-[#222228] px-5 py-3 font-semibold text-[#B3B3B8] hover:text-white"
+                >
+                  <FileText size={18} />
+                  Ver cotizacion interna
+                </Link>
+              </div>
+            ) : (
               <Link
                 href={quoteUrl}
                 className="inline-flex w-fit items-center gap-2 rounded-xl bg-[#9E1B32] px-5 py-3 font-semibold text-white hover:bg-[#B91C3C]"
               >
                 <FileText size={18} />
-                Crear cotizacion de refaccion
+                Crear cotizacion interna de refacciones
               </Link>
-            ) : null}
+            )}
           </div>
         </section>
       ) : null}

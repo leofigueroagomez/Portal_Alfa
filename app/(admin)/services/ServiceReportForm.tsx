@@ -43,6 +43,10 @@ export type ServiceReportInitial = {
   requires_parts: boolean | null;
   required_parts_notes: string | null;
   technician_cost_mxn: number | null;
+  service_discount_mxn?: number | null;
+  service_discount_percent?: number | null;
+  service_discount_type?: string | null;
+  service_discount_reason?: string | null;
   status: string | null;
 };
 
@@ -111,6 +115,10 @@ export default function ServiceReportForm({
   const [requiresParts, setRequiresParts] = useState(Boolean(initialReport?.requires_parts));
   const [requiredPartsNotes, setRequiredPartsNotes] = useState(initialReport?.required_parts_notes || "");
   const [technicianCostMxn, setTechnicianCostMxn] = useState(String(initialReport?.technician_cost_mxn || 0));
+  const [discountType, setDiscountType] = useState(initialReport?.service_discount_type || "none");
+  const [discountMxn, setDiscountMxn] = useState(String(initialReport?.service_discount_mxn || 0));
+  const [discountPercent, setDiscountPercent] = useState(String(initialReport?.service_discount_percent || 0));
+  const [discountReason, setDiscountReason] = useState(initialReport?.service_discount_reason || "");
   const [status, setStatus] = useState(initialReport?.status || "draft");
   const [newPhotos, setNewPhotos] = useState<NewPhoto[]>([]);
   const [photoList, setPhotoList] = useState(existingPhotos);
@@ -242,6 +250,11 @@ export default function ServiceReportForm({
       required_parts_notes: requiresParts ? requiredPartsNotes.trim() || null : null,
       technician_cost_mxn: Number(technicianCostMxn) || 0,
       labor_sale_mxn: laborSaleMxn,
+      service_discount_type: discountType,
+      service_discount_mxn: discountType === "amount" ? Number(discountMxn) || 0 : 0,
+      service_discount_percent:
+        discountType === "percent" ? Number(discountPercent) || 0 : 0,
+      service_discount_reason: discountReason.trim() || null,
       status,
       updated_at: new Date().toISOString(),
     };
@@ -433,6 +446,51 @@ export default function ServiceReportForm({
               {formatCurrency(laborSaleMxn, "MXN")}
             </p>
           </div>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-4 sm:p-6">
+        <h2 className="mb-5 text-2xl font-semibold">
+          Descuento por reparacion completa
+        </h2>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <select
+            className="rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none"
+            value={discountType}
+            onChange={(event) => setDiscountType(event.target.value)}
+          >
+            <option value="none">Ninguno</option>
+            <option value="percent">Porcentaje</option>
+            <option value="amount">Monto manual</option>
+          </select>
+          {discountType === "percent" ? (
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              className="rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none"
+              value={discountPercent}
+              onChange={(event) => setDiscountPercent(event.target.value)}
+              placeholder="Porcentaje"
+            />
+          ) : null}
+          {discountType === "amount" ? (
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              className="rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none"
+              value={discountMxn}
+              onChange={(event) => setDiscountMxn(event.target.value)}
+              placeholder="Monto MXN"
+            />
+          ) : null}
+          <textarea
+            className="min-h-20 rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none md:col-span-2"
+            value={discountReason}
+            onChange={(event) => setDiscountReason(event.target.value)}
+            placeholder="Motivo/texto opcional del descuento"
+          />
         </div>
       </section>
 
