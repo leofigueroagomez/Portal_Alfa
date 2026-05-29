@@ -3,6 +3,9 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Save, Trash2, X } from "lucide-react";
+import ProductLibraryPicker, {
+  ProductLibraryProduct,
+} from "@/components/ProductLibraryPicker";
 import { formatCurrency, formatNumber } from "@/lib/format";
 import { supabase } from "@/services/supabase";
 
@@ -25,15 +28,7 @@ export type OperationalEditorItem = {
   quantity_delivered: number;
 };
 
-export type ProductOption = {
-  id: number;
-  brand: string | null;
-  model: string | null;
-  name: string | null;
-  image_url: string | null;
-  cost_price: number | null;
-  cost_currency: string | null;
-};
+export type ProductOption = ProductLibraryProduct;
 
 export type TranslationChange = {
   id: number;
@@ -112,17 +107,16 @@ export default function ProjectTranslationEditor({
 }: Props) {
   const router = useRouter();
   const [items, setItems] = useState(initialItems);
+  const [libraryProducts, setLibraryProducts] = useState(products);
   const [changes, setChanges] = useState(recentChanges);
   const [saving, setSaving] = useState(false);
   const [mode, setMode] = useState<ModalMode>(null);
   const [activeItemId, setActiveItemId] = useState<number | null>(null);
-  const [selectedProductId, setSelectedProductId] = useState("");
   const [quantityValue, setQuantityValue] = useState("");
   const [systemName, setSystemName] = useState("");
   const [notes, setNotes] = useState("");
   const totals = useMemo(() => getTotals(items), [items]);
   const activeItem = items.find((item) => item.id === activeItemId) || null;
-  const selectedProduct = products.find((product) => String(product.id) === selectedProductId);
   const savingAmount = Math.max(totals.original - totals.operational, 0);
   const overrunAmount = Math.max(totals.operational - totals.original, 0);
   const systemOptions = Array.from(
@@ -136,7 +130,6 @@ export default function ProjectTranslationEditor({
     }
 
     setActiveItemId(item.id);
-    setSelectedProductId(item.product_id ? String(item.product_id) : "");
     setQuantityValue("");
     setSystemName(item.system_name || "");
     setNotes("");
@@ -147,14 +140,12 @@ export default function ProjectTranslationEditor({
     setActiveItemId(item.id);
     setQuantityValue(String(Number(item.quantity || 0)));
     setSystemName(item.system_name || "");
-    setSelectedProductId("");
     setNotes("");
     setMode("quantity");
   }
 
   function openAdd() {
     setActiveItemId(null);
-    setSelectedProductId(products[0]?.id ? String(products[0].id) : "");
     setQuantityValue("1");
     setSystemName(systemOptions[0] || "");
     setNotes("");
@@ -164,7 +155,6 @@ export default function ProjectTranslationEditor({
   function closeModal() {
     setMode(null);
     setActiveItemId(null);
-    setSelectedProductId("");
     setQuantityValue("");
     setSystemName("");
     setNotes("");
@@ -264,8 +254,8 @@ export default function ProjectTranslationEditor({
     if (error) throw error;
   }
 
-  async function handleSubstitute() {
-    if (!activeItem || !selectedProduct) return;
+  async function handleSubstitute(selectedProduct: ProductOption) {
+    if (!activeItem) return;
 
     const nextItem: OperationalEditorItem = {
       ...activeItem,
@@ -427,7 +417,7 @@ export default function ProjectTranslationEditor({
     }
   }
 
-  async function handleAddProduct() {
+  async function handleAddProduct(selectedProduct: ProductOption) {
     if (!selectedProduct) return;
 
     const nextQuantity = Number(quantityValue);
@@ -730,24 +720,6 @@ export default function ProjectTranslationEditor({
             </div>
 
             <div className="grid grid-cols-1 gap-4">
-              {mode === "substitute" || mode === "add" ? (
-                <label className="space-y-2">
-                  <span className="text-sm text-[#B3B3B8]">Producto de biblioteca</span>
-                  <select
-                    className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none"
-                    value={selectedProductId}
-                    onChange={(event) => setSelectedProductId(event.target.value)}
-                  >
-                    {products.map((product) => (
-                      <option key={product.id} value={product.id}>
-                        {productLabel(product)} -{" "}
-                        {formatCurrency(product.cost_price, product.cost_currency)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ) : null}
-
               {mode === "add" ? (
                 <label className="space-y-2">
                   <span className="text-sm text-[#B3B3B8]">Sistema</span>
@@ -788,6 +760,23 @@ export default function ProjectTranslationEditor({
                   onChange={(event) => setNotes(event.target.value)}
                 />
               </label>
+
+              {mode === "substitute" || mode === "add" ? (
+                <ProductLibraryPicker
+                  products={libraryProducts}
+                  onProductsChange={setLibraryProducts}
+                  priceMode="cost"
+                  selectLabel={mode === "add" ? "Agregar" : "Sustituir"}
+                  helperText={
+                    mode === "add"
+                      ? "Elige un producto para agregarlo a la base operativa."
+                      : "Elige el reemplazo tecnico para esta linea."
+                  }
+                  onSelectProduct={
+                    mode === "add" ? handleAddProduct : handleSubstitute
+                  }
+                />
+              ) : null}
             </div>
 
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
@@ -801,14 +790,12 @@ export default function ProjectTranslationEditor({
               <button
                 type="button"
                 disabled={saving}
-                onClick={
-                  mode === "add"
-                    ? handleAddProduct
-                    : mode === "quantity"
-                      ? handleQuantityChange
-                      : handleSubstitute
-                }
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#9E1B32] px-5 py-3 font-semibold hover:bg-[#B91C3C] disabled:bg-[#222228] disabled:text-[#77777D]"
+                onClick={mode === "quantity" ? handleQuantityChange : undefined}
+                className={`inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 font-semibold disabled:bg-[#222228] disabled:text-[#77777D] ${
+                  mode === "quantity"
+                    ? "bg-[#9E1B32] hover:bg-[#B91C3C]"
+                    : "hidden"
+                }`}
               >
                 <Save size={18} />
                 {saving ? "Guardando..." : "Aplicar cambio"}

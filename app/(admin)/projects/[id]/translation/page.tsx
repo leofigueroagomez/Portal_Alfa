@@ -105,7 +105,9 @@ export default async function ProjectTranslationPage({
           .order("product_brand", { ascending: true }),
         supabase
           .from("products")
-          .select("id, brand, model, name, image_url, cost_price, cost_currency")
+          .select(
+            "id, sku, brand, model, name, description, category, category_id, image_url, cost_price, cost_currency, calculated_sale_price, sale_currency, labor_unit_cost, labor_unit_sale_price, is_favorite, partner_discount_eligible, product_categories(name), product_tag_assignments(product_tags(id, name))"
+          )
           .eq("is_active", true)
           .order("is_favorite", { ascending: false })
           .order("brand", { ascending: true }),
