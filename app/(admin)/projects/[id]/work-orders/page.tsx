@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { ArrowLeft, FileText, Plus } from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
+import { formatCurrency } from "@/lib/format";
+import { getContractorPaymentStatusLabel } from "@/lib/contractors";
 import {
   formatWorkOrderDate,
   getWorkOrderProgress,
@@ -18,6 +20,8 @@ type WorkOrder = {
   title: string | null;
   status: string | null;
   assigned_to_name: string | null;
+  contractor_amount_mxn: number | null;
+  contractor_payment_status: string | null;
   scheduled_start: string | null;
   scheduled_end: string | null;
   created_at: string | null;
@@ -42,7 +46,7 @@ export default async function ProjectWorkOrdersPage({
     supabase.from("client_projects").select("id, name").eq("id", id).maybeSingle(),
     supabase
       .from("work_orders")
-      .select("id, work_order_number, title, status, assigned_to_name, scheduled_start, scheduled_end, created_at")
+      .select("id, work_order_number, title, status, assigned_to_name, contractor_amount_mxn, contractor_payment_status, scheduled_start, scheduled_end, created_at")
       .eq("client_project_id", id)
       .order("created_at", { ascending: false }),
   ]);
@@ -99,7 +103,7 @@ export default async function ProjectWorkOrdersPage({
       ) : (
         <section className="rounded-xl border border-[#1F1F24] bg-[#151518]">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] border-collapse text-sm">
+            <table className="w-full min-w-[1080px] border-collapse text-sm">
               <thead>
                 <tr className="border-b border-[#2A2A30] bg-[#101114] text-left text-[#B3B3B8]">
                   <th className="px-4 py-3 font-semibold">Numero</th>
@@ -108,6 +112,7 @@ export default async function ProjectWorkOrdersPage({
                   <th className="px-4 py-3 font-semibold">Fechas</th>
                   <th className="px-4 py-3 font-semibold">Status</th>
                   <th className="px-4 py-3 font-semibold">Avance</th>
+                  <th className="px-4 py-3 font-semibold">Contratista</th>
                   <th className="px-4 py-3 font-semibold">Acciones</th>
                 </tr>
               </thead>
@@ -134,6 +139,12 @@ export default async function ProjectWorkOrdersPage({
                         <span className="font-semibold text-[#8CE0B6]">{progress.percent.toFixed(0)}%</span>
                         <p className="text-xs text-[#77777D]">
                           {progress.completed.toFixed(2)} / {progress.assigned.toFixed(2)}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="font-semibold">{formatCurrency(order.contractor_amount_mxn, "MXN")}</p>
+                        <p className="text-xs text-[#77777D]">
+                          {getContractorPaymentStatusLabel(order.contractor_payment_status)}
                         </p>
                       </td>
                       <td className="px-4 py-3">

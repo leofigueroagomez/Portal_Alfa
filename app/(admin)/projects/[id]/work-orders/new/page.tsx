@@ -29,6 +29,13 @@ type WorkOrderAssignment = {
   status: string | null;
 };
 
+type ContractorOption = {
+  id: number;
+  name: string | null;
+  phone: string | null;
+  specialty: string | null;
+};
+
 export default async function NewProjectWorkOrderPage({
   params,
 }: {
@@ -37,7 +44,12 @@ export default async function NewProjectWorkOrderPage({
   const supabase = await createSupabaseServerClient();
   const { id } = await params;
 
-  const [{ data: project }, { data: rawActivities }, { data: rawAssignments }] =
+  const [
+    { data: project },
+    { data: rawActivities },
+    { data: rawAssignments },
+    { data: contractors },
+  ] =
     await Promise.all([
       supabase.from("client_projects").select("id, name").eq("id", id).maybeSingle(),
       supabase
@@ -53,6 +65,11 @@ export default async function NewProjectWorkOrderPage({
         .select("project_operational_item_labor_activity_id, quantity_assigned, status")
         .neq("status", "cancelled")
         .not("project_operational_item_labor_activity_id", "is", null),
+      supabase
+        .from("contractors")
+        .select("id, name, phone, specialty")
+        .eq("is_active", true)
+        .order("name", { ascending: true }),
     ]);
 
   const projectData = project as ClientProject | null;
@@ -108,7 +125,11 @@ export default async function NewProjectWorkOrderPage({
         </p>
       </section>
 
-      <NewWorkOrderForm projectId={Number(id)} activities={activities} />
+      <NewWorkOrderForm
+        projectId={Number(id)}
+        activities={activities}
+        contractors={(contractors || []) as ContractorOption[]}
+      />
     </main>
   );
 }

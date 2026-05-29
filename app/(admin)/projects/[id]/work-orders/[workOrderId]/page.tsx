@@ -2,6 +2,9 @@ import Link from "next/link";
 import { ArrowLeft, FileText } from "lucide-react";
 import { formatNumber } from "@/lib/format";
 import {
+  getContractorPaymentStatusLabel,
+} from "@/lib/contractors";
+import {
   formatWorkOrderDate,
   getWorkOrderActivityStatusLabel,
   getWorkOrderProgress,
@@ -9,6 +12,7 @@ import {
   resolveWorkOrderPhotoUrl,
 } from "@/lib/workOrders";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
+import ApplyContractorChargeButton from "./ApplyContractorChargeButton";
 import WorkOrderActivityUpdater, { EditableWorkOrderActivity } from "./WorkOrderActivityUpdater";
 
 type WorkOrder = {
@@ -18,9 +22,21 @@ type WorkOrder = {
   status: string | null;
   assigned_to_name: string | null;
   assigned_to_phone: string | null;
+  contractor_id: number | null;
+  contractor_amount_mxn: number | null;
+  contractor_payment_status: string | null;
   scheduled_start: string | null;
   scheduled_end: string | null;
   notes: string | null;
+  contractors?: {
+    name: string | null;
+    phone: string | null;
+  } | null;
+};
+
+type ClientProject = {
+  id: number;
+  name: string | null;
 };
 
 type WorkOrderActivity = EditableWorkOrderActivity & {
@@ -40,12 +56,15 @@ export default async function WorkOrderDetailPage({
   const supabase = await createSupabaseServerClient();
   const { id, workOrderId } = await params;
 
-  const { data: workOrder, error } = await supabase
-    .from("work_orders")
-    .select("id, work_order_number, title, status, assigned_to_name, assigned_to_phone, scheduled_start, scheduled_end, notes")
-    .eq("id", workOrderId)
-    .eq("client_project_id", id)
-    .maybeSingle();
+  const [{ data: project }, { data: workOrder, error }] = await Promise.all([
+    supabase.from("client_projects").select("id, name").eq("id", id).maybeSingle(),
+    supabase
+      .from("work_orders")
+      .select("id, work_order_number, title, status, assigned_to_name, assigned_to_phone, contractor_id, contractor_amount_mxn, contractor_payment_status, scheduled_start, scheduled_end, notes, contractors(name, phone)")
+      .eq("id", workOrderId)
+      .eq("client_project_id", id)
+      .maybeSingle(),
+  ]);
 
   if (error || !workOrder) {
     return (
@@ -61,7 +80,8 @@ export default async function WorkOrderDetailPage({
     );
   }
 
-  const orderData = workOrder as WorkOrder;
+  const orderData = workOrder as unknown as WorkOrder;
+  const projectData = project as ClientProject | null;
   const { data: rawActivities } = await supabase
     .from("work_order_activities")
     .select("id, system_name, product_brand, product_model, product_name, activity_name, quantity_assigned, quantity_completed, status, completion_notes, evidence_photo_url")
@@ -116,6 +136,49 @@ export default async function WorkOrderDetailPage({
         <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5">
           <p className="text-sm text-[#B3B3B8]">Avance</p>
           <p className="mt-2 text-xl font-semibold text-[#8CE0B6]">{progress.percent.toFixed(0)}%</p>
+        </div>
+      </section>
+
+      <section className="mb-8 rounded-2xl border border-[#1F1F24] bg-[#151518] p-5 sm:p-6">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div>
+            <h2 className="text-2xl font-semibold">Contratista</h2>
+            <p className="mt-2 text-[#B3B3B8]">
+              {orderData.contractors?.name || orderData.assigned_to_name || "Sin contratista"}
+              {orderData.contractors?.phone || orderData.assigned_to_phone
+                ? ` · ${orderData.contractors?.phone || orderData.assigned_to_phone}`
+                : ""}
+            </p>
+            <p className="mt-1 text-sm text-[#77777D]">
+              Pago: {getContractorPaymentStatusLabel(orderData.contractor_payment_status)}
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3">
+              <p className="text-xs text-[#B3B3B8]">Monto contratista</p>
+              <p className="text-xl font-semibold">
+                MXN {Number(orderData.contractor_amount_mxn || 0).toFixed(2)}
+              </p>
+            </div>
+            {orderData.status === "completed" || orderData.status === "validated" ? (
+              <ApplyContractorChargeButton
+                workOrderId={Number(workOrderId)}
+                projectId={Number(id)}
+                contractorId={orderData.contractor_id}
+                contractorAmountMxn={Number(orderData.contractor_amount_mxn || 0)}
+                paymentStatus={orderData.contractor_payment_status}
+                workOrderNumber={
+                  orderData.work_order_number ||
+                  `OT-${String(orderData.id).padStart(4, "0")}`
+                }
+                projectName={projectData?.name || "Proyecto"}
+              />
+            ) : (
+              <p className="text-sm text-[#77777D]">
+                El cobro se puede aplicar cuando la OT este completada o validada.
+              </p>
+            )}
+          </div>
         </div>
       </section>
 

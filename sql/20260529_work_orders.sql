@@ -129,3 +129,5 @@ on public.work_order_activities
 for delete
 to authenticated
 using (true);
+
+notify pgrst, 'reload schema';

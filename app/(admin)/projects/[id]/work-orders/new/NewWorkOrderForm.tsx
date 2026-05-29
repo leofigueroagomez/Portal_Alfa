@@ -23,6 +23,14 @@ export type AvailableWorkActivity = {
 type Props = {
   projectId: number;
   activities: AvailableWorkActivity[];
+  contractors: ContractorOption[];
+};
+
+type ContractorOption = {
+  id: number;
+  name: string | null;
+  phone: string | null;
+  specialty: string | null;
 };
 
 type SelectedActivity = {
@@ -46,17 +54,41 @@ function reportError(step: string, error: unknown) {
     typeof error.message === "string"
       ? ` ${error.message}`
       : "";
+  const code =
+    error &&
+    typeof error === "object" &&
+    "code" in error &&
+    typeof error.code === "string"
+      ? error.code
+      : "";
 
   console.error(`Error en ${step}:`, error);
+
+  if (
+    code === "PGRST205" ||
+    message.includes("Could not find the table")
+  ) {
+    alert(
+      `Error en ${step}: falta aplicar el SQL de ordenes de trabajo en Supabase. Ejecuta sql/20260529_work_orders.sql y vuelve a intentar.`
+    );
+    return;
+  }
+
   alert(`Error en ${step}: ${JSON.stringify(error)}${message}`);
 }
 
-export default function NewWorkOrderForm({ projectId, activities }: Props) {
+export default function NewWorkOrderForm({
+  projectId,
+  activities,
+  contractors,
+}: Props) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [title, setTitle] = useState("");
+  const [contractorId, setContractorId] = useState("");
   const [assignedToName, setAssignedToName] = useState("");
   const [assignedToPhone, setAssignedToPhone] = useState("");
+  const [contractorAmountMxn, setContractorAmountMxn] = useState("0");
   const [scheduledStart, setScheduledStart] = useState(today());
   const [scheduledEnd, setScheduledEnd] = useState("");
   const [notes, setNotes] = useState("");
@@ -117,6 +149,15 @@ export default function NewWorkOrderForm({ projectId, activities }: Props) {
     }));
   }
 
+  function handleContractorChange(value: string) {
+    setContractorId(value);
+    const contractor = contractors.find((item) => String(item.id) === value);
+    if (contractor) {
+      setAssignedToName(contractor.name || "");
+      setAssignedToPhone(contractor.phone || "");
+    }
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -127,6 +168,12 @@ export default function NewWorkOrderForm({ projectId, activities }: Props) {
 
     if (selectedActivities.length === 0) {
       alert("Selecciona al menos una actividad.");
+      return;
+    }
+
+    const contractorAmount = Number(contractorAmountMxn || 0);
+    if (!Number.isFinite(contractorAmount) || contractorAmount < 0) {
+      alert("El monto a pagar al contratista no puede ser negativo.");
       return;
     }
 
@@ -158,11 +205,14 @@ export default function NewWorkOrderForm({ projectId, activities }: Props) {
       .from("work_orders")
       .insert({
         client_project_id: projectId,
+        contractor_id: contractorId ? Number(contractorId) : null,
         work_order_number: null,
         title: title.trim(),
         status: "assigned",
         assigned_to_name: assignedToName.trim() || null,
         assigned_to_phone: assignedToPhone.trim() || null,
+        contractor_amount_mxn: contractorAmount,
+        contractor_payment_status: "pending",
         scheduled_start: scheduledStart || null,
         scheduled_end: scheduledEnd || null,
         notes: notes.trim() || null,
@@ -248,12 +298,38 @@ export default function NewWorkOrderForm({ projectId, activities }: Props) {
             />
           </label>
           <label className="space-y-2">
+            <span className="text-sm text-[#B3B3B8]">Contratista</span>
+            <select
+              className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none"
+              value={contractorId}
+              onChange={(event) => handleContractorChange(event.target.value)}
+            >
+              <option value="">Sin contratista</option>
+              {contractors.map((contractor) => (
+                <option key={contractor.id} value={contractor.id}>
+                  {contractor.name || "Contratista"}{contractor.specialty ? ` - ${contractor.specialty}` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="space-y-2">
             <span className="text-sm text-[#B3B3B8]">Asignado a</span>
             <input
               className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none"
               value={assignedToName}
               onChange={(event) => setAssignedToName(event.target.value)}
               placeholder="Responsable / contratista"
+            />
+          </label>
+          <label className="space-y-2">
+            <span className="text-sm text-[#B3B3B8]">Monto contratista MXN</span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none"
+              value={contractorAmountMxn}
+              onChange={(event) => setContractorAmountMxn(event.target.value)}
             />
           </label>
           <label className="space-y-2">
