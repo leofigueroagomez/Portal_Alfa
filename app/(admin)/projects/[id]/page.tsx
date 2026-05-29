@@ -7,6 +7,7 @@ import {
   FileText,
   HardHat,
   MapPin,
+  PackageCheck,
   Pencil,
   ShoppingCart,
   UserRound,
@@ -390,6 +391,24 @@ export default async function ProjectDetailPage({
               >
                 <ShoppingCart size={18} />
                 Ver compras
+              </Link>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5 sm:p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-2xl font-semibold">Entrega de material</h2>
+                <p className="mt-2 text-sm text-[#B3B3B8]">
+                  Comprobantes de entrega a obra o responsable, con evidencia y firma.
+                </p>
+              </div>
+              <Link
+                href={`/projects/${projectData.id}/material-deliveries`}
+                className="inline-flex w-fit items-center gap-2 rounded-xl border border-[#2A2A30] bg-[#222228] px-5 py-3 font-semibold text-[#B3B3B8] hover:bg-[#2A2A30] hover:text-white"
+              >
+                <PackageCheck size={18} />
+                Ver entregas
               </Link>
             </div>
           </section>
