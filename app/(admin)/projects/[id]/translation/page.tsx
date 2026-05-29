@@ -101,6 +101,7 @@ export default async function ProjectTranslationPage({
             "id, client_project_id, system_name, product_id, product_brand, product_model, product_name, product_image_url, quantity, original_quantity, original_unit_cost, operational_unit_cost, cost_currency, status"
           )
           .eq("client_project_id", id)
+          .neq("status", "deleted")
           .order("system_name", { ascending: true })
           .order("product_brand", { ascending: true }),
         supabase

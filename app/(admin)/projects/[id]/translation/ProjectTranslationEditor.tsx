@@ -490,6 +490,28 @@ export default function ProjectTranslationEditor({
 
       if (error || !data) throw error || { message: "No se recibio item creado" };
 
+      const activityQuantity = nextQuantity;
+      const activityInternalUnitCost = Number(selectedProduct.labor_unit_cost || 0);
+      const activitySaleUnitPrice = Number(selectedProduct.labor_unit_sale_price || 0);
+      const { error: activityError } = await supabase
+        .from("project_operational_item_labor_activities")
+        .insert({
+          project_operational_item_id: data.id,
+          source_quote_item_labor_activity_id: null,
+          labor_activity_id: null,
+          name_snapshot: "Mano de obra general",
+          quantity: activityQuantity,
+          unit: "pieza",
+          internal_unit_cost_mxn: activityInternalUnitCost,
+          sale_unit_price_mxn: activitySaleUnitPrice,
+          internal_total_mxn: activityQuantity * activityInternalUnitCost,
+          sale_total_mxn: activityQuantity * activitySaleUnitPrice,
+          status: "pending",
+          notes: "Generada desde traduccion tecnica",
+        });
+
+      if (activityError) throw activityError;
+
       await logChange({
         operational_item_id: data.id,
         change_type: "add",
@@ -547,10 +569,24 @@ export default function ProjectTranslationEditor({
 
       const { error } = await supabase
         .from("project_operational_items")
-        .delete()
+        .update({
+          quantity: 0,
+          status: "deleted",
+          change_origin: "translation",
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", item.id);
 
       if (error) throw error;
+
+      const { error: activityCancelError } = await supabase
+        .from("project_operational_item_labor_activities")
+        .update({ status: "cancelled" })
+        .eq("project_operational_item_id", item.id)
+        .neq("status", "completed")
+        .neq("status", "validated");
+
+      if (activityCancelError) throw activityCancelError;
 
       const { error: lineDeleteError } = await supabase
         .from("project_purchase_lines")

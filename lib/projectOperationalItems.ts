@@ -51,6 +51,13 @@ type ExistingOperationalItem = {
   source_quote_item_id: number | null;
 };
 
+type ManualOperationalItem = {
+  id: number;
+  quantity: number | null;
+  product_id: number | null;
+  status: string | null;
+};
+
 type OperationalLaborActivityInsert = {
   project_operational_item_id: number;
   source_quote_item_labor_activity_id: number | null;
@@ -353,13 +360,93 @@ export async function syncProjectOperationalItems(
     if (insertActivitiesError) throw insertActivitiesError;
   }
 
+  const { data: manualOperationalItems, error: manualItemsError } =
+    await supabase
+      .from("project_operational_items")
+      .select("id, quantity, product_id, status")
+      .eq("client_project_id", projectId)
+      .is("source_quote_item_id", null)
+      .neq("status", "deleted");
+
+  if (manualItemsError) throw manualItemsError;
+
+  const manualItems = (manualOperationalItems || []) as ManualOperationalItem[];
+  const manualItemIds = manualItems.map((item) => item.id);
+  const { data: existingManualActivities, error: existingManualActivitiesError } =
+    manualItemIds.length
+      ? await supabase
+          .from("project_operational_item_labor_activities")
+          .select("project_operational_item_id")
+          .in("project_operational_item_id", manualItemIds)
+          .neq("status", "cancelled")
+      : { data: [], error: null };
+
+  if (existingManualActivitiesError) throw existingManualActivitiesError;
+
+  const manualItemIdsWithActivities = new Set(
+    ((existingManualActivities || []) as { project_operational_item_id: number | null }[])
+      .map((activity) => activity.project_operational_item_id)
+      .filter(Boolean) as number[]
+  );
+  const manualProductIds = Array.from(
+    new Set(manualItems.map((item) => item.product_id).filter(Boolean) as number[])
+  );
+  const { data: manualProducts, error: manualProductsError } = manualProductIds.length
+    ? await supabase
+        .from("products")
+        .select("id, labor_unit_cost, labor_unit_sale_price")
+        .in("id", manualProductIds)
+    : { data: [], error: null };
+
+  if (manualProductsError) throw manualProductsError;
+
+  const manualProductById = new Map(
+    ((manualProducts || []) as (Product & { labor_unit_sale_price?: number | null })[]).map(
+      (product) => [product.id, product]
+    )
+  );
+  const manualActivityRows = manualItems
+    .filter((item) => !manualItemIdsWithActivities.has(item.id))
+    .filter((item) => Number(item.quantity || 0) > 0)
+    .map((item) => {
+      const product = item.product_id ? manualProductById.get(item.product_id) : null;
+      const quantity = Number(item.quantity || 0);
+      const internalUnitCost = Number(product?.labor_unit_cost || 0);
+      const saleUnitPrice = Number(product?.labor_unit_sale_price || 0);
+
+      return {
+        project_operational_item_id: item.id,
+        source_quote_item_labor_activity_id: null,
+        labor_activity_id: null,
+        name_snapshot: "Mano de obra general",
+        quantity,
+        unit: "pieza",
+        internal_unit_cost_mxn: internalUnitCost,
+        sale_unit_price_mxn: saleUnitPrice,
+        internal_total_mxn: quantity * internalUnitCost,
+        sale_total_mxn: quantity * saleUnitPrice,
+        status: "pending",
+        notes: "Generada automaticamente para traduccion tecnica",
+      };
+    });
+
+  if (manualActivityRows.length > 0) {
+    const { error: insertManualActivitiesError } = await supabase
+      .from("project_operational_item_labor_activities")
+      .insert(manualActivityRows);
+
+    if (insertManualActivitiesError) throw insertManualActivitiesError;
+  }
+
   return {
     inserted: rowsToInsert.length,
     skipped: existingQuoteItemIds.size,
     approvedQuotes: approvedQuotes.length,
-    activitiesInserted: activityRowsToInsert.length,
+    activitiesInserted: activityRowsToInsert.length + manualActivityRows.length,
     activitiesSkipped:
-      existingSourceActivityIds.size + existingLegacyActivityItemIds.size,
+      existingSourceActivityIds.size +
+      existingLegacyActivityItemIds.size +
+      manualItemIdsWithActivities.size,
   };
 }
 

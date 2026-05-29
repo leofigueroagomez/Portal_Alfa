@@ -293,7 +293,9 @@ export default async function ProjectPurchasesPage({
     purchaseSqlError = existingLinesResult.error.message;
   }
 
-  const operationalItems = (operationalItemsResult.data || []) as OperationalItem[];
+  const operationalItems = ((operationalItemsResult.data || []) as OperationalItem[]).filter(
+    (item) => item.status !== "deleted"
+  );
   const operationalItemsById = new Map(operationalItems.map((item) => [item.id, item]));
   const operationalItemsByQuoteItemId = new Map(
     operationalItems

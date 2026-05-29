@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
+import { syncProjectOperationalItems } from "@/lib/projectOperationalItems";
 import NewWorkOrderForm, { AvailableWorkActivity } from "./NewWorkOrderForm";
 
 type ClientProject = {
@@ -20,6 +21,7 @@ type OperationalActivity = {
     product_brand: string | null;
     product_model: string | null;
     product_name: string | null;
+    status?: string | null;
   } | null;
 };
 
@@ -43,21 +45,42 @@ export default async function NewProjectWorkOrderPage({
 }) {
   const supabase = await createSupabaseServerClient();
   const { id } = await params;
+  let workOrderSqlError: string | null = null;
+
+  try {
+    await syncProjectOperationalItems(supabase, Number(id));
+  } catch (error) {
+    workOrderSqlError =
+      error &&
+      typeof error === "object" &&
+      "message" in error &&
+      typeof error.message === "string"
+        ? error.message
+        : "No se pudo sincronizar la base operativa.";
+  }
 
   const [
     { data: project },
     { data: rawActivities },
     { data: rawAssignments },
     { data: contractors },
-  ] =
+  ] = workOrderSqlError
+    ? [
+        { data: null },
+        { data: [] },
+        { data: [] },
+        { data: [] },
+      ]
+    :
     await Promise.all([
       supabase.from("client_projects").select("id, name").eq("id", id).maybeSingle(),
       supabase
         .from("project_operational_item_labor_activities")
         .select(
-          "id, project_operational_item_id, name_snapshot, quantity, unit, status, project_operational_items!inner(system_name, product_brand, product_model, product_name, client_project_id)"
+          "id, project_operational_item_id, name_snapshot, quantity, unit, status, project_operational_items!inner(system_name, product_brand, product_model, product_name, status, client_project_id)"
         )
         .eq("project_operational_items.client_project_id", id)
+        .neq("project_operational_items.status", "deleted")
         .neq("status", "cancelled")
         .order("name_snapshot", { ascending: true }),
       supabase
@@ -125,11 +148,17 @@ export default async function NewProjectWorkOrderPage({
         </p>
       </section>
 
-      <NewWorkOrderForm
-        projectId={Number(id)}
-        activities={activities}
-        contractors={(contractors || []) as ContractorOption[]}
-      />
+      {workOrderSqlError ? (
+        <section className="rounded-2xl border border-[#614620] bg-[#322514] p-5 text-[#F4C66A]">
+          No se pudo sincronizar actividades operativas. Detalle: {workOrderSqlError}
+        </section>
+      ) : (
+        <NewWorkOrderForm
+          projectId={Number(id)}
+          activities={activities}
+          contractors={(contractors || []) as ContractorOption[]}
+        />
+      )}
     </main>
   );
 }
