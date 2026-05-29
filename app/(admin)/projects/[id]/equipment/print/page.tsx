@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { syncProjectOperationalItems } from "@/lib/projectOperationalItems";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import PrintEquipmentListButton from "./PrintEquipmentListButton";
 
@@ -19,34 +20,16 @@ type Client = {
 
 type Quote = {
   id: number;
-  quote_number: string | null;
-  notes?: string | null;
-  created_at: string | null;
 };
 
-type QuoteSection = {
+type OperationalItem = {
   id: number;
-  quote_id: number;
-  name: string | null;
-  sort_order: number | null;
-};
-
-type QuoteItem = {
-  id: number;
-  quote_id: number;
-  quote_section_id: number;
+  system_name: string | null;
   quantity: number | null;
   product_brand: string | null;
   product_model: string | null;
   product_name: string | null;
   product_image_url: string | null;
-  sort_order?: number | null;
-};
-
-type QuoteTermsSettings = {
-  quote_id: number;
-  includes_conduit: boolean | null;
-  includes_cabling: boolean | null;
 };
 
 function formatDate(value: string | null | undefined) {
@@ -57,16 +40,6 @@ function formatDate(value: string | null | undefined) {
     month: "short",
     day: "numeric",
   });
-}
-
-function getScopeLabel(terms: QuoteTermsSettings | null | undefined) {
-  const includesConduit = Boolean(terms?.includes_conduit);
-  const includesCabling = Boolean(terms?.includes_cabling);
-
-  if (includesConduit && includesCabling) return "Cableado y canalizaciones";
-  if (includesCabling) return "Cableado";
-  if (includesConduit) return "Canalizaciones";
-  return "Sin cableado ni canalizaciones";
 }
 
 function getField(value: string | null | undefined) {
@@ -131,7 +104,7 @@ export default async function ProjectEquipmentPrintPage({
       : Promise.resolve({ data: null }),
     supabase
       .from("quotes")
-      .select("id, quote_number, notes, created_at")
+      .select("id")
       .eq("client_project_id", projectData.id)
       .eq("status", "approved")
       .order("created_at", { ascending: true }),
@@ -139,45 +112,43 @@ export default async function ProjectEquipmentPrintPage({
 
   const clientData = client as Client | null;
   const quotes = (approvedQuotes || []) as Quote[];
-  const quoteIds = quotes.map((quote) => quote.id);
+  let operationalError: string | null = null;
 
-  const [{ data: sections }, { data: items }, { data: terms }] =
-    quoteIds.length > 0
-      ? await Promise.all([
-          supabase
-            .from("quote_sections")
-            .select("id, quote_id, name, sort_order")
-            .in("quote_id", quoteIds)
-            .order("sort_order", { ascending: true }),
-          supabase
-            .from("quote_items")
-            .select(
-              "id, quote_id, quote_section_id, quantity, product_brand, product_model, product_name, product_image_url, sort_order"
-            )
-            .in("quote_id", quoteIds)
-            .order("sort_order", { ascending: true }),
-          supabase
-            .from("quote_terms_settings")
-            .select("quote_id, includes_conduit, includes_cabling")
-            .in("quote_id", quoteIds),
-        ])
-      : [{ data: [] }, { data: [] }, { data: [] }];
-
-  const quoteSections = (sections || []) as QuoteSection[];
-  const quoteItems = (items || []) as QuoteItem[];
-  const quoteTerms = (terms || []) as QuoteTermsSettings[];
-
-  function getQuoteSections(quoteId: number) {
-    return quoteSections.filter((section) => section.quote_id === quoteId);
+  try {
+    await syncProjectOperationalItems(supabase, projectData.id);
+  } catch (syncError) {
+    operationalError =
+      syncError &&
+      typeof syncError === "object" &&
+      "message" in syncError &&
+      typeof syncError.message === "string"
+        ? syncError.message
+        : "No se pudo sincronizar la base operativa.";
   }
 
-  function getSectionItems(sectionId: number) {
-    return quoteItems.filter((item) => item.quote_section_id === sectionId);
+  const { data: items, error: itemsError } = operationalError
+    ? { data: [], error: null }
+    : await supabase
+        .from("project_operational_items")
+        .select("id, system_name, quantity, product_brand, product_model, product_name, product_image_url")
+        .eq("client_project_id", projectData.id)
+        .eq("status", "active")
+        .order("system_name", { ascending: true })
+        .order("product_brand", { ascending: true });
+
+  if (itemsError) {
+    operationalError = itemsError.message;
   }
 
-  function getQuoteTerms(quoteId: number) {
-    return quoteTerms.find((term) => term.quote_id === quoteId);
-  }
+  const operationalItems = (items || []) as OperationalItem[];
+  const itemsBySystem = Array.from(
+    operationalItems.reduce((map, item) => {
+      const systemName = item.system_name?.trim() || "Sistema sin nombre";
+      const existing = map.get(systemName) || [];
+      map.set(systemName, [...existing, item]);
+      return map;
+    }, new Map<string, OperationalItem[]>())
+  );
 
   return (
     <main className="print-root min-h-screen bg-[#EDEBE6] py-5 text-[#111318]">
@@ -378,119 +349,79 @@ export default async function ProjectEquipmentPrintPage({
           </div>
         </section>
 
-        {quotes.length === 0 ? (
+        {operationalError ? (
+          <section className="border border-[#D6D1C8] bg-[#F7F5F1] p-4 text-sm">
+            Ejecuta el SQL de base operativa para generar el listado. Detalle:{" "}
+            {operationalError}
+          </section>
+        ) : quotes.length === 0 ? (
           <section className="border border-[#D6D1C8] bg-[#F7F5F1] p-4 text-sm">
             No hay cotizaciones aprobadas relacionadas para generar listado operativo.
           </section>
+        ) : operationalItems.length === 0 ? (
+          <section className="border border-[#D6D1C8] bg-[#F7F5F1] p-4 text-sm">
+            No hay partidas en la base operativa del proyecto.
+          </section>
         ) : (
           <section className="space-y-6">
-            {quotes.map((quote) => {
-              const sourceSections = getQuoteSections(quote.id);
-              const sourceTerms = getQuoteTerms(quote.id);
+            {itemsBySystem.map(([systemName, systemItems]) => (
+              <section key={systemName} className="quote-block">
+                <div className="section-heading mb-2 flex items-end justify-between border-b border-[#E1DDD5] pb-1">
+                  <h2 className="text-sm font-semibold">{systemName}</h2>
+                  <span className="text-[10px] text-[#555963]">
+                    {systemItems.length} partidas
+                  </span>
+                </div>
 
-              return (
-                <section key={quote.id} className="quote-block">
-                  <div className="scope-box mb-3 flex flex-col gap-2 border-b border-[#D6D1C8] pb-2 sm:flex-row sm:items-end sm:justify-between">
-                    <div>
-                      <h2 className="text-base font-semibold">
-                        {quote.quote_number || `Cotizacion #${quote.id}`}
-                      </h2>
-                      <p className="text-[10px] text-[#555963]">
-                        {getScopeLabel(sourceTerms)}
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2 text-[10px] text-[#555963]">
-                      {sourceTerms?.includes_cabling ? (
-                        <span className="border border-[#D6D1C8] px-2 py-1">
-                          Incluye cableado
-                        </span>
-                      ) : null}
-                      {sourceTerms?.includes_conduit ? (
-                        <span className="border border-[#D6D1C8] px-2 py-1">
-                          Incluye canalizaciones
-                        </span>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  {sourceSections.map((section) => {
-                    const sectionItems = getSectionItems(section.id);
-
-                    return (
-                      <div key={section.id} className="mb-5">
-                        <div className="section-heading mb-2 flex items-end justify-between border-b border-[#E1DDD5] pb-1">
-                          <h3 className="text-sm font-semibold">
-                            {section.name || "Sistema sin nombre"}{" "}
-                            <span className="font-normal text-[#555963]">
-                              ({quote.quote_number || `#${quote.id}`})
-                            </span>
-                          </h3>
-                          <span className="text-[10px] text-[#555963]">
-                            {sectionItems.length} partidas
-                          </span>
-                        </div>
-
-                        <table className="equipment-table w-full border-collapse text-[11px]">
-                          <thead>
-                            <tr className="border-b border-[#E1DDD5] bg-[#F7F5F1] text-left text-[#555963]">
-                              <th className="w-12 px-2 py-2">Img</th>
-                              <th className="px-2 py-2">Marca / modelo</th>
-                              <th className="px-2 py-2">Descripcion</th>
-                              <th className="w-14 px-2 py-2 text-center">Cant.</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {sectionItems.map((item) => (
-                              <tr
-                                key={item.id}
-                                className="line-item-row border-b border-[#EFECE6]"
-                              >
-                                <td className="px-2 py-2">
-                                  <div className="product-image-box flex h-10 w-10 items-center justify-center bg-[#F7F5F1]">
-                                    {item.product_image_url ? (
-                                      <img
-                                        src={item.product_image_url}
-                                        alt={item.product_name || "Equipo"}
-                                        className="product-image max-h-10 max-w-10 object-contain"
-                                      />
-                                    ) : (
-                                      <span className="text-[8px] text-[#8A8D94]">
-                                        Sin img
-                                      </span>
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="px-2 py-2 font-semibold">
-                                  {item.product_brand || "Sin marca"}{" "}
-                                  {item.product_model || ""}
-                                </td>
-                                <td className="px-2 py-2 text-[#555963]">
-                                  {item.product_name || "Sin descripcion"}
-                                </td>
-                                <td className="px-2 py-2 text-center font-semibold">
-                                  {Number(item.quantity || 0)}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    );
-                  })}
-
-                  {quote.notes?.trim() ? (
-                    <section className="notes-box mt-4 border-t border-[#D6D1C8] pt-3">
-                      <h3 className="mb-2 text-sm font-semibold">
-                        Notas/aclaraciones - {quote.quote_number || `#${quote.id}`}
-                      </h3>
-                      <div className="whitespace-pre-line text-[10px] leading-4 text-[#555963]">
-                        {quote.notes}
-                      </div>
-                    </section>
-                  ) : null}
-                </section>
-              );
-            })}
+                <table className="equipment-table w-full border-collapse text-[11px]">
+                  <thead>
+                    <tr className="border-b border-[#E1DDD5] bg-[#F7F5F1] text-left text-[#555963]">
+                      <th className="w-12 px-2 py-2">Img</th>
+                      <th className="px-2 py-2">Marca</th>
+                      <th className="px-2 py-2">Modelo</th>
+                      <th className="px-2 py-2">Descripcion</th>
+                      <th className="w-14 px-2 py-2 text-center">Cant.</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {systemItems.map((item) => (
+                      <tr
+                        key={item.id}
+                        className="line-item-row border-b border-[#EFECE6]"
+                      >
+                        <td className="px-2 py-2">
+                          <div className="product-image-box flex h-10 w-10 items-center justify-center bg-[#F7F5F1]">
+                            {item.product_image_url ? (
+                              <img
+                                src={item.product_image_url}
+                                alt={item.product_name || "Equipo"}
+                                className="product-image max-h-10 max-w-10 object-contain"
+                              />
+                            ) : (
+                              <span className="text-[8px] text-[#8A8D94]">
+                                Sin img
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-2 py-2 font-semibold">
+                          {item.product_brand || "Sin marca"}
+                        </td>
+                        <td className="px-2 py-2 font-semibold">
+                          {item.product_model || "-"}
+                        </td>
+                        <td className="px-2 py-2 text-[#555963]">
+                          {item.product_name || "Sin descripcion"}
+                        </td>
+                        <td className="px-2 py-2 text-center font-semibold">
+                          {Number(item.quantity || 0)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </section>
+            ))}
           </section>
         )}
       </article>

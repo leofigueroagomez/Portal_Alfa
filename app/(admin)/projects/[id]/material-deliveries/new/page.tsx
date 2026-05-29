@@ -14,6 +14,7 @@ type ClientProject = {
 
 type PurchaseLine = {
   id: number;
+  project_operational_item_id: number | null;
   supplier: string | null;
   product_brand: string | null;
   product_model: string | null;
@@ -21,6 +22,14 @@ type PurchaseLine = {
   quantity_required: number | null;
   quantity_purchased: number | null;
   purchase_status: string | null;
+};
+
+type OperationalItem = {
+  id: number;
+  system_name: string | null;
+  product_brand: string | null;
+  product_model: string | null;
+  product_name: string | null;
 };
 
 type DeliveryItem = {
@@ -46,7 +55,7 @@ export default async function NewProjectMaterialDeliveryPage({
     supabase
       .from("project_purchase_lines")
       .select(
-        "id, supplier, product_brand, product_model, product_name, quantity_required, quantity_purchased, purchase_status"
+        "id, project_operational_item_id, supplier, product_brand, product_model, product_name, quantity_required, quantity_purchased, purchase_status"
       )
       .eq("client_project_id", id)
       .gt("quantity_purchased", 0)
@@ -58,18 +67,39 @@ export default async function NewProjectMaterialDeliveryPage({
       .not("project_purchase_line_id", "is", null),
   ]);
 
+  const purchaseLines = (rawLines || []) as PurchaseLine[];
+  const operationalItemIds = Array.from(
+    new Set(
+      purchaseLines
+        .map((line) => line.project_operational_item_id)
+        .filter(Boolean) as number[]
+    )
+  );
+  const { data: rawOperationalItems } = operationalItemIds.length
+    ? await supabase
+        .from("project_operational_items")
+        .select("id, system_name, product_brand, product_model, product_name")
+        .in("id", operationalItemIds)
+    : { data: [] };
+  const operationalItemsById = new Map(
+    ((rawOperationalItems || []) as OperationalItem[]).map((item) => [item.id, item])
+  );
   const deliveredByLine = getDeliveredQuantityByLine((rawItems || []) as DeliveryItem[]);
-  const availableLines = ((rawLines || []) as PurchaseLine[])
+  const availableLines = purchaseLines
     .map((line) => {
+      const operationalItem = line.project_operational_item_id
+        ? operationalItemsById.get(line.project_operational_item_id)
+        : null;
       const deliveredPreviously = Number(deliveredByLine.get(line.id) || 0);
       const quantityAvailable = getAvailablePurchasedQuantity(line, deliveredPreviously);
 
       return {
         id: line.id,
         supplier: line.supplier,
-        product_brand: line.product_brand,
-        product_model: line.product_model,
-        product_name: line.product_name,
+        system_name: operationalItem?.system_name || null,
+        product_brand: operationalItem?.product_brand || line.product_brand,
+        product_model: operationalItem?.product_model || line.product_model,
+        product_name: operationalItem?.product_name || line.product_name,
         quantity_required: Number(line.quantity_required || 0),
         quantity_purchased: Number(line.quantity_purchased || 0),
         quantity_delivered_previously: deliveredPreviously,

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { formatCurrency, formatNumber } from "@/lib/format";
+import { syncProjectOperationalItems } from "@/lib/projectOperationalItems";
 import {
   getPurchaseProgressPercent,
   getPurchaseLineVariation,
@@ -32,25 +33,21 @@ type Quote = {
   exchange_rate: number | null;
 };
 
-type QuoteItem = {
+type OperationalItem = {
   id: number;
-  quote_id: number;
-  quote_section_id: number | null;
+  source_quote_id: number | null;
+  source_quote_item_id: number | null;
+  system_name: string | null;
   product_id: number | null;
-  quantity: number | null;
-  sale_currency: string | null;
-  unit_equipment_price: number | null;
-  unit_equipment_price_usd?: number | null;
   product_brand: string | null;
   product_model: string | null;
   product_name: string | null;
   product_image_url: string | null;
-};
-
-type QuoteSection = {
-  id: number;
-  quote_id: number;
-  name: string | null;
+  quantity: number | null;
+  operational_unit_cost: number | null;
+  cost_currency: string | null;
+  exchange_rate: number | null;
+  status: string | null;
 };
 
 type Product = {
@@ -64,11 +61,13 @@ type Product = {
 type PurchaseLine = PurchaseLineAction & {
   client_project_id: number;
   quote_item_id: number | null;
+  project_operational_item_id?: number | null;
   product_id: number | null;
   notes: string | null;
   purchase_status: string | null;
   product_image_url?: string | null;
   exchange_rate?: number | null;
+  system_name?: string | null;
 };
 
 type PurchaseEvent = PurchaseEventAction & {
@@ -254,45 +253,57 @@ export default async function ProjectPurchasesPage({
 
   const clientData = client as Client | null;
   const quotes = (approvedQuotes || []) as Quote[];
-  const quoteIds = quotes.map((quote) => quote.id);
-  const exchangeRateByQuoteId = new Map(
-    quotes.map((quote) => [quote.id, Number(quote.exchange_rate || 0)])
-  );
-  const quoteNumberById = new Map(
-    quotes.map((quote) => [quote.id, quote.quote_number || `Cotizacion ${quote.id}`])
-  );
 
   let purchaseSqlError: string | null = null;
-  const [{ data: rawQuoteItems }, { data: rawQuoteSections }, existingLinesResult] =
-    quoteIds.length > 0
-      ? await Promise.all([
-          supabase
-            .from("quote_items")
-            .select(
-              "id, quote_id, quote_section_id, product_id, quantity, sale_currency, unit_equipment_price, unit_equipment_price_usd, product_brand, product_model, product_name, product_image_url"
-            )
-            .in("quote_id", quoteIds),
-          supabase
-            .from("quote_sections")
-            .select("id, quote_id, name")
-            .in("quote_id", quoteIds),
-          supabase
-            .from("project_purchase_lines")
-            .select("id, quote_item_id")
-            .eq("client_project_id", projectData.id),
-        ])
-      : [{ data: [] }, { data: [] }, { data: [], error: null }];
+
+  try {
+    await syncProjectOperationalItems(supabase, projectData.id);
+  } catch (syncError) {
+    purchaseSqlError =
+      syncError &&
+      typeof syncError === "object" &&
+      "message" in syncError &&
+      typeof syncError.message === "string"
+        ? syncError.message
+        : "No se pudo sincronizar la base operativa.";
+  }
+
+  const [operationalItemsResult, existingLinesResult] = !purchaseSqlError
+    ? await Promise.all([
+        supabase
+          .from("project_operational_items")
+          .select(
+            "id, source_quote_id, source_quote_item_id, system_name, product_id, product_brand, product_model, product_name, product_image_url, quantity, operational_unit_cost, cost_currency, exchange_rate, status"
+          )
+          .eq("client_project_id", projectData.id)
+          .order("system_name", { ascending: true })
+          .order("product_brand", { ascending: true }),
+        supabase
+          .from("project_purchase_lines")
+          .select("id, quote_item_id, project_operational_item_id")
+          .eq("client_project_id", projectData.id),
+      ])
+    : [{ data: [], error: null }, { data: [], error: null }];
+
+  if (operationalItemsResult.error) {
+    purchaseSqlError = operationalItemsResult.error.message;
+  }
 
   if (existingLinesResult.error) {
     purchaseSqlError = existingLinesResult.error.message;
   }
 
-  const quoteItems = (rawQuoteItems || []) as QuoteItem[];
-  const quoteSections = (rawQuoteSections || []) as QuoteSection[];
-  const quoteItemsById = new Map(quoteItems.map((item) => [item.id, item]));
-  const quoteSectionsById = new Map(quoteSections.map((section) => [section.id, section]));
+  const operationalItems = (operationalItemsResult.data || []) as OperationalItem[];
+  const operationalItemsById = new Map(operationalItems.map((item) => [item.id, item]));
+  const operationalItemsByQuoteItemId = new Map(
+    operationalItems
+      .filter((item) => item.source_quote_item_id)
+      .map((item) => [item.source_quote_item_id as number, item])
+  );
   const productIds = Array.from(
-    new Set(quoteItems.map((item) => item.product_id).filter(Boolean) as number[])
+    new Set(
+      operationalItems.map((item) => item.product_id).filter(Boolean) as number[]
+    )
   );
   const { data: rawProducts } = productIds.length
     ? await supabase
@@ -303,25 +314,72 @@ export default async function ProjectPurchasesPage({
 
   const products = (rawProducts || []) as Product[];
   const productsById = new Map(products.map((productItem) => [productItem.id, productItem]));
+  const existingPurchaseLines = (existingLinesResult.data || []) as {
+    id: number;
+    quote_item_id: number | null;
+    project_operational_item_id: number | null;
+  }[];
   const existingQuoteItemIds = new Set(
-    ((existingLinesResult.data || []) as { quote_item_id: number | null }[])
+    existingPurchaseLines
       .map((line) => line.quote_item_id)
+      .filter(Boolean) as number[]
+  );
+  const existingOperationalItemIds = new Set(
+    existingPurchaseLines
+      .map((line) => line.project_operational_item_id)
       .filter(Boolean) as number[]
   );
 
   if (!purchaseSqlError) {
-    const linesToInsert = quoteItems
-      .filter((item) => !existingQuoteItemIds.has(item.id))
+    const linesToLink = existingPurchaseLines
+      .filter((line) => !line.project_operational_item_id && line.quote_item_id)
+      .map((line) => {
+        const operationalItem = line.quote_item_id
+          ? operationalItemsByQuoteItemId.get(line.quote_item_id)
+          : null;
+
+        return operationalItem
+          ? { lineId: line.id, operationalItemId: operationalItem.id }
+          : null;
+      })
+      .filter(Boolean) as { lineId: number; operationalItemId: number }[];
+
+    for (const linkItem of linesToLink) {
+      const { error: linkError } = await supabase
+        .from("project_purchase_lines")
+        .update({
+          project_operational_item_id: linkItem.operationalItemId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", linkItem.lineId);
+
+      if (linkError) {
+        purchaseSqlError = linkError.message;
+        break;
+      }
+
+      existingOperationalItemIds.add(linkItem.operationalItemId);
+    }
+  }
+
+  if (!purchaseSqlError) {
+    const linesToInsert = operationalItems
+      .filter((item) => !existingOperationalItemIds.has(item.id))
+      .filter(
+        (item) =>
+          !item.source_quote_item_id || !existingQuoteItemIds.has(item.source_quote_item_id)
+      )
       .map((item) => {
         const productItem = item.product_id ? productsById.get(item.product_id) : null;
         const quantityRequired = Number(item.quantity || 0);
-        const costCurrency = (productItem?.cost_currency || "USD").toUpperCase();
-        const unitCost = Number(productItem?.cost_price || 0);
+        const costCurrency = (item.cost_currency || productItem?.cost_currency || "USD").toUpperCase();
+        const unitCost = Number(item.operational_unit_cost || productItem?.cost_price || 0);
         const totalRequiredCost = quantityRequired * unitCost;
 
         return {
           client_project_id: projectData.id,
-          quote_item_id: item.id,
+          quote_item_id: item.source_quote_item_id,
+          project_operational_item_id: item.id,
           product_id: item.product_id,
           supplier: productItem?.supplier || null,
           product_brand: item.product_brand,
@@ -354,7 +412,7 @@ export default async function ProjectPurchasesPage({
     : await supabase
         .from("project_purchase_lines")
         .select(
-          "id, client_project_id, quote_item_id, product_id, supplier, product_brand, product_model, product_name, quantity_required, quantity_purchased, cost_currency, unit_cost, total_required_cost, total_purchased_cost, total_pending_cost, purchase_status, notes"
+          "id, client_project_id, quote_item_id, project_operational_item_id, product_id, supplier, product_brand, product_model, product_name, quantity_required, quantity_purchased, cost_currency, unit_cost, total_required_cost, total_purchased_cost, total_pending_cost, purchase_status, notes"
         )
         .eq("client_project_id", projectData.id)
         .order("supplier", { ascending: true })
@@ -366,14 +424,22 @@ export default async function ProjectPurchasesPage({
 
   const lines = ((rawLines || []) as PurchaseLine[]).map((line) => {
     const productItem = line.product_id ? productsById.get(line.product_id) : null;
-    const quoteItem = line.quote_item_id
-      ? quoteItemsById.get(line.quote_item_id)
-      : null;
+    const operationalItem = line.project_operational_item_id
+      ? operationalItemsById.get(line.project_operational_item_id)
+      : line.quote_item_id
+        ? operationalItemsByQuoteItemId.get(line.quote_item_id)
+        : null;
 
     return {
       ...line,
-      product_image_url: productItem?.image_url || quoteItem?.product_image_url || null,
-      exchange_rate: quoteItem ? exchangeRateByQuoteId.get(quoteItem.quote_id) || null : null,
+      product_image_url:
+        operationalItem?.product_image_url ||
+        productItem?.image_url ||
+        null,
+      exchange_rate:
+        operationalItem?.exchange_rate ||
+        null,
+      system_name: operationalItem?.system_name || null,
     };
   });
 
@@ -446,15 +512,13 @@ export default async function ProjectPurchasesPage({
       const origins = Array.from(
         new Set(
           childLines.map((line) => {
-            const quoteItem = line.quote_item_id ? quoteItemsById.get(line.quote_item_id) : null;
-            const quoteLabel = quoteItem
-              ? quoteNumberById.get(quoteItem.quote_id) || `Cotizacion ${quoteItem.quote_id}`
-              : "Sin cotizacion";
-            const sectionLabel = quoteItem?.quote_section_id
-              ? quoteSectionsById.get(quoteItem.quote_section_id)?.name
-              : null;
+            if (line.system_name?.trim()) {
+              return line.system_name;
+            }
 
-            return sectionLabel ? `${quoteLabel} - ${sectionLabel}` : quoteLabel;
+            return line.project_operational_item_id
+              ? "Base operativa"
+              : "Historico de compras";
           })
         )
       );

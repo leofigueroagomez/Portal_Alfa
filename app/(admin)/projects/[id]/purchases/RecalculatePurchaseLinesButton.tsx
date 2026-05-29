@@ -13,11 +13,12 @@ type Quote = {
   id: number;
 };
 
-type QuoteItem = {
+type OperationalItem = {
   id: number;
-  quote_id: number;
   product_id: number | null;
   quantity: number | null;
+  operational_unit_cost: number | null;
+  cost_currency: string | null;
 };
 
 type Product = {
@@ -29,6 +30,7 @@ type Product = {
 type PurchaseLine = {
   id: number;
   quote_item_id: number | null;
+  project_operational_item_id: number | null;
   quantity_required: number | null;
   quantity_purchased: number | null;
 };
@@ -52,7 +54,7 @@ export default function RecalculatePurchaseLinesButton({ projectId }: Props) {
 
   async function handleRecalculate() {
     const confirmed = window.confirm(
-      "Esto recalculara costo estimado y moneda desde productos/cotizaciones. No borra compras registradas. Continuar?"
+      "Esto recalculara costo estimado y moneda desde la base operativa. No borra compras registradas. Continuar?"
     );
 
     if (!confirmed) return;
@@ -79,15 +81,15 @@ export default function RecalculatePurchaseLinesButton({ projectId }: Props) {
       return;
     }
 
-    const [{ data: quoteItems, error: itemsError }, { data: lines, error: linesError }] =
+    const [{ data: operationalItems, error: itemsError }, { data: lines, error: linesError }] =
       await Promise.all([
         supabase
-          .from("quote_items")
-          .select("id, quote_id, product_id, quantity")
-          .in("quote_id", quoteIds),
+          .from("project_operational_items")
+          .select("id, product_id, quantity, operational_unit_cost, cost_currency")
+          .eq("client_project_id", projectId),
         supabase
           .from("project_purchase_lines")
-          .select("id, quote_item_id, quantity_required, quantity_purchased")
+          .select("id, quote_item_id, project_operational_item_id, quantity_required, quantity_purchased")
           .eq("client_project_id", projectId),
       ]);
 
@@ -100,7 +102,7 @@ export default function RecalculatePurchaseLinesButton({ projectId }: Props) {
       return;
     }
 
-    const items = (quoteItems || []) as QuoteItem[];
+    const items = (operationalItems || []) as OperationalItem[];
     const purchaseLines = (lines || []) as PurchaseLine[];
     const productIds = Array.from(
       new Set(items.map((item) => item.product_id).filter(Boolean) as number[])
@@ -124,13 +126,15 @@ export default function RecalculatePurchaseLinesButton({ projectId }: Props) {
     const itemsById = new Map(items.map((item) => [item.id, item]));
 
     for (const line of purchaseLines) {
-      if (!line.quote_item_id) continue;
+      if (!line.project_operational_item_id) continue;
 
-      const item = itemsById.get(line.quote_item_id);
+      const item = itemsById.get(line.project_operational_item_id);
       const product = item?.product_id ? productsById.get(item.product_id) : null;
-      const unitCost = Number(product?.cost_price || 0);
+      const unitCost = Number(item?.operational_unit_cost || product?.cost_price || 0);
       const costCurrency =
-        (product?.cost_currency || "USD").toUpperCase() === "MXN" ? "MXN" : "USD";
+        (item?.cost_currency || product?.cost_currency || "USD").toUpperCase() === "MXN"
+          ? "MXN"
+          : "USD";
       const quantityRequired = Number(line.quantity_required || item?.quantity || 0);
       const quantityPurchased = Number(line.quantity_purchased || 0);
       const totalRequiredCost = unitCost * quantityRequired;
@@ -169,7 +173,7 @@ export default function RecalculatePurchaseLinesButton({ projectId }: Props) {
       className="inline-flex w-fit items-center gap-2 rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-2.5 text-sm font-semibold text-[#B3B3B8] hover:bg-[#2A2A30] hover:text-white disabled:text-[#77777D]"
     >
       <RefreshCw size={17} />
-      {recalculating ? "Recalculando..." : "Recalcular lineas desde cotizacion/productos"}
+      {recalculating ? "Recalculando..." : "Recalcular lineas desde base operativa"}
     </button>
   );
 }

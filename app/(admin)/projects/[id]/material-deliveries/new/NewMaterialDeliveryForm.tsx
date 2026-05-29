@@ -10,6 +10,7 @@ import { supabase } from "@/services/supabase";
 export type AvailableDeliveryLine = {
   id: number;
   supplier: string | null;
+  system_name?: string | null;
   product_brand: string | null;
   product_model: string | null;
   product_name: string | null;
@@ -500,6 +501,11 @@ export default function NewMaterialDeliveryForm({ projectId, lines }: Props) {
                         <p className="text-xs text-[#B3B3B8]">
                           {line.product_name || "Sin descripcion"}
                         </p>
+                        {line.system_name ? (
+                          <p className="mt-1 text-[11px] text-[#77777D]">
+                            {line.system_name}
+                          </p>
+                        ) : null}
                       </td>
                       <td className="px-3 py-2">
                         <span className="inline-flex rounded-full border border-[#2A2A30] bg-[#222228] px-2 py-1 text-xs text-[#B3B3B8]">
