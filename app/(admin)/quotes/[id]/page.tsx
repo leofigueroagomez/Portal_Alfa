@@ -189,6 +189,11 @@ export default async function QuoteDetailPage({
   }
 
   const quoteData = quote as Quote;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const canAdminEditApprovedQuote =
+    user?.email?.toLowerCase() === "leofigueroagomez@gmail.com";
 
   const { data: client } = quoteData.client_id
     ? await supabase
@@ -313,12 +318,17 @@ export default async function QuoteDetailPage({
               {quoteData.status || "Sin estado"}
             </span>
 
-            {quoteData.status === "draft" && (
+            {(quoteData.status === "draft" ||
+              (quoteData.status === "approved" && canAdminEditApprovedQuote)) && (
               <Link
                 href={`/quotes/${quoteData.id}/edit`}
-                className="bg-[#222228] hover:bg-[#2A2A30] border border-[#2A2A30] text-[#B3B3B8] rounded-xl px-5 py-3 font-semibold"
+                className={
+                  quoteData.status === "approved"
+                    ? "bg-[#9E1B32] hover:bg-[#B91C3C] border border-[#9E1B32] text-white rounded-xl px-5 py-3 font-semibold"
+                    : "bg-[#222228] hover:bg-[#2A2A30] border border-[#2A2A30] text-[#B3B3B8] rounded-xl px-5 py-3 font-semibold"
+                }
               >
-                Editar
+                {quoteData.status === "approved" ? "Editar aprobada" : "Editar"}
               </Link>
             )}
 

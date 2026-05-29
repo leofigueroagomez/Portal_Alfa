@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { arrayMove } from "@dnd-kit/sortable";
 import { supabase } from "@/services/supabase";
 import { formatCurrency, formatNumber } from "@/lib/format";
+import { syncProjectOperationalItems } from "@/lib/projectOperationalItems";
 import {
   createLegacyLaborActivity,
   getItemLaborCostTotal,
@@ -91,6 +92,7 @@ function getMarginColorClass(percent: number) {
 type Quote = {
   id: number;
   quote_number: string | null;
+  client_id?: number | null;
   status: string | null;
   client_project_id?: number | null;
   exchange_rate: number | null;
@@ -115,8 +117,16 @@ type Quote = {
 
 type ClientProject = {
   id: number;
+  client_id?: number | null;
+  project_number?: number | null;
   name: string | null;
   sales_stage?: string | null;
+};
+
+type Client = {
+  id: number;
+  client_number: number | null;
+  name: string | null;
 };
 
 type QuoteTermsSettings = {
@@ -167,11 +177,19 @@ const defaultTermsSettings: QuoteTermsSettings = {
   includes_cabling: false,
 };
 
+const ADMIN_APPROVED_QUOTE_EDITOR_EMAIL = "leofigueroagomez@gmail.com";
+
 export default function EditQuotePage() {
   const params = useParams<{ id: string }>();
   const quoteId = Number(params.id);
 
   const [quote, setQuote] = useState<Quote | null>(null);
+  const [canAdminEditApproved, setCanAdminEditApproved] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [clientProjects, setClientProjects] = useState<ClientProject[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState("");
+  const [selectedClientProjectId, setSelectedClientProjectId] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
   const [productCategories, setProductCategories] = useState<TaxonomyOption[]>(
     []
@@ -240,10 +258,25 @@ export default function EditQuotePage() {
   }
 
   useEffect(() => {
+    async function loadCurrentUser() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      setCanAdminEditApproved(
+        user?.email?.toLowerCase() === ADMIN_APPROVED_QUOTE_EDITOR_EMAIL
+      );
+      setAuthChecked(true);
+    }
+
+    loadCurrentUser();
+  }, []);
+
+  useEffect(() => {
     async function loadQuote() {
       let { data: quoteData, error: quoteError } = (await supabase
         .from("quotes")
-        .select("id, quote_number, status, client_project_id, exchange_rate, exchange_rate_source, exchange_rate_date, discount_type, discount_percent, discount_amount_mxn, includes_travel_expenses_detail, travel_fuel_mxn, travel_tolls_mxn, travel_food_mxn, travel_total_mxn, is_partner_quote, partner_equipment_discount_percent, partner_labor_discount_percent, partner_equipment_discount_mxn, partner_labor_discount_mxn, partner_total_discount_mxn, notes")
+        .select("id, quote_number, client_id, status, client_project_id, exchange_rate, exchange_rate_source, exchange_rate_date, discount_type, discount_percent, discount_amount_mxn, includes_travel_expenses_detail, travel_fuel_mxn, travel_tolls_mxn, travel_food_mxn, travel_total_mxn, is_partner_quote, partner_equipment_discount_percent, partner_labor_discount_percent, partner_equipment_discount_mxn, partner_labor_discount_mxn, partner_total_discount_mxn, notes")
         .eq("id", quoteId)
         .single()) as {
         data: Quote | null;
@@ -264,7 +297,7 @@ export default function EditQuotePage() {
       ) {
         const fallback = (await supabase
           .from("quotes")
-          .select("id, quote_number, status, client_project_id, exchange_rate")
+          .select("id, quote_number, client_id, status, client_project_id, exchange_rate")
           .eq("id", quoteId)
           .single()) as {
           data: Quote | null;
@@ -285,6 +318,10 @@ export default function EditQuotePage() {
       }
 
       setQuote(quoteData as Quote);
+      setSelectedClientId(quoteData.client_id ? String(quoteData.client_id) : "");
+      setSelectedClientProjectId(
+        quoteData.client_project_id ? String(quoteData.client_project_id) : ""
+      );
       setExchangeRate(String(quoteData.exchange_rate || 1));
       setExchangeRateSource(quoteData.exchange_rate_source || "manual");
       setExchangeRateDate(
@@ -326,22 +363,48 @@ export default function EditQuotePage() {
         setClientProject(null);
       }
 
-      const { data: productsData, error: productsError } = await supabase
-        .from("products")
-        .select(
-          "*, product_categories(name), product_tag_assignments(product_tags(id, name))"
-        )
-        .eq("is_active", true)
-        .order("is_favorite", { ascending: false })
-        .order("brand", { ascending: true });
+      const [
+        { data: productsData, error: productsError },
+        { data: clientsData, error: clientsError },
+        { data: projectsData, error: projectsError },
+      ] = await Promise.all([
+        supabase
+          .from("products")
+          .select(
+            "*, product_categories(name), product_tag_assignments(product_tags(id, name))"
+          )
+          .eq("is_active", true)
+          .order("is_favorite", { ascending: false })
+          .order("brand", { ascending: true }),
+        supabase
+          .from("clients")
+          .select("id, client_number, name")
+          .order("client_number", { ascending: true }),
+        supabase
+          .from("client_projects")
+          .select("id, client_id, project_number, name, sales_stage")
+          .order("project_number", { ascending: true }),
+      ]);
 
       if (productsError) {
         reportStepError("leer products", productsError);
         setLoading(false);
         return;
       }
+      if (clientsError) {
+        reportStepError("leer clientes", clientsError);
+        setLoading(false);
+        return;
+      }
+      if (projectsError) {
+        reportStepError("leer proyectos", projectsError);
+        setLoading(false);
+        return;
+      }
 
       setProducts((productsData || []) as Product[]);
+      setClients((clientsData || []) as Client[]);
+      setClientProjects((projectsData || []) as ClientProject[]);
 
       const [{ data: categoryData }, { data: tagData }, { data: laborCatalogData }] = await Promise.all([
         supabase
@@ -799,6 +862,15 @@ export default function EditQuotePage() {
 
     return matchesSearch && matchesCategory && matchesTag && matchesFavorite;
   });
+  const availableClientProjects = useMemo(
+    () =>
+      selectedClientId
+        ? clientProjects.filter(
+            (project) => String(project.client_id || "") === selectedClientId
+          )
+        : [],
+    [clientProjects, selectedClientId]
+  );
 
   const numericExchangeRate = Number(exchangeRate) || 1;
 
@@ -903,6 +975,8 @@ export default function EditQuotePage() {
     operatingMarginPercent
   );
   const isDraft = quote?.status === "draft";
+  const canEditQuote =
+    isDraft || (quote?.status === "approved" && canAdminEditApproved);
 
   function getSectionEquipmentTotal(section: QuoteSection) {
     return section.items.reduce((sum, item) => {
@@ -919,11 +993,15 @@ export default function EditQuotePage() {
   }
 
   async function handleSaveQuote() {
-    if (!isDraft) return;
+    if (!canEditQuote) return;
 
     setSavingQuote(true);
 
     const quoteUpdatePayload = {
+      client_id: selectedClientId ? Number(selectedClientId) : null,
+      client_project_id: selectedClientProjectId
+        ? Number(selectedClientProjectId)
+        : null,
       equipment_total: equipmentTotalUSD,
       labor_total: laborTotalMXN,
       grand_total: grandTotalMXN,
@@ -960,7 +1038,9 @@ export default function EditQuotePage() {
 
     if (
       updateResult.error?.code === "PGRST204" &&
-      (updateResult.error.message.includes("exchange_rate_source") ||
+      (updateResult.error.message.includes("client_id") ||
+        updateResult.error.message.includes("client_project_id") ||
+        updateResult.error.message.includes("exchange_rate_source") ||
         updateResult.error.message.includes("exchange_rate_date") ||
         updateResult.error.message.includes("discount_type") ||
         updateResult.error.message.includes("discount_percent") ||
@@ -978,6 +1058,8 @@ export default function EditQuotePage() {
       const {
         exchange_rate_source,
         exchange_rate_date,
+        client_id,
+        client_project_id,
         discount_type,
         discount_percent,
         discount_amount_mxn,
@@ -1167,11 +1249,27 @@ export default function EditQuotePage() {
       return;
     }
 
+    if (quote.status === "approved" && selectedClientProjectId) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      try {
+        await syncProjectOperationalItems(
+          supabase,
+          Number(selectedClientProjectId),
+          user?.id || null
+        );
+      } catch (syncError) {
+        console.warn("No se pudo regenerar base operativa tras editar aprobada:", syncError);
+      }
+    }
+
     setSavingQuote(false);
     alert("Cambios guardados");
   }
 
-  if (loading) {
+  if (loading || !authChecked) {
     return (
       <main className="min-h-screen bg-[#0B0D0F] p-4 text-white md:p-8 xl:p-10">
         <p className="text-[#B3B3B8]">Cargando cotización...</p>
@@ -1187,7 +1285,7 @@ export default function EditQuotePage() {
     );
   }
 
-  if (!isDraft) {
+  if (!canEditQuote) {
     return (
       <main className="min-h-screen bg-[#0B0D0F] p-4 text-white md:p-8 xl:p-10">
         <Link
@@ -1224,6 +1322,63 @@ export default function EditQuotePage() {
         <p className="text-[#B3B3B8]">
           {quote.quote_number || "Sin folio"}
         </p>
+      </section>
+
+      <section className="mb-8 rounded-2xl border border-[#1F1F24] bg-[#151518] p-4 sm:p-6">
+        <div className="mb-5">
+          <h2 className="mb-2 text-2xl font-semibold">Relacion comercial</h2>
+          <p className="text-sm text-[#B3B3B8]">
+            Asigna o corrige el cliente y proyecto operativo de esta
+            cotizacion.
+          </p>
+          {quote.status === "approved" && canAdminEditApproved ? (
+            <p className="mt-2 text-sm text-[#F4C66A]">
+              Edicion administrativa habilitada solo para tu usuario.
+            </p>
+          ) : null}
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <label className="space-y-2">
+            <span className="text-sm text-[#B3B3B8]">Cliente</span>
+            <select
+              className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none"
+              value={selectedClientId}
+              onChange={(event) => {
+                setSelectedClientId(event.target.value);
+                setSelectedClientProjectId("");
+              }}
+            >
+              <option value="">Sin cliente</option>
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {String(client.client_number || "").padStart(3, "0")} -{" "}
+                  {client.name || "Sin nombre"}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="space-y-2">
+            <span className="text-sm text-[#B3B3B8]">Proyecto</span>
+            <select
+              className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none disabled:text-[#77777D]"
+              value={selectedClientProjectId}
+              onChange={(event) =>
+                setSelectedClientProjectId(event.target.value)
+              }
+              disabled={!selectedClientId}
+            >
+              <option value="">Sin proyecto</option>
+              {availableClientProjects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {String(project.project_number || "").padStart(3, "0")} -{" "}
+                  {project.name || "Sin proyecto"}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       </section>
 
       <section className="grid grid-cols-1 gap-8 xl:grid-cols-3">
