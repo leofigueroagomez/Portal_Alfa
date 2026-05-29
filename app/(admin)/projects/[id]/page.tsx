@@ -9,7 +9,6 @@ import {
   Layers3,
   MapPin,
   PackageCheck,
-  Pencil,
   Replace,
   ShoppingCart,
   UserRound,
@@ -20,6 +19,7 @@ import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { formatCurrency } from "@/lib/format";
 import UploadAuthorizedPlanButton from "@/components/UploadAuthorizedPlanButton";
 import OperationalBaseSyncButton from "./OperationalBaseSyncButton";
+import EditProjectSiteDataButton from "./EditProjectSiteDataButton";
 import {
   normalizeSalesStage,
   salesStageClasses,
@@ -270,13 +270,13 @@ export default async function ProjectDetailPage({
           </p>
         </div>
 
-        <Link
-          href={projectData.client_id ? `/clients/${projectData.client_id}` : "/projects"}
-          className="inline-flex w-fit items-center gap-2 rounded-xl bg-[#9E1B32] px-5 py-3 font-semibold hover:bg-[#B91C3C]"
-        >
-          <Pencil size={18} />
-          Editar datos de obra
-        </Link>
+        <EditProjectSiteDataButton
+          projectId={projectData.id}
+          initialSiteContactName={projectData.site_contact_name}
+          initialSiteContactPhone={projectData.site_contact_phone}
+          initialSiteAddress={projectData.site_address}
+          initialSiteGoogleMapsUrl={projectData.site_google_maps_url}
+        />
       </section>
 
       <section className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
@@ -318,7 +318,16 @@ export default async function ProjectDetailPage({
                   Contacto, direccion y enlace de ubicacion para arranque.
                 </p>
               </div>
-              {hasPendingSiteData ? <PendingBadge /> : null}
+              <div className="flex flex-wrap items-center gap-2">
+                {hasPendingSiteData ? <PendingBadge /> : null}
+                <EditProjectSiteDataButton
+                  projectId={projectData.id}
+                  initialSiteContactName={projectData.site_contact_name}
+                  initialSiteContactPhone={projectData.site_contact_phone}
+                  initialSiteAddress={projectData.site_address}
+                  initialSiteGoogleMapsUrl={projectData.site_google_maps_url}
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
