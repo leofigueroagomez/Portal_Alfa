@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Save, Trash2, X } from "lucide-react";
 import ProductLibraryPicker, {
@@ -52,6 +52,8 @@ type Props = {
 };
 
 type ModalMode = "substitute" | "quantity" | "add" | null;
+
+const DIRECTOR_APPROVER_EMAILS = new Set(["leofigueroagomez@gmail.com"]);
 
 function reportError(step: string, error: unknown) {
   const message =
@@ -110,6 +112,7 @@ export default function ProjectTranslationEditor({
   const [libraryProducts, setLibraryProducts] = useState(products);
   const [changes, setChanges] = useState(recentChanges);
   const [saving, setSaving] = useState(false);
+  const [isDirectorApprover, setIsDirectorApprover] = useState(false);
   const [mode, setMode] = useState<ModalMode>(null);
   const [activeItemId, setActiveItemId] = useState<number | null>(null);
   const [quantityValue, setQuantityValue] = useState("");
@@ -122,6 +125,14 @@ export default function ProjectTranslationEditor({
   const systemOptions = Array.from(
     new Set(items.map((item) => item.system_name?.trim()).filter(Boolean) as string[])
   );
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setIsDirectorApprover(
+        DIRECTOR_APPROVER_EMAILS.has((data.user?.email || "").toLowerCase())
+      );
+    });
+  }, []);
 
   function openSubstitute(item: OperationalEditorItem) {
     if (item.quantity_purchased > 0 || item.quantity_delivered > 0) {
@@ -558,6 +569,57 @@ export default function ProjectTranslationEditor({
     }
   }
 
+  async function handleApproveDirector(item: OperationalEditorItem) {
+    if (!isDirectorApprover) {
+      alert("Solo direccion puede aprobar esta traduccion.");
+      return;
+    }
+
+    const confirmed = window.confirm("Aprobar esta traduccion tecnica?");
+    if (!confirmed) return;
+
+    setSaving(true);
+
+    try {
+      const userId = await getCurrentUserId();
+      const { error } = await supabase
+        .from("project_operational_items")
+        .update({
+          status: "active",
+          updated_by_user_id: userId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", item.id)
+        .eq("status", "pending_director_approval");
+
+      if (error) throw error;
+
+      await logChange({
+        operational_item_id: item.id,
+        change_type: "quantity_change",
+        old_product_name: itemProductName(item),
+        new_product_name: itemProductName(item),
+        old_quantity: item.quantity,
+        new_quantity: item.quantity,
+        old_unit_cost: item.operational_unit_cost,
+        new_unit_cost: item.operational_unit_cost,
+        cost_difference: 0,
+        notes: "Aprobado por direccion",
+      } as TranslationChange & { operational_item_id: number });
+
+      setItems(
+        items.map((current) =>
+          current.id === item.id ? { ...current, status: "active" } : current
+        )
+      );
+      router.refresh();
+    } catch (error) {
+      reportError("aprobar traduccion", error);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <>
       <section className="mb-6 rounded-xl border border-[#1F1F24] bg-[#151518]">
@@ -658,6 +720,17 @@ export default function ProjectTranslationEditor({
                             <Trash2 size={13} />
                             Eliminar
                           </button>
+                          {isDirectorApprover &&
+                          item.status === "pending_director_approval" ? (
+                            <button
+                              type="button"
+                              onClick={() => handleApproveDirector(item)}
+                              disabled={saving}
+                              className="rounded-lg border border-[#1F7A4D] bg-[#143D2A] px-3 py-2 text-xs font-semibold text-[#8CE0B6] hover:text-white disabled:text-[#555963]"
+                            >
+                              Aprobar direccion
+                            </button>
+                          ) : null}
                         </div>
                       </td>
                     </tr>
