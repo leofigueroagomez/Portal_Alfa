@@ -2,6 +2,9 @@ import Link from "next/link";
 import { ArrowLeft, Edit, FileText, Printer, Wrench } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import {
+  getItemCurrency,
+  getItemEquipmentTotalOriginal,
+  getItemLineTotalMxn,
   getServiceProposalTotals,
   type ServiceProposalQuoteItem,
 } from "@/lib/serviceProposal";
@@ -35,7 +38,7 @@ type ServiceProposalReport = {
   service_discount_reason: string | null;
   clients: { name: string | null; company_name: string | null } | null;
   client_projects: { name: string | null } | null;
-  quotes: { quote_number: string | null } | null;
+  quotes: { quote_number: string | null; exchange_rate: number | null } | null;
 };
 
 type ServicePhoto = {
@@ -63,7 +66,7 @@ export default async function ServiceProposalPage({
   const { data: report, error } = await supabase
     .from("service_reports")
     .select(
-      "id, service_number, client_id, client_project_id, service_location, google_maps_url, performed_by_name, service_date, background, diagnosis, solution_status, solution_description, requires_parts, required_parts_notes, labor_sale_mxn, related_quote_id, service_discount_mxn, service_discount_percent, service_discount_type, service_discount_reason, clients(name, company_name), client_projects(name), quotes:related_quote_id(quote_number)"
+      "id, service_number, client_id, client_project_id, service_location, google_maps_url, performed_by_name, service_date, background, diagnosis, solution_status, solution_description, requires_parts, required_parts_notes, labor_sale_mxn, related_quote_id, service_discount_mxn, service_discount_percent, service_discount_type, service_discount_reason, clients(name, company_name), client_projects(name), quotes:related_quote_id(quote_number, exchange_rate)"
     )
     .eq("id", id)
     .maybeSingle();
@@ -93,7 +96,7 @@ export default async function ServiceProposalPage({
       ? supabase
           .from("quote_items")
           .select(
-            "id, quantity, unit_equipment_price, sale_currency, unit_labor_price, equipment_total, labor_total, line_total, product_brand, product_model, product_name"
+            "id, quantity, unit_equipment_price, unit_equipment_price_usd, sale_currency, unit_labor_price, equipment_total, equipment_total_usd, labor_total, line_total, product_brand, product_model, product_name"
           )
           .eq("quote_id", reportData.related_quote_id)
           .order("sort_order", { ascending: true })
@@ -107,7 +110,8 @@ export default async function ServiceProposalPage({
     }))
   );
   const items = (quoteItems || []) as ServiceProposalQuoteItem[];
-  const totals = getServiceProposalTotals(reportData, items);
+  const exchangeRate = Number(reportData.quotes?.exchange_rate || 1);
+  const totals = getServiceProposalTotals(reportData, items, exchangeRate);
   const quoteUrl = `/quotes/new?clientId=${reportData.client_id || ""}&projectId=${
     reportData.client_project_id || ""
   }&serviceReportId=${reportData.id}`;
@@ -212,7 +216,9 @@ export default async function ServiceProposalPage({
                 </p>
               </div>
               {reportData.quotes?.quote_number ? (
-                <span className="text-sm text-[#77777D]">Base interna {reportData.quotes.quote_number}</span>
+                <span className="text-sm text-[#77777D]">
+                  Base interna {reportData.quotes.quote_number} / TC {exchangeRate.toFixed(4)}
+                </span>
               ) : null}
             </div>
             {items.length === 0 ? (
@@ -224,9 +230,9 @@ export default async function ServiceProposalPage({
                     <tr>
                       <th className="px-4 py-3">Refaccion</th>
                       <th className="px-4 py-3">Cantidad</th>
-                      <th className="px-4 py-3">Precio</th>
+                      <th className="px-4 py-3">Equipo</th>
                       <th className="px-4 py-3">Mano de obra</th>
-                      <th className="px-4 py-3 text-right">Importe</th>
+                      <th className="px-4 py-3 text-right">Total estimado MXN</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#1F1F24]">
@@ -237,13 +243,16 @@ export default async function ServiceProposalPage({
                         </td>
                         <td className="px-4 py-3">{Number(item.quantity || 0)}</td>
                         <td className="px-4 py-3">
-                          {formatCurrency(Number(item.equipment_total || 0), "MXN")}
+                          {formatCurrency(
+                            getItemEquipmentTotalOriginal(item),
+                            getItemCurrency(item)
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           {formatCurrency(Number(item.labor_total || 0), "MXN")}
                         </td>
                         <td className="px-4 py-3 text-right font-semibold">
-                          {formatCurrency(item.line_total, "MXN")}
+                          {formatCurrency(getItemLineTotalMxn(item, exchangeRate), "MXN")}
                         </td>
                       </tr>
                     ))}
@@ -265,6 +274,12 @@ export default async function ServiceProposalPage({
               <span className="text-[#B3B3B8]">Subtotal refacciones</span>
               <strong>{formatCurrency(totals.partsSubtotal, "MXN")}</strong>
             </div>
+            {reportData.related_quote_id ? (
+              <div className="flex items-center justify-between gap-4 text-xs text-[#77777D]">
+                <span>Tipo de cambio refacciones</span>
+                <span>{exchangeRate.toFixed(4)}</span>
+              </div>
+            ) : null}
             {totals.discount > 0 ? (
               <div className="rounded-xl border border-[#614620] bg-[#322514] p-3 text-[#F4C66A]">
                 <p className="mb-2 text-xs">

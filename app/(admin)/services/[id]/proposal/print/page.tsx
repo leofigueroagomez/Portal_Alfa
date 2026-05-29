@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { formatCurrency } from "@/lib/format";
 import {
+  getItemCurrency,
+  getItemEquipmentTotalOriginal,
+  getItemLineTotalMxn,
   getServiceProposalTotals,
   type ServiceProposalQuoteItem,
 } from "@/lib/serviceProposal";
@@ -33,7 +36,7 @@ type ServiceProposalReport = {
   service_discount_reason: string | null;
   clients: { name: string | null; company_name: string | null } | null;
   client_projects: { name: string | null } | null;
-  quotes: { quote_number: string | null } | null;
+  quotes: { quote_number: string | null; exchange_rate: number | null } | null;
 };
 
 type ServicePhoto = {
@@ -60,7 +63,7 @@ export default async function ServiceProposalPrintPage({
   const { data: report, error } = await supabase
     .from("service_reports")
     .select(
-      "id, service_number, service_location, google_maps_url, performed_by_name, service_date, background, diagnosis, solution_status, solution_description, requires_parts, required_parts_notes, labor_sale_mxn, related_quote_id, service_discount_mxn, service_discount_percent, service_discount_type, service_discount_reason, clients(name, company_name), client_projects(name), quotes:related_quote_id(quote_number)"
+      "id, service_number, service_location, google_maps_url, performed_by_name, service_date, background, diagnosis, solution_status, solution_description, requires_parts, required_parts_notes, labor_sale_mxn, related_quote_id, service_discount_mxn, service_discount_percent, service_discount_type, service_discount_reason, clients(name, company_name), client_projects(name), quotes:related_quote_id(quote_number, exchange_rate)"
     )
     .eq("id", id)
     .maybeSingle();
@@ -84,7 +87,7 @@ export default async function ServiceProposalPrintPage({
       ? supabase
           .from("quote_items")
           .select(
-            "id, quantity, unit_equipment_price, sale_currency, unit_labor_price, equipment_total, labor_total, line_total, product_brand, product_model, product_name"
+            "id, quantity, unit_equipment_price, unit_equipment_price_usd, sale_currency, unit_labor_price, equipment_total, equipment_total_usd, labor_total, line_total, product_brand, product_model, product_name"
           )
           .eq("quote_id", reportData.related_quote_id)
           .order("sort_order", { ascending: true })
@@ -98,7 +101,8 @@ export default async function ServiceProposalPrintPage({
     }))
   );
   const items = (quoteItems || []) as ServiceProposalQuoteItem[];
-  const totals = getServiceProposalTotals(reportData, items);
+  const exchangeRate = Number(reportData.quotes?.exchange_rate || 1);
+  const totals = getServiceProposalTotals(reportData, items, exchangeRate);
   const serviceNumber =
     reportData.service_number || `SERV-${String(reportData.id).padStart(4, "0")}`;
 
@@ -209,9 +213,9 @@ export default async function ServiceProposalPrintPage({
                 <tr className="bg-[#F7F5F1] text-left uppercase tracking-[0.12em] text-[#555963]">
                   <th className="border border-[#E1DDD5] p-2">Descripcion</th>
                   <th className="border border-[#E1DDD5] p-2">Cantidad</th>
-                  <th className="border border-[#E1DDD5] p-2">Precio</th>
+                  <th className="border border-[#E1DDD5] p-2">Equipo</th>
                   <th className="border border-[#E1DDD5] p-2">MO asociada</th>
-                  <th className="border border-[#E1DDD5] p-2 text-right">Importe</th>
+                  <th className="border border-[#E1DDD5] p-2 text-right">Total estimado MXN</th>
                 </tr>
               </thead>
               <tbody>
@@ -219,10 +223,15 @@ export default async function ServiceProposalPrintPage({
                   <tr key={item.id}>
                     <td className="border border-[#E1DDD5] p-2">{itemDescription(item) || "Refaccion"}</td>
                     <td className="border border-[#E1DDD5] p-2">{Number(item.quantity || 0)}</td>
-                    <td className="border border-[#E1DDD5] p-2">{formatCurrency(item.equipment_total, "MXN")}</td>
+                    <td className="border border-[#E1DDD5] p-2">
+                      {formatCurrency(
+                        getItemEquipmentTotalOriginal(item),
+                        getItemCurrency(item)
+                      )}
+                    </td>
                     <td className="border border-[#E1DDD5] p-2">{formatCurrency(item.labor_total, "MXN")}</td>
                     <td className="border border-[#E1DDD5] p-2 text-right font-semibold">
-                      {formatCurrency(item.line_total, "MXN")}
+                      {formatCurrency(getItemLineTotalMxn(item, exchangeRate), "MXN")}
                     </td>
                   </tr>
                 ))}
@@ -231,7 +240,7 @@ export default async function ServiceProposalPrintPage({
           )}
           {reportData.quotes?.quote_number ? (
             <p className="mt-2 text-[10px] text-[#555963]">
-              Refacciones cotizadas en: {reportData.quotes.quote_number}
+              Refacciones cotizadas en: {reportData.quotes.quote_number}. Importes finales en MXN con TC USD/MXN {exchangeRate.toFixed(4)}.
             </p>
           ) : null}
         </section>
@@ -247,6 +256,12 @@ export default async function ServiceProposalPrintPage({
               <span>Subtotal refacciones</span>
               <strong>{formatCurrency(totals.partsSubtotal, "MXN")}</strong>
             </div>
+            {reportData.related_quote_id ? (
+              <div className="flex justify-between gap-4 text-[10px] text-[#555963]">
+                <span>Tipo de cambio refacciones</span>
+                <span>{exchangeRate.toFixed(4)}</span>
+              </div>
+            ) : null}
             {totals.discount > 0 ? (
               <div className="border-y border-[#E1DDD5] py-2">
                 <p className="mb-1 text-[10px] text-[#555963]">
