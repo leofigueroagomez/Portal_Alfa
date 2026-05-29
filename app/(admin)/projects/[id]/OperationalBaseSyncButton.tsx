@@ -54,8 +54,8 @@ export default function OperationalBaseSyncButton({
       const result = await syncProjectOperationalItems(supabase, projectId, user?.id || null);
       alert(
         result.inserted > 0 || result.activitiesInserted > 0
-          ? `Base operativa sincronizada. Items agregados: ${result.inserted}. Actividades agregadas: ${result.activitiesInserted}.`
-          : "La base operativa ya estaba sincronizada."
+          ? `Base operativa regenerada. Equipos generados: ${result.inserted}. Actividades generadas: ${result.activitiesInserted}.`
+          : "La base operativa ya estaba completa."
       );
       router.refresh();
     } catch (error) {
@@ -73,7 +73,7 @@ export default function OperationalBaseSyncButton({
       className="inline-flex w-fit items-center gap-2 rounded-xl border border-[#2A2A30] bg-[#222228] px-5 py-3 font-semibold text-[#B3B3B8] hover:bg-[#2A2A30] hover:text-white disabled:text-[#77777D]"
     >
       <RefreshCw size={18} className={syncing ? "animate-spin" : ""} />
-      {syncing ? "Sincronizando..." : "Sincronizar base operativa"}
+      {syncing ? "Regenerando..." : "Regenerar base operativa"}
     </button>
   );
 }

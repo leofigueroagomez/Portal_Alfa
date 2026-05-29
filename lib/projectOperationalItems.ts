@@ -43,6 +43,7 @@ type Product = {
   cost_price: number | null;
   cost_currency: string | null;
   image_url: string | null;
+  labor_unit_cost?: number | null;
 };
 
 type ExistingOperationalItem = {
@@ -71,6 +72,17 @@ export type SyncProjectOperationalItemsResult = {
   approvedQuotes: number;
   activitiesInserted: number;
   activitiesSkipped: number;
+};
+
+export type SyncAllProjectOperationalItemsResult = {
+  projectsScanned: number;
+  projectsSynced: number;
+  inserted: number;
+  skipped: number;
+  approvedQuotes: number;
+  activitiesInserted: number;
+  activitiesSkipped: number;
+  errors: { projectId: number; message: string }[];
 };
 
 function normalizeCostCurrency(value: string | null | undefined) {
@@ -143,7 +155,7 @@ export async function syncProjectOperationalItems(
   const { data: products, error: productsError } = productIds.length
     ? await supabase
         .from("products")
-        .select("id, cost_price, cost_currency, image_url")
+        .select("id, cost_price, cost_currency, image_url, labor_unit_cost")
         .in("id", productIds)
     : { data: [], error: null };
 
@@ -313,6 +325,8 @@ export async function syncProjectOperationalItems(
     }
 
     const quantity = Number(item.quantity || 1);
+    const product = item.product_id ? productById.get(item.product_id) : null;
+    const internalUnitCost = Number(product?.labor_unit_cost || 0);
     rows.push({
       project_operational_item_id: operationalItemId,
       source_quote_item_labor_activity_id: null,
@@ -320,9 +334,9 @@ export async function syncProjectOperationalItems(
       name_snapshot: "Mano de obra general",
       quantity,
       unit: "pieza",
-      internal_unit_cost_mxn: 0,
+      internal_unit_cost_mxn: internalUnitCost,
       sale_unit_price_mxn: unitLaborPrice,
-      internal_total_mxn: 0,
+      internal_total_mxn: quantity * internalUnitCost,
       sale_total_mxn: quantity * unitLaborPrice,
       status: "pending",
       notes: null,
@@ -347,4 +361,76 @@ export async function syncProjectOperationalItems(
     activitiesSkipped:
       existingSourceActivityIds.size + existingLegacyActivityItemIds.size,
   };
+}
+
+function getErrorMessage(error: unknown) {
+  if (
+    error &&
+    typeof error === "object" &&
+    "message" in error &&
+    typeof error.message === "string"
+  ) {
+    return error.message;
+  }
+
+  return JSON.stringify(error);
+}
+
+export async function syncAllApprovedProjectOperationalItems(
+  supabase: SupabaseClient,
+  userId?: string | null
+): Promise<SyncAllProjectOperationalItemsResult> {
+  const [
+    { data: approvedQuotes, error: quotesError },
+    { data: wonProjects, error: projectsError },
+  ] = await Promise.all([
+    supabase
+      .from("quotes")
+      .select("client_project_id")
+      .eq("status", "approved")
+      .not("client_project_id", "is", null),
+    supabase
+      .from("client_projects")
+      .select("id")
+      .in("sales_stage", ["won", "installed", "closed"]),
+  ]);
+
+  if (quotesError) throw quotesError;
+  if (projectsError) throw projectsError;
+
+  const quoteProjectIds = ((approvedQuotes || []) as {
+    client_project_id: number | null;
+  }[])
+    .map((quote) => quote.client_project_id)
+    .filter(Boolean) as number[];
+  const wonProjectIds = ((wonProjects || []) as { id: number }[]).map(
+    (project) => project.id
+  );
+  const projectIds = Array.from(new Set([...quoteProjectIds, ...wonProjectIds]));
+  const summary: SyncAllProjectOperationalItemsResult = {
+    projectsScanned: projectIds.length,
+    projectsSynced: 0,
+    inserted: 0,
+    skipped: 0,
+    approvedQuotes: 0,
+    activitiesInserted: 0,
+    activitiesSkipped: 0,
+    errors: [],
+  };
+
+  for (const projectId of projectIds) {
+    try {
+      const result = await syncProjectOperationalItems(supabase, projectId, userId);
+      summary.projectsSynced += 1;
+      summary.inserted += result.inserted;
+      summary.skipped += result.skipped;
+      summary.approvedQuotes += result.approvedQuotes;
+      summary.activitiesInserted += result.activitiesInserted;
+      summary.activitiesSkipped += result.activitiesSkipped;
+    } catch (error) {
+      summary.errors.push({ projectId, message: getErrorMessage(error) });
+    }
+  }
+
+  return summary;
 }

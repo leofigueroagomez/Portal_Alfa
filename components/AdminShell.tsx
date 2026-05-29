@@ -14,6 +14,7 @@ import {
   Package,
   PlusCircle,
   Ruler,
+  Settings,
   Wrench,
   X,
   type LucideIcon,
@@ -43,6 +44,7 @@ const navItems: NavItem[] = [
   { href: "/engineering-quotes", label: "Ingenierías", icon: Ruler },
   { href: "/projects", label: "Proyectos", icon: FolderOpen },
   { href: "/services", label: "Servicios", icon: Wrench },
+  { href: "/admin/operations", label: "Operaciones", icon: Settings },
   {
     href: "/notifications/recipients",
     label: "Notificaciones",
