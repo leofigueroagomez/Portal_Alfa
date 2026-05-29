@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { arrayMove } from "@dnd-kit/sortable";
 import { supabase } from "@/services/supabase";
 import { formatCurrency, formatNumber } from "@/lib/format";
@@ -104,6 +105,10 @@ function canMarkProjectQuoted(stage: string | null | undefined) {
 }
 
 export default function NewQuotePage() {
+  const searchParams = useSearchParams();
+  const prefillClientId = searchParams.get("clientId") || "";
+  const prefillProjectId = searchParams.get("projectId") || "";
+  const serviceReportId = searchParams.get("serviceReportId") || "";
   const [products, setProducts] = useState<Product[]>([]);
   const [productCategories, setProductCategories] = useState<TaxonomyOption[]>(
     []
@@ -224,6 +229,12 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
   }, []);
 
   useEffect(() => {
+    if (prefillClientId) {
+      setSelectedClientId(prefillClientId);
+    }
+  }, [prefillClientId]);
+
+  useEffect(() => {
     async function loadExchangeRate() {
       try {
         const response = await fetch("/api/exchange-rate");
@@ -273,11 +284,16 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
       }
 
       setClientProjects((data || []) as ClientProject[]);
-      setSelectedClientProjectId("");
+      setSelectedClientProjectId(
+        prefillProjectId &&
+          (data || []).some((project) => String(project.id) === prefillProjectId)
+          ? prefillProjectId
+          : ""
+      );
     }
 
     loadClientProjects();
-  }, [selectedClientId]);
+  }, [prefillProjectId, selectedClientId]);
 
   useEffect(() => {
     if (!activeSectionId && sections.length > 0) {
@@ -906,6 +922,27 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
           setSavingQuote(false);
           return;
         }
+      }
+    }
+
+    if (serviceReportId) {
+      const { error: serviceQuoteError } = await supabase
+        .from("service_reports")
+        .update({
+          related_quote_id: quote.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", Number(serviceReportId));
+
+      if (serviceQuoteError) {
+        console.error("Error relacionando cotizacion a servicio:", serviceQuoteError);
+        alert(
+          "Cotizacion guardada, pero no se pudo relacionar con el servicio: " +
+            JSON.stringify(serviceQuoteError) +
+            (serviceQuoteError.message ? ` ${serviceQuoteError.message}` : "")
+        );
+        setSavingQuote(false);
+        return;
       }
     }
 

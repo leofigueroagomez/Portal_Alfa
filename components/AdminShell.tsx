@@ -14,6 +14,7 @@ import {
   Package,
   PlusCircle,
   Ruler,
+  Wrench,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -41,6 +42,7 @@ const navItems: NavItem[] = [
   { href: "/quotes/new", label: "Nueva cotización", icon: PlusCircle },
   { href: "/engineering-quotes", label: "Ingenierías", icon: Ruler },
   { href: "/projects", label: "Proyectos", icon: FolderOpen },
+  { href: "/services", label: "Servicios", icon: Wrench },
   {
     href: "/notifications/recipients",
     label: "Notificaciones",
