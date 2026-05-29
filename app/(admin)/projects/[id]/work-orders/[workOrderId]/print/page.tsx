@@ -9,10 +9,10 @@ type ClientProject = {
   id: number;
   name: string | null;
   client_id: number | null;
-  site_contact_name: string | null;
-  site_contact_phone: string | null;
-  site_address: string | null;
-  site_google_maps_url: string | null;
+  site_contact_name?: string | null;
+  site_contact_phone?: string | null;
+  site_address?: string | null;
+  site_google_maps_url?: string | null;
 };
 
 type Client = {
@@ -75,18 +75,40 @@ export default async function WorkOrderPrintPage({
   }
 
   const orderData = workOrder as unknown as WorkOrder;
-  const [{ data: project }, { data: activities }] = await Promise.all([
-    supabase
+  let { data: project, error: projectError } = (await supabase
+    .from("client_projects")
+    .select("id, name, client_id, site_contact_name, site_contact_phone, site_address, site_google_maps_url")
+    .eq("id", id)
+    .maybeSingle()) as {
+    data: ClientProject | null;
+    error: { message: string; code?: string } | null;
+  };
+
+  if (
+    projectError &&
+    (projectError.message.includes("site_contact_name") ||
+      projectError.message.includes("site_contact_phone") ||
+      projectError.message.includes("site_address") ||
+      projectError.message.includes("site_google_maps_url"))
+  ) {
+    const fallback = (await supabase
       .from("client_projects")
-      .select("id, name, client_id, site_contact_name, site_contact_phone, site_address, site_google_maps_url")
+      .select("id, name, client_id")
       .eq("id", id)
-      .maybeSingle(),
-    supabase
-      .from("work_order_activities")
-      .select("id, system_name, product_brand, product_model, product_name, activity_name, quantity_assigned, quantity_completed, status, completion_notes")
-      .eq("work_order_id", workOrderId)
-      .order("created_at", { ascending: true }),
-  ]);
+      .maybeSingle()) as {
+      data: ClientProject | null;
+      error: { message: string; code?: string } | null;
+    };
+
+    project = fallback.data;
+    projectError = fallback.error;
+  }
+
+  const { data: activities } = await supabase
+    .from("work_order_activities")
+    .select("id, system_name, product_brand, product_model, product_name, activity_name, quantity_assigned, quantity_completed, status, completion_notes")
+    .eq("work_order_id", workOrderId)
+    .order("created_at", { ascending: true });
   const projectData = project as ClientProject | null;
   const { data: client } = projectData?.client_id
     ? await supabase
@@ -170,11 +192,17 @@ export default async function WorkOrderPrintPage({
 
         <section className="summary-box mb-5 grid grid-cols-2 gap-4 text-xs">
           <div className="border border-[#E1DDD5] p-4">
-            <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#9E1B32]">Obra</p>
-            <p>{projectData?.site_address || "-"}</p>
-            <p className="mt-1 break-all text-[#555963]">{projectData?.site_google_maps_url || ""}</p>
-            <p className="mt-2 text-[#555963]">
-              Contacto: {projectData?.site_contact_name || "-"} {projectData?.site_contact_phone || ""}
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#9E1B32]">Datos de obra</p>
+            <p className="font-semibold">Direccion / ubicacion</p>
+            <p className="mt-1">{projectData?.site_address || "Pendiente de capturar"}</p>
+            <p className="mt-2 font-semibold">Google Maps</p>
+            <p className="mt-1 break-all text-[#555963]">
+              {projectData?.site_google_maps_url || "Pendiente de capturar"}
+            </p>
+            <p className="mt-2 font-semibold">Contacto en obra</p>
+            <p className="mt-1 text-[#555963]">
+              {projectData?.site_contact_name || "Pendiente"}{" "}
+              {projectData?.site_contact_phone || ""}
             </p>
           </div>
           <div className="border border-[#E1DDD5] p-4">
