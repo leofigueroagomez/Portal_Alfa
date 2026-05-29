@@ -13,6 +13,7 @@ import {
 } from "@/lib/workOrders";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import ApplyContractorChargeButton from "./ApplyContractorChargeButton";
+import DeleteWorkOrderButton from "./DeleteWorkOrderButton";
 import WorkOrderActivityUpdater, { EditableWorkOrderActivity } from "./WorkOrderActivityUpdater";
 
 type WorkOrder = {
@@ -110,13 +111,20 @@ export default async function WorkOrderDetailPage({
           <h1 className="text-3xl font-bold sm:text-4xl">{orderData.title || "Orden de trabajo"}</h1>
           <p className="mt-3 text-[#B3B3B8]">{getWorkOrderStatusLabel(orderData.status)}</p>
         </div>
-        <Link
-          href={`/projects/${id}/work-orders/${workOrderId}/print`}
-          className="inline-flex w-fit items-center gap-2 rounded-xl border border-[#2A2A30] bg-[#222228] px-5 py-3 font-semibold text-[#B3B3B8] hover:text-white"
-        >
-          <FileText size={18} />
-          Imprimir
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href={`/projects/${id}/work-orders/${workOrderId}/print`}
+            className="inline-flex w-fit items-center gap-2 rounded-xl border border-[#2A2A30] bg-[#222228] px-5 py-3 font-semibold text-[#B3B3B8] hover:text-white"
+          >
+            <FileText size={18} />
+            Imprimir
+          </Link>
+          <DeleteWorkOrderButton
+            projectId={Number(id)}
+            workOrderId={Number(workOrderId)}
+            contractorPaymentStatus={orderData.contractor_payment_status}
+          />
+        </div>
       </section>
 
       <section className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-4">
