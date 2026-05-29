@@ -14,6 +14,7 @@ import {
   ShoppingCart,
   UserRound,
   WalletCards,
+  ClipboardCheck,
 } from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { formatCurrency } from "@/lib/format";
@@ -483,6 +484,24 @@ export default async function ProjectDetailPage({
               >
                 <PackageCheck size={18} />
                 Ver entregas
+              </Link>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5 sm:p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-2xl font-semibold">Ordenes de trabajo</h2>
+                <p className="mt-2 text-sm text-[#B3B3B8]">
+                  Asignacion y seguimiento de actividades operativas por responsable.
+                </p>
+              </div>
+              <Link
+                href={`/projects/${projectData.id}/work-orders`}
+                className="inline-flex w-fit items-center gap-2 rounded-xl border border-[#2A2A30] bg-[#222228] px-5 py-3 font-semibold text-[#B3B3B8] hover:bg-[#2A2A30] hover:text-white"
+              >
+                <ClipboardCheck size={18} />
+                Ver ordenes
               </Link>
             </div>
           </section>
