@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { formatNumber } from "@/lib/format";
+import { formatCurrency, formatNumber } from "@/lib/format";
+import { getContractorPaymentStatusLabel } from "@/lib/contractors";
 import { formatWorkOrderDate, getWorkOrderActivityStatusLabel } from "@/lib/workOrders";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import PrintWorkOrderButton from "./PrintWorkOrderButton";
@@ -25,9 +26,16 @@ type WorkOrder = {
   title: string | null;
   assigned_to_name: string | null;
   assigned_to_phone: string | null;
+  contractor_amount_mxn: number | null;
+  contractor_payment_status: string | null;
   scheduled_start: string | null;
   scheduled_end: string | null;
   notes: string | null;
+  contractors?: {
+    name: string | null;
+    phone: string | null;
+    specialty: string | null;
+  } | null;
 };
 
 type WorkOrderActivity = {
@@ -53,7 +61,7 @@ export default async function WorkOrderPrintPage({
 
   const { data: workOrder, error } = await supabase
     .from("work_orders")
-    .select("id, work_order_number, title, assigned_to_name, assigned_to_phone, scheduled_start, scheduled_end, notes")
+    .select("id, work_order_number, title, assigned_to_name, assigned_to_phone, contractor_amount_mxn, contractor_payment_status, scheduled_start, scheduled_end, notes, contractors(name, phone, specialty)")
     .eq("id", workOrderId)
     .eq("client_project_id", id)
     .maybeSingle();
@@ -66,7 +74,7 @@ export default async function WorkOrderPrintPage({
     );
   }
 
-  const orderData = workOrder as WorkOrder;
+  const orderData = workOrder as unknown as WorkOrder;
   const [{ data: project }, { data: activities }] = await Promise.all([
     supabase
       .from("client_projects")
@@ -171,8 +179,33 @@ export default async function WorkOrderPrintPage({
           </div>
           <div className="border border-[#E1DDD5] p-4">
             <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#9E1B32]">Asignado a</p>
-            <p className="text-base font-semibold">{orderData.assigned_to_name || "-"}</p>
-            <p className="mt-1 text-[#555963]">{orderData.assigned_to_phone || ""}</p>
+            <p className="text-base font-semibold">
+              {orderData.contractors?.name || orderData.assigned_to_name || "-"}
+            </p>
+            <p className="mt-1 text-[#555963]">
+              {orderData.contractors?.phone || orderData.assigned_to_phone || ""}
+            </p>
+            {orderData.contractors?.specialty ? (
+              <p className="mt-1 text-[#555963]">{orderData.contractors.specialty}</p>
+            ) : null}
+          </div>
+        </section>
+
+        <section className="summary-box mb-5 grid grid-cols-2 gap-4 text-xs">
+          <div className="border border-[#E1DDD5] p-4">
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#9E1B32]">Pago a contratista</p>
+            <p className="text-base font-semibold">
+              {formatCurrency(orderData.contractor_amount_mxn, "MXN")}
+            </p>
+            <p className="mt-1 text-[#555963]">
+              Estado: {getContractorPaymentStatusLabel(orderData.contractor_payment_status)}
+            </p>
+          </div>
+          <div className="border border-[#E1DDD5] p-4">
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#9E1B32]">Uso interno</p>
+            <p className="text-[#555963]">
+              Este monto corresponde al pago pactado al contratista por esta orden de trabajo.
+            </p>
           </div>
         </section>
 
