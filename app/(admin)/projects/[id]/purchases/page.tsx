@@ -280,7 +280,7 @@ export default async function ProjectPurchasesPage({
           .order("product_brand", { ascending: true }),
         supabase
           .from("project_purchase_lines")
-          .select("id, quote_item_id, project_operational_item_id")
+          .select("id, quote_item_id, project_operational_item_id, quantity_purchased")
           .eq("client_project_id", projectData.id),
       ])
     : [{ data: [], error: null }, { data: [], error: null }];
@@ -318,6 +318,7 @@ export default async function ProjectPurchasesPage({
     id: number;
     quote_item_id: number | null;
     project_operational_item_id: number | null;
+    quantity_purchased: number | null;
   }[];
   const existingQuoteItemIds = new Set(
     existingPurchaseLines
@@ -359,6 +360,36 @@ export default async function ProjectPurchasesPage({
       }
 
       existingOperationalItemIds.add(linkItem.operationalItemId);
+    }
+  }
+
+  if (!purchaseSqlError) {
+    const activeOperationalItemIds = new Set(operationalItems.map((item) => item.id));
+    const staleOpenLineIds = existingPurchaseLines
+      .filter((line) => Number(line.quantity_purchased || 0) <= 0)
+      .filter(
+        (line) =>
+          !line.project_operational_item_id ||
+          !activeOperationalItemIds.has(line.project_operational_item_id)
+      )
+      .map((line) => line.id);
+
+    if (staleOpenLineIds.length > 0) {
+      const { error: staleDeleteError } = await supabase
+        .from("project_purchase_lines")
+        .delete()
+        .in("id", staleOpenLineIds);
+
+      if (staleDeleteError) {
+        purchaseSqlError = staleDeleteError.message;
+      }
+
+      staleOpenLineIds.forEach((lineId) => {
+        const staleLine = existingPurchaseLines.find((line) => line.id === lineId);
+        if (staleLine?.project_operational_item_id) {
+          existingOperationalItemIds.delete(staleLine.project_operational_item_id);
+        }
+      });
     }
   }
 

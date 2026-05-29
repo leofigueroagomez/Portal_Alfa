@@ -556,7 +556,7 @@ export default function ProjectTranslationEditor({
         .from("project_purchase_lines")
         .delete()
         .eq("project_operational_item_id", item.id)
-        .eq("quantity_purchased", 0);
+        .or("quantity_purchased.eq.0,quantity_purchased.is.null");
 
       if (lineDeleteError) throw lineDeleteError;
 
