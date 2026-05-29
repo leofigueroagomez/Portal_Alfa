@@ -20,6 +20,7 @@ type QuoteSection = {
 };
 
 type QuoteItem = {
+  id: number;
   quote_section_id: number;
   product_id: number | null;
   quantity: number | null;
@@ -38,7 +39,22 @@ type QuoteItem = {
   sort_order: number | null;
 };
 
-type NewQuoteItem = QuoteItem & {
+type QuoteItemLaborActivity = {
+  quote_item_id: number;
+  labor_activity_id: number | null;
+  name_snapshot: string | null;
+  quantity: number | null;
+  unit: string | null;
+  internal_unit_cost_mxn: number | null;
+  sale_unit_price_mxn: number | null;
+  internal_total_mxn: number | null;
+  sale_total_mxn: number | null;
+  assigned_role: string | null;
+  notes: string | null;
+  sort_order: number | null;
+};
+
+type NewQuoteItem = Omit<QuoteItem, "id"> & {
   quote_id: number;
   quote_section_id: number;
 };
@@ -189,7 +205,7 @@ export default function CreateQuoteVersionButton({
     let { data: items, error: itemsError } = await supabase
       .from("quote_items")
       .select(
-        "quote_section_id, product_id, quantity, sale_currency, unit_equipment_price, unit_equipment_price_usd, unit_labor_price, equipment_total, equipment_total_usd, labor_total, line_total, product_brand, product_model, product_name, product_image_url, sort_order"
+        "id, quote_section_id, product_id, quantity, sale_currency, unit_equipment_price, unit_equipment_price_usd, unit_labor_price, equipment_total, equipment_total_usd, labor_total, line_total, product_brand, product_model, product_name, product_image_url, sort_order"
       )
       .eq("quote_id", quoteId)
       .order("sort_order", { ascending: true });
@@ -198,7 +214,7 @@ export default function CreateQuoteVersionButton({
       const fallbackItems = await supabase
         .from("quote_items")
         .select(
-          "quote_section_id, product_id, quantity, sale_currency, unit_equipment_price, unit_labor_price, equipment_total, labor_total, line_total, product_brand, product_model, product_name, product_image_url, sort_order"
+          "id, quote_section_id, product_id, quantity, sale_currency, unit_equipment_price, unit_labor_price, equipment_total, labor_total, line_total, product_brand, product_model, product_name, product_image_url, sort_order"
         )
         .eq("quote_id", quoteId)
         .order("sort_order", { ascending: true });
@@ -210,6 +226,25 @@ export default function CreateQuoteVersionButton({
       }
 
       items = fallbackItems.data as typeof items;
+    }
+
+    const sourceItems = (items || []) as QuoteItem[];
+    const sourceItemIds = sourceItems.map((item) => item.id).filter(Boolean);
+    const { data: sourceLaborActivities, error: laborActivitiesError } =
+      sourceItemIds.length > 0
+        ? await supabase
+            .from("quote_item_labor_activities")
+            .select(
+              "quote_item_id, labor_activity_id, name_snapshot, quantity, unit, internal_unit_cost_mxn, sale_unit_price_mxn, internal_total_mxn, sale_total_mxn, assigned_role, notes, sort_order"
+            )
+            .in("quote_item_id", sourceItemIds)
+            .order("sort_order", { ascending: true })
+        : { data: [], error: null };
+
+    if (laborActivitiesError) {
+      reportStepError("leer actividades de mano de obra", laborActivitiesError);
+      setCreating(false);
+      return;
     }
 
     const currentQuoteGroupId = quote.quote_group_id;
@@ -355,7 +390,7 @@ export default function CreateQuoteVersionButton({
 
     const itemsToInsert: NewQuoteItem[] = [];
 
-    for (const item of (items || []) as QuoteItem[]) {
+    for (const item of sourceItems) {
       const newSectionId = sectionIdMap.get(item.quote_section_id);
 
       if (newSectionId) {
@@ -382,14 +417,72 @@ export default function CreateQuoteVersionButton({
     }
 
     if (itemsToInsert.length > 0) {
-      const { error: insertItemsError } = await supabase
+      const { data: insertedItems, error: insertItemsError } = await supabase
         .from("quote_items")
-        .insert(itemsToInsert);
+        .insert(itemsToInsert)
+        .select("id, quote_section_id, sort_order");
 
       if (insertItemsError) {
         reportStepError("crear nuevos quote_items", insertItemsError);
         setCreating(false);
         return;
+      }
+
+      const sourceItemByNewKey = new Map<string, QuoteItem>();
+      for (const sourceItem of sourceItems) {
+        const newSectionId = sectionIdMap.get(sourceItem.quote_section_id);
+        if (!newSectionId) continue;
+        sourceItemByNewKey.set(
+          `${newSectionId}:${Number(sourceItem.sort_order || 0)}`,
+          sourceItem
+        );
+      }
+
+      const newItemIdBySourceItemId = new Map<number, number>();
+      for (const insertedItem of insertedItems || []) {
+        const sourceItem = sourceItemByNewKey.get(
+          `${insertedItem.quote_section_id}:${Number(insertedItem.sort_order || 0)}`
+        );
+        if (sourceItem) {
+          newItemIdBySourceItemId.set(sourceItem.id, insertedItem.id);
+        }
+      }
+
+      const laborActivitiesToInsert = (
+        (sourceLaborActivities || []) as QuoteItemLaborActivity[]
+      ).flatMap((activity) => {
+        const newItemId = newItemIdBySourceItemId.get(activity.quote_item_id);
+        if (!newItemId) return [];
+
+        return {
+          quote_item_id: newItemId,
+          labor_activity_id: activity.labor_activity_id,
+          name_snapshot: activity.name_snapshot || "Actividad",
+          quantity: Number(activity.quantity || 0),
+          unit: activity.unit || "pieza",
+          internal_unit_cost_mxn: Number(activity.internal_unit_cost_mxn || 0),
+          sale_unit_price_mxn: Number(activity.sale_unit_price_mxn || 0),
+          internal_total_mxn: Number(activity.internal_total_mxn || 0),
+          sale_total_mxn: Number(activity.sale_total_mxn || 0),
+          assigned_role: activity.assigned_role,
+          notes: activity.notes,
+          sort_order: Number(activity.sort_order || 0),
+        };
+      });
+
+      if (laborActivitiesToInsert.length > 0) {
+        const { error: insertLaborActivitiesError } = await supabase
+          .from("quote_item_labor_activities")
+          .insert(laborActivitiesToInsert);
+
+        if (insertLaborActivitiesError) {
+          reportStepError(
+            "crear actividades de mano de obra",
+            insertLaborActivitiesError
+          );
+          setCreating(false);
+          return;
+        }
       }
     }
 

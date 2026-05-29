@@ -6,8 +6,20 @@ import { useParams } from "next/navigation";
 import { arrayMove } from "@dnd-kit/sortable";
 import { supabase } from "@/services/supabase";
 import { formatCurrency, formatNumber } from "@/lib/format";
+import {
+  createLegacyLaborActivity,
+  getItemLaborCostTotal,
+  getItemLaborSaleTotal,
+  getItemLaborUnitCost,
+  getItemLaborUnitSalePrice,
+  getLaborActivityInternalTotal,
+  getLaborActivitySaleTotal,
+  type LaborActivityCatalogOption,
+  type QuoteItemLaborActivity,
+} from "@/lib/quoteLaborActivities";
 import ProjectStageSelect from "@/components/ProjectStageSelect";
 import QuickCreateProductButton from "../../QuickCreateProductButton";
+import QuoteLaborActivitiesPanel from "../../QuoteLaborActivitiesPanel";
 
 type Product = {
   id: number;
@@ -38,6 +50,7 @@ type Product = {
 
 type QuoteItem = Product & {
   quantity: number;
+  labor_activities: QuoteItemLaborActivity[];
 };
 
 type QuoteSection = {
@@ -128,6 +141,7 @@ type SavedSection = {
 };
 
 type SavedItem = {
+  id: number;
   quote_section_id: number;
   product_id: number | null;
   quantity: number | null;
@@ -163,6 +177,9 @@ export default function EditQuotePage() {
     []
   );
   const [productTags, setProductTags] = useState<TaxonomyOption[]>([]);
+  const [laborActivityCatalog, setLaborActivityCatalog] = useState<
+    LaborActivityCatalogOption[]
+  >([]);
   const [categoryFilter, setCategoryFilter] = useState("");
   const [tagFilter, setTagFilter] = useState("");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
@@ -326,7 +343,7 @@ export default function EditQuotePage() {
 
       setProducts((productsData || []) as Product[]);
 
-      const [{ data: categoryData }, { data: tagData }] = await Promise.all([
+      const [{ data: categoryData }, { data: tagData }, { data: laborCatalogData }] = await Promise.all([
         supabase
           .from("product_categories")
           .select("id, name")
@@ -339,10 +356,20 @@ export default function EditQuotePage() {
           .eq("is_active", true)
           .order("sort_order", { ascending: true })
           .order("name", { ascending: true }),
+        supabase
+          .from("labor_activity_catalog")
+          .select(
+            "id, name, description, default_unit, default_internal_cost_mxn, default_sale_price_mxn, category"
+          )
+          .eq("is_active", true)
+          .order("name", { ascending: true }),
       ]);
 
       setProductCategories((categoryData || []) as TaxonomyOption[]);
       setProductTags((tagData || []) as TaxonomyOption[]);
+      setLaborActivityCatalog(
+        (laborCatalogData || []) as LaborActivityCatalogOption[]
+      );
 
       const { data: sectionsData, error: sectionsError } = await supabase
         .from("quote_sections")
@@ -359,7 +386,7 @@ export default function EditQuotePage() {
       let { data: itemsData, error: itemsError } = await supabase
         .from("quote_items")
         .select(
-          "quote_section_id, product_id, quantity, sale_currency, unit_equipment_price, unit_equipment_price_usd, unit_labor_price, equipment_total_usd, product_brand, product_model, product_name, product_image_url, sort_order"
+          "id, quote_section_id, product_id, quantity, sale_currency, unit_equipment_price, unit_equipment_price_usd, unit_labor_price, equipment_total_usd, product_brand, product_model, product_name, product_image_url, sort_order"
         )
         .eq("quote_id", quoteId)
         .order("sort_order", { ascending: true });
@@ -368,7 +395,7 @@ export default function EditQuotePage() {
         const fallbackItems = await supabase
           .from("quote_items")
           .select(
-            "quote_section_id, product_id, quantity, sale_currency, unit_equipment_price, unit_labor_price, product_brand, product_model, product_name, product_image_url, sort_order"
+            "id, quote_section_id, product_id, quantity, sale_currency, unit_equipment_price, unit_labor_price, product_brand, product_model, product_name, product_image_url, sort_order"
           )
           .eq("quote_id", quoteId)
           .order("sort_order", { ascending: true });
@@ -402,6 +429,35 @@ export default function EditQuotePage() {
       });
 
       const savedItems = (itemsData || []) as SavedItem[];
+      const savedItemIds = savedItems.map((item) => item.id).filter(Boolean);
+      const { data: savedLaborActivities } =
+        savedItemIds.length > 0
+          ? await supabase
+              .from("quote_item_labor_activities")
+              .select(
+                "id, quote_item_id, labor_activity_id, name_snapshot, quantity, unit, internal_unit_cost_mxn, sale_unit_price_mxn, assigned_role, notes, sort_order"
+              )
+              .in("quote_item_id", savedItemIds)
+              .order("sort_order", { ascending: true })
+          : { data: [] };
+      const laborActivitiesByItemId = new Map<number, QuoteItemLaborActivity[]>();
+
+      (savedLaborActivities || []).forEach((activity) => {
+        const quoteItemId = Number(activity.quote_item_id);
+        const current = laborActivitiesByItemId.get(quoteItemId) || [];
+        current.push({
+          id: String(activity.id),
+          labor_activity_id: activity.labor_activity_id,
+          name_snapshot: activity.name_snapshot || "Actividad",
+          quantity: Number(activity.quantity || 0),
+          unit: activity.unit || "pieza",
+          internal_unit_cost_mxn: Number(activity.internal_unit_cost_mxn || 0),
+          sale_unit_price_mxn: Number(activity.sale_unit_price_mxn || 0),
+          assigned_role: activity.assigned_role || "",
+          notes: activity.notes || "",
+        });
+        laborActivitiesByItemId.set(quoteItemId, current);
+      });
       const productsById = new Map(
         ((productsData || []) as Product[]).map((product) => [
           product.id,
@@ -438,6 +494,13 @@ export default function EditQuotePage() {
                 partner_discount_eligible:
                   catalogProduct?.partner_discount_eligible ?? true,
                 quantity: Number(item.quantity || 0),
+                labor_activities:
+                  laborActivitiesByItemId.get(item.id) ||
+                  createLegacyLaborActivity(
+                    Number(item.quantity || 1),
+                    Number(item.unit_labor_price || 0),
+                    catalogProduct?.labor_unit_cost ?? 0
+                  ),
               };
             }),
         })
@@ -561,6 +624,11 @@ export default function EditQuotePage() {
                 ? {
                     ...item,
                     quantity: item.quantity + 1,
+                    labor_activities: item.labor_activities.map((activity) =>
+                      activity.name_snapshot === "Mano de obra general"
+                        ? { ...activity, quantity: item.quantity + 1 }
+                        : activity
+                    ),
                   }
                 : item
             ),
@@ -574,6 +642,11 @@ export default function EditQuotePage() {
             {
               ...product,
               quantity: 1,
+              labor_activities: createLegacyLaborActivity(
+                1,
+                product.labor_unit_sale_price,
+                product.labor_unit_cost
+              ),
             },
           ],
         };
@@ -599,6 +672,11 @@ export default function EditQuotePage() {
               ? {
                   ...item,
                   quantity,
+                  labor_activities: item.labor_activities.map((activity) =>
+                    activity.name_snapshot === "Mano de obra general"
+                      ? { ...activity, quantity }
+                      : activity
+                  ),
                 }
               : item
           ),
@@ -618,6 +696,44 @@ export default function EditQuotePage() {
           ...section,
           items: section.items.filter(
             (item) => item.id !== productId
+          ),
+        };
+      })
+    );
+  }
+
+  function updateItemLaborActivities(
+    sectionId: string,
+    productId: number,
+    activities: QuoteItemLaborActivity[]
+  ) {
+    setSections((current) =>
+      current.map((section) => {
+        if (section.id !== sectionId) return section;
+
+        return {
+          ...section,
+          items: section.items.map((item) =>
+            item.id === productId
+              ? {
+                  ...item,
+                  labor_activities: activities,
+                  labor_unit_sale_price:
+                    activities.length > 0
+                      ? getItemLaborUnitSalePrice({
+                          ...item,
+                          labor_activities: activities,
+                        })
+                      : 0,
+                  labor_unit_cost:
+                    activities.length > 0
+                      ? getItemLaborUnitCost({
+                          ...item,
+                          labor_activities: activities,
+                        })
+                      : 0,
+                }
+              : item
           ),
         };
       })
@@ -698,7 +814,7 @@ export default function EditQuotePage() {
 
   const laborTotalMXN = sections.reduce((sectionSum, section) => {
     const total = section.items.reduce((sum, item) => {
-      return sum + item.labor_unit_sale_price * item.quantity;
+      return sum + getItemLaborSaleTotal(item);
     }, 0);
 
     return sectionSum + total;
@@ -771,7 +887,7 @@ export default function EditQuotePage() {
   }, 0);
   const laborCostMXN = sections.reduce((sectionSum, section) => {
     const total = section.items.reduce((sum, item) => {
-      return sum + Number(item.labor_unit_cost || 0) * item.quantity;
+      return sum + getItemLaborCostTotal(item);
     }, 0);
 
     return sectionSum + total;
@@ -798,7 +914,7 @@ export default function EditQuotePage() {
 
   function getSectionLaborTotal(section: QuoteSection) {
     return section.items.reduce((sum, item) => {
-      return sum + item.labor_unit_sale_price * item.quantity;
+      return sum + getItemLaborSaleTotal(item);
     }, 0);
   }
 
@@ -956,8 +1072,8 @@ export default function EditQuotePage() {
           numericExchangeRate
         );
         const itemEquipmentTotal = itemEquipmentUnitPriceUsd * item.quantity;
-        const itemLaborTotal =
-          item.labor_unit_sale_price * item.quantity;
+        const itemLaborTotal = getItemLaborSaleTotal(item);
+        const itemLaborUnitPrice = getItemLaborUnitSalePrice(item);
 
         return {
           quote_id: quoteId,
@@ -967,7 +1083,7 @@ export default function EditQuotePage() {
           sale_currency: item.sale_currency,
           unit_equipment_price: item.calculated_sale_price,
           unit_equipment_price_usd: itemEquipmentUnitPriceUsd,
-          unit_labor_price: item.labor_unit_sale_price,
+          unit_labor_price: itemLaborUnitPrice,
           equipment_total: itemEquipmentTotal,
           equipment_total_usd: itemEquipmentTotal,
           labor_total: itemLaborTotal,
@@ -980,14 +1096,50 @@ export default function EditQuotePage() {
         };
       });
 
-      const { error: itemsError } = await supabase
+      const { data: savedItems, error: itemsError } = await supabase
         .from("quote_items")
-        .insert(itemsToInsert);
+        .insert(itemsToInsert)
+        .select("id, sort_order");
 
       if (itemsError) {
         reportStepError("crear quote_items", itemsError);
         setSavingQuote(false);
         return;
+      }
+
+      const laborActivitiesToInsert = section.items.flatMap((item, itemIndex) => {
+        const savedItem = (savedItems || []).find(
+          (row) => Number(row.sort_order || 0) === itemIndex
+        );
+
+        if (!savedItem || !item.labor_activities?.length) return [];
+
+        return item.labor_activities.map((activity, activityIndex) => ({
+          quote_item_id: savedItem.id,
+          labor_activity_id: activity.labor_activity_id,
+          name_snapshot: activity.name_snapshot || "Actividad",
+          quantity: Number(activity.quantity || 0),
+          unit: activity.unit || "pieza",
+          internal_unit_cost_mxn: Number(activity.internal_unit_cost_mxn || 0),
+          sale_unit_price_mxn: Number(activity.sale_unit_price_mxn || 0),
+          internal_total_mxn: getLaborActivityInternalTotal(activity),
+          sale_total_mxn: getLaborActivitySaleTotal(activity),
+          assigned_role: activity.assigned_role?.trim() || null,
+          notes: activity.notes?.trim() || null,
+          sort_order: activityIndex,
+        }));
+      });
+
+      if (laborActivitiesToInsert.length > 0) {
+        const { error: laborActivitiesError } = await supabase
+          .from("quote_item_labor_activities")
+          .insert(laborActivitiesToInsert);
+
+        if (laborActivitiesError) {
+          reportStepError("crear actividades de mano de obra", laborActivitiesError);
+          setSavingQuote(false);
+          return;
+        }
       }
     }
 
@@ -1297,23 +1449,26 @@ export default function EditQuotePage() {
                       {section.items.map((item) => (
                         <div
                           key={item.id}
-                          draggable
-                          onDragStart={() =>
-                            setDraggingItem({
-                              sectionId: section.id,
-                              productId: item.id,
-                            })
-                          }
-                          onDragOver={(event) => event.preventDefault()}
-                          onDrop={() => handleItemDrop(section.id, item.id)}
-                          onDragEnd={() => setDraggingItem(null)}
-                          className={`grid min-w-[720px] grid-cols-[34px_70px_1fr_90px_130px_50px] items-center gap-4 rounded-xl bg-[#222228] p-4 ${
+                          className={`min-w-[720px] rounded-xl bg-[#222228] p-4 ${
                             draggingItem?.sectionId === section.id &&
                             draggingItem.productId === item.id
                               ? "opacity-70 ring-1 ring-[#9E1B32]"
                               : ""
                           }`}
                         >
+                          <div
+                            draggable
+                            onDragStart={() =>
+                              setDraggingItem({
+                                sectionId: section.id,
+                                productId: item.id,
+                              })
+                            }
+                            onDragOver={(event) => event.preventDefault()}
+                            onDrop={() => handleItemDrop(section.id, item.id)}
+                            onDragEnd={() => setDraggingItem(null)}
+                            className="grid grid-cols-[34px_70px_1fr_90px_130px_50px] items-center gap-4"
+                          >
                           <span className="cursor-grab text-xl text-[#77777D] active:cursor-grabbing">
                             ☰
                           </span>
@@ -1366,9 +1521,7 @@ export default function EditQuotePage() {
 
                             <p className="text-[#B3B3B8]">
                               MO MXN{" "}
-                              {formatNumber(
-                                item.labor_unit_sale_price * item.quantity
-                              )}
+                              {formatNumber(getItemLaborSaleTotal(item))}
                             </p>
                           </div>
 
@@ -1379,6 +1532,20 @@ export default function EditQuotePage() {
                           >
                             ×
                           </button>
+                        </div>
+
+                          <QuoteLaborActivitiesPanel
+                            activities={item.labor_activities}
+                            catalog={laborActivityCatalog}
+                            disabled={!isDraft}
+                            onChange={(activities) =>
+                              updateItemLaborActivities(
+                                section.id,
+                                item.id,
+                                activities
+                              )
+                            }
+                          />
                         </div>
                       ))}
                     </div>

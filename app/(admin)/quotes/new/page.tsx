@@ -5,6 +5,18 @@ import { useSearchParams } from "next/navigation";
 import { arrayMove } from "@dnd-kit/sortable";
 import { supabase } from "@/services/supabase";
 import { formatCurrency, formatNumber } from "@/lib/format";
+import {
+  createLegacyLaborActivity,
+  getItemLaborCostTotal,
+  getItemLaborSaleTotal,
+  getItemLaborUnitSalePrice,
+  getItemLaborUnitCost,
+  getLaborActivityInternalTotal,
+  getLaborActivitySaleTotal,
+  type LaborActivityCatalogOption,
+  type QuoteItemLaborActivity,
+} from "@/lib/quoteLaborActivities";
+import QuoteLaborActivitiesPanel from "../QuoteLaborActivitiesPanel";
 import QuickCreateProductButton from "../QuickCreateProductButton";
 
 type Product = {
@@ -63,6 +75,7 @@ type TaxonomyOption = {
 
 type QuoteItem = Product & {
   quantity: number;
+  labor_activities: QuoteItemLaborActivity[];
 };
 
 type QuoteSection = {
@@ -114,6 +127,9 @@ export default function NewQuotePage() {
     []
   );
   const [productTags, setProductTags] = useState<TaxonomyOption[]>([]);
+  const [laborActivityCatalog, setLaborActivityCatalog] = useState<
+    LaborActivityCatalogOption[]
+  >([]);
   const [categoryFilter, setCategoryFilter] = useState("");
   const [tagFilter, setTagFilter] = useState("");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
@@ -208,6 +224,27 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
     }
 
     loadTaxonomy();
+  }, []);
+
+  useEffect(() => {
+    async function loadLaborActivityCatalog() {
+      const { data, error } = await supabase
+        .from("labor_activity_catalog")
+        .select(
+          "id, name, description, default_unit, default_internal_cost_mxn, default_sale_price_mxn, category"
+        )
+        .eq("is_active", true)
+        .order("name", { ascending: true });
+
+      if (error) {
+        console.error("Error cargando actividades de mano de obra:", error);
+        return;
+      }
+
+      setLaborActivityCatalog((data || []) as LaborActivityCatalogOption[]);
+    }
+
+    loadLaborActivityCatalog();
   }, []);
 
   useEffect(() => {
@@ -373,6 +410,11 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
                 ? {
                     ...item,
                     quantity: item.quantity + 1,
+                    labor_activities: item.labor_activities.map((activity) =>
+                      activity.name_snapshot === "Mano de obra general"
+                        ? { ...activity, quantity: item.quantity + 1 }
+                        : activity
+                    ),
                   }
                 : item
             ),
@@ -386,6 +428,11 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
             {
               ...product,
               quantity: 1,
+              labor_activities: createLegacyLaborActivity(
+                1,
+                product.labor_unit_sale_price,
+                product.labor_unit_cost
+              ),
             },
           ],
         };
@@ -411,6 +458,11 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
               ? {
                   ...item,
                   quantity,
+                  labor_activities: item.labor_activities.map((activity) =>
+                    activity.name_snapshot === "Mano de obra general"
+                      ? { ...activity, quantity }
+                      : activity
+                  ),
                 }
               : item
           ),
@@ -430,6 +482,44 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
           ...section,
           items: section.items.filter(
             (item) => item.id !== productId
+          ),
+        };
+      })
+    );
+  }
+
+  function updateItemLaborActivities(
+    sectionId: string,
+    productId: number,
+    activities: QuoteItemLaborActivity[]
+  ) {
+    setSections((current) =>
+      current.map((section) => {
+        if (section.id !== sectionId) return section;
+
+        return {
+          ...section,
+          items: section.items.map((item) =>
+            item.id === productId
+              ? {
+                  ...item,
+                  labor_activities: activities,
+                  labor_unit_sale_price:
+                    activities.length > 0
+                      ? getItemLaborUnitSalePrice({
+                          ...item,
+                          labor_activities: activities,
+                        })
+                      : 0,
+                  labor_unit_cost:
+                    activities.length > 0
+                      ? getItemLaborUnitCost({
+                          ...item,
+                          labor_activities: activities,
+                        })
+                      : 0,
+                }
+              : item
           ),
         };
       })
@@ -510,7 +600,7 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
 
   const laborTotalMXN = sections.reduce((sectionSum, section) => {
     const total = section.items.reduce((sum, item) => {
-      return sum + item.labor_unit_sale_price * item.quantity;
+      return sum + getItemLaborSaleTotal(item);
     }, 0);
 
     return sectionSum + total;
@@ -583,7 +673,7 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
   }, 0);
   const laborCostMXN = sections.reduce((sectionSum, section) => {
     const total = section.items.reduce((sum, item) => {
-      return sum + Number(item.labor_unit_cost || 0) * item.quantity;
+      return sum + getItemLaborCostTotal(item);
     }, 0);
 
     return sectionSum + total;
@@ -609,7 +699,7 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
 
   function getSectionLaborTotal(section: QuoteSection) {
     return section.items.reduce((sum, item) => {
-      return sum + item.labor_unit_sale_price * item.quantity;
+      return sum + getItemLaborSaleTotal(item);
     }, 0);
   }
 
@@ -829,8 +919,8 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
           numericExchangeRate
         );
         const itemEquipmentTotal = itemEquipmentUnitPriceUsd * item.quantity;
-        const itemLaborTotal =
-          item.labor_unit_sale_price * item.quantity;
+        const itemLaborTotal = getItemLaborSaleTotal(item);
+        const itemLaborUnitPrice = getItemLaborUnitSalePrice(item);
 
         return {
           quote_id: quote.id,
@@ -840,7 +930,7 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
           sale_currency: item.sale_currency,
           unit_equipment_price: item.calculated_sale_price,
           unit_equipment_price_usd: itemEquipmentUnitPriceUsd,
-          unit_labor_price: item.labor_unit_sale_price,
+          unit_labor_price: itemLaborUnitPrice,
           equipment_total: itemEquipmentTotal,
           equipment_total_usd: itemEquipmentTotal,
           labor_total: itemLaborTotal,
@@ -853,9 +943,10 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
         };
       });
 
-      const { error: itemsError } = await supabase
+      const { data: savedItems, error: itemsError } = await supabase
         .from("quote_items")
-        .insert(itemsToInsert);
+        .insert(itemsToInsert)
+        .select("id, sort_order");
 
       if (itemsError) {
         console.error("Error creando quote_items:", itemsError);
@@ -866,6 +957,46 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
         );
         setSavingQuote(false);
         return;
+      }
+
+      const laborActivitiesToInsert = section.items.flatMap((item, itemIndex) => {
+        const savedItem = (savedItems || []).find(
+          (row) => Number(row.sort_order || 0) === itemIndex
+        );
+
+        if (!savedItem || !item.labor_activities?.length) return [];
+
+        return item.labor_activities.map((activity, activityIndex) => ({
+          quote_item_id: savedItem.id,
+          labor_activity_id: activity.labor_activity_id,
+          name_snapshot: activity.name_snapshot || "Actividad",
+          quantity: Number(activity.quantity || 0),
+          unit: activity.unit || "pieza",
+          internal_unit_cost_mxn: Number(activity.internal_unit_cost_mxn || 0),
+          sale_unit_price_mxn: Number(activity.sale_unit_price_mxn || 0),
+          internal_total_mxn: getLaborActivityInternalTotal(activity),
+          sale_total_mxn: getLaborActivitySaleTotal(activity),
+          assigned_role: activity.assigned_role?.trim() || null,
+          notes: activity.notes?.trim() || null,
+          sort_order: activityIndex,
+        }));
+      });
+
+      if (laborActivitiesToInsert.length > 0) {
+        const { error: laborActivitiesError } = await supabase
+          .from("quote_item_labor_activities")
+          .insert(laborActivitiesToInsert);
+
+        if (laborActivitiesError) {
+          console.error("Error creando actividades de mano de obra:", laborActivitiesError);
+          alert(
+            "Error creando actividades de mano de obra: " +
+              JSON.stringify(laborActivitiesError) +
+              (laborActivitiesError.message ? ` ${laborActivitiesError.message}` : "")
+          );
+          setSavingQuote(false);
+          return;
+        }
       }
     }
 
@@ -1225,23 +1356,26 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
                       {section.items.map((item) => (
                         <div
                           key={item.id}
-                          draggable
-                          onDragStart={() =>
-                            setDraggingItem({
-                              sectionId: section.id,
-                              productId: item.id,
-                            })
-                          }
-                          onDragOver={(event) => event.preventDefault()}
-                          onDrop={() => handleItemDrop(section.id, item.id)}
-                          onDragEnd={() => setDraggingItem(null)}
-                          className={`grid min-w-[720px] grid-cols-[34px_70px_1fr_90px_130px_50px] items-center gap-4 rounded-xl bg-[#222228] p-4 ${
+                          className={`min-w-[720px] rounded-xl bg-[#222228] p-4 ${
                             draggingItem?.sectionId === section.id &&
                             draggingItem.productId === item.id
                               ? "opacity-70 ring-1 ring-[#9E1B32]"
                               : ""
                           }`}
                         >
+                          <div
+                            draggable
+                            onDragStart={() =>
+                              setDraggingItem({
+                                sectionId: section.id,
+                                productId: item.id,
+                              })
+                            }
+                            onDragOver={(event) => event.preventDefault()}
+                            onDrop={() => handleItemDrop(section.id, item.id)}
+                            onDragEnd={() => setDraggingItem(null)}
+                            className="grid grid-cols-[34px_70px_1fr_90px_130px_50px] items-center gap-4"
+                          >
                           <span className="cursor-grab text-xl text-[#77777D] active:cursor-grabbing">
                             ☰
                           </span>
@@ -1294,9 +1428,7 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
 
                             <p className="text-[#B3B3B8]">
                               MO MXN{" "}
-                              {formatNumber(
-                                item.labor_unit_sale_price * item.quantity
-                              )}
+                              {formatNumber(getItemLaborSaleTotal(item))}
                             </p>
                           </div>
 
@@ -1307,6 +1439,19 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
                           >
                             ×
                           </button>
+                        </div>
+
+                          <QuoteLaborActivitiesPanel
+                            activities={item.labor_activities}
+                            catalog={laborActivityCatalog}
+                            onChange={(activities) =>
+                              updateItemLaborActivities(
+                                section.id,
+                                item.id,
+                                activities
+                              )
+                            }
+                          />
                         </div>
                       ))}
                     </div>
