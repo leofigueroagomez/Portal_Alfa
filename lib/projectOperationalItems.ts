@@ -16,10 +16,26 @@ type QuoteItem = {
   quote_section_id: number | null;
   product_id: number | null;
   quantity: number | null;
+  unit_labor_price?: number | null;
   product_brand: string | null;
   product_model: string | null;
   product_name: string | null;
   product_image_url: string | null;
+};
+
+type QuoteItemLaborActivity = {
+  id: number;
+  quote_item_id: number;
+  labor_activity_id: number | null;
+  name_snapshot: string | null;
+  quantity: number | null;
+  unit: string | null;
+  internal_unit_cost_mxn: number | null;
+  sale_unit_price_mxn: number | null;
+  internal_total_mxn: number | null;
+  sale_total_mxn: number | null;
+  notes: string | null;
+  sort_order: number | null;
 };
 
 type Product = {
@@ -30,13 +46,31 @@ type Product = {
 };
 
 type ExistingOperationalItem = {
+  id: number;
   source_quote_item_id: number | null;
+};
+
+type OperationalLaborActivityInsert = {
+  project_operational_item_id: number;
+  source_quote_item_labor_activity_id: number | null;
+  labor_activity_id: number | null;
+  name_snapshot: string;
+  quantity: number;
+  unit: string;
+  internal_unit_cost_mxn: number;
+  sale_unit_price_mxn: number;
+  internal_total_mxn: number;
+  sale_total_mxn: number;
+  status: string;
+  notes: string | null;
 };
 
 export type SyncProjectOperationalItemsResult = {
   inserted: number;
   skipped: number;
   approvedQuotes: number;
+  activitiesInserted: number;
+  activitiesSkipped: number;
 };
 
 function normalizeCostCurrency(value: string | null | undefined) {
@@ -61,7 +95,13 @@ export async function syncProjectOperationalItems(
   const quoteIds = approvedQuotes.map((quote) => quote.id);
 
   if (quoteIds.length === 0) {
-    return { inserted: 0, skipped: 0, approvedQuotes: 0 };
+    return {
+      inserted: 0,
+      skipped: 0,
+      approvedQuotes: 0,
+      activitiesInserted: 0,
+      activitiesSkipped: 0,
+    };
   }
 
   const [{ data: quoteItems, error: quoteItemsError }, { data: sections, error: sectionsError }] =
@@ -69,7 +109,7 @@ export async function syncProjectOperationalItems(
       supabase
         .from("quote_items")
         .select(
-          "id, quote_id, quote_section_id, product_id, quantity, product_brand, product_model, product_name, product_image_url"
+          "id, quote_id, quote_section_id, product_id, quantity, unit_labor_price, product_brand, product_model, product_name, product_image_url"
         )
         .in("quote_id", quoteIds),
       supabase
@@ -85,7 +125,13 @@ export async function syncProjectOperationalItems(
   const quoteSections = (sections || []) as QuoteSection[];
 
   if (items.length === 0) {
-    return { inserted: 0, skipped: 0, approvedQuotes: approvedQuotes.length };
+    return {
+      inserted: 0,
+      skipped: 0,
+      approvedQuotes: approvedQuotes.length,
+      activitiesInserted: 0,
+      activitiesSkipped: 0,
+    };
   }
 
   const quoteById = new Map(approvedQuotes.map((quote) => [quote.id, quote]));
@@ -108,7 +154,7 @@ export async function syncProjectOperationalItems(
   );
   const { data: existingItems, error: existingError } = await supabase
     .from("project_operational_items")
-    .select("source_quote_item_id")
+    .select("id, source_quote_item_id")
     .eq("client_project_id", projectId)
     .in("source_quote_item_id", items.map((item) => item.id));
 
@@ -151,23 +197,154 @@ export async function syncProjectOperationalItems(
       };
     });
 
-  if (rowsToInsert.length === 0) {
-    return {
-      inserted: 0,
-      skipped: existingQuoteItemIds.size,
-      approvedQuotes: approvedQuotes.length,
-    };
+  if (rowsToInsert.length > 0) {
+    const { error: insertError } = await supabase
+      .from("project_operational_items")
+      .insert(rowsToInsert);
+
+    if (insertError) throw insertError;
   }
 
-  const { error: insertError } = await supabase
-    .from("project_operational_items")
-    .insert(rowsToInsert);
+  const { data: operationalItems, error: operationalItemsError } =
+    await supabase
+      .from("project_operational_items")
+      .select("id, source_quote_item_id")
+      .eq("client_project_id", projectId)
+      .in("source_quote_item_id", items.map((item) => item.id));
 
-  if (insertError) throw insertError;
+  if (operationalItemsError) throw operationalItemsError;
+
+  const operationalItemByQuoteItemId = new Map(
+    ((operationalItems || []) as ExistingOperationalItem[])
+      .filter((item) => item.source_quote_item_id)
+      .map((item) => [item.source_quote_item_id as number, item.id])
+  );
+  const itemIds = items.map((item) => item.id);
+  const { data: quoteLaborActivities, error: quoteLaborActivitiesError } =
+    await supabase
+      .from("quote_item_labor_activities")
+      .select(
+        "id, quote_item_id, labor_activity_id, name_snapshot, quantity, unit, internal_unit_cost_mxn, sale_unit_price_mxn, internal_total_mxn, sale_total_mxn, notes, sort_order"
+      )
+      .in("quote_item_id", itemIds)
+      .order("sort_order", { ascending: true });
+
+  if (quoteLaborActivitiesError) throw quoteLaborActivitiesError;
+
+  const sourceLaborActivities = (quoteLaborActivities || []) as QuoteItemLaborActivity[];
+  const sourceLaborActivityIds = sourceLaborActivities.map((activity) => activity.id);
+  const operationalItemIds = Array.from(operationalItemByQuoteItemId.values());
+  const [
+    { data: existingSourceActivities, error: existingSourceActivitiesError },
+    { data: existingOperationalActivities, error: existingOperationalActivitiesError },
+  ] = await Promise.all([
+    sourceLaborActivityIds.length
+      ? supabase
+          .from("project_operational_item_labor_activities")
+          .select("source_quote_item_labor_activity_id")
+          .in("source_quote_item_labor_activity_id", sourceLaborActivityIds)
+      : Promise.resolve({ data: [], error: null }),
+    operationalItemIds.length
+      ? supabase
+          .from("project_operational_item_labor_activities")
+          .select("project_operational_item_id, source_quote_item_labor_activity_id, name_snapshot")
+          .in("project_operational_item_id", operationalItemIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  if (existingSourceActivitiesError) throw existingSourceActivitiesError;
+  if (existingOperationalActivitiesError) throw existingOperationalActivitiesError;
+
+  const existingSourceActivityIds = new Set(
+    ((existingSourceActivities || []) as { source_quote_item_labor_activity_id: number | null }[])
+      .map((activity) => activity.source_quote_item_labor_activity_id)
+      .filter(Boolean) as number[]
+  );
+  const existingLegacyActivityItemIds = new Set(
+    ((existingOperationalActivities || []) as {
+      project_operational_item_id: number;
+      source_quote_item_labor_activity_id: number | null;
+      name_snapshot: string | null;
+    }[])
+      .filter(
+        (activity) =>
+          !activity.source_quote_item_labor_activity_id &&
+          activity.name_snapshot === "Mano de obra general"
+      )
+      .map((activity) => activity.project_operational_item_id)
+  );
+  const quoteLaborActivityByQuoteItemId = new Map<number, QuoteItemLaborActivity[]>();
+
+  for (const activity of sourceLaborActivities) {
+    const current = quoteLaborActivityByQuoteItemId.get(activity.quote_item_id) || [];
+    quoteLaborActivityByQuoteItemId.set(activity.quote_item_id, [...current, activity]);
+  }
+
+  const activityRowsToInsert = items.reduce<OperationalLaborActivityInsert[]>((rows, item) => {
+    const operationalItemId = operationalItemByQuoteItemId.get(item.id);
+    if (!operationalItemId) return rows;
+
+    const activities = quoteLaborActivityByQuoteItemId.get(item.id) || [];
+    if (activities.length > 0) {
+      rows.push(
+        ...activities
+        .filter((activity) => !existingSourceActivityIds.has(activity.id))
+        .map((activity) => ({
+          project_operational_item_id: operationalItemId,
+          source_quote_item_labor_activity_id: activity.id,
+          labor_activity_id: activity.labor_activity_id,
+          name_snapshot: activity.name_snapshot || "Actividad",
+          quantity: Number(activity.quantity || 0),
+          unit: activity.unit || "pieza",
+          internal_unit_cost_mxn: Number(activity.internal_unit_cost_mxn || 0),
+          sale_unit_price_mxn: Number(activity.sale_unit_price_mxn || 0),
+          internal_total_mxn: Number(activity.internal_total_mxn || 0),
+          sale_total_mxn: Number(activity.sale_total_mxn || 0),
+          status: "pending",
+          notes: activity.notes,
+        }))
+      );
+      return rows;
+    }
+
+    const unitLaborPrice = Number(item.unit_labor_price || 0);
+    if (unitLaborPrice <= 0 || existingLegacyActivityItemIds.has(operationalItemId)) {
+      return rows;
+    }
+
+    const quantity = Number(item.quantity || 1);
+    rows.push({
+      project_operational_item_id: operationalItemId,
+      source_quote_item_labor_activity_id: null,
+      labor_activity_id: null,
+      name_snapshot: "Mano de obra general",
+      quantity,
+      unit: "pieza",
+      internal_unit_cost_mxn: 0,
+      sale_unit_price_mxn: unitLaborPrice,
+      internal_total_mxn: 0,
+      sale_total_mxn: quantity * unitLaborPrice,
+      status: "pending",
+      notes: null,
+    });
+
+    return rows;
+  }, []);
+
+  if (activityRowsToInsert.length > 0) {
+    const { error: insertActivitiesError } = await supabase
+      .from("project_operational_item_labor_activities")
+      .insert(activityRowsToInsert);
+
+    if (insertActivitiesError) throw insertActivitiesError;
+  }
 
   return {
     inserted: rowsToInsert.length,
     skipped: existingQuoteItemIds.size,
     approvedQuotes: approvedQuotes.length,
+    activitiesInserted: activityRowsToInsert.length,
+    activitiesSkipped:
+      existingSourceActivityIds.size + existingLegacyActivityItemIds.size,
   };
 }

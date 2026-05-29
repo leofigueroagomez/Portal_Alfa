@@ -173,6 +173,7 @@ export default async function ProjectDetailPage({
     visitsResult,
     authorizedPlanResult,
     operationalItemsResult,
+    operationalActivitiesResult,
   ] = await Promise.all([
     projectData.client_id
       ? supabase
@@ -206,6 +207,13 @@ export default async function ProjectDetailPage({
       .from("project_operational_items")
       .select("id", { count: "exact", head: true })
       .eq("client_project_id", projectData.id),
+    supabase
+      .from("project_operational_item_labor_activities")
+      .select("id, project_operational_items!inner(client_project_id)", {
+        count: "exact",
+        head: true,
+      })
+      .eq("project_operational_items.client_project_id", projectData.id),
   ]);
 
   const clientData = client as Client | null;
@@ -219,6 +227,9 @@ export default async function ProjectDetailPage({
   const operationalItemsCount = operationalItemsResult.error
     ? null
     : Number(operationalItemsResult.count || 0);
+  const operationalActivitiesCount = operationalActivitiesResult.error
+    ? null
+    : Number(operationalActivitiesResult.count || 0);
   const approvedTotal = authorizedQuotes.reduce(
     (sum, quote) => sum + getQuoteTotal(quote),
     0
@@ -386,6 +397,14 @@ export default async function ProjectDetailPage({
                     {operationalItemsCount === null
                       ? "SQL pendiente"
                       : operationalItemsCount}
+                  </span>
+                </p>
+                <p className="mt-1 text-sm font-semibold text-[#B3B3B8]">
+                  Actividades operativas:{" "}
+                  <span className="text-white">
+                    {operationalActivitiesCount === null
+                      ? "SQL pendiente"
+                      : operationalActivitiesCount}
                   </span>
                 </p>
               </div>

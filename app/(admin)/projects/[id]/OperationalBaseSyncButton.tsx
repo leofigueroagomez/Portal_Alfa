@@ -53,8 +53,8 @@ export default function OperationalBaseSyncButton({
     try {
       const result = await syncProjectOperationalItems(supabase, projectId, user?.id || null);
       alert(
-        result.inserted > 0
-          ? `Base operativa sincronizada. Items agregados: ${result.inserted}.`
+        result.inserted > 0 || result.activitiesInserted > 0
+          ? `Base operativa sincronizada. Items agregados: ${result.inserted}. Actividades agregadas: ${result.activitiesInserted}.`
           : "La base operativa ya estaba sincronizada."
       );
       router.refresh();
