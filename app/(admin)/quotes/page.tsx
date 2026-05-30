@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { formatCurrency } from "@/lib/format";
+import { canDeleteQuotes as canDeleteQuotesForRole } from "@/lib/permissions";
+import { getCurrentUserProfile } from "@/services/profile";
 import {
   normalizeSalesStage,
   salesStageClasses,
@@ -36,8 +38,8 @@ function formatDate(value: string | null) {
 
 export default async function QuotesPage() {
   const supabase = await createSupabaseServerClient();
-  // TODO: Replace with role-based visibility for admin/director users.
-  const canDeleteQuotes = true;
+  const currentProfile = await getCurrentUserProfile();
+  const canDeleteQuotes = canDeleteQuotesForRole(currentProfile?.role);
 
   let { data: quotes, error: quotesError } = (await supabase
     .from("quotes")

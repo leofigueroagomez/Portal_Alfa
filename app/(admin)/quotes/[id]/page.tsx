@@ -2,6 +2,8 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { formatCurrency, formatNumber } from "@/lib/format";
+import { canApproveQuotes } from "@/lib/permissions";
+import { getCurrentUserProfile } from "@/services/profile";
 import ProjectStageSelect from "@/components/ProjectStageSelect";
 import CreateQuoteVersionButton from "./CreateQuoteVersionButton";
 import ApproveQuoteVersionButton from "./ApproveQuoteVersionButton";
@@ -189,6 +191,7 @@ export default async function QuoteDetailPage({
   }
 
   const quoteData = quote as Quote;
+  const currentProfile = await getCurrentUserProfile();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -345,12 +348,14 @@ export default async function QuoteDetailPage({
               quoteBaseNumber={quoteData.quote_base_number}
             />
 
-            <ApproveQuoteVersionButton
-              quoteId={quoteData.id}
-              quoteGroupId={quoteData.quote_group_id}
-              clientProjectId={quoteData.client_project_id}
-              status={quoteData.status}
-            />
+            {canApproveQuotes(currentProfile?.role) ? (
+              <ApproveQuoteVersionButton
+                quoteId={quoteData.id}
+                quoteGroupId={quoteData.quote_group_id}
+                clientProjectId={quoteData.client_project_id}
+                status={quoteData.status}
+              />
+            ) : null}
           </div>
         </div>
       </section>

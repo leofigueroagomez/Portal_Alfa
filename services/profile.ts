@@ -1,9 +1,11 @@
+import { normalizeRole, type AlfaRole } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 
 export type UserProfile = {
   id: string;
+  email: string | null;
   full_name: string | null;
-  role: "admin" | "sales" | "engineering";
+  role: AlfaRole;
   is_active: boolean;
 };
 
@@ -22,14 +24,26 @@ export async function getCurrentUserProfile() {
   );
 
   if (ensuredProfile) {
-    return ensuredProfile as UserProfile;
+    const profile = ensuredProfile as Omit<UserProfile, "role"> & {
+      role: string | null;
+    };
+    return {
+      ...profile,
+      role: normalizeRole(profile.role),
+    };
   }
 
   const { data } = await supabase
     .from("profiles")
-    .select("id, full_name, role, is_active")
+    .select("id, email, full_name, role, is_active")
     .eq("id", user.id)
     .maybeSingle();
 
-  return (data as UserProfile | null) || null;
+  if (!data) return null;
+
+  const profile = data as Omit<UserProfile, "role"> & { role: string | null };
+  return {
+    ...profile,
+    role: normalizeRole(profile.role),
+  };
 }

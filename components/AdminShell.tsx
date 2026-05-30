@@ -16,6 +16,7 @@ import {
   Ruler,
   Settings,
   Users,
+  UserCog,
   Wrench,
   X,
   type LucideIcon,
@@ -23,6 +24,15 @@ import {
 import { useState } from "react";
 import { supabase } from "@/services/supabase";
 import type { UserProfile } from "@/services/profile";
+import {
+  canManageAccountStatements,
+  canManageContractors,
+  canManageProductTaxonomy,
+  canManagePurchases,
+  canManageServices,
+  canManageUsers,
+  normalizeRole,
+} from "@/lib/permissions";
 
 type NavItem = {
   href: string;
@@ -46,6 +56,7 @@ const navItems: NavItem[] = [
   { href: "/projects", label: "Proyectos", icon: FolderOpen },
   { href: "/contractors", label: "Contratistas", icon: Users },
   { href: "/services", label: "Servicios", icon: Wrench },
+  { href: "/users", label: "Usuarios", icon: UserCog },
   { href: "/admin/operations", label: "Operaciones", icon: Settings },
   {
     href: "/notifications/recipients",
@@ -54,9 +65,16 @@ const navItems: NavItem[] = [
   },
 ];
 
-const roleLabels: Record<UserProfile["role"], string> = {
+const roleLabels: Record<string, string> = {
   admin: "Admin",
-  sales: "Ventas",
+  direccion: "Direccion",
+  comercial: "Comercial",
+  sales: "Comercial",
+  ingenieria: "Ingenieria",
+  project_manager: "Project Manager",
+  instalador: "Instalador",
+  compras: "Compras",
+  finanzas: "Finanzas",
   engineering: "Ingeniería",
 };
 
@@ -66,7 +84,23 @@ export default function AdminShell({ children, profile }: AdminShellProps) {
   const [isOpen, setIsOpen] = useState(false);
   const isPrintRoute = pathname.endsWith("/print");
   const displayName = profile?.full_name?.trim() || "Usuario ALFA";
-  const roleLabel = profile?.role ? roleLabels[profile.role] : "Interno";
+  const role = normalizeRole(profile?.role);
+  const roleLabel = roleLabels[role] || "Interno";
+  const visibleNavItems = navItems.filter((item) => {
+    if (item.href === "/director-dashboard") {
+      return (
+        canManageAccountStatements(role) ||
+        canManagePurchases(role) ||
+        canManageUsers(role)
+      );
+    }
+    if (item.href === "/products") return canManageProductTaxonomy(role);
+    if (item.href === "/contractors") return canManageContractors(role);
+    if (item.href === "/services") return canManageServices(role);
+    if (item.href === "/users") return canManageUsers(role);
+    if (item.href === "/admin/operations") return canManageUsers(role);
+    return true;
+  });
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -138,7 +172,7 @@ export default function AdminShell({ children, profile }: AdminShellProps) {
         </div>
 
         <nav className="admin-nav no-print space-y-2">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const Icon = item.icon;
             const isActive =
               pathname === item.href || pathname.startsWith(`${item.href}/`);
