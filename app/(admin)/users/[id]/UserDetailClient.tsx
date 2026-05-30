@@ -30,6 +30,20 @@ const roleLabels: Record<AlfaRole, string> = {
   finanzas: "Finanzas",
 };
 
+function formatApiError(json: unknown) {
+  if (!json || typeof json !== "object") return "Error desconocido";
+  const payload = json as Record<string, unknown>;
+  return [
+    payload.error ? `error: ${String(payload.error)}` : null,
+    payload.code ? `code: ${String(payload.code)}` : null,
+    `currentUserEmail: ${String(payload.currentUserEmail ?? "")}`,
+    `hasServiceRoleKey: ${String(payload.hasServiceRoleKey ?? "")}`,
+    `isAdmin: ${String(payload.isAdmin ?? "")}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 export default function UserDetailClient({ userId, currentUserId }: Props) {
   const [user, setUser] = useState<AdminUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,7 +55,7 @@ export default function UserDetailClient({ userId, currentUserId }: Props) {
       setLoading(false);
 
       if (!response.ok) {
-        alert(json?.error || "No se pudo cargar usuario.");
+        alert(formatApiError(json));
         return;
       }
 

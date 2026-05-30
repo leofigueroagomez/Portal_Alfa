@@ -7,6 +7,7 @@ const protectedRoutes = [
   "/products",
   "/quotes",
   "/engineering-quotes",
+  "/users",
   "/product-categories",
   "/product-tags",
 ];
@@ -70,6 +71,7 @@ export const config = {
     "/products/:path*",
     "/quotes/:path*",
     "/engineering-quotes/:path*",
+    "/users/:path*",
     "/product-categories/:path*",
     "/product-tags/:path*",
   ],

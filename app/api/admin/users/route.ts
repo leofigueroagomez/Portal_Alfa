@@ -1,7 +1,15 @@
 import { NextResponse } from "next/server";
-import { listAdminUsers, requireAdminProfile } from "@/lib/adminUsers";
+import {
+  getAdminUsersDiagnostics,
+  getSafeErrorCode,
+  getSafeErrorMessage,
+  listAdminUsers,
+  requireAdminProfile,
+} from "@/lib/adminUsers";
 import { alfaRoles, normalizeRole } from "@/lib/permissions";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
+
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   const { response } = await requireAdminProfile();
@@ -12,8 +20,13 @@ export async function GET() {
     return NextResponse.json({ users });
   } catch (error) {
     console.error("admin users list failed:", error);
+    const diagnostics = await getAdminUsersDiagnostics();
     return NextResponse.json(
-      { error: "No se pudieron cargar usuarios" },
+      {
+        error: getSafeErrorMessage(error),
+        code: getSafeErrorCode(error),
+        ...diagnostics,
+      },
       { status: 500 }
     );
   }
@@ -72,8 +85,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ id: data.user.id });
   } catch (error) {
     console.error("admin users create failed:", error);
+    const diagnostics = await getAdminUsersDiagnostics();
     return NextResponse.json(
-      { error: "No se pudo crear usuario" },
+      {
+        error: getSafeErrorMessage(error),
+        code: getSafeErrorCode(error),
+        ...diagnostics,
+      },
       { status: 500 }
     );
   }

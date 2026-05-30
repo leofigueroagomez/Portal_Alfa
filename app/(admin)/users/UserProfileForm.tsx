@@ -15,6 +15,20 @@ type Props = {
   roleOptions: { value: string; label: string }[];
 };
 
+function formatApiError(json: unknown) {
+  if (!json || typeof json !== "object") return "Error desconocido";
+  const payload = json as Record<string, unknown>;
+  return [
+    payload.error ? `error: ${String(payload.error)}` : null,
+    payload.code ? `code: ${String(payload.code)}` : null,
+    `currentUserEmail: ${String(payload.currentUserEmail ?? "")}`,
+    `hasServiceRoleKey: ${String(payload.hasServiceRoleKey ?? "")}`,
+    `isAdmin: ${String(payload.isAdmin ?? "")}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 export default function UserProfileForm({
   profile,
   currentUserId,
@@ -49,7 +63,7 @@ export default function UserProfileForm({
     setSaving(false);
 
     if (!response.ok) {
-      alert(json?.error || "No se pudo actualizar usuario.");
+      alert(formatApiError(json));
       return;
     }
 

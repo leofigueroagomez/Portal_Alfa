@@ -34,6 +34,20 @@ function reportError(step: string, error: unknown) {
   alert(`Error en ${step}`);
 }
 
+function formatApiError(json: unknown) {
+  if (!json || typeof json !== "object") return "Error desconocido";
+  const payload = json as Record<string, unknown>;
+  return [
+    payload.error ? `error: ${String(payload.error)}` : null,
+    payload.code ? `code: ${String(payload.code)}` : null,
+    `currentUserEmail: ${String(payload.currentUserEmail ?? "")}`,
+    `hasServiceRoleKey: ${String(payload.hasServiceRoleKey ?? "")}`,
+    `isAdmin: ${String(payload.isAdmin ?? "")}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 export default function UsersAdminClient({ currentUserId }: Props) {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,7 +74,7 @@ export default function UsersAdminClient({ currentUserId }: Props) {
     setLoading(false);
 
     if (!response.ok) {
-      alert(json?.error || "No se pudieron cargar usuarios.");
+      alert(formatApiError(json));
       return;
     }
 
@@ -84,7 +98,7 @@ export default function UsersAdminClient({ currentUserId }: Props) {
     setSaving(false);
 
     if (!response.ok) {
-      alert(json?.error || "No se pudo crear usuario.");
+      alert(formatApiError(json));
       return;
     }
 
@@ -108,7 +122,7 @@ export default function UsersAdminClient({ currentUserId }: Props) {
     const json = await response.json().catch(() => null);
 
     if (!response.ok) {
-      alert(json?.error || "No se pudo desactivar usuario.");
+      alert(formatApiError(json));
       return;
     }
 
