@@ -47,7 +47,7 @@ export function getContractorBalance(
 }
 
 export function getContractorBalanceLabel(balance: number) {
-  if (balance > 0.0001) return "A favor del contratista";
+  if (balance > 0.0001) return "A favor de ALFA";
   if (balance < -0.0001) return "ALFA debe";
   return "Liquidado";
 }
