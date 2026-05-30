@@ -24,17 +24,35 @@ set role = case
 end
 where role in ('sales', 'engineering');
 
-update public.profiles p
-set email = u.email
-from auth.users u
-where p.id = u.id
-  and (p.email is null or p.email = '');
+  update public.profiles p
+  set email = u.email
+  from auth.users u
+  where p.id = u.id
+    and (p.email is null or p.email = '');
+
+  insert into public.profiles (id, email, full_name, role, is_active)
+  select
+    u.id,
+    u.email,
+    coalesce(
+      nullif(u.raw_user_meta_data ->> 'full_name', ''),
+      nullif(u.raw_user_meta_data ->> 'name', ''),
+      nullif(u.email, '')
+    ),
+    'comercial',
+    true
+  from auth.users u
+  where not exists (
+    select 1
+    from public.profiles p
+    where p.id = u.id
+  );
 
 alter table public.profiles
   drop constraint if exists profiles_role_check;
 
-alter table public.profiles
-  add constraint profiles_role_check
+  alter table public.profiles
+    add constraint profiles_role_check
   check (role in (
     'admin',
     'direccion',
@@ -44,7 +62,13 @@ alter table public.profiles
     'instalador',
     'compras',
     'finanzas'
-  ));
+    ));
+
+  update public.profiles
+  set role = 'admin',
+      is_active = true,
+      updated_at = now()
+  where lower(email) = 'leofigueroagomez@gmail.com';
 
 create or replace function public.set_updated_at()
 returns trigger

@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { alfaRoles, type AlfaRole } from "@/lib/permissions";
-import { supabase } from "@/services/supabase";
 
 type Props = {
   profile: {
@@ -13,33 +11,15 @@ type Props = {
     role: string | null;
     is_active: boolean | null;
   };
+  currentUserId: string;
+  roleOptions: { value: string; label: string }[];
 };
 
-const roleLabels: Record<AlfaRole, string> = {
-  admin: "Admin",
-  direccion: "Direccion",
-  comercial: "Comercial",
-  ingenieria: "Ingenieria",
-  project_manager: "Project Manager",
-  instalador: "Instalador",
-  compras: "Compras",
-  finanzas: "Finanzas",
-};
-
-function reportError(step: string, error: unknown) {
-  const message =
-    error &&
-    typeof error === "object" &&
-    "message" in error &&
-    typeof error.message === "string"
-      ? ` ${error.message}`
-      : "";
-
-  console.error(`Error en ${step}:`, error);
-  alert(`Error en ${step}: ${JSON.stringify(error)}${message}`);
-}
-
-export default function UserProfileForm({ profile }: Props) {
+export default function UserProfileForm({
+  profile,
+  currentUserId,
+  roleOptions,
+}: Props) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [fullName, setFullName] = useState(profile.full_name || "");
@@ -48,21 +28,28 @@ export default function UserProfileForm({ profile }: Props) {
 
   async function handleSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (profile.id === currentUserId && !isActive) {
+      alert("No puedes desactivarte a ti mismo.");
+      return;
+    }
+
     setSaving(true);
 
-    const { error } = await supabase
-      .from("profiles")
-      .update({
+    const response = await fetch(`/api/admin/users/${profile.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         full_name: fullName.trim() || null,
         role,
         is_active: isActive,
-      })
-      .eq("id", profile.id);
+      }),
+    });
+    const json = await response.json().catch(() => null);
 
     setSaving(false);
 
-    if (error) {
-      reportError("actualizar usuario", error);
+    if (!response.ok) {
+      alert(json?.error || "No se pudo actualizar usuario.");
       return;
     }
 
@@ -99,9 +86,9 @@ export default function UserProfileForm({ profile }: Props) {
               value={role}
               onChange={(event) => setRole(event.target.value)}
             >
-              {alfaRoles.map((item) => (
-                <option key={item} value={item}>
-                  {roleLabels[item]}
+              {roleOptions.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
                 </option>
               ))}
             </select>

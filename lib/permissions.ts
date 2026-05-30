@@ -24,7 +24,7 @@ function isAdminLike(role: string | null | undefined) {
 }
 
 export function canManageUsers(role: string | null | undefined) {
-  return isAdminLike(role);
+  return normalizeRole(role) === "admin";
 }
 
 export function canApproveQuotes(role: string | null | undefined) {
