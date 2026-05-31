@@ -56,19 +56,72 @@ const alfaOsItems = [
 ];
 
 const brandLogos = [
-  { name: "LinkedPro", src: "/logos/brands/linkedpro.png" },
-  { name: "Panduit", src: "/logos/brands/panduit.png" },
-  { name: "Lutron", src: "/logos/brands/lutron.png" },
-  { name: "Ruijie", src: "/logos/brands/ruijie.png" },
-  { name: "Ubiquiti", src: "/logos/brands/ubiquiti.png" },
-  { name: "Grandstream", src: "/logos/brands/grandstream.png" },
-  { name: "Sonos", src: "/logos/brands/sonos.png" },
-  { name: "McIntosh", src: "/logos/brands/mcintosh.png" },
-  { name: "Tributaries", src: "/logos/brands/tributaries.png" },
-  { name: "AudioQuest", src: "/logos/brands/audioquest.png" },
-  { name: "Panamax", src: "/logos/brands/panamax.png" },
-  { name: "Hikvision", src: "/logos/brands/hikvision.png" },
-  { name: "DSC", src: "/logos/brands/dsc.png" },
+  {
+    name: "LinkedPro",
+    src: "/logos/brands/linkedpro.png",
+    category: "Infraestructura",
+    logoClassName: "max-h-12 max-w-[78%]",
+  },
+  {
+    name: "Panduit",
+    src: "/logos/brands/panduit.png",
+    category: "Infraestructura",
+    logoClassName: "max-h-11 max-w-[78%]",
+  },
+  {
+    name: "Lutron",
+    src: "/logos/brands/lutron.png",
+    category: "Infraestructura",
+    logoClassName: "max-h-14 max-w-[76%]",
+  },
+  {
+    name: "Ruijie",
+    src: "/logos/brands/ruijie.png",
+    category: "Infraestructura",
+    logoClassName: "max-h-12 max-w-[78%]",
+  },
+  {
+    name: "Ubiquiti",
+    src: "/logos/brands/ubiquiti.png",
+    category: "Conectividad",
+    logoClassName: "max-h-10 max-w-[46%] scale-[2]",
+  },
+  {
+    name: "Grandstream",
+    src: "/logos/brands/grandstream.png",
+    category: "Conectividad",
+    logoClassName: "max-h-14 max-w-[84%] scale-110",
+  },
+  {
+    name: "Hikvision",
+    src: "/logos/brands/hikvision.png",
+    category: "Seguridad",
+    logoClassName: "max-h-14 max-w-[82%]",
+  },
+  {
+    name: "DSC",
+    src: "/logos/brands/dsc.png",
+    category: "Seguridad",
+    logoClassName: "max-h-14 max-w-[76%]",
+  },
+  {
+    name: "Sonos",
+    src: "/logos/brands/sonos.png",
+    category: "Experiencias audiovisuales",
+    logoClassName: "max-h-10 max-w-[58%] scale-150",
+  },
+  {
+    name: "McIntosh",
+    src: "/logos/brands/mcintosh.png",
+    category: "Experiencias audiovisuales",
+    logoClassName: "max-h-11 max-w-[67%] scale-125",
+  },
+  {
+    name: "Panamax",
+    src: "/logos/brands/panamax.png",
+    category: "Experiencias audiovisuales",
+    logoClassName: "max-h-14 max-w-[80%]",
+  },
 ];
 
 const processSteps = [
@@ -312,16 +365,16 @@ export default function PublicLanding() {
         </div>
       </section>
 
-      <section className="bg-[#0F0F0F] px-5 py-16 text-white sm:px-8 lg:px-12">
+      <section className="bg-[#F5F1EE] px-5 py-16 text-[#0F0F0F] sm:px-8 lg:px-12">
         <div className="mx-auto max-w-7xl">
           <div className="max-w-3xl">
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#B84A5A]">
-              Fabricantes
+              Partners tecnológicos
             </p>
             <h2 className="mt-4 text-3xl font-semibold sm:text-4xl">
               Tecnología respaldada por marcas líderes.
             </h2>
-            <p className="mt-5 text-base leading-8 text-zinc-300">
+            <p className="mt-5 text-base leading-8 text-zinc-700">
               Seleccionamos cada solución considerando desempeño, confiabilidad
               y experiencia de uso para entregar proyectos a la altura de las
               expectativas de nuestros clientes.
@@ -332,20 +385,21 @@ export default function PublicLanding() {
             {brandLogos.map((brand) => (
               <div
                 key={brand.name}
-                className="flex h-28 items-center justify-center rounded-[24px] border border-white/[0.08] bg-[#141414] p-5 transition duration-[250ms] ease-in-out hover:-translate-y-0.5 hover:border-[#7A1F2B] sm:h-32"
+                className="group flex h-28 items-center justify-center overflow-hidden rounded-[24px] border border-black/[0.08] bg-white p-6 shadow-sm shadow-black/[0.03] transition duration-[250ms] ease-in-out hover:-translate-y-0.5 hover:border-[#7A1F2B] sm:h-32"
               >
                 <Image
                   src={brand.src}
                   alt={brand.name}
                   width={220}
                   height={90}
-                  className="max-h-14 w-auto max-w-full object-contain opacity-[.85] grayscale transition duration-[250ms] ease-in-out hover:opacity-100 hover:grayscale-0"
+                  title={brand.category}
+                  className={`${brand.logoClassName} h-auto w-auto object-contain opacity-[.85] grayscale transition duration-[250ms] ease-in-out group-hover:opacity-100 group-hover:grayscale-0`}
                 />
               </div>
             ))}
           </div>
 
-          <p className="mt-8 max-w-3xl text-sm leading-7 text-zinc-400">
+          <p className="mt-8 max-w-3xl text-sm leading-7 text-zinc-600">
             Trabajamos con fabricantes reconocidos por su calidad, confiabilidad
             y desempeño para construir soluciones pensadas para durar.
           </p>
