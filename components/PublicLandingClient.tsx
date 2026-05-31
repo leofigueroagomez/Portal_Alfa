@@ -55,17 +55,20 @@ const alfaOsItems = [
   { title: "Comunicación y seguimiento", icon: MessageSquareText },
 ];
 
-const technologyBrands = [
-  "Hikvision",
-  "Dahua",
-  "Ubiquiti",
-  "Cisco",
-  "TP-Link Omada",
-  "Grandstream",
-  "Yealink",
-  "Logitech",
-  "Samsung",
-  "LG",
+const brandLogos = [
+  { name: "LinkedPro", src: "/logos/brands/linkedpro.png" },
+  { name: "Panduit", src: "/logos/brands/panduit.png" },
+  { name: "Lutron", src: "/logos/brands/lutron.png" },
+  { name: "Ruijie", src: "/logos/brands/ruijie.png" },
+  { name: "Ubiquiti", src: "/logos/brands/ubiquiti.png" },
+  { name: "Grandstream", src: "/logos/brands/grandstream.png" },
+  { name: "Sonos", src: "/logos/brands/sonos.png" },
+  { name: "McIntosh", src: "/logos/brands/mcintosh.png" },
+  { name: "Tributaries", src: "/logos/brands/tributaries.png" },
+  { name: "AudioQuest", src: "/logos/brands/audioquest.png" },
+  { name: "Panamax", src: "/logos/brands/panamax.png" },
+  { name: "Hikvision", src: "/logos/brands/hikvision.png" },
+  { name: "DSC", src: "/logos/brands/dsc.png" },
 ];
 
 const processSteps = [
@@ -309,30 +312,43 @@ export default function PublicLanding() {
         </div>
       </section>
 
-      <section className="bg-zinc-100 px-5 py-16 text-[#0F0F0F] sm:px-8 lg:px-12">
-        <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.82fr_1.18fr]">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#7A1F2B]">
+      <section className="bg-[#0F0F0F] px-5 py-16 text-white sm:px-8 lg:px-12">
+        <div className="mx-auto max-w-7xl">
+          <div className="max-w-3xl">
+            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#B84A5A]">
               Fabricantes
             </p>
             <h2 className="mt-4 text-3xl font-semibold sm:text-4xl">
-              Trabajamos con fabricantes líderes de la industria.
+              Tecnología respaldada por marcas líderes.
             </h2>
-            <p className="mt-5 text-base leading-8 text-zinc-700">
-              Seleccionamos tecnología confiable para cada proyecto según sus
-              necesidades técnicas, nivel de exigencia y presupuesto.
+            <p className="mt-5 text-base leading-8 text-zinc-300">
+              Seleccionamos cada solución considerando desempeño, confiabilidad
+              y experiencia de uso para entregar proyectos a la altura de las
+              expectativas de nuestros clientes.
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            {technologyBrands.map((brand) => (
+
+          <div className="mt-10 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+            {brandLogos.map((brand) => (
               <div
-                key={brand}
-                className="flex min-h-20 items-center justify-center border border-zinc-200 bg-white px-3 text-center text-sm font-semibold text-zinc-800 shadow-sm"
+                key={brand.name}
+                className="flex h-28 items-center justify-center rounded-[24px] border border-white/[0.08] bg-[#141414] p-5 transition duration-[250ms] ease-in-out hover:-translate-y-0.5 hover:border-[#7A1F2B] sm:h-32"
               >
-                {brand}
+                <Image
+                  src={brand.src}
+                  alt={brand.name}
+                  width={220}
+                  height={90}
+                  className="max-h-14 w-auto max-w-full object-contain opacity-[.85] grayscale transition duration-[250ms] ease-in-out hover:opacity-100 hover:grayscale-0"
+                />
               </div>
             ))}
           </div>
+
+          <p className="mt-8 max-w-3xl text-sm leading-7 text-zinc-400">
+            Trabajamos con fabricantes reconocidos por su calidad, confiabilidad
+            y desempeño para construir soluciones pensadas para durar.
+          </p>
         </div>
       </section>
 
