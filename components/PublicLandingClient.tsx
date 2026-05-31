@@ -345,24 +345,25 @@ export default function PublicLanding() {
         </div>
       </section>
 
-      <section className="px-5 py-16 sm:px-8 lg:px-12">
+      <section className="bg-[#F8F7F5] px-5 py-16 text-[#0F0F0F] sm:px-8 lg:px-12">
         <div className="mx-auto max-w-7xl">
           <SectionHeader
             eyebrow="Experiencia comprobada"
             title="Tres contextos, una misma exigencia: que la tecnología funcione."
+            darkText
           />
           <div className="mt-9 grid gap-4 md:grid-cols-3">
             {experienceAreas.map((area) => (
               <article
                 key={area.title}
-                className="border border-white/10 bg-white/[0.04] p-6"
+                className="border border-zinc-200 bg-white p-6 shadow-sm shadow-black/[0.03]"
               >
                 <Building2
                   className="mb-8 h-7 w-7 text-[#B84A5A]"
                   aria-hidden="true"
                 />
                 <h3 className="text-xl font-semibold">{area.title}</h3>
-                <p className="mt-4 text-sm leading-7 text-zinc-400">
+                <p className="mt-4 text-sm leading-7 text-zinc-700">
                   {area.copy}
                 </p>
               </article>
@@ -396,7 +397,7 @@ export default function PublicLanding() {
         </div>
       </section>
 
-      <section className="bg-[#F5F1EE] px-5 py-16 text-[#0F0F0F] sm:px-8 lg:px-12">
+      <section className="bg-white px-5 py-16 text-[#0F0F0F] sm:px-8 lg:px-12">
         <div className="mx-auto max-w-7xl">
           <div className="max-w-3xl">
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#B84A5A]">
@@ -437,8 +438,9 @@ export default function PublicLanding() {
         </div>
       </section>
 
-      <section className="bg-[#0F0F0F] px-5 py-16 text-white sm:px-8 sm:py-20 lg:px-12">
-        <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+      <section className="relative overflow-hidden bg-[#240A10] px-5 py-16 text-white sm:px-8 sm:py-20 lg:px-12">
+        <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(122,31,43,0.92),rgba(15,15,15,0.98)_58%,rgba(90,19,32,0.88)),radial-gradient(circle_at_18%_20%,rgba(184,74,90,0.34),transparent_30%)]" />
+        <div className="relative mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
           <div className="relative min-h-[360px] overflow-hidden rounded-[28px] border border-white/10 shadow-2xl shadow-black/40 sm:min-h-[520px]">
             <Image
               src="/projects/audio-hifi-bw-mcintosh.jpeg"
@@ -594,7 +596,7 @@ export default function PublicLanding() {
         </div>
       </section>
 
-      <section className="bg-[#0F0F0F] px-5 py-16 text-white sm:px-8 sm:py-20 lg:px-12">
+      <section className="bg-[#F8F7F5] px-5 py-16 text-[#0F0F0F] sm:px-8 sm:py-20 lg:px-12">
         <div className="mx-auto max-w-7xl">
           <div className="max-w-3xl">
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#B84A5A]">
@@ -603,7 +605,7 @@ export default function PublicLanding() {
             <h2 className="mt-4 text-3xl font-semibold sm:text-4xl">
               Proyectos que reflejan nuestra forma de trabajar.
             </h2>
-            <p className="mt-5 text-base leading-8 text-zinc-300">
+            <p className="mt-5 text-base leading-8 text-zinc-700">
               Cada proyecto es una combinación de ingeniería, diseño y
               acompañamiento. Desde residencias de alto nivel hasta
               infraestructura tecnológica crítica.
@@ -651,17 +653,16 @@ export default function PublicLanding() {
         </div>
       </section>
 
-      <section className="bg-zinc-100 px-5 py-16 text-[#0F0F0F] sm:px-8 lg:px-12">
+      <section className="border-y border-white/10 bg-[#0F0F0F] px-5 py-16 text-white sm:px-8 lg:px-12">
         <div className="mx-auto max-w-7xl">
           <SectionHeader
             eyebrow="Proceso"
             title="Orden técnico, comunicación clara y ejecución documentada."
-            darkText
           />
           <div className="mt-9 grid gap-4 md:grid-cols-4">
             {processSteps.map((step, index) => (
-              <div key={step} className="border border-zinc-200 bg-white p-6">
-                <span className="text-sm font-semibold text-[#7A1F2B]">
+              <div key={step} className="border border-white/10 bg-white/[0.04] p-6">
+                <span className="text-sm font-semibold text-[#B84A5A]">
                   0{index + 1}
                 </span>
                 <h3 className="mt-8 text-lg font-semibold">{step}</h3>
@@ -673,17 +674,18 @@ export default function PublicLanding() {
 
       <section
         id="diagnostico"
-        className="px-5 py-16 sm:px-8 sm:py-20 lg:px-12"
+        className="relative overflow-hidden bg-[#5A1320] px-5 py-16 text-white sm:px-8 sm:py-20 lg:px-12"
       >
-        <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.8fr_1.2fr]">
+        <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(90,19,32,0.98),rgba(15,15,15,0.96)_70%),radial-gradient(circle_at_85%_20%,rgba(184,74,90,0.28),transparent_34%)]" />
+        <div className="relative mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.8fr_1.2fr]">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#B84A5A]">
+            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#F0B8C0]">
               Solicita un diagnóstico
             </p>
             <h2 className="mt-4 text-3xl font-semibold sm:text-4xl">
               Cuéntanos qué necesitas resolver.
             </h2>
-            <p className="mt-5 text-base leading-8 text-zinc-400">
+            <p className="mt-5 text-base leading-8 text-zinc-200">
               Revisamos el contexto del proyecto y te orientamos sobre la mejor
               ruta técnica para avanzar con claridad.
             </p>
@@ -691,7 +693,7 @@ export default function PublicLanding() {
 
           <form
             onSubmit={handleSubmit}
-            className="grid gap-4 border border-white/10 bg-white/[0.04] p-5 sm:grid-cols-2 sm:p-7"
+            className="grid gap-4 border border-white/10 bg-black/20 p-5 shadow-2xl shadow-black/25 backdrop-blur sm:grid-cols-2 sm:p-7"
           >
             <Field label="Nombre">
               <input
