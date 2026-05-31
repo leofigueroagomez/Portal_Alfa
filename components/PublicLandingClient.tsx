@@ -10,13 +10,21 @@ import {
   CheckCircle2,
   ClipboardCheck,
   FileStack,
+  Factory,
+  GraduationCap,
   Headphones,
+  House,
+  MessageCircle,
   MonitorSpeaker,
   Network,
   Phone,
+  RadioTower,
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
+  Store,
+  Video,
+  Volume2,
   Wrench,
 } from "lucide-react";
 
@@ -50,6 +58,76 @@ const alfaOsItems = [
   { title: "Evidencias organizadas", icon: Camera },
   { title: "Historial completo", icon: FileStack },
   { title: "Soporte centralizado", icon: Wrench },
+];
+
+const trustExperienceCards = [
+  {
+    title: "Residencias",
+    copy: "Hogares conectados, seguros y diseñados para integrarse naturalmente a la vida diaria.",
+    icon: House,
+  },
+  {
+    title: "Oficinas corporativas",
+    copy: "Espacios donde la tecnología impulsa la productividad y la colaboración.",
+    icon: Building2,
+  },
+  {
+    title: "Salas de juntas",
+    copy: "Experiencias audiovisuales para comunicación y colaboración profesional.",
+    icon: Video,
+  },
+  {
+    title: "Naves industriales",
+    copy: "Infraestructura robusta para operaciones de alta exigencia.",
+    icon: Factory,
+  },
+  {
+    title: "Instituciones educativas",
+    copy: "Soluciones tecnológicas para espacios de aprendizaje y capacitación.",
+    icon: GraduationCap,
+  },
+  {
+    title: "Comercios",
+    copy: "Tecnología diseñada para mejorar la experiencia y la operación.",
+    icon: Store,
+  },
+  {
+    title: "Infraestructura tecnológica",
+    copy: "Redes, conectividad y plataformas pensadas para crecer.",
+    icon: RadioTower,
+  },
+  {
+    title: "Sistemas audiovisuales",
+    copy: "Audio y video profesional para espacios donde la experiencia importa.",
+    icon: Volume2,
+  },
+];
+
+const projectGallery = [
+  {
+    title: "Sala corporativa",
+    src: "/projects/sala-corporativa.svg",
+  },
+  {
+    title: "Residencia conectada",
+    src: "/projects/residencia-conectada.svg",
+  },
+  {
+    title: "Infraestructura de red",
+    src: "/projects/infraestructura-red.svg",
+  },
+  {
+    title: "Seguridad perimetral",
+    src: "/projects/seguridad-perimetral.svg",
+  },
+  {
+    title: "Audio distribuido",
+    src: "/projects/audio-distribuido.svg",
+  },
+  {
+    title: "Control de acceso",
+    src: "/projects/control-acceso.svg",
+  },
 ];
 
 const brandLogos = [
@@ -515,6 +593,120 @@ export default function PublicLanding() {
         </div>
       </section>
 
+      <section className="bg-zinc-100 px-5 py-16 text-[#0F0F0F] sm:px-8 sm:py-20 lg:px-12">
+        <div className="mx-auto max-w-7xl">
+          <div className="max-w-3xl">
+            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#7A1F2B]">
+              Experiencia
+            </p>
+            <h2 className="mt-4 text-3xl font-semibold sm:text-4xl">
+              Experiencia que genera confianza.
+            </h2>
+            <p className="mt-5 text-base leading-8 text-zinc-700">
+              Hemos participado en proyectos de diferentes tamaños y niveles de
+              complejidad, adaptando cada solución a las necesidades reales de
+              nuestros clientes.
+            </p>
+          </div>
+
+          <div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {trustExperienceCards.map((item) => {
+              const Icon = item.icon;
+              return (
+                <article
+                  key={item.title}
+                  className="min-h-56 border border-zinc-200 bg-white p-6 shadow-sm shadow-black/[0.03] transition duration-[250ms] ease-in-out hover:-translate-y-0.5 hover:border-[#7A1F2B]/50"
+                >
+                  <div className="flex h-11 w-11 items-center justify-center rounded-full border border-[#7A1F2B]/20 bg-[#7A1F2B]/10 text-[#7A1F2B]">
+                    <Icon className="h-5 w-5" aria-hidden="true" />
+                  </div>
+                  <h3 className="mt-7 text-lg font-semibold">{item.title}</h3>
+                  <p className="mt-4 text-sm leading-7 text-zinc-700">
+                    {item.copy}
+                  </p>
+                </article>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-[#0F0F0F] px-5 py-16 text-white sm:px-8 sm:py-20 lg:px-12">
+        <div className="mx-auto max-w-7xl">
+          <div className="max-w-3xl">
+            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#B84A5A]">
+              Portfolio
+            </p>
+            <h2 className="mt-4 text-3xl font-semibold sm:text-4xl">
+              Algunos proyectos y soluciones.
+            </h2>
+            <p className="mt-5 text-base leading-8 text-zinc-300">
+              Cada proyecto es diferente. Estas son algunas de las soluciones
+              que desarrollamos para nuestros clientes.
+            </p>
+          </div>
+
+          <div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {projectGallery.map((project) => (
+              <article
+                key={project.title}
+                className="group overflow-hidden border border-white/10 bg-[#141414]"
+              >
+                <div className="relative aspect-[4/3] overflow-hidden">
+                  <Image
+                    src={project.src}
+                    alt={project.title}
+                    fill
+                    sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
+                    className="object-cover opacity-90 transition duration-[250ms] ease-in-out group-hover:scale-[1.02] group-hover:opacity-100"
+                  />
+                </div>
+                <div className="border-t border-white/10 p-5">
+                  <h3 className="text-base font-semibold text-white">
+                    {project.title}
+                  </h3>
+                  <p className="mt-2 text-sm text-zinc-400">
+                    Imagen de referencia preparada para fotografía real.
+                  </p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-[#5A1320] px-5 py-14 text-white sm:px-8 lg:px-12">
+        <div className="mx-auto flex max-w-7xl flex-col gap-7 lg:flex-row lg:items-center lg:justify-between">
+          <div className="max-w-2xl">
+            <h2 className="text-3xl font-semibold sm:text-4xl">
+              ¿Tienes un proyecto en mente?
+            </h2>
+            <p className="mt-4 text-base leading-8 text-zinc-200">
+              Hablemos sobre tus necesidades y encontremos la mejor solución
+              para tu espacio.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <a
+              href="#diagnostico"
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded bg-white px-6 py-3 text-sm font-semibold text-[#5A1320] transition hover:bg-zinc-100"
+            >
+              Agendar una llamada
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </a>
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded border border-white/20 px-6 py-3 text-sm font-semibold text-white transition hover:border-white/45 hover:bg-white/10"
+            >
+              <Phone className="h-4 w-4" aria-hidden="true" />
+              WhatsApp
+            </a>
+          </div>
+        </div>
+      </section>
+
       <section className="bg-zinc-100 px-5 py-16 text-[#0F0F0F] sm:px-8 lg:px-12">
         <div className="mx-auto max-w-7xl">
           <SectionHeader
@@ -655,6 +847,16 @@ export default function PublicLanding() {
           </form>
         </div>
       </section>
+
+      <a
+        href={whatsappUrl}
+        target="_blank"
+        rel="noreferrer"
+        aria-label="Contactar por WhatsApp"
+        className="fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-[#7A1F2B] text-white shadow-lg shadow-black/25 transition duration-[250ms] ease-in-out hover:-translate-y-0.5 hover:bg-[#5A1320] sm:bottom-6 sm:right-6"
+      >
+        <MessageCircle className="h-6 w-6" aria-hidden="true" />
+      </a>
     </main>
   );
 }
