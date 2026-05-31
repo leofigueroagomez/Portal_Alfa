@@ -11,7 +11,6 @@ import {
   ClipboardCheck,
   FileStack,
   Headphones,
-  MessageSquareText,
   MonitorSpeaker,
   Network,
   Phone,
@@ -47,12 +46,10 @@ const highEndSolutions = [
 ];
 
 const alfaOsItems = [
-  { title: "Avances del proyecto", icon: ClipboardCheck },
-  { title: "Evidencias fotográficas", icon: Camera },
-  { title: "Cotizaciones y documentación", icon: FileStack },
-  { title: "Historial de actividades", icon: CheckCircle2 },
-  { title: "Solicitudes de soporte", icon: Wrench },
-  { title: "Comunicación y seguimiento", icon: MessageSquareText },
+  { title: "Seguimiento en tiempo real", icon: ClipboardCheck },
+  { title: "Evidencias organizadas", icon: Camera },
+  { title: "Historial completo", icon: FileStack },
+  { title: "Soporte centralizado", icon: Wrench },
 ];
 
 const brandLogos = [
@@ -406,44 +403,114 @@ export default function PublicLanding() {
         </div>
       </section>
 
-      <section className="px-5 py-16 sm:px-8 lg:px-12">
-        <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.92fr_1.08fr]">
-          <div className="border border-[#B84A5A]/30 bg-[#7A1F2B]/18 p-7 sm:p-9">
+      <section className="relative overflow-hidden border-y border-white/10 bg-[#0F0F0F] px-5 py-20 sm:px-8 sm:py-24 lg:px-12">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_12%,rgba(184,74,90,0.22),transparent_30%),radial-gradient(circle_at_88%_48%,rgba(122,31,43,0.26),transparent_34%)]" />
+        <div className="relative mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.88fr_1.12fr] lg:items-center">
+          <div>
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#F0B8C0]">
               ALFA OS
             </p>
-            <h2 className="mt-4 text-3xl font-semibold sm:text-4xl">
-              Tu proyecto siempre visible.
+            <h2 className="mt-5 max-w-3xl text-4xl font-semibold leading-tight text-white sm:text-5xl">
+              Nunca tendrás que preguntar: ¿Cómo va mi proyecto?
             </h2>
-            <p className="mt-3 text-lg font-medium text-[#F0B8C0]">
-              Transparencia total impulsada por ALFA OS.
+            <p className="mt-6 max-w-2xl text-lg leading-8 text-zinc-300">
+              Con ALFA OS tendrás acceso a la información más importante de tu
+              proyecto desde un solo lugar, con la transparencia y el
+              seguimiento que nuestros clientes esperan.
             </p>
-            <p className="mt-6 text-base leading-8 text-zinc-200">
-              La mayoría de los proyectos tecnológicos tienen el mismo
-              problema: el cliente no sabe qué está pasando.
-            </p>
-            <p className="mt-5 text-base leading-8 text-zinc-300">
-              Por eso creamos ALFA OS: una plataforma donde nuestros clientes
-              pueden consultar el avance, documentación, evidencias y
-              seguimiento de su proyecto desde un solo lugar.
-            </p>
-            <p className="mt-6 border-l-2 border-[#B84A5A] pl-4 text-base font-semibold leading-7 text-white">
-              Porque la confianza también se construye con transparencia.
+            <p className="mt-8 border-l-2 border-[#B84A5A] pl-5 text-base font-medium leading-8 text-zinc-200">
+              ALFA OS forma parte de nuestra filosofía de trabajo: mantener a
+              nuestros clientes informados, respaldados y acompañados durante
+              todo el ciclo de vida de cada proyecto.
             </p>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {alfaOsItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <div
-                  key={item.title}
-                  className="min-h-36 border border-white/10 bg-white/[0.035] p-6"
-                >
-                  <Icon className="h-6 w-6 text-[#B84A5A]" aria-hidden="true" />
-                  <h3 className="mt-7 text-lg font-semibold">{item.title}</h3>
+
+          <div className="rounded-[28px] border border-white/10 bg-[#151515] p-3 shadow-2xl shadow-black/40 sm:p-4">
+            <div className="overflow-hidden rounded-[22px] border border-white/10 bg-[#0F0F0F]">
+              <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.04] px-5 py-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#B84A5A]">
+                    Proyecto
+                  </p>
+                  <h3 className="mt-1 text-lg font-semibold text-white">
+                    Sala de Juntas Corporativa
+                  </h3>
                 </div>
-              );
-            })}
+                <span className="rounded-full border border-[#B84A5A]/40 bg-[#7A1F2B]/20 px-3 py-1 text-xs font-semibold text-[#F0B8C0]">
+                  En ejecución
+                </span>
+              </div>
+
+              <div className="grid gap-4 p-5 sm:grid-cols-[1fr_0.78fr]">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+                  <div className="flex items-end justify-between gap-4">
+                    <div>
+                      <p className="text-sm text-zinc-400">Progreso</p>
+                      <p className="mt-2 text-4xl font-semibold text-white">
+                        80%
+                      </p>
+                    </div>
+                    <ClipboardCheck
+                      className="h-8 w-8 text-[#B84A5A]"
+                      aria-hidden="true"
+                    />
+                  </div>
+                  <div className="mt-5 h-3 overflow-hidden rounded-full bg-white/10">
+                    <div className="h-full w-4/5 rounded-full bg-[#7A1F2B]" />
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+                  <p className="text-sm text-zinc-400">Evidencias</p>
+                  <p className="mt-3 text-3xl font-semibold text-white">
+                    42
+                  </p>
+                  <p className="mt-1 text-sm text-zinc-400">fotografías</p>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:col-span-2">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm text-zinc-400">Documentos</p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {["Cotización", "Alcances", "Entrega"].map((item) => (
+                          <span
+                            key={item}
+                            className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-medium text-zinc-200"
+                          >
+                            {item}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <FileStack
+                      className="h-8 w-8 text-[#B84A5A]"
+                      aria-hidden="true"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:col-span-2 sm:grid-cols-4">
+                  {alfaOsItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <div
+                        key={item.title}
+                        className="min-h-32 rounded-2xl border border-white/10 bg-white/[0.035] p-4"
+                      >
+                        <Icon
+                          className="h-5 w-5 text-[#B84A5A]"
+                          aria-hidden="true"
+                        />
+                        <h3 className="mt-5 text-sm font-semibold leading-5 text-white">
+                          {item.title}
+                        </h3>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
