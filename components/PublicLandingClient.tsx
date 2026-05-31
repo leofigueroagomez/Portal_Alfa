@@ -10,21 +10,14 @@ import {
   CheckCircle2,
   ClipboardCheck,
   FileStack,
-  Factory,
-  GraduationCap,
   Headphones,
-  House,
   MessageCircle,
   MonitorSpeaker,
   Network,
   Phone,
-  RadioTower,
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
-  Store,
-  Video,
-  Volume2,
   Wrench,
 } from "lucide-react";
 
@@ -60,73 +53,36 @@ const alfaOsItems = [
   { title: "Soporte centralizado", icon: Wrench },
 ];
 
-const trustExperienceCards = [
-  {
-    title: "Residencias",
-    copy: "Hogares conectados, seguros y diseñados para integrarse naturalmente a la vida diaria.",
-    icon: House,
-  },
-  {
-    title: "Oficinas corporativas",
-    copy: "Espacios donde la tecnología impulsa la productividad y la colaboración.",
-    icon: Building2,
-  },
-  {
-    title: "Salas de juntas",
-    copy: "Experiencias audiovisuales para comunicación y colaboración profesional.",
-    icon: Video,
-  },
-  {
-    title: "Naves industriales",
-    copy: "Infraestructura robusta para operaciones de alta exigencia.",
-    icon: Factory,
-  },
-  {
-    title: "Instituciones educativas",
-    copy: "Soluciones tecnológicas para espacios de aprendizaje y capacitación.",
-    icon: GraduationCap,
-  },
-  {
-    title: "Comercios",
-    copy: "Tecnología diseñada para mejorar la experiencia y la operación.",
-    icon: Store,
-  },
-  {
-    title: "Infraestructura tecnológica",
-    copy: "Redes, conectividad y plataformas pensadas para crecer.",
-    icon: RadioTower,
-  },
-  {
-    title: "Sistemas audiovisuales",
-    copy: "Audio y video profesional para espacios donde la experiencia importa.",
-    icon: Volume2,
-  },
-];
-
 const projectGallery = [
   {
-    title: "Sala corporativa",
-    src: "/projects/sala-corporativa.svg",
+    title: "Residencia Premium",
+    description:
+      "Audio, video y automatización integrados desde la etapa de diseño.",
+    src: "/projects/residencia-premium.jpeg",
   },
   {
-    title: "Residencia conectada",
-    src: "/projects/residencia-conectada.svg",
+    title: "Home Cinema",
+    description:
+      "Experiencias audiovisuales diseñadas para disfrutarse en casa.",
+    src: "/projects/cine-bw-yamaha.jpeg",
   },
   {
-    title: "Infraestructura de red",
-    src: "/projects/infraestructura-red.svg",
+    title: "Audio de Referencia",
+    description:
+      "Sistemas de alto desempeño para quienes buscan una experiencia excepcional.",
+    src: "/projects/audio-hifi-bw-mcintosh.jpeg",
   },
   {
-    title: "Seguridad perimetral",
-    src: "/projects/seguridad-perimetral.svg",
+    title: "Espacios de Escucha",
+    description:
+      "Integración entre diseño interior y reproducción musical de alto nivel.",
+    src: "/projects/estudio-hifi.jpeg",
   },
   {
-    title: "Audio distribuido",
-    src: "/projects/audio-distribuido.svg",
-  },
-  {
-    title: "Control de acceso",
-    src: "/projects/control-acceso.svg",
+    title: "Infraestructura Tecnológica",
+    description:
+      "La base invisible que permite que todo funcione de forma confiable.",
+    src: "/projects/rack-panduit.jpeg",
   },
 ];
 
@@ -481,6 +437,51 @@ export default function PublicLanding() {
         </div>
       </section>
 
+      <section className="bg-[#0F0F0F] px-5 py-16 text-white sm:px-8 sm:py-20 lg:px-12">
+        <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+          <div className="relative min-h-[360px] overflow-hidden rounded-[28px] border border-white/10 shadow-2xl shadow-black/40 sm:min-h-[520px]">
+            <Image
+              src="/projects/audio-hifi-bw-mcintosh.jpeg"
+              alt="Sistema de audio de referencia Bowers & Wilkins y McIntosh"
+              fill
+              sizes="(min-width: 1024px) 52vw, 100vw"
+              className="object-cover"
+              onError={() =>
+                console.warn(
+                  "Falta imagen de proyecto: /projects/audio-hifi-bw-mcintosh.jpeg"
+                )
+              }
+            />
+            <div className="absolute inset-0 bg-gradient-to-tr from-black/50 via-black/18 to-[#7A1F2B]/18" />
+          </div>
+
+          <div className="lg:pl-4">
+            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#B84A5A]">
+              Audio premium
+            </p>
+            <h2 className="mt-5 text-4xl font-semibold leading-tight sm:text-5xl">
+              Para quienes saben apreciar los detalles.
+            </h2>
+            <p className="mt-6 text-lg leading-8 text-zinc-300">
+              Un sistema de alto desempeño no se trata solamente de volumen. Se
+              trata de precisión, diseño, integración y una experiencia que se
+              siente desde el primer momento.
+            </p>
+            <p className="mt-5 border-l-2 border-[#7A1F2B] pl-5 text-base font-semibold leading-8 text-zinc-100">
+              Audio de referencia, video, automatización e infraestructura
+              trabajando como una sola experiencia.
+            </p>
+            <a
+              href="#diagnostico"
+              className="mt-8 inline-flex min-h-12 items-center justify-center gap-2 rounded bg-[#7A1F2B] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#5A1320]"
+            >
+              Hablemos de tu proyecto
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </a>
+          </div>
+        </div>
+      </section>
+
       <section className="relative overflow-hidden border-y border-white/10 bg-[#0F0F0F] px-5 py-20 sm:px-8 sm:py-24 lg:px-12">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_12%,rgba(184,74,90,0.22),transparent_30%),radial-gradient(circle_at_88%_48%,rgba(122,31,43,0.26),transparent_34%)]" />
         <div className="relative mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.88fr_1.12fr] lg:items-center">
@@ -593,44 +594,6 @@ export default function PublicLanding() {
         </div>
       </section>
 
-      <section className="bg-zinc-100 px-5 py-16 text-[#0F0F0F] sm:px-8 sm:py-20 lg:px-12">
-        <div className="mx-auto max-w-7xl">
-          <div className="max-w-3xl">
-            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#7A1F2B]">
-              Experiencia
-            </p>
-            <h2 className="mt-4 text-3xl font-semibold sm:text-4xl">
-              Experiencia que genera confianza.
-            </h2>
-            <p className="mt-5 text-base leading-8 text-zinc-700">
-              Hemos participado en proyectos de diferentes tamaños y niveles de
-              complejidad, adaptando cada solución a las necesidades reales de
-              nuestros clientes.
-            </p>
-          </div>
-
-          <div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {trustExperienceCards.map((item) => {
-              const Icon = item.icon;
-              return (
-                <article
-                  key={item.title}
-                  className="min-h-56 border border-zinc-200 bg-white p-6 shadow-sm shadow-black/[0.03] transition duration-[250ms] ease-in-out hover:-translate-y-0.5 hover:border-[#7A1F2B]/50"
-                >
-                  <div className="flex h-11 w-11 items-center justify-center rounded-full border border-[#7A1F2B]/20 bg-[#7A1F2B]/10 text-[#7A1F2B]">
-                    <Icon className="h-5 w-5" aria-hidden="true" />
-                  </div>
-                  <h3 className="mt-7 text-lg font-semibold">{item.title}</h3>
-                  <p className="mt-4 text-sm leading-7 text-zinc-700">
-                    {item.copy}
-                  </p>
-                </article>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
       <section className="bg-[#0F0F0F] px-5 py-16 text-white sm:px-8 sm:py-20 lg:px-12">
         <div className="mx-auto max-w-7xl">
           <div className="max-w-3xl">
@@ -638,71 +601,52 @@ export default function PublicLanding() {
               Portfolio
             </p>
             <h2 className="mt-4 text-3xl font-semibold sm:text-4xl">
-              Algunos proyectos y soluciones.
+              Proyectos que reflejan nuestra forma de trabajar.
             </h2>
             <p className="mt-5 text-base leading-8 text-zinc-300">
-              Cada proyecto es diferente. Estas son algunas de las soluciones
-              que desarrollamos para nuestros clientes.
+              Cada proyecto es una combinación de ingeniería, diseño y
+              acompañamiento. Desde residencias de alto nivel hasta
+              infraestructura tecnológica crítica.
             </p>
           </div>
 
-          <div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {projectGallery.map((project) => (
+          <div className="mt-10 grid gap-4 lg:grid-cols-2">
+            {projectGallery.map((project, index) => (
               <article
                 key={project.title}
-                className="group overflow-hidden border border-white/10 bg-[#141414]"
+                className={`group relative min-h-[360px] overflow-hidden rounded-[24px] border border-white/10 bg-[#141414] shadow-2xl shadow-black/20 ${
+                  index === 0 ? "lg:row-span-2 lg:min-h-[760px]" : ""
+                }`}
               >
-                <div className="relative aspect-[4/3] overflow-hidden">
-                  <Image
-                    src={project.src}
-                    alt={project.title}
-                    fill
-                    sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
-                    className="object-cover opacity-90 transition duration-[250ms] ease-in-out group-hover:scale-[1.02] group-hover:opacity-100"
-                  />
-                </div>
-                <div className="border-t border-white/10 p-5">
-                  <h3 className="text-base font-semibold text-white">
+                <Image
+                  src={project.src}
+                  alt={project.title}
+                  fill
+                  sizes={
+                    index === 0
+                      ? "(min-width: 1024px) 50vw, 100vw"
+                      : "(min-width: 1024px) 50vw, 100vw"
+                  }
+                  className="object-cover transition duration-[250ms] ease-in-out group-hover:scale-[1.03]"
+                  onError={() =>
+                    console.warn(`Falta imagen de proyecto: ${project.src}`)
+                  }
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/88 via-black/32 to-black/5" />
+                <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8">
+                  <h3
+                    className={`font-semibold text-white ${
+                      index === 0 ? "text-3xl sm:text-4xl" : "text-2xl"
+                    }`}
+                  >
                     {project.title}
                   </h3>
-                  <p className="mt-2 text-sm text-zinc-400">
-                    Imagen de referencia preparada para fotografía real.
+                  <p className="mt-3 max-w-xl text-sm leading-7 text-zinc-200 sm:text-base">
+                    {project.description}
                   </p>
                 </div>
               </article>
             ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-[#5A1320] px-5 py-14 text-white sm:px-8 lg:px-12">
-        <div className="mx-auto flex max-w-7xl flex-col gap-7 lg:flex-row lg:items-center lg:justify-between">
-          <div className="max-w-2xl">
-            <h2 className="text-3xl font-semibold sm:text-4xl">
-              ¿Tienes un proyecto en mente?
-            </h2>
-            <p className="mt-4 text-base leading-8 text-zinc-200">
-              Hablemos sobre tus necesidades y encontremos la mejor solución
-              para tu espacio.
-            </p>
-          </div>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <a
-              href="#diagnostico"
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded bg-white px-6 py-3 text-sm font-semibold text-[#5A1320] transition hover:bg-zinc-100"
-            >
-              Agendar una llamada
-              <ArrowRight className="h-4 w-4" aria-hidden="true" />
-            </a>
-            <a
-              href={whatsappUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded border border-white/20 px-6 py-3 text-sm font-semibold text-white transition hover:border-white/45 hover:bg-white/10"
-            >
-              <Phone className="h-4 w-4" aria-hidden="true" />
-              WhatsApp
-            </a>
           </div>
         </div>
       </section>
