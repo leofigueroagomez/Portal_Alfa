@@ -39,7 +39,11 @@ const experienceAreas = [
 ];
 
 const highEndSolutions = [
-  { title: "Audio y video profesional", icon: MonitorSpeaker },
+  {
+    title: "Audio y video profesional",
+    icon: MonitorSpeaker,
+    href: "/servicios/audio-video",
+  },
   { title: "Infraestructura tecnológica", icon: Network },
   { title: "Seguridad electrónica", icon: ShieldCheck },
   { title: "Automatización y control", icon: SlidersHorizontal },
@@ -279,6 +283,12 @@ export default function PublicLanding() {
             </span>
           </Link>
           <div className="flex items-center gap-3">
+            <Link
+              href="/servicios/audio-video"
+              className="hidden rounded border border-white/10 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:border-[#B84A5A] hover:text-white md:inline-flex"
+            >
+              Servicios &gt; Audio y Video
+            </Link>
             <a
               href="#diagnostico"
               className="hidden rounded border border-white/15 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:border-[#B84A5A] hover:text-white sm:inline-flex"
@@ -428,15 +438,39 @@ export default function PublicLanding() {
           <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             {highEndSolutions.map((solution) => {
               const Icon = solution.icon;
+              const content = (
+                <>
+                  <Icon className="h-7 w-7 text-[#B84A5A]" aria-hidden="true" />
+                  <h3 className="mt-8 text-base font-semibold">
+                    {solution.title}
+                  </h3>
+                  {solution.href ? (
+                    <span className="mt-5 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#F0B8C0]">
+                      Conocer servicio
+                      <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+                    </span>
+                  ) : null}
+                </>
+              );
+
+              if (solution.href) {
+                return (
+                  <Link
+                    key={solution.title}
+                    href={solution.href}
+                    className="group min-h-40 border border-white/10 bg-[#0F0F0F] p-5 transition duration-[250ms] ease-in-out hover:-translate-y-0.5 hover:border-[#B84A5A] hover:bg-white/[0.04]"
+                  >
+                    {content}
+                  </Link>
+                );
+              }
+
               return (
                 <div
                   key={solution.title}
                   className="min-h-40 border border-white/10 bg-[#0F0F0F] p-5"
                 >
-                  <Icon className="h-7 w-7 text-[#B84A5A]" aria-hidden="true" />
-                  <h3 className="mt-8 text-base font-semibold">
-                    {solution.title}
-                  </h3>
+                  {content}
                 </div>
               );
             })}
@@ -520,13 +554,22 @@ export default function PublicLanding() {
               Audio de referencia, video, automatización e infraestructura
               trabajando como una sola experiencia.
             </p>
-            <a
-              href="#diagnostico"
-              className="mt-8 inline-flex min-h-12 items-center justify-center gap-2 rounded bg-[#7A1F2B] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#5A1320]"
-            >
-              Hablemos de tu proyecto
-              <ArrowRight className="h-4 w-4" aria-hidden="true" />
-            </a>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <a
+                href="#diagnostico"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded bg-[#7A1F2B] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#5A1320]"
+              >
+                Hablemos de tu proyecto
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </a>
+              <Link
+                href="/servicios/audio-video"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded border border-white/15 px-6 py-3 text-sm font-semibold text-white transition hover:border-[#B84A5A] hover:bg-white/5"
+              >
+                Conocer audio y video
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+            </div>
           </div>
         </div>
       </section>
