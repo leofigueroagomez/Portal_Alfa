@@ -3,11 +3,14 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const protectedRoutes = [
   "/dashboard",
+  "/customers",
   "/clients",
   "/products",
   "/quotes",
+  "/engineering",
   "/engineering-quotes",
   "/users",
+  "/settings",
   "/product-categories",
   "/product-tags",
 ];
@@ -67,11 +70,14 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     "/dashboard/:path*",
+    "/customers/:path*",
     "/clients/:path*",
     "/products/:path*",
     "/quotes/:path*",
+    "/engineering/:path*",
     "/engineering-quotes/:path*",
     "/users/:path*",
+    "/settings/:path*",
     "/product-categories/:path*",
     "/product-tags/:path*",
   ],

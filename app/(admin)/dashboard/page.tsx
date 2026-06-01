@@ -1,11 +1,7 @@
+import Image from "next/image";
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { formatCurrency, formatNumber } from "@/lib/format";
-import {
-  getPurchaseLineVariation,
-  getPurchaseProgressPercent,
-  summarizePurchaseVariationMxn,
-} from "@/lib/projectPurchases";
 import {
   normalizeSalesStage,
   salesStageClasses,
@@ -22,8 +18,6 @@ type ClientProject = {
   name: string | null;
   sales_stage?: string | null;
   estimated_value_mxn?: number | null;
-  probability_percent?: number | null;
-  expected_close_date?: string | null;
   updated_at?: string | null;
   created_at?: string | null;
 };
@@ -40,45 +34,28 @@ type Quote = {
   status: string | null;
   total_mxn?: number | null;
   grand_total?: number | null;
-  exchange_rate?: number | null;
 };
 
 type EngineeringQuote = {
   id: number;
-  client_id: number | null;
   client_project_id?: number | null;
   status: string | null;
   total_mxn: number | null;
 };
 
 type QuoteItem = {
-  id?: number;
-  quote_id?: number | null;
   product_name: string | null;
   product_brand: string | null;
 };
 
-type PurchaseLine = {
+type Lead = {
   id: number;
-  client_project_id: number | null;
-  quote_item_id: number | null;
-  supplier: string | null;
-  cost_currency: string | null;
-  quantity_required: number | null;
-  quantity_purchased: number | null;
-  unit_cost: number | null;
-  total_required_cost: number | null;
-  total_purchased_cost: number | null;
-  total_pending_cost: number | null;
-  exchange_rate?: number | null;
-};
-
-type PurchaseEvent = {
-  project_purchase_line_id: number | null;
-  quantity: number | null;
-  unit_cost: number | null;
-  cost_currency: string | null;
-  exchange_rate?: number | null;
+  name: string | null;
+  interest: string | null;
+  budget_range: string | null;
+  timeline: string | null;
+  status: string | null;
+  created_at: string | null;
 };
 
 function isOpenStatus(status: string | null) {
@@ -103,19 +80,15 @@ export default async function DashboardPage() {
   const supabase = await createSupabaseServerClient();
   const projectsResult = await supabase
     .from("client_projects")
-    .select(
-      "id, name, sales_stage, estimated_value_mxn, probability_percent, expected_close_date, client_id, created_at"
-    )
-    .order("expected_close_date", { ascending: true, nullsFirst: false });
+    .select("id, client_id, name, sales_stage, estimated_value_mxn, updated_at, created_at")
+    .order("updated_at", { ascending: false, nullsFirst: false });
+
   let projectData = projectsResult.data as ClientProject[] | null;
-  const projectsError = projectsResult.error;
 
   if (
-    projectsError &&
-    (projectsError.message.includes("sales_stage") ||
-      projectsError.message.includes("estimated_value_mxn") ||
-      projectsError.message.includes("probability_percent") ||
-      projectsError.message.includes("expected_close_date"))
+    projectsResult.error &&
+    (projectsResult.error.message.includes("sales_stage") ||
+      projectsResult.error.message.includes("estimated_value_mxn"))
   ) {
     const fallback = await supabase
       .from("client_projects")
@@ -130,80 +103,48 @@ export default async function DashboardPage() {
     { data: quotes },
     { data: engineeringQuotes },
     { data: quoteItems },
-    purchaseLinesResult,
-    purchaseEventsResult,
+    leadsResult,
   ] = await Promise.all([
-      supabase.from("clients").select("id, name"),
-      supabase
-        .from("quotes")
-        .select("id, client_id, client_project_id, status, total_mxn, grand_total, exchange_rate"),
-      supabase
-        .from("engineering_quotes")
-        .select("id, client_id, client_project_id, status, total_mxn"),
-      supabase.from("quote_items").select("id, quote_id, product_name, product_brand"),
-      supabase
-        .from("project_purchase_lines")
-        .select(
-          "id, client_project_id, quote_item_id, supplier, cost_currency, quantity_required, quantity_purchased, unit_cost, total_required_cost, total_purchased_cost, total_pending_cost"
-        ),
-      supabase
-        .from("project_purchase_events")
-        .select("project_purchase_line_id, quantity, unit_cost, cost_currency, exchange_rate"),
-    ]);
+    supabase.from("clients").select("id, name"),
+    supabase
+      .from("quotes")
+      .select("id, client_id, client_project_id, status, total_mxn, grand_total"),
+    supabase
+      .from("engineering_quotes")
+      .select("id, client_project_id, status, total_mxn"),
+    supabase.from("quote_items").select("product_name, product_brand"),
+    supabase
+      .from("leads")
+      .select("id, name, interest, budget_range, timeline, status, created_at")
+      .order("created_at", { ascending: false })
+      .limit(8),
+  ]);
 
   const projects = (projectData || []) as ClientProject[];
-
   const clientList = (clients || []) as Client[];
   const quoteList = (quotes || []) as Quote[];
   const engineeringList = (engineeringQuotes || []) as EngineeringQuote[];
   const itemList = (quoteItems || []) as QuoteItem[];
-  const purchaseLines = purchaseLinesResult.error
-    ? []
-    : ((purchaseLinesResult.data || []) as PurchaseLine[]);
-  const purchaseEvents = purchaseEventsResult.error
-    ? []
-    : ((purchaseEventsResult.data || []) as PurchaseEvent[]);
+  const leadList = leadsResult.error ? [] : ((leadsResult.data || []) as Lead[]);
 
   function getQuoteValue(quote: Quote) {
     return Number(quote.total_mxn ?? quote.grand_total ?? 0);
   }
 
-  function getEngineeringValue(quote: EngineeringQuote) {
-    return Number(quote.total_mxn || 0);
-  }
-
-  function getProjectDashboardValue(project: ClientProject) {
+  function getProjectValue(project: ClientProject) {
     const estimatedValue = Number(project.estimated_value_mxn || 0);
 
-    if (estimatedValue > 0) {
-      return estimatedValue;
-    }
+    if (estimatedValue > 0) return estimatedValue;
 
     const quoteValue = quoteList
       .filter((quote) => quote.client_project_id === project.id)
       .reduce((sum, quote) => sum + getQuoteValue(quote), 0);
     const engineeringValue = engineeringList
       .filter((quote) => quote.client_project_id === project.id)
-      .reduce((sum, quote) => sum + getEngineeringValue(quote), 0);
+      .reduce((sum, quote) => sum + Number(quote.total_mxn || 0), 0);
 
     return quoteValue + engineeringValue;
   }
-
-  const stageSummaries = salesStages.map((stage) => {
-    const stageProjects = projects.filter(
-      (project) => normalizeSalesStage(project.sales_stage) === stage
-    );
-    const value = stageProjects.reduce(
-      (sum, project) => sum + getProjectDashboardValue(project),
-      0
-    );
-
-    return {
-      stage,
-      count: stageProjects.length,
-      value,
-    };
-  });
 
   const activePipelineStages = new Set([
     "lead",
@@ -212,55 +153,58 @@ export default async function DashboardPage() {
     "quoted",
     "negotiation",
   ]);
-  const pipelineValue = projects.reduce((sum, project) => {
-    const stage = normalizeSalesStage(project.sales_stage);
-    return activePipelineStages.has(stage)
-      ? sum + getProjectDashboardValue(project)
-      : sum;
-  }, 0);
   const openQuotes = quoteList.filter((quote) => isOpenStatus(quote.status));
   const openEngineeringQuotes = engineeringList.filter((quote) =>
     isOpenStatus(quote.status)
+  );
+  const newLeads = leadList.filter((lead) => (lead.status || "nuevo") === "nuevo");
+  const activeProjects = projects.filter((project) =>
+    activePipelineStages.has(normalizeSalesStage(project.sales_stage))
   );
   const wonThisMonth = projects.filter(
     (project) =>
       normalizeSalesStage(project.sales_stage) === "won" &&
       isThisMonth(project.updated_at || project.created_at)
   );
-  const wonValues = projects
-    .filter((project) => normalizeSalesStage(project.sales_stage) === "won")
-    .map((project) => getProjectDashboardValue(project))
-    .filter((value) => value > 0);
-  const averageTicket =
-    wonValues.length > 0
-      ? wonValues.reduce((sum, value) => sum + value, 0) / wonValues.length
-      : 0;
-
-  const topClients = clientList
-    .map((client) => {
-      const projectValue = projects
-        .filter((project) => project.client_id === client.id)
-        .reduce(
-          (sum, project) => sum + getProjectDashboardValue(project),
-          0
-        );
-      const quoteValue = quoteList
-        .filter((quote) => quote.client_id === client.id)
-        .reduce(
-          (sum, quote) =>
-            sum + getQuoteValue(quote),
-          0
-        );
+  const monthlyBilling = wonThisMonth.reduce(
+    (sum, project) => sum + getProjectValue(project),
+    0
+  );
+  const pipelineValue = activeProjects.reduce(
+    (sum, project) => sum + getProjectValue(project),
+    0
+  );
+  const stageSummaries = salesStages
+    .map((stage) => {
+      const stageProjects = projects.filter(
+        (project) => normalizeSalesStage(project.sales_stage) === stage
+      );
 
       return {
-        id: client.id,
-        name: client.name || "Sin cliente",
-        value: Math.max(projectValue, quoteValue),
+        stage,
+        count: stageProjects.length,
+        value: stageProjects.reduce(
+          (sum, project) => sum + getProjectValue(project),
+          0
+        ),
       };
     })
+    .filter((summary) => summary.count > 0);
+  const featuredProjects = activeProjects
+    .map((project) => ({ ...project, value: getProjectValue(project) }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 4);
+  const topClients = clientList
+    .map((client) => {
+      const value = projects
+        .filter((project) => project.client_id === client.id)
+        .reduce((sum, project) => sum + getProjectValue(project), 0);
+
+      return { id: client.id, name: client.name || "Sin cliente", value };
+    })
+    .filter((client) => client.value > 0)
     .sort((a, b) => b.value - a.value)
     .slice(0, 5);
-
   const quotedSystems = Object.entries(
     itemList.reduce<Record<string, number>>((accumulator, item) => {
       const label = item.product_brand || item.product_name || "Sin sistema";
@@ -270,289 +214,302 @@ export default async function DashboardPage() {
   )
     .map(([name, count]) => ({ name, count }))
     .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+  const recentActivity = [
+    ...leadList.slice(0, 3).map((lead) => ({
+      key: `lead-${lead.id}`,
+      label: "Lead nuevo",
+      title: lead.name || "Contacto sin nombre",
+      detail:
+        [lead.interest, lead.timeline].filter(Boolean).join(" · ") ||
+        "Solicitud recibida",
+      date: lead.created_at,
+    })),
+    ...projects.slice(0, 4).map((project) => ({
+      key: `project-${project.id}`,
+      label: salesStageLabels[normalizeSalesStage(project.sales_stage)],
+      title: project.name || `Proyecto #${project.id}`,
+      detail: formatCurrency(getProjectValue(project), "MXN"),
+      date: project.updated_at || project.created_at,
+    })),
+  ]
+    .sort((a, b) => {
+      const first = a.date ? new Date(a.date).getTime() : 0;
+      const second = b.date ? new Date(b.date).getTime() : 0;
+
+      return second - first;
+    })
     .slice(0, 6);
-  const purchaseEventsByLine = new Map<number, PurchaseEvent[]>();
-  purchaseEvents.forEach((eventItem) => {
-    if (!eventItem.project_purchase_line_id) return;
-    const existing = purchaseEventsByLine.get(eventItem.project_purchase_line_id) || [];
-    purchaseEventsByLine.set(eventItem.project_purchase_line_id, [
-      ...existing,
-      eventItem,
-    ]);
-  });
-  const exchangeRateByQuoteId = new Map(
-    quoteList.map((quote) => [quote.id, Number(quote.exchange_rate || 0)])
-  );
-  const quoteIdByItemId = new Map(
-    itemList
-      .filter((item) => item.id && item.quote_id)
-      .map((item) => [Number(item.id), Number(item.quote_id)])
-  );
-  const purchaseLinesForVariation = purchaseLines.map((line) => {
-    const quoteId = line.quote_item_id
-      ? quoteIdByItemId.get(Number(line.quote_item_id))
-      : null;
-
-    return {
-      ...line,
-      exchange_rate: quoteId ? exchangeRateByQuoteId.get(quoteId) || null : null,
-    };
-  });
-  const purchaseVariationMxn = summarizePurchaseVariationMxn(
-    purchaseLinesForVariation,
-    purchaseEventsByLine
-  );
-  const purchaseProgressGlobal = getPurchaseProgressPercent(purchaseLinesForVariation);
-  const projectNames = new Map(
-    projects.map((project) => [project.id, project.name || `Proyecto #${project.id}`])
-  );
-  const purchaseVariationByProject = Array.from(
-    purchaseLinesForVariation.reduce((map, line) => {
-      const projectId = Number(line.client_project_id || 0);
-      if (!projectId || !line.id) return map;
-
-      const variation = getPurchaseLineVariation(
-        line,
-        purchaseEventsByLine.get(line.id) || []
-      );
-      map.set(projectId, Number(map.get(projectId) || 0) + variation.variation);
-      return map;
-    }, new Map<number, number>())
-  ).map(([projectId, net]) => {
-    return {
-      projectId,
-      name: projectNames.get(projectId) || `Proyecto #${projectId}`,
-      net,
-    };
-  });
-  const topPurchaseSavings = purchaseVariationByProject
-    .filter((project) => project.net > 0)
-    .sort((a, b) => b.net - a.net)
-    .slice(0, 5);
-  const topPurchaseOverruns = purchaseVariationByProject
-    .filter((project) => project.net < 0)
-    .sort((a, b) => a.net - b.net)
-    .slice(0, 5);
 
   return (
-    <main className="min-h-screen bg-[#0B0D0F] p-4 text-white md:p-8 xl:p-10">
-      <section className="mb-10 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div>
-          <p className="mb-3 text-sm tracking-[0.3em] text-[#9E1B32]">
-            ALFA OS
+    <main className="min-h-screen bg-[#F7F6F3] text-[#111111]">
+      <section className="border-b border-black/10 bg-white px-5 py-14 sm:px-8 lg:px-12 xl:py-16">
+        <div className="mx-auto max-w-7xl text-center">
+          <Image
+            src="/logo-alfa-os.png"
+            alt="ALFA OS"
+            width={440}
+            height={210}
+            priority
+            className="mx-auto h-auto w-[min(72vw,360px)] object-contain"
+          />
+          <p className="mt-6 text-sm font-semibold uppercase tracking-[0.32em] text-[#7A1F2B]">
+            Sistema Operativo Empresarial ALFA
           </p>
-          <h1 className="text-3xl font-bold sm:text-4xl">Dashboard comercial</h1>
-          <p className="mt-3 text-[#B3B3B8]">
-            Vista operativa de pipeline, cotizaciones y oportunidades.
+          <h1 className="mx-auto mt-8 max-w-4xl text-5xl font-semibold leading-tight tracking-normal sm:text-6xl xl:text-7xl">
+            Dirección clara para proyectos de alto estándar.
+          </h1>
+          <p className="mx-auto mt-6 max-w-2xl text-base leading-8 text-[#666666] sm:text-lg">
+            Una vista ejecutiva para priorizar oportunidades, avance operativo y
+            resultados del mes sin perder elegancia ni foco.
           </p>
-        </div>
-
-        <div className="flex flex-wrap gap-3">
-          <Link
-            href="/clients"
-            className="rounded-xl border border-[#2A2A30] bg-[#222228] px-5 py-3 font-semibold text-[#B3B3B8] hover:bg-[#2A2A30]"
-          >
-            Clientes
-          </Link>
-          <Link
-            href="/quotes/new"
-            className="rounded-xl bg-[#9E1B32] px-5 py-3 font-semibold hover:bg-[#B91C3C]"
-          >
-            Nueva cotización
-          </Link>
         </div>
       </section>
 
-      <section className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
-        <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5 xl:col-span-2">
-          <p className="mb-2 text-sm text-[#B3B3B8]">Valor total pipeline</p>
-          <h2 className="text-3xl font-bold text-[#9E1B32]">
-            {formatCurrency(pipelineValue, "MXN")}
-          </h2>
-        </div>
-        <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5">
-          <p className="mb-2 text-sm text-[#B3B3B8]">Cotizaciones abiertas</p>
-          <h2 className="text-3xl font-bold">{openQuotes.length}</h2>
-        </div>
-        <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5">
-          <p className="mb-2 text-sm text-[#B3B3B8]">Ingenierías abiertas</p>
-          <h2 className="text-3xl font-bold">{openEngineeringQuotes.length}</h2>
-        </div>
-        <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5">
-          <p className="mb-2 text-sm text-[#B3B3B8]">Ganados este mes</p>
-          <h2 className="text-3xl font-bold">{wonThisMonth.length}</h2>
-        </div>
-        <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5">
-          <p className="mb-2 text-sm text-[#B3B3B8]">Ticket promedio</p>
-          <h2 className="text-2xl font-bold">
-            {formatCurrency(averageTicket, "MXN")}
-          </h2>
+      <section className="px-5 py-10 sm:px-8 lg:px-12">
+        <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <ExecutiveCard
+            label="Leads nuevos"
+            value={formatNumber(newLeads.length)}
+            detail={newLeads[0]?.interest || "Captura pública activa"}
+          />
+          <ExecutiveCard
+            label="Cotizaciones pendientes"
+            value={formatNumber(openQuotes.length + openEngineeringQuotes.length)}
+            detail={`${formatCurrency(pipelineValue, "MXN")} en pipeline`}
+          />
+          <ExecutiveCard
+            label="Proyectos activos"
+            value={formatNumber(activeProjects.length)}
+            detail="En etapas de oportunidad y ejecución comercial"
+          />
+          <ExecutiveCard
+            label="Facturación del mes"
+            value={formatCurrency(monthlyBilling, "MXN")}
+            detail={`${formatNumber(wonThisMonth.length)} proyectos ganados`}
+            accent
+          />
         </div>
       </section>
 
-      <section className="mb-8 rounded-2xl border border-[#1F1F24] bg-[#151518] p-6">
-        <h2 className="mb-5 text-2xl font-semibold">Pipeline por etapa</h2>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
-          {stageSummaries.map((summary) => (
-            <div
-              key={summary.stage}
-              className="rounded-xl border border-[#2A2A30] bg-[#1A1A1F] p-4"
-            >
-              <span
-                className={`mb-4 inline-flex rounded-full border px-3 py-1 text-xs ${salesStageClasses[summary.stage]}`}
-              >
-                {salesStageLabels[summary.stage]}
-              </span>
-              <div className="flex items-end justify-between gap-3">
-                <p className="text-3xl font-bold">{summary.count}</p>
-                <p className="text-right text-sm text-[#B3B3B8]">
-                  {formatCurrency(summary.value, "MXN")}
+      <section className="px-5 pb-12 sm:px-8 lg:px-12">
+        <div className="mx-auto grid max-w-7xl gap-6 xl:grid-cols-[1.08fr_0.92fr]">
+          <div className="bg-[#111111] p-6 text-white shadow-2xl shadow-black/[0.12] sm:p-8">
+            <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#B84A5A]">
+                  Actividad reciente
                 </p>
+                <h2 className="mt-3 text-3xl font-semibold">Pulso ejecutivo</h2>
               </div>
+              <Link
+                href="/quotes/new"
+                className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#7A1F2B] px-5 text-sm font-semibold text-white transition hover:bg-[#5A1320]"
+              >
+                Nueva Cotización
+              </Link>
             </div>
-          ))}
+
+            <div className="space-y-5">
+              {recentActivity.length === 0 ? (
+                <p className="text-sm text-white/50">Sin actividad para mostrar.</p>
+              ) : (
+                recentActivity.map((activity) => (
+                  <div key={activity.key} className="grid gap-4 sm:grid-cols-[140px_1fr]">
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/42">
+                      {activity.label}
+                    </p>
+                    <div className="border-l border-white/14 pl-5">
+                      <h3 className="text-lg font-semibold">{activity.title}</h3>
+                      <p className="mt-2 text-sm leading-6 text-white/58">
+                        {activity.detail}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="border border-black/10 bg-white p-6 sm:p-8">
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#7A1F2B]">
+              Pipeline por etapa
+            </p>
+            <h2 className="mt-3 text-3xl font-semibold">Prioridad comercial</h2>
+            <div className="mt-7 space-y-4">
+              {stageSummaries.length === 0 ? (
+                <p className="text-sm text-[#666666]">Sin etapas activas para mostrar.</p>
+              ) : (
+                stageSummaries.slice(0, 6).map((summary) => (
+                  <div key={summary.stage}>
+                    <div className="mb-2 flex items-center justify-between gap-4 text-sm">
+                      <span className="font-semibold">
+                        {salesStageLabels[summary.stage]}
+                      </span>
+                      <span className="text-[#666666]">
+                        {formatCurrency(summary.value, "MXN")}
+                      </span>
+                    </div>
+                    <div className="h-2 bg-black/[0.06]">
+                      <div
+                        className="h-full bg-[#7A1F2B]"
+                        style={{
+                          width: `${Math.min(100, Math.max(8, summary.count * 14))}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-8 xl:grid-cols-2">
-        <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-6">
-          <h2 className="mb-5 text-2xl font-semibold">Top clientes</h2>
-          <div className="space-y-3">
+      <section className="bg-white px-5 py-12 sm:px-8 lg:px-12">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#7A1F2B]">
+                Proyectos destacados
+              </p>
+              <h2 className="mt-3 text-4xl font-semibold">Foco operativo</h2>
+            </div>
+            <Link
+              href="/projects"
+              className="inline-flex min-h-11 items-center justify-center rounded-full border border-black/10 px-5 text-sm font-semibold transition hover:border-[#7A1F2B] hover:text-[#7A1F2B]"
+            >
+              Ver proyectos
+            </Link>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {featuredProjects.length === 0 ? (
+              <div className="border border-black/10 bg-[#F7F6F3] p-6 text-sm text-[#666666] md:col-span-2 xl:col-span-4">
+                Sin proyectos activos destacados por ahora.
+              </div>
+            ) : (
+              featuredProjects.map((project) => (
+                <Link
+                  key={project.id}
+                  href={`/projects/${project.id}`}
+                  className="group min-h-64 border border-black/10 bg-[#F7F6F3] p-6 transition hover:-translate-y-0.5 hover:border-[#7A1F2B]/40 hover:shadow-2xl hover:shadow-black/[0.06]"
+                >
+                  <span
+                    className={`inline-flex rounded-full border px-3 py-1 text-xs ${salesStageClasses[normalizeSalesStage(project.sales_stage)]}`}
+                  >
+                    {salesStageLabels[normalizeSalesStage(project.sales_stage)]}
+                  </span>
+                  <h3 className="mt-8 text-2xl font-semibold leading-tight">
+                    {project.name || `Proyecto #${project.id}`}
+                  </h3>
+                  <p className="mt-5 text-sm text-[#666666]">Valor estimado</p>
+                  <p className="mt-2 text-xl font-semibold text-[#7A1F2B]">
+                    {formatCurrency(project.value, "MXN")}
+                  </p>
+                </Link>
+              ))
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="px-5 py-12 sm:px-8 lg:px-12">
+        <div className="mx-auto grid max-w-7xl gap-4 lg:grid-cols-2">
+          <InsightPanel title="Clientes relevantes">
             {topClients.length === 0 ? (
-              <p className="text-[#77777D]">Sin clientes para mostrar.</p>
+              <p className="text-sm text-[#666666]">Sin clientes para mostrar.</p>
             ) : (
               topClients.map((client) => (
                 <div
                   key={client.id}
-                  className="flex items-center justify-between gap-4 rounded-xl bg-[#222228] px-4 py-3 text-sm"
+                  className="flex items-center justify-between gap-4 border-t border-black/10 py-4"
                 >
-                  <p className="font-semibold">{client.name}</p>
-                  <p className="text-[#B3B3B8]">
+                  <span className="font-semibold">{client.name}</span>
+                  <span className="text-sm text-[#666666]">
                     {formatCurrency(client.value, "MXN")}
-                  </p>
+                  </span>
                 </div>
               ))
             )}
-          </div>
-        </div>
+          </InsightPanel>
 
-        <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-6">
-          <h2 className="mb-5 text-2xl font-semibold">Sistemas más cotizados</h2>
-          <div className="space-y-3">
+          <InsightPanel title="Sistemas más cotizados">
             {quotedSystems.length === 0 ? (
-              <p className="text-[#77777D]">Sin partidas cotizadas todavía.</p>
+              <p className="text-sm text-[#666666]">
+                Sin partidas cotizadas todavía.
+              </p>
             ) : (
               quotedSystems.map((system) => (
                 <div
                   key={system.name}
-                  className="flex items-center justify-between gap-4 rounded-xl bg-[#222228] px-4 py-3 text-sm"
+                  className="flex items-center justify-between gap-4 border-t border-black/10 py-4"
                 >
-                  <p className="font-semibold">{system.name}</p>
-                  <p className="text-[#B3B3B8]">{system.count} partidas</p>
+                  <span className="font-semibold">{system.name}</span>
+                  <span className="text-sm text-[#666666]">
+                    {system.count} partidas
+                  </span>
                 </div>
               ))
             )}
-          </div>
+          </InsightPanel>
         </div>
-      </section>
-
-      <section className="mt-8 rounded-2xl border border-[#1F1F24] bg-[#151518] p-6">
-        <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 className="text-2xl font-semibold">KPIs internos de compras</h2>
-            <p className="mt-1 text-sm text-[#B3B3B8]">
-              Ahorros y sobrecostos contra costo estimado de equipo.
-            </p>
-          </div>
-          <p className="text-sm text-[#B3B3B8]">
-            Avance global:{" "}
-            <span className="font-semibold text-white">
-              {formatNumber(purchaseProgressGlobal)}%
-            </span>
-          </p>
-        </div>
-
-        {purchaseLinesResult.error ? (
-          <div className="rounded-xl border border-[#614620] bg-[#322514] p-4 text-sm text-[#F4C66A]">
-            Ejecuta el SQL del modulo de compras para habilitar KPIs globales.
-          </div>
-        ) : (
-          <>
-            <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-              <div className="rounded-xl border border-[#2A2A30] bg-[#1A1A1F] p-4">
-                <p className="mb-3 text-sm text-[#B3B3B8]">Ahorro total MXN</p>
-                <p className="text-2xl font-bold text-[#8CE0B6]">
-                  {formatCurrency(purchaseVariationMxn.saving, "MXN")}
-                </p>
-              </div>
-              <div className="rounded-xl border border-[#2A2A30] bg-[#1A1A1F] p-4">
-                <p className="mb-3 text-sm text-[#B3B3B8]">Sobrecosto total MXN</p>
-                <p className="text-2xl font-bold text-[#FFB19C]">
-                  {formatCurrency(purchaseVariationMxn.overrun, "MXN")}
-                </p>
-              </div>
-              <div className="rounded-xl border border-[#2A2A30] bg-[#1A1A1F] p-4">
-                <p className="mb-3 text-sm text-[#B3B3B8]">Variacion neta MXN</p>
-                <p
-                  className={`text-2xl font-bold ${
-                    purchaseVariationMxn.net >= 0 ? "text-[#8CE0B6]" : "text-[#FFB19C]"
-                  }`}
-                >
-                  {formatCurrency(purchaseVariationMxn.net, "MXN")}
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-              <div>
-                <h3 className="mb-3 text-lg font-semibold">Top proyectos con mayor ahorro</h3>
-                <div className="space-y-3">
-                  {topPurchaseSavings.length === 0 ? (
-                    <p className="text-sm text-[#77777D]">Sin ahorros registrados.</p>
-                  ) : (
-                    topPurchaseSavings.map((project) => (
-                      <Link
-                        key={project.projectId}
-                        href={`/projects/${project.projectId}/purchases`}
-                        className="flex items-center justify-between gap-4 rounded-xl bg-[#222228] px-4 py-3 text-sm hover:bg-[#2A2A30]"
-                      >
-                        <span className="font-semibold">{project.name}</span>
-                        <span className="text-[#8CE0B6]">
-                          {formatCurrency(project.net, "MXN")}
-                        </span>
-                      </Link>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <h3 className="mb-3 text-lg font-semibold">
-                  Top proyectos con mayor sobrecosto
-                </h3>
-                <div className="space-y-3">
-                  {topPurchaseOverruns.length === 0 ? (
-                    <p className="text-sm text-[#77777D]">Sin sobrecostos registrados.</p>
-                  ) : (
-                    topPurchaseOverruns.map((project) => (
-                      <Link
-                        key={project.projectId}
-                        href={`/projects/${project.projectId}/purchases`}
-                        className="flex items-center justify-between gap-4 rounded-xl bg-[#222228] px-4 py-3 text-sm hover:bg-[#2A2A30]"
-                      >
-                        <span className="font-semibold">{project.name}</span>
-                        <span className="text-[#FFB19C]">
-                          {formatCurrency(project.net, "MXN")}
-                        </span>
-                      </Link>
-                    ))
-                  )}
-                </div>
-              </div>
-            </div>
-          </>
-        )}
       </section>
     </main>
+  );
+}
+
+function ExecutiveCard({
+  label,
+  value,
+  detail,
+  accent = false,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  accent?: boolean;
+}) {
+  return (
+    <div
+      className={`min-h-44 border p-6 ${
+        accent
+          ? "border-[#7A1F2B] bg-[#7A1F2B] text-white"
+          : "border-black/10 bg-white text-[#111111]"
+      }`}
+    >
+      <p
+        className={`text-xs font-semibold uppercase tracking-[0.24em] ${
+          accent ? "text-white/64" : "text-[#7A1F2B]"
+        }`}
+      >
+        {label}
+      </p>
+      <p className="mt-7 text-4xl font-semibold leading-none tracking-normal">
+        {value}
+      </p>
+      <p
+        className={`mt-5 text-sm leading-6 ${
+          accent ? "text-white/70" : "text-[#666666]"
+        }`}
+      >
+        {detail}
+      </p>
+    </div>
+  );
+}
+
+function InsightPanel({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="border border-black/10 bg-white p-6 sm:p-8">
+      <h2 className="mb-6 text-2xl font-semibold">{title}</h2>
+      {children}
+    </div>
   );
 }
