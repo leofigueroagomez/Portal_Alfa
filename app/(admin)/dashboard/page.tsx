@@ -272,6 +272,7 @@ export default async function DashboardPage() {
             label="Leads nuevos"
             value={formatNumber(newLeads.length)}
             detail={newLeads[0]?.interest || "Captura pública activa"}
+            href="/leads"
           />
           <ExecutiveCard
             label="Cotizaciones pendientes"
@@ -463,14 +464,16 @@ function ExecutiveCard({
   label,
   value,
   detail,
+  href,
   accent = false,
 }: {
   label: string;
   value: string;
   detail: string;
+  href?: string;
   accent?: boolean;
 }) {
-  return (
+  const content = (
     <div
       className={`min-h-44 border p-6 ${
         accent
@@ -496,6 +499,14 @@ function ExecutiveCard({
         {detail}
       </p>
     </div>
+  );
+
+  if (!href) return content;
+
+  return (
+    <Link href={href} className="block transition hover:-translate-y-0.5">
+      {content}
+    </Link>
   );
 }
 

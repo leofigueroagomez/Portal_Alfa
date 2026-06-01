@@ -10,6 +10,7 @@ import {
   FileText,
   FolderOpen,
   Gauge,
+  Inbox,
   LogOut,
   Menu,
   Package,
@@ -38,6 +39,7 @@ type NavLink = {
   label: string;
   icon: LucideIcon;
   visible?: boolean;
+  badgeCount?: number;
 };
 
 type NavGroup = {
@@ -49,6 +51,7 @@ type NavGroup = {
 type AdminShellProps = {
   children: React.ReactNode;
   profile: UserProfile | null;
+  newLeadsCount?: number;
 };
 
 const roleLabels: Record<string, string> = {
@@ -64,7 +67,11 @@ const roleLabels: Record<string, string> = {
   engineering: "Ingeniería",
 };
 
-export default function AdminShell({ children, profile }: AdminShellProps) {
+export default function AdminShell({
+  children,
+  profile,
+  newLeadsCount = 0,
+}: AdminShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
@@ -74,6 +81,7 @@ export default function AdminShell({ children, profile }: AdminShellProps) {
   const roleLabel = roleLabels[role] || "Interno";
 
   const commercialItems: NavLink[] = [
+    { href: "/leads", label: "Leads", icon: Inbox, badgeCount: newLeadsCount },
     { href: "/quotes/new", label: "Nueva Cotización", icon: PlusCircle },
     { href: "/customers", label: "Clientes", icon: Building2 },
     { href: "/quotes", label: "Cotizaciones", icon: FileText },
@@ -336,6 +344,17 @@ function NavDropdown({
             >
               <ItemIcon size={17} />
               <span className="lg:hidden xl:inline">{item.label}</span>
+              {item.badgeCount && item.badgeCount > 0 ? (
+                <span
+                  className={`ml-auto inline-flex min-w-6 items-center justify-center rounded-full px-2 py-0.5 text-xs font-semibold lg:hidden xl:inline-flex ${
+                    itemActive
+                      ? "bg-white/18 text-white"
+                      : "bg-[#7A1F2B] text-white"
+                  }`}
+                >
+                  {item.badgeCount}
+                </span>
+              ) : null}
             </Link>
           );
         })}

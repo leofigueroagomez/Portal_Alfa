@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const protectedRoutes = [
   "/dashboard",
+  "/leads",
   "/customers",
   "/clients",
   "/products",
@@ -70,6 +71,7 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     "/dashboard/:path*",
+    "/leads/:path*",
     "/customers/:path*",
     "/clients/:path*",
     "/products/:path*",
