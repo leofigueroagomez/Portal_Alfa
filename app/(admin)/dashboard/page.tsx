@@ -1,68 +1,79 @@
 import Image from "next/image";
 import Link from "next/link";
+import {
+  ArrowUpRight,
+  BriefcaseBusiness,
+  Building2,
+  ClipboardCheck,
+  FileText,
+  FolderOpen,
+  Inbox,
+  Plus,
+  Users,
+  Wrench,
+} from "lucide-react";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { formatCurrency, formatNumber } from "@/lib/format";
-import {
-  normalizeSalesStage,
-  salesStageClasses,
-  salesStageLabels,
-  salesStages,
-} from "@/lib/salesStages";
+import { normalizeSalesStage } from "@/lib/salesStages";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-
-type ClientProject = {
-  id: number;
-  client_id: number | null;
-  name: string | null;
-  sales_stage?: string | null;
-  estimated_value_mxn?: number | null;
-  updated_at?: string | null;
-  created_at?: string | null;
-};
-
-type Client = {
-  id: number;
-  name: string | null;
-};
-
-type Quote = {
-  id: number;
-  client_id: number | null;
-  client_project_id?: number | null;
-  status: string | null;
-  total_mxn?: number | null;
-  grand_total?: number | null;
-};
-
-type EngineeringQuote = {
-  id: number;
-  client_project_id?: number | null;
-  status: string | null;
-  total_mxn: number | null;
-};
-
-type QuoteItem = {
-  product_name: string | null;
-  product_brand: string | null;
-};
 
 type Lead = {
   id: number;
   name: string | null;
   interest: string | null;
-  budget_range: string | null;
-  timeline: string | null;
   status: string | null;
   created_at: string | null;
 };
 
+type Client = {
+  id: number;
+  name: string | null;
+  source?: string | null;
+  created_at: string | null;
+};
+
+type Quote = {
+  id: number;
+  quote_number: string | null;
+  status: string | null;
+  total_mxn?: number | null;
+  grand_total?: number | null;
+  created_at: string | null;
+};
+
+type ClientProject = {
+  id: number;
+  name: string | null;
+  sales_stage?: string | null;
+  status?: string | null;
+  estimated_value_mxn?: number | null;
+  updated_at?: string | null;
+  created_at?: string | null;
+};
+
+type ServiceReport = {
+  id: number;
+  status: string | null;
+  solution_status?: string | null;
+  created_at: string | null;
+};
+
+type Contractor = {
+  id: number;
+  is_active: boolean | null;
+};
+
 function isOpenStatus(status: string | null) {
-  return !["approved", "archived", "lost", "closed"].includes(
+  return !["approved", "archived", "lost", "closed", "convertido"].includes(
     (status || "draft").toLowerCase()
   );
+}
+
+function isWonStatus(status: string | null) {
+  return ["approved", "won", "closed"].includes((status || "").toLowerCase());
 }
 
 function isThisMonth(value: string | null | undefined) {
@@ -77,179 +88,123 @@ function isThisMonth(value: string | null | undefined) {
   );
 }
 
+function quoteValue(quote: Quote) {
+  return Number(quote.total_mxn ?? quote.grand_total ?? 0);
+}
+
+function formatCount(value: number) {
+  return new Intl.NumberFormat("es-MX", {
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
 export default async function DashboardPage() {
   const supabase = await createSupabaseServerClient();
   const supabaseAdmin = createSupabaseAdminClient();
-  const projectsResult = await supabase
-    .from("client_projects")
-    .select("id, client_id, name, sales_stage, estimated_value_mxn, updated_at, created_at")
-    .order("updated_at", { ascending: false, nullsFirst: false });
-
-  let projectData = projectsResult.data as ClientProject[] | null;
-
-  if (
-    projectsResult.error &&
-    (projectsResult.error.message.includes("sales_stage") ||
-      projectsResult.error.message.includes("estimated_value_mxn"))
-  ) {
-    const fallback = await supabase
-      .from("client_projects")
-      .select("id, client_id, name, created_at")
-      .order("created_at", { ascending: false });
-
-    projectData = fallback.data as ClientProject[] | null;
-  }
 
   const [
-    { data: clients },
-    { data: quotes },
-    { data: engineeringQuotes },
-    { data: quoteItems },
     leadsResult,
+    clientsResult,
+    quotesResult,
+    projectsResult,
+    servicesResult,
+    contractorsResult,
   ] = await Promise.all([
-    supabase.from("clients").select("id, name"),
-    supabase
-      .from("quotes")
-      .select("id, client_id, client_project_id, status, total_mxn, grand_total"),
-    supabase
-      .from("engineering_quotes")
-      .select("id, client_project_id, status, total_mxn"),
-    supabase.from("quote_items").select("product_name, product_brand"),
     supabaseAdmin
       .from("leads")
-      .select("id, name, interest, budget_range, timeline, status, created_at")
-      .order("created_at", { ascending: false })
-      .limit(8),
+      .select("id, name, interest, status, created_at")
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("clients")
+      .select("id, name, source, created_at")
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("quotes")
+      .select("id, quote_number, status, total_mxn, grand_total, created_at")
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("client_projects")
+      .select("id, name, sales_stage, status, estimated_value_mxn, updated_at, created_at")
+      .order("updated_at", { ascending: false, nullsFirst: false }),
+    supabase
+      .from("service_reports")
+      .select("id, status, solution_status, created_at")
+      .order("created_at", { ascending: false }),
+    supabase.from("contractors").select("id, is_active"),
   ]);
 
-  const projects = (projectData || []) as ClientProject[];
-  const clientList = (clients || []) as Client[];
-  const quoteList = (quotes || []) as Quote[];
-  const engineeringList = (engineeringQuotes || []) as EngineeringQuote[];
-  const itemList = (quoteItems || []) as QuoteItem[];
-  const leadList = leadsResult.error ? [] : ((leadsResult.data || []) as Lead[]);
-  console.info("[dashboard] leads quick access query", {
-    table: "leads",
-    filters: {
-      status: "none",
-      user_id: "none",
-      owner_id: "none",
-      assigned_to: "none",
-      archived: "none",
-      deleted: "none",
-    },
-    found: leadList.length,
-    error: leadsResult.error
-      ? {
-          code: leadsResult.error.code,
-          message: leadsResult.error.message,
-        }
-      : null,
-  });
+  const leads = leadsResult.error ? [] : ((leadsResult.data || []) as Lead[]);
+  const clients = clientsResult.error ? [] : ((clientsResult.data || []) as Client[]);
+  const quotes = quotesResult.error ? [] : ((quotesResult.data || []) as Quote[]);
+  const projects = projectsResult.error
+    ? []
+    : ((projectsResult.data || []) as ClientProject[]);
+  const services = servicesResult.error
+    ? []
+    : ((servicesResult.data || []) as ServiceReport[]);
+  const contractors = contractorsResult.error
+    ? []
+    : ((contractorsResult.data || []) as Contractor[]);
 
-  function getQuoteValue(quote: Quote) {
-    return Number(quote.total_mxn ?? quote.grand_total ?? 0);
-  }
-
-  function getProjectValue(project: ClientProject) {
-    const estimatedValue = Number(project.estimated_value_mxn || 0);
-
-    if (estimatedValue > 0) return estimatedValue;
-
-    const quoteValue = quoteList
-      .filter((quote) => quote.client_project_id === project.id)
-      .reduce((sum, quote) => sum + getQuoteValue(quote), 0);
-    const engineeringValue = engineeringList
-      .filter((quote) => quote.client_project_id === project.id)
-      .reduce((sum, quote) => sum + Number(quote.total_mxn || 0), 0);
-
-    return quoteValue + engineeringValue;
-  }
-
-  const activePipelineStages = new Set([
+  const newLeads = leads.filter((lead) => (lead.status || "nuevo") === "nuevo");
+  const leadsThisMonth = leads.filter((lead) => isThisMonth(lead.created_at));
+  const clientsThisMonth = clients.filter((client) => isThisMonth(client.created_at));
+  const openQuotes = quotes.filter((quote) => isOpenStatus(quote.status));
+  const wonQuotes = quotes.filter((quote) => isWonStatus(quote.status));
+  const wonQuotesThisMonth = wonQuotes.filter((quote) => isThisMonth(quote.created_at));
+  const quotedThisMonth = quotes
+    .filter((quote) => isThisMonth(quote.created_at))
+    .reduce((sum, quote) => sum + quoteValue(quote), 0);
+  const activeProjectStages = new Set([
     "lead",
     "site_visit",
     "engineering",
     "quoted",
     "negotiation",
+    "won",
   ]);
-  const openQuotes = quoteList.filter((quote) => isOpenStatus(quote.status));
-  const openEngineeringQuotes = engineeringList.filter((quote) =>
-    isOpenStatus(quote.status)
-  );
-  const newLeads = leadList.filter((lead) => (lead.status || "nuevo") === "nuevo");
-  const activeProjects = projects.filter((project) =>
-    activePipelineStages.has(normalizeSalesStage(project.sales_stage))
-  );
-  const wonThisMonth = projects.filter(
-    (project) =>
-      normalizeSalesStage(project.sales_stage) === "won" &&
-      isThisMonth(project.updated_at || project.created_at)
-  );
-  const monthlyBilling = wonThisMonth.reduce(
-    (sum, project) => sum + getProjectValue(project),
-    0
-  );
-  const pipelineValue = activeProjects.reduce(
-    (sum, project) => sum + getProjectValue(project),
-    0
-  );
-  const stageSummaries = salesStages
-    .map((stage) => {
-      const stageProjects = projects.filter(
-        (project) => normalizeSalesStage(project.sales_stage) === stage
-      );
+  const activeProjects = projects.filter((project) => {
+    const stage = normalizeSalesStage(project.sales_stage);
+    const status = (project.status || "").toLowerCase();
 
-      return {
-        stage,
-        count: stageProjects.length,
-        value: stageProjects.reduce(
-          (sum, project) => sum + getProjectValue(project),
-          0
-        ),
-      };
-    })
-    .filter((summary) => summary.count > 0);
-  const featuredProjects = activeProjects
-    .map((project) => ({ ...project, value: getProjectValue(project) }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 4);
-  const topClients = clientList
-    .map((client) => {
-      const value = projects
-        .filter((project) => project.client_id === client.id)
-        .reduce((sum, project) => sum + getProjectValue(project), 0);
-
-      return { id: client.id, name: client.name || "Sin cliente", value };
-    })
-    .filter((client) => client.value > 0)
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 5);
-  const quotedSystems = Object.entries(
-    itemList.reduce<Record<string, number>>((accumulator, item) => {
-      const label = item.product_brand || item.product_name || "Sin sistema";
-      accumulator[label] = (accumulator[label] || 0) + 1;
-      return accumulator;
-    }, {})
-  )
-    .map(([name, count]) => ({ name, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 5);
+    return activeProjectStages.has(stage) && !["archived", "lost", "closed"].includes(status);
+  });
+  const openServices = services.filter(
+    (service) =>
+      !["closed", "archived", "cancelled"].includes((service.status || "").toLowerCase()) &&
+      service.solution_status !== "solved"
+  );
+  const activeContractors = contractors.filter((contractor) => contractor.is_active !== false);
+  const convertedLeads = leads.filter((lead) => lead.status === "convertido");
+  const estimatedConversion =
+    leads.length > 0 ? Math.round((convertedLeads.length / leads.length) * 100) : 0;
   const recentActivity = [
-    ...leadList.slice(0, 3).map((lead) => ({
+    ...leads.slice(0, 4).map((lead) => ({
       key: `lead-${lead.id}`,
-      label: "Lead nuevo",
+      label: "Nuevo lead capturado",
       title: lead.name || "Contacto sin nombre",
-      detail:
-        [lead.interest, lead.timeline].filter(Boolean).join(" · ") ||
-        "Solicitud recibida",
+      detail: lead.interest || "Landing Web",
       date: lead.created_at,
     })),
-    ...projects.slice(0, 4).map((project) => ({
+    ...clients.slice(0, 3).map((client) => ({
+      key: `client-${client.id}`,
+      label: "Cliente creado",
+      title: client.name || "Cliente sin nombre",
+      detail: client.source || "Origen no especificado",
+      date: client.created_at,
+    })),
+    ...quotes.slice(0, 3).map((quote) => ({
+      key: `quote-${quote.id}`,
+      label: "Cotización creada",
+      title: quote.quote_number || `Cotización #${quote.id}`,
+      detail: formatCurrency(quoteValue(quote), "MXN"),
+      date: quote.created_at,
+    })),
+    ...projects.slice(0, 3).map((project) => ({
       key: `project-${project.id}`,
-      label: salesStageLabels[normalizeSalesStage(project.sales_stage)],
+      label: "Proyecto actualizado",
       title: project.name || `Proyecto #${project.id}`,
-      detail: formatCurrency(getProjectValue(project), "MXN"),
+      detail: formatCurrency(project.estimated_value_mxn, "MXN"),
       date: project.updated_at || project.created_at,
     })),
   ]
@@ -259,90 +214,121 @@ export default async function DashboardPage() {
 
       return second - first;
     })
-    .slice(0, 6);
+    .slice(0, 7);
 
   return (
     <main className="min-h-screen bg-[#F7F6F3] text-[#111111]">
-      <section className="border-b border-black/10 bg-white px-5 py-14 sm:px-8 lg:px-12 xl:py-16">
+      <section className="bg-white px-5 py-16 sm:px-8 lg:px-12 xl:py-20">
         <div className="mx-auto max-w-7xl text-center">
           <Image
             src="/logo-alfa-os.png"
             alt="ALFA OS"
-            width={440}
-            height={210}
+            width={520}
+            height={250}
             priority
-            className="mx-auto h-auto w-[min(72vw,360px)] object-contain"
+            className="mx-auto h-auto w-[min(78vw,430px)] object-contain"
           />
           <p className="mt-6 text-sm font-semibold uppercase tracking-[0.32em] text-[#7A1F2B]">
-            Sistema Operativo Empresarial ALFA
+            High End Services Operating System
           </p>
-          <h1 className="mx-auto mt-8 max-w-4xl text-5xl font-semibold leading-tight tracking-normal sm:text-6xl xl:text-7xl">
-            Dirección clara para proyectos de alto estándar.
+          <h1 className="mx-auto mt-8 max-w-5xl text-5xl font-semibold leading-tight sm:text-6xl xl:text-7xl">
+            Vista ejecutiva de la operación comercial y proyectos de ALFA.
           </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-base leading-8 text-[#666666] sm:text-lg">
-            Una vista ejecutiva para priorizar oportunidades, avance operativo y
-            resultados del mes sin perder elegancia ni foco.
-          </p>
         </div>
       </section>
 
       <section className="px-5 py-10 sm:px-8 lg:px-12">
-        <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <ExecutiveCard
-            label="Leads nuevos"
-            value={formatNumber(newLeads.length)}
-            detail={newLeads[0]?.interest || "Captura pública activa"}
-            href="/leads"
-          />
-          <ExecutiveCard
-            label="Cotizaciones pendientes"
-            value={formatNumber(openQuotes.length + openEngineeringQuotes.length)}
-            detail={`${formatCurrency(pipelineValue, "MXN")} en pipeline`}
-          />
-          <ExecutiveCard
-            label="Proyectos activos"
-            value={formatNumber(activeProjects.length)}
-            detail="En etapas de oportunidad y ejecución comercial"
-          />
-          <ExecutiveCard
-            label="Facturación del mes"
-            value={formatCurrency(monthlyBilling, "MXN")}
-            detail={`${formatNumber(wonThisMonth.length)} proyectos ganados`}
-            accent
-          />
+        <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <MetricCard label="Leads nuevos" value={formatCount(newLeads.length)} href="/leads" />
+          <MetricCard label="Leads del mes" value={formatCount(leadsThisMonth.length)} />
+          <MetricCard label="Clientes nuevos" value={formatCount(clientsThisMonth.length)} href="/customers" />
+          <MetricCard label="Cotizaciones pendientes" value={formatCount(openQuotes.length)} href="/quotes" />
+          <MetricCard label="Cotizado este mes" value={formatCurrency(quotedThisMonth, "MXN")} accent />
+          <MetricCard label="Proyectos activos" value={formatCount(activeProjects.length)} href="/projects" />
         </div>
       </section>
 
       <section className="px-5 pb-12 sm:px-8 lg:px-12">
-        <div className="mx-auto grid max-w-7xl gap-6 xl:grid-cols-[1.08fr_0.92fr]">
-          <div className="bg-[#111111] p-6 text-white shadow-2xl shadow-black/[0.12] sm:p-8">
-            <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#B84A5A]">
-                  Actividad reciente
-                </p>
-                <h2 className="mt-3 text-3xl font-semibold">Pulso ejecutivo</h2>
-              </div>
-              <Link
-                href="/quotes/new"
-                className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#7A1F2B] px-5 text-sm font-semibold text-white transition hover:bg-[#5A1320]"
-              >
-                Nueva Cotización
-              </Link>
-            </div>
+        <div className="mx-auto grid max-w-7xl gap-6 xl:grid-cols-2">
+          <ExecutiveSection
+            eyebrow="Comercial"
+            title="Origen, seguimiento y cierre."
+            metrics={[
+              ["Leads pendientes", formatCount(newLeads.length)],
+              ["Cotizaciones abiertas", formatCount(openQuotes.length)],
+              ["Cotizaciones ganadas", formatCount(wonQuotes.length)],
+              ["Conversión estimada", `${formatCount(estimatedConversion)}%`],
+            ]}
+            links={[
+              { href: "/leads", label: "Leads", icon: Inbox },
+              { href: "/quotes/new", label: "Nueva Cotización", icon: Plus },
+              { href: "/customers", label: "Clientes", icon: Building2 },
+              { href: "/quotes", label: "Cotizaciones", icon: FileText },
+            ]}
+          />
 
-            <div className="space-y-5">
+          <ExecutiveSection
+            eyebrow="Operaciones"
+            title="Ejecución, servicio y capacidad."
+            metrics={[
+              ["Proyectos activos", formatCount(activeProjects.length)],
+              ["Servicios abiertos", formatCount(openServices.length)],
+              ["Contratistas activos", formatCount(activeContractors.length)],
+              ["Ganadas este mes", formatCount(wonQuotesThisMonth.length)],
+            ]}
+            links={[
+              { href: "/projects", label: "Proyectos", icon: FolderOpen },
+              { href: "/services", label: "Servicios", icon: Wrench },
+              { href: "/contractors", label: "Contratistas", icon: Users },
+            ]}
+            dark
+          />
+        </div>
+      </section>
+
+      <section className="bg-white px-5 py-12 sm:px-8 lg:px-12">
+        <div className="mx-auto grid max-w-7xl gap-6 xl:grid-cols-[0.96fr_1.04fr]">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#7A1F2B]">
+              Accesos rápidos
+            </p>
+            <h2 className="mt-4 max-w-xl text-4xl font-semibold leading-tight">
+              Acciones clave sin ruido administrativo.
+            </h2>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <QuickAction href="/quotes/new" label="Crear cotización" icon={ClipboardCheck} />
+            <QuickAction href="/leads" label="Ver leads" icon={Inbox} />
+            <QuickAction href="/projects" label="Ver proyectos" icon={BriefcaseBusiness} />
+            <QuickAction href="/clients/new" label="Crear cliente" icon={Building2} />
+          </div>
+        </div>
+      </section>
+
+      <section className="px-5 py-12 sm:px-8 lg:px-12">
+        <div className="mx-auto grid max-w-7xl gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+          <div className="bg-[#111111] p-6 text-white sm:p-8">
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#B84A5A]">
+              Actividad reciente
+            </p>
+            <h2 className="mt-4 text-4xl font-semibold">Pulso de ALFA OS</h2>
+            <div className="mt-8 space-y-6">
               {recentActivity.length === 0 ? (
-                <p className="text-sm text-white/50">Sin actividad para mostrar.</p>
+                <p className="text-sm leading-7 text-white/56">
+                  Aquí aparecerá la actividad reciente de ALFA OS.
+                </p>
               ) : (
                 recentActivity.map((activity) => (
-                  <div key={activity.key} className="grid gap-4 sm:grid-cols-[140px_1fr]">
-                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/42">
+                  <div
+                    key={activity.key}
+                    className="grid gap-3 border-l border-white/14 pl-5 sm:grid-cols-[170px_1fr]"
+                  >
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/42">
                       {activity.label}
                     </p>
-                    <div className="border-l border-white/14 pl-5">
+                    <div>
                       <h3 className="text-lg font-semibold">{activity.title}</h3>
-                      <p className="mt-2 text-sm leading-6 text-white/58">
+                      <p className="mt-1 text-sm leading-6 text-white/58">
                         {activity.detail}
                       </p>
                     </div>
@@ -354,148 +340,36 @@ export default async function DashboardPage() {
 
           <div className="border border-black/10 bg-white p-6 sm:p-8">
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#7A1F2B]">
-              Pipeline por etapa
+              Lectura ejecutiva
             </p>
-            <h2 className="mt-3 text-3xl font-semibold">Prioridad comercial</h2>
-            <div className="mt-7 space-y-4">
-              {stageSummaries.length === 0 ? (
-                <p className="text-sm text-[#666666]">Sin etapas activas para mostrar.</p>
-              ) : (
-                stageSummaries.slice(0, 6).map((summary) => (
-                  <div key={summary.stage}>
-                    <div className="mb-2 flex items-center justify-between gap-4 text-sm">
-                      <span className="font-semibold">
-                        {salesStageLabels[summary.stage]}
-                      </span>
-                      <span className="text-[#666666]">
-                        {formatCurrency(summary.value, "MXN")}
-                      </span>
-                    </div>
-                    <div className="h-2 bg-black/[0.06]">
-                      <div
-                        className="h-full bg-[#7A1F2B]"
-                        style={{
-                          width: `${Math.min(100, Math.max(8, summary.count * 14))}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))
-              )}
+            <h2 className="mt-4 text-4xl font-semibold">Prioridades de hoy</h2>
+            <div className="mt-8 space-y-5">
+              <PriorityLine label="Seguimiento comercial" value={`${formatCount(newLeads.length)} leads nuevos`} />
+              <PriorityLine label="Cotización" value={`${formatCount(openQuotes.length)} pendientes`} />
+              <PriorityLine label="Operación" value={`${formatCount(activeProjects.length)} proyectos activos`} />
+              <PriorityLine label="Servicio" value={`${formatCount(openServices.length)} abiertos`} />
             </div>
           </div>
-        </div>
-      </section>
-
-      <section className="bg-white px-5 py-12 sm:px-8 lg:px-12">
-        <div className="mx-auto max-w-7xl">
-          <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#7A1F2B]">
-                Proyectos destacados
-              </p>
-              <h2 className="mt-3 text-4xl font-semibold">Foco operativo</h2>
-            </div>
-            <Link
-              href="/projects"
-              className="inline-flex min-h-11 items-center justify-center rounded-full border border-black/10 px-5 text-sm font-semibold transition hover:border-[#7A1F2B] hover:text-[#7A1F2B]"
-            >
-              Ver proyectos
-            </Link>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {featuredProjects.length === 0 ? (
-              <div className="border border-black/10 bg-[#F7F6F3] p-6 text-sm text-[#666666] md:col-span-2 xl:col-span-4">
-                Sin proyectos activos destacados por ahora.
-              </div>
-            ) : (
-              featuredProjects.map((project) => (
-                <Link
-                  key={project.id}
-                  href={`/projects/${project.id}`}
-                  className="group min-h-64 border border-black/10 bg-[#F7F6F3] p-6 transition hover:-translate-y-0.5 hover:border-[#7A1F2B]/40 hover:shadow-2xl hover:shadow-black/[0.06]"
-                >
-                  <span
-                    className={`inline-flex rounded-full border px-3 py-1 text-xs ${salesStageClasses[normalizeSalesStage(project.sales_stage)]}`}
-                  >
-                    {salesStageLabels[normalizeSalesStage(project.sales_stage)]}
-                  </span>
-                  <h3 className="mt-8 text-2xl font-semibold leading-tight">
-                    {project.name || `Proyecto #${project.id}`}
-                  </h3>
-                  <p className="mt-5 text-sm text-[#666666]">Valor estimado</p>
-                  <p className="mt-2 text-xl font-semibold text-[#7A1F2B]">
-                    {formatCurrency(project.value, "MXN")}
-                  </p>
-                </Link>
-              ))
-            )}
-          </div>
-        </div>
-      </section>
-
-      <section className="px-5 py-12 sm:px-8 lg:px-12">
-        <div className="mx-auto grid max-w-7xl gap-4 lg:grid-cols-2">
-          <InsightPanel title="Clientes relevantes">
-            {topClients.length === 0 ? (
-              <p className="text-sm text-[#666666]">Sin clientes para mostrar.</p>
-            ) : (
-              topClients.map((client) => (
-                <div
-                  key={client.id}
-                  className="flex items-center justify-between gap-4 border-t border-black/10 py-4"
-                >
-                  <span className="font-semibold">{client.name}</span>
-                  <span className="text-sm text-[#666666]">
-                    {formatCurrency(client.value, "MXN")}
-                  </span>
-                </div>
-              ))
-            )}
-          </InsightPanel>
-
-          <InsightPanel title="Sistemas más cotizados">
-            {quotedSystems.length === 0 ? (
-              <p className="text-sm text-[#666666]">
-                Sin partidas cotizadas todavía.
-              </p>
-            ) : (
-              quotedSystems.map((system) => (
-                <div
-                  key={system.name}
-                  className="flex items-center justify-between gap-4 border-t border-black/10 py-4"
-                >
-                  <span className="font-semibold">{system.name}</span>
-                  <span className="text-sm text-[#666666]">
-                    {system.count} partidas
-                  </span>
-                </div>
-              ))
-            )}
-          </InsightPanel>
         </div>
       </section>
     </main>
   );
 }
 
-function ExecutiveCard({
+function MetricCard({
   label,
   value,
-  detail,
   href,
   accent = false,
 }: {
   label: string;
   value: string;
-  detail: string;
   href?: string;
   accent?: boolean;
 }) {
   const content = (
     <div
-      className={`min-h-44 border p-6 ${
+      className={`min-h-44 border p-6 transition ${
         accent
           ? "border-[#7A1F2B] bg-[#7A1F2B] text-white"
           : "border-black/10 bg-white text-[#111111]"
@@ -503,44 +377,115 @@ function ExecutiveCard({
     >
       <p
         className={`text-xs font-semibold uppercase tracking-[0.24em] ${
-          accent ? "text-white/64" : "text-[#7A1F2B]"
+          accent ? "text-white/68" : "text-[#7A1F2B]"
         }`}
       >
         {label}
       </p>
-      <p className="mt-7 text-4xl font-semibold leading-none tracking-normal">
-        {value}
-      </p>
-      <p
-        className={`mt-5 text-sm leading-6 ${
-          accent ? "text-white/70" : "text-[#666666]"
-        }`}
-      >
-        {detail}
-      </p>
+      <p className="mt-8 text-4xl font-semibold leading-none">{value}</p>
     </div>
   );
 
   if (!href) return content;
 
   return (
-    <Link href={href} className="block transition hover:-translate-y-0.5">
+    <Link href={href} className="block hover:-translate-y-0.5">
       {content}
     </Link>
   );
 }
 
-function InsightPanel({
+function ExecutiveSection({
+  eyebrow,
   title,
-  children,
+  metrics,
+  links,
+  dark = false,
 }: {
+  eyebrow: string;
   title: string;
-  children: React.ReactNode;
+  metrics: [string, string][];
+  links: { href: string; label: string; icon: React.ElementType }[];
+  dark?: boolean;
 }) {
   return (
-    <div className="border border-black/10 bg-white p-6 sm:p-8">
-      <h2 className="mb-6 text-2xl font-semibold">{title}</h2>
-      {children}
+    <div
+      className={`p-6 sm:p-8 ${
+        dark ? "bg-[#111111] text-white" : "border border-black/10 bg-white text-[#111111]"
+      }`}
+    >
+      <p
+        className={`text-xs font-semibold uppercase tracking-[0.28em] ${
+          dark ? "text-[#B84A5A]" : "text-[#7A1F2B]"
+        }`}
+      >
+        {eyebrow}
+      </p>
+      <h2 className="mt-4 text-4xl font-semibold leading-tight">{title}</h2>
+      <div className="mt-8 grid gap-3 sm:grid-cols-2">
+        {metrics.map(([label, value]) => (
+          <div
+            key={label}
+            className={dark ? "bg-white/[0.06] p-4" : "bg-[#F7F6F3] p-4"}
+          >
+            <p className={dark ? "text-sm text-white/52" : "text-sm text-[#666666]"}>
+              {label}
+            </p>
+            <p className="mt-3 text-3xl font-semibold">{value}</p>
+          </div>
+        ))}
+      </div>
+      <div className="mt-8 flex flex-wrap gap-3">
+        {links.map((item) => {
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`inline-flex min-h-11 items-center gap-2 rounded-full px-4 text-sm font-semibold transition ${
+                dark
+                  ? "bg-white text-[#111111] hover:bg-[#EDEAE4]"
+                  : "bg-[#111111] text-white hover:bg-[#7A1F2B]"
+              }`}
+            >
+              <Icon size={16} />
+              {item.label}
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function QuickAction({
+  href,
+  label,
+  icon: Icon,
+}: {
+  href: string;
+  label: string;
+  icon: React.ElementType;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group flex min-h-36 items-start justify-between border border-black/10 bg-[#F7F6F3] p-5 transition hover:-translate-y-0.5 hover:border-[#7A1F2B]/40 hover:bg-white"
+    >
+      <div>
+        <Icon className="h-6 w-6 text-[#7A1F2B]" />
+        <p className="mt-8 text-xl font-semibold">{label}</p>
+      </div>
+      <ArrowUpRight className="h-5 w-5 text-[#666666] transition group-hover:text-[#7A1F2B]" />
+    </Link>
+  );
+}
+
+function PriorityLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4 border-t border-black/10 py-4">
+      <p className="font-semibold">{label}</p>
+      <p className="text-sm text-[#666666]">{value}</p>
     </div>
   );
 }
