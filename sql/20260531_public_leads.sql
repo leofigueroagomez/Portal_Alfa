@@ -32,3 +32,35 @@ alter table public.leads
 
 alter table public.leads
   add column if not exists timeline text;
+
+alter table public.leads enable row level security;
+
+drop policy if exists beta_authenticated_select on public.leads;
+drop policy if exists beta_authenticated_insert on public.leads;
+drop policy if exists beta_authenticated_update on public.leads;
+drop policy if exists beta_authenticated_delete on public.leads;
+
+create policy beta_authenticated_select
+  on public.leads
+  for select
+  to authenticated
+  using (true);
+
+create policy beta_authenticated_insert
+  on public.leads
+  for insert
+  to authenticated
+  with check (true);
+
+create policy beta_authenticated_update
+  on public.leads
+  for update
+  to authenticated
+  using (true)
+  with check (true);
+
+create policy beta_authenticated_delete
+  on public.leads
+  for delete
+  to authenticated
+  using (true);

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createSupabaseServerClient } from "@/services/supabaseServer";
+import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -43,9 +43,19 @@ function statusLabel(value: string | null) {
 }
 
 export default async function LeadsPage() {
-  const supabase = await createSupabaseServerClient();
+  const supabase = createSupabaseAdminClient();
+  const tableName = "leads";
+  const filters = {
+    status: "none",
+    user_id: "none",
+    owner_id: "none",
+    assigned_to: "none",
+    archived: "none",
+    deleted: "none",
+  };
+
   const { data, error } = await supabase
-    .from("leads")
+    .from(tableName)
     .select(
       "id, name, customer_type, company, phone, service, message, interest, budget_range, timeline, status, created_at"
     )
@@ -53,6 +63,19 @@ export default async function LeadsPage() {
 
   const leads = error ? [] : ((data || []) as Lead[]);
   const newLeads = leads.filter((lead) => (lead.status || "nuevo") === "nuevo");
+
+  console.info("[leads-page] query", {
+    table: tableName,
+    filters,
+    found: leads.length,
+    newLeads: newLeads.length,
+    error: error
+      ? {
+          code: error.code,
+          message: error.message,
+        }
+      : null,
+  });
 
   return (
     <main className="min-h-screen bg-[#F7F6F3] px-5 py-10 text-[#111111] sm:px-8 lg:px-12">

@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { formatCurrency, formatNumber } from "@/lib/format";
 import {
@@ -78,6 +79,7 @@ function isThisMonth(value: string | null | undefined) {
 
 export default async function DashboardPage() {
   const supabase = await createSupabaseServerClient();
+  const supabaseAdmin = createSupabaseAdminClient();
   const projectsResult = await supabase
     .from("client_projects")
     .select("id, client_id, name, sales_stage, estimated_value_mxn, updated_at, created_at")
@@ -113,7 +115,7 @@ export default async function DashboardPage() {
       .from("engineering_quotes")
       .select("id, client_project_id, status, total_mxn"),
     supabase.from("quote_items").select("product_name, product_brand"),
-    supabase
+    supabaseAdmin
       .from("leads")
       .select("id, name, interest, budget_range, timeline, status, created_at")
       .order("created_at", { ascending: false })
@@ -126,6 +128,24 @@ export default async function DashboardPage() {
   const engineeringList = (engineeringQuotes || []) as EngineeringQuote[];
   const itemList = (quoteItems || []) as QuoteItem[];
   const leadList = leadsResult.error ? [] : ((leadsResult.data || []) as Lead[]);
+  console.info("[dashboard] leads quick access query", {
+    table: "leads",
+    filters: {
+      status: "none",
+      user_id: "none",
+      owner_id: "none",
+      assigned_to: "none",
+      archived: "none",
+      deleted: "none",
+    },
+    found: leadList.length,
+    error: leadsResult.error
+      ? {
+          code: leadsResult.error.code,
+          message: leadsResult.error.message,
+        }
+      : null,
+  });
 
   function getQuoteValue(quote: Quote) {
     return Number(quote.total_mxn ?? quote.grand_total ?? 0);
