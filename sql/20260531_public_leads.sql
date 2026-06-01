@@ -7,6 +7,9 @@ create table if not exists public.leads (
   phone text not null,
   service text not null,
   message text,
+  interest text,
+  budget_range text,
+  timeline text,
   source text not null default 'pagina_web_alfa_high_end_services',
   status text not null default 'nuevo'
     check (status in ('nuevo', 'contactado', 'calificado', 'descartado')),
@@ -21,3 +24,11 @@ create index if not exists leads_status_idx
 create index if not exists leads_created_at_idx
   on public.leads(created_at desc);
 
+alter table public.leads
+  add column if not exists interest text;
+
+alter table public.leads
+  add column if not exists budget_range text;
+
+alter table public.leads
+  add column if not exists timeline text;

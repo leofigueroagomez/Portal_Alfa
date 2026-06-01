@@ -10,6 +10,31 @@ const allowedCustomerTypes = [
   "industrial",
 ];
 
+const allowedInterests = [
+  "Audio y video",
+  "Redes e infraestructura",
+  "CCTV y seguridad",
+  "Control de acceso",
+  "Automatización",
+  "Soporte",
+  "Otro",
+];
+
+const allowedBudgetRanges = [
+  "Menos de $50,000",
+  "$50,000 – $150,000",
+  "$150,000 – $500,000",
+  "Más de $500,000",
+  "Aún no lo sé",
+];
+
+const allowedTimelines = [
+  "Lo antes posible",
+  "Este mes",
+  "1 a 3 meses",
+  "Solo estoy explorando",
+];
+
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
 
@@ -20,6 +45,9 @@ export async function POST(request: Request) {
     phone: String(body?.phone || "").trim(),
     service: String(body?.service || "").trim(),
     message: String(body?.message || "").trim(),
+    interest: String(body?.interest || "").trim(),
+    budgetRange: String(body?.budgetRange || "").trim(),
+    timeline: String(body?.timeline || "").trim(),
     source: String(body?.source || "pagina_web_alfa_high_end_services").trim(),
     status: String(body?.status || "nuevo").trim(),
   };
@@ -39,6 +67,17 @@ export async function POST(request: Request) {
   }
 
   if (
+    (lead.interest && !allowedInterests.includes(lead.interest)) ||
+    (lead.budgetRange && !allowedBudgetRanges.includes(lead.budgetRange)) ||
+    (lead.timeline && !allowedTimelines.includes(lead.timeline))
+  ) {
+    return NextResponse.json(
+      { error: "Datos de calificacion invalidos" },
+      { status: 400 }
+    );
+  }
+
+  if (
     lead.source !== "pagina_web_alfa_high_end_services" ||
     lead.status !== "nuevo"
   ) {
@@ -47,7 +86,7 @@ export async function POST(request: Request) {
 
   try {
     const supabase = createSupabaseAdminClient();
-    const { error } = await supabase.from("leads").insert({
+    const baseInsert = {
       name: lead.name,
       customer_type: lead.customerType,
       company: lead.company || null,
@@ -57,9 +96,31 @@ export async function POST(request: Request) {
       source: lead.source,
       status: lead.status,
       raw_payload: lead,
+    };
+
+    const { error } = await supabase.from("leads").insert({
+      ...baseInsert,
+      interest: lead.interest || null,
+      budget_range: lead.budgetRange || null,
+      timeline: lead.timeline || null,
     });
 
-    if (error) throw error;
+    if (error) {
+      const missingColumn =
+        error.code === "42703" ||
+        error.code === "PGRST204" ||
+        error.message.toLowerCase().includes("budget_range") ||
+        error.message.toLowerCase().includes("interest") ||
+        error.message.toLowerCase().includes("timeline");
+
+      if (!missingColumn) throw error;
+
+      const { error: fallbackError } = await supabase
+        .from("leads")
+        .insert(baseInsert);
+
+      if (fallbackError) throw fallbackError;
+    }
 
     return NextResponse.json({ ok: true, stored: true });
   } catch (error) {

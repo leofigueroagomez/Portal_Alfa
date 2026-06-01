@@ -162,6 +162,31 @@ const processSteps = [
   "Entrega, documentación y soporte",
 ];
 
+const interestOptions = [
+  "Audio y video",
+  "Redes e infraestructura",
+  "CCTV y seguridad",
+  "Control de acceso",
+  "Automatización",
+  "Soporte",
+  "Otro",
+];
+
+const budgetRangeOptions = [
+  "Menos de $50,000",
+  "$50,000 – $150,000",
+  "$150,000 – $500,000",
+  "Más de $500,000",
+  "Aún no lo sé",
+];
+
+const timelineOptions = [
+  "Lo antes posible",
+  "Este mes",
+  "1 a 3 meses",
+  "Solo estoy explorando",
+];
+
 const initialForm = {
   name: "",
   customerType: "residencial",
@@ -169,6 +194,9 @@ const initialForm = {
   phone: "",
   service: "",
   message: "",
+  interest: "",
+  budgetRange: "",
+  timeline: "",
 };
 
 type SubmitState = "idle" | "sending" | "success" | "error";
@@ -209,8 +237,27 @@ export default function PublicLanding() {
     }
   }
 
+  const whatsappMessage = [
+    "Hola, me gustaría solicitar un diagnóstico para un proyecto con ALFA High End Services.",
+    form.name ? `Nombre: ${form.name}` : null,
+    form.customerType ? `Tipo de proyecto: ${form.customerType}` : null,
+    form.company ? `Empresa, negocio o residencia: ${form.company}` : null,
+    form.phone ? `Teléfono: ${form.phone}` : null,
+    form.interest ? `Principal interés: ${form.interest}` : null,
+    form.budgetRange
+      ? `Tamaño aproximado del proyecto: ${form.budgetRange}`
+      : null,
+    form.timeline
+      ? `Tiempo estimado para iniciar: ${form.timeline}`
+      : null,
+    form.service ? `Objetivo: ${form.service}` : null,
+    form.message ? `Mensaje: ${form.message}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
   const whatsappUrl = `https://wa.me/${WHATSAPP_PHONE}?text=${encodeURIComponent(
-    "Hola, me gustaría solicitar un diagnóstico para un proyecto con ALFA High End Services."
+    whatsappMessage
   )}`;
 
   return (
@@ -683,11 +730,11 @@ export default function PublicLanding() {
               Solicita un diagnóstico
             </p>
             <h2 className="mt-4 text-3xl font-semibold sm:text-4xl">
-              Cuéntanos qué necesitas resolver.
+              Hablemos de tu proyecto.
             </h2>
             <p className="mt-5 text-base leading-8 text-zinc-200">
-              Revisamos el contexto del proyecto y te orientamos sobre la mejor
-              ruta técnica para avanzar con claridad.
+              Cuéntanos qué necesitas lograr y un especialista de ALFA te
+              ayudará a definir el siguiente paso.
             </p>
           </div>
 
@@ -738,6 +785,56 @@ export default function PublicLanding() {
                 placeholder="Número de contacto"
                 type="tel"
               />
+            </Field>
+
+            <Field label="Principal interés">
+              <select
+                required
+                value={form.interest}
+                onChange={(event) => updateField("interest", event.target.value)}
+                className={fieldClassName}
+              >
+                <option value="">Selecciona una opción</option>
+                {interestOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Tamaño aproximado del proyecto">
+              <select
+                required
+                value={form.budgetRange}
+                onChange={(event) =>
+                  updateField("budgetRange", event.target.value)
+                }
+                className={fieldClassName}
+              >
+                <option value="">Selecciona una opción</option>
+                {budgetRangeOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="¿Qué tan pronto necesitas iniciar?" wide>
+              <select
+                required
+                value={form.timeline}
+                onChange={(event) => updateField("timeline", event.target.value)}
+                className={fieldClassName}
+              >
+                <option value="">Selecciona una opción</option>
+                {timelineOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
             </Field>
 
             <Field label="¿Qué te gustaría lograr o resolver?" wide>
