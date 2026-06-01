@@ -5,6 +5,15 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/services/supabase";
 
+const sourceOptions = [
+  "Landing Web",
+  "Referido",
+  "LinkedIn",
+  "Google",
+  "Prospectación Directa",
+  "Cliente Existente",
+];
+
 export default function NewClientPage() {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -15,6 +24,7 @@ export default function NewClientPage() {
     phone: "",
     address: "",
     notes: "",
+    source: "Prospectación Directa",
   });
 
   function updateField(field: string, value: string) {
@@ -78,6 +88,7 @@ export default function NewClientPage() {
         phone: form.phone,
         address: form.address,
         notes: form.notes,
+        source: form.source,
       })
       .select("id")
       .single();
@@ -129,6 +140,13 @@ export default function NewClientPage() {
             <input className="bg-[#222228] rounded-xl p-4 outline-none" placeholder="Empresa" value={form.company_name} onChange={(e) => updateField("company_name", e.target.value)} />
             <input className="bg-[#222228] rounded-xl p-4 outline-none" placeholder="Email" value={form.email} onChange={(e) => updateField("email", e.target.value)} />
             <input className="bg-[#222228] rounded-xl p-4 outline-none" placeholder="Teléfono" value={form.phone} onChange={(e) => updateField("phone", e.target.value)} />
+            <select className="bg-[#222228] rounded-xl p-4 outline-none" value={form.source} onChange={(e) => updateField("source", e.target.value)}>
+              {sourceOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
           </div>
 
           <textarea className="w-full bg-[#222228] rounded-xl p-4 outline-none mt-4 min-h-24" placeholder="Dirección" value={form.address} onChange={(e) => updateField("address", e.target.value)} />

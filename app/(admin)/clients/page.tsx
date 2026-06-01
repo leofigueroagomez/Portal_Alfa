@@ -10,6 +10,7 @@ type Client = {
   email: string | null;
   phone: string | null;
   address: string | null;
+  source?: string | null;
   created_at: string | null;
 };
 
@@ -30,7 +31,7 @@ export default async function ClientsPage() {
 
   const { data: clients } = await supabase
     .from("clients")
-    .select("id, client_number, name, company_name, email, phone, address, created_at")
+    .select("id, client_number, name, company_name, email, phone, address, source, created_at")
     .order("client_number", { ascending: true });
 
   const clientList = (clients || []) as Client[];
@@ -57,13 +58,14 @@ export default async function ClientsPage() {
       </div>
 
       <section className="overflow-x-auto rounded-2xl border border-[#1F1F24] bg-[#151518]">
-        <div className="grid min-w-[1180px] grid-cols-[120px_1.2fr_1.2fr_1.3fr_120px_1.4fr_120px_190px] gap-4 border-b border-[#2A2A30] px-5 py-4 text-sm font-semibold text-[#B3B3B8]">
+        <div className="grid min-w-[1280px] grid-cols-[120px_1.2fr_1.2fr_1.3fr_120px_1.4fr_140px_120px_190px] gap-4 border-b border-[#2A2A30] px-5 py-4 text-sm font-semibold text-[#B3B3B8]">
           <p>Número</p>
           <p>Cliente</p>
           <p>Empresa</p>
           <p>Email</p>
           <p>Teléfono</p>
           <p>Dirección</p>
+          <p>Origen</p>
           <p>Alta</p>
           <p>Acciones</p>
         </div>
@@ -77,7 +79,7 @@ export default async function ClientsPage() {
             {clientList.map((client) => (
               <div
                 key={client.id}
-                className="grid min-w-[1180px] grid-cols-[120px_1.2fr_1.2fr_1.3fr_120px_1.4fr_120px_190px] items-center gap-4 px-5 py-4 text-sm"
+                className="grid min-w-[1280px] grid-cols-[120px_1.2fr_1.2fr_1.3fr_120px_1.4fr_140px_120px_190px] items-center gap-4 px-5 py-4 text-sm"
               >
                 <Link
                   href={`/clients/${client.id}`}
@@ -107,6 +109,10 @@ export default async function ClientsPage() {
 
                 <p className="text-[#B3B3B8] truncate">
                   {client.address || "Sin dirección"}
+                </p>
+
+                <p className="text-[#B3B3B8]">
+                  {client.source || "Sin origen"}
                 </p>
 
                 <p className="text-[#B3B3B8]">

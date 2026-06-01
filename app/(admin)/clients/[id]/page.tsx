@@ -14,6 +14,8 @@ type Client = {
   phone: string | null;
   address: string | null;
   notes: string | null;
+  source?: string | null;
+  lead_captured_at?: string | null;
 };
 
 type ClientProject = {
@@ -123,12 +125,20 @@ export default async function ClientDetailPage({
           </p>
         </div>
 
-        <Link
-          href={`/clients/${clientData.id}/edit`}
-          className="bg-[#222228] hover:bg-[#2A2A30] border border-[#2A2A30] rounded-xl px-5 py-3 font-semibold"
-        >
-          Editar cliente
-        </Link>
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href="/quotes/new"
+            className="bg-[#9E1B32] hover:bg-[#B91C3C] rounded-xl px-5 py-3 font-semibold"
+          >
+            Nueva cotización
+          </Link>
+          <Link
+            href={`/clients/${clientData.id}/edit`}
+            className="bg-[#222228] hover:bg-[#2A2A30] border border-[#2A2A30] rounded-xl px-5 py-3 font-semibold"
+          >
+            Editar cliente
+          </Link>
+        </div>
       </div>
 
       <section className="mb-10 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4 xl:gap-6">
@@ -145,6 +155,20 @@ export default async function ClientDetailPage({
         <div className="bg-[#151518] border border-[#1F1F24] rounded-2xl p-4 sm:p-6 md:col-span-2">
           <p className="text-[#B3B3B8] mb-2">Dirección</p>
           <p className="font-semibold">{clientData.address || "Sin dirección"}</p>
+        </div>
+      </section>
+
+      <section className="mb-10 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4 xl:gap-6">
+        <div className="bg-[#151518] border border-[#1F1F24] rounded-2xl p-4 sm:p-6">
+          <p className="text-[#B3B3B8] mb-2">Origen</p>
+          <p className="font-semibold">{clientData.source || "Sin origen"}</p>
+        </div>
+
+        <div className="bg-[#151518] border border-[#1F1F24] rounded-2xl p-4 sm:p-6">
+          <p className="text-[#B3B3B8] mb-2">Fecha de captura</p>
+          <p className="font-semibold">
+            {formatDate(clientData.lead_captured_at || null)}
+          </p>
         </div>
       </section>
 

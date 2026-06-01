@@ -35,6 +35,20 @@ const allowedTimelines = [
   "Solo estoy explorando",
 ];
 
+const allowedSources = [
+  "Landing Web",
+  "Referido",
+  "LinkedIn",
+  "Google",
+  "Prospectación Directa",
+  "Cliente Existente",
+  "pagina_web_alfa_high_end_services",
+];
+
+function normalizeSource(value: string) {
+  return value === "pagina_web_alfa_high_end_services" ? "Landing Web" : value;
+}
+
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
 
@@ -48,7 +62,7 @@ export async function POST(request: Request) {
     interest: String(body?.interest || "").trim(),
     budgetRange: String(body?.budgetRange || "").trim(),
     timeline: String(body?.timeline || "").trim(),
-    source: String(body?.source || "pagina_web_alfa_high_end_services").trim(),
+    source: normalizeSource(String(body?.source || "Landing Web").trim()),
     status: String(body?.status || "nuevo").trim(),
   };
 
@@ -78,7 +92,7 @@ export async function POST(request: Request) {
   }
 
   if (
-    lead.source !== "pagina_web_alfa_high_end_services" ||
+    !allowedSources.includes(lead.source) ||
     lead.status !== "nuevo"
   ) {
     return NextResponse.json({ error: "Payload invalido" }, { status: 400 });

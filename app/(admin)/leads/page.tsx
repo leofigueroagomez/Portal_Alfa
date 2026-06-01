@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
+import { convertLeadToClient } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -16,8 +17,24 @@ type Lead = {
   budget_range: string | null;
   timeline: string | null;
   status: string | null;
+  source: string | null;
+  client_id: number | null;
   created_at: string | null;
 };
+
+const sourceLabels: Record<string, string> = {
+  pagina_web_alfa_high_end_services: "Landing Web",
+  "Landing Web": "Landing Web",
+  Referido: "Referido",
+  LinkedIn: "LinkedIn",
+  Google: "Google",
+  "Prospectación Directa": "Prospectación Directa",
+  "Cliente Existente": "Cliente Existente",
+};
+
+function formatSource(value: string | null) {
+  return sourceLabels[value || ""] || value || "Landing Web";
+}
 
 function formatDate(value: string | null) {
   if (!value) return "Sin fecha";
@@ -37,6 +54,7 @@ function statusLabel(value: string | null) {
     contactado: "Contactado",
     calificado: "Calificado",
     descartado: "Descartado",
+    convertido: "Convertido",
   };
 
   return labels[status] || status;
@@ -57,7 +75,7 @@ export default async function LeadsPage() {
   const { data, error } = await supabase
     .from(tableName)
     .select(
-      "id, name, customer_type, company, phone, service, message, interest, budget_range, timeline, status, created_at"
+      "id, name, customer_type, company, phone, service, message, interest, budget_range, timeline, status, source, client_id, created_at"
     )
     .order("created_at", { ascending: false });
 
@@ -131,7 +149,9 @@ export default async function LeadsPage() {
                       {lead.name || "Contacto sin nombre"}
                     </h2>
                     <p className="mt-2 text-sm text-[#666666]">
-                      {[lead.company, lead.customer_type].filter(Boolean).join(" · ") ||
+                      {[lead.company, lead.customer_type, formatSource(lead.source)]
+                        .filter(Boolean)
+                        .join(" · ") ||
                         "Sin empresa"}
                     </p>
                   </div>
@@ -156,12 +176,24 @@ export default async function LeadsPage() {
                         {lead.phone}
                       </a>
                     ) : null}
-                    <Link
-                      href="/customers"
-                      className="inline-flex min-h-10 items-center rounded-full bg-[#111111] px-4 text-sm font-semibold text-white transition hover:bg-[#7A1F2B]"
-                    >
-                      Clientes
-                    </Link>
+                    {lead.client_id ? (
+                      <Link
+                        href={`/clients/${lead.client_id}`}
+                        className="inline-flex min-h-10 items-center rounded-full bg-[#111111] px-4 text-sm font-semibold text-white transition hover:bg-[#7A1F2B]"
+                      >
+                        Ver cliente
+                      </Link>
+                    ) : (
+                      <form action={convertLeadToClient}>
+                        <input type="hidden" name="leadId" value={lead.id} />
+                        <button
+                          type="submit"
+                          className="inline-flex min-h-10 items-center rounded-full bg-[#111111] px-4 text-sm font-semibold text-white transition hover:bg-[#7A1F2B]"
+                        >
+                          Convertir a Cliente
+                        </button>
+                      </form>
+                    )}
                   </div>
                 </div>
               </article>

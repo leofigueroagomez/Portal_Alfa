@@ -10,9 +10,10 @@ create table if not exists public.leads (
   interest text,
   budget_range text,
   timeline text,
-  source text not null default 'pagina_web_alfa_high_end_services',
+  source text not null default 'Landing Web',
   status text not null default 'nuevo'
-    check (status in ('nuevo', 'contactado', 'calificado', 'descartado')),
+    check (status in ('nuevo', 'contactado', 'calificado', 'convertido', 'descartado')),
+  client_id bigint references public.clients(id) on delete set null,
   raw_payload jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -32,6 +33,59 @@ alter table public.leads
 
 alter table public.leads
   add column if not exists timeline text;
+
+alter table public.leads
+  add column if not exists client_id bigint references public.clients(id) on delete set null;
+
+alter table public.clients
+  add column if not exists source text default 'Prospectación Directa';
+
+alter table public.clients
+  add column if not exists lead_captured_at timestamptz;
+
+update public.clients
+set source = 'Prospectación Directa'
+where source is null;
+
+update public.leads
+set source = 'Landing Web'
+where source = 'pagina_web_alfa_high_end_services';
+
+alter table public.leads
+  alter column source set default 'Landing Web';
+
+do $$
+begin
+  alter table public.leads
+    drop constraint if exists leads_status_check;
+
+  alter table public.leads
+    add constraint leads_status_check
+    check (status in ('nuevo', 'contactado', 'calificado', 'convertido', 'descartado'));
+end $$;
+
+do $$
+begin
+  alter table public.leads
+    drop constraint if exists leads_source_check;
+
+  alter table public.leads
+    add constraint leads_source_check
+    check (source in ('Landing Web', 'Referido', 'LinkedIn', 'Google', 'Prospectación Directa', 'Cliente Existente'));
+end $$;
+
+do $$
+begin
+  alter table public.clients
+    drop constraint if exists clients_source_check;
+
+  alter table public.clients
+    add constraint clients_source_check
+    check (source is null or source in ('Landing Web', 'Referido', 'LinkedIn', 'Google', 'Prospectación Directa', 'Cliente Existente'));
+end $$;
+
+create index if not exists leads_client_id_idx
+  on public.leads(client_id);
 
 alter table public.leads enable row level security;
 
