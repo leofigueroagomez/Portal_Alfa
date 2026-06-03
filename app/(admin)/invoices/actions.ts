@@ -15,6 +15,7 @@ import {
 } from "@/lib/fiscalData";
 import { getMissingProductFiscalFields, type ProductFiscalCatalogs } from "@/lib/productFiscalData";
 import { canViewFinancials } from "@/lib/permissions";
+import { formatRfcDiagnostic, getRfcDiagnostic, type RfcDiagnostic } from "@/lib/rfc";
 import { getCurrentUserProfile } from "@/services/profile";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 
@@ -75,6 +76,10 @@ type StampFailureDetails = FacturamaResponseLog | {
   name?: string;
 };
 
+type StampFailureDetailsWithDiagnostics = StampFailureDetails & {
+  rfc?: RfcDiagnostic;
+};
+
 export type StampProjectInvoiceResult =
   | {
       ok: true;
@@ -84,7 +89,7 @@ export type StampProjectInvoiceResult =
   | {
       ok: false;
       error: string;
-      details?: StampFailureDetails;
+      details?: StampFailureDetailsWithDiagnostics;
     };
 
 function getRelation<T>(relation: T | T[] | null | undefined) {
@@ -115,6 +120,13 @@ function getActionErrorDetails(error: unknown): StampFailureDetails {
   };
 }
 
+function withRfcDiagnostic(
+  details: StampFailureDetails,
+  rfcDiagnostic: RfcDiagnostic | null
+): StampFailureDetailsWithDiagnostics {
+  return rfcDiagnostic ? { ...details, rfc: rfcDiagnostic } : details;
+}
+
 async function saveInvoiceStampMetadata(
   supabase: SupabaseAdminClient,
   invoiceId: number,
@@ -142,6 +154,7 @@ export async function stampProjectInvoice(
 ): Promise<StampProjectInvoiceResult> {
   let supabase: SupabaseAdminClient | null = null;
   let invoiceProjectId: number | null = null;
+  let rfcDiagnostic: RfcDiagnostic | null = null;
 
   try {
     const profile = await getCurrentUserProfile();
@@ -185,6 +198,16 @@ export async function stampProjectInvoice(
 
     if (!client) {
       throw new Error("La factura no tiene cliente asociado.");
+    }
+
+    rfcDiagnostic = getRfcDiagnostic(client.tax_rfc);
+
+    if (!rfcDiagnostic.normalized) {
+      throw new Error("No se puede timbrar sin RFC fiscal del receptor.");
+    }
+
+    if (!rfcDiagnostic.isValid) {
+      throw new Error(`RFC invalido para timbrar. ${formatRfcDiagnostic(rfcDiagnostic)}`);
     }
 
     const fiscalRegimeCode = getFiscalRegimeCode(client);
@@ -296,7 +319,7 @@ export async function stampProjectInvoice(
       totalMxn,
       projectName: project?.name || null,
       receiver: {
-        rfc: client.tax_rfc!.trim().toUpperCase(),
+        rfc: rfcDiagnostic.normalized,
         name: client.tax_business_name!.trim().toUpperCase(),
         fiscalRegime: fiscalRegimeCode,
         cfdiUse: cfdiUseCode,
@@ -352,13 +375,21 @@ export async function stampProjectInvoice(
     };
   } catch (error) {
     const message = getActionErrorMessage(error);
-    const details = getActionErrorDetails(error);
+    const details = withRfcDiagnostic(getActionErrorDetails(error), rfcDiagnostic);
     const facturamaStatus = "status" in details ? details.status : null;
 
     console.error("[stampProjectInvoice] failed", {
       invoiceId,
       facturamaStatus,
       error: message,
+      rfc: rfcDiagnostic
+        ? {
+            normalized: rfcDiagnostic.normalized,
+            length: rfcDiagnostic.length,
+            detectedType: rfcDiagnostic.detectedType,
+            isValid: rfcDiagnostic.isValid,
+          }
+        : null,
     });
 
     if (supabase) {

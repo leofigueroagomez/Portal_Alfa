@@ -43,6 +43,7 @@ export type FacturamaResponseLog = {
   path: string;
   status: number;
   statusText: string;
+  request?: unknown;
   body: unknown;
 };
 
@@ -111,7 +112,8 @@ function getFacturamaConfig() {
 
 async function facturamaRequest<T>(
   path: string,
-  init?: RequestInit
+  init?: RequestInit,
+  requestLog?: unknown
 ): Promise<FacturamaResponse<T>> {
   const config = getFacturamaConfig();
   const cleanPath = path.replace(/^\//, "");
@@ -132,6 +134,7 @@ async function facturamaRequest<T>(
     path: cleanPath,
     status: response.status,
     statusText: response.statusText,
+    request: requestLog,
     body,
   };
 
@@ -254,14 +257,32 @@ function buildInvoicePayload(draft: FacturamaInvoiceDraft) {
   };
 }
 
+type FacturamaInvoicePayload = ReturnType<typeof buildInvoicePayload>;
+
+function buildFacturamaRequestLog(payload: FacturamaInvoicePayload) {
+  return {
+    Receiver: {
+      Rfc: payload.Receiver.Rfc,
+    },
+    Folio: payload.Folio,
+    CfdiType: payload.CfdiType,
+    Currency: payload.Currency,
+    ItemsCount: payload.Items.length,
+  };
+}
+
 export async function stampFacturamaInvoice(
   draft: FacturamaInvoiceDraft
 ): Promise<FacturamaStampResult> {
   const payload = buildInvoicePayload(draft);
-  const response = await facturamaRequest<FacturamaCreateCfdiResponse>("3/cfdis", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+  const response = await facturamaRequest<FacturamaCreateCfdiResponse>(
+    "3/cfdis",
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+    buildFacturamaRequestLog(payload)
+  );
   const facturamaId = response.data.Id;
 
   if (!facturamaId) {
@@ -279,6 +300,7 @@ export async function stampFacturamaInvoice(
       path: response.path,
       status: response.status,
       statusText: response.statusText,
+      request: response.request,
       body: response.body,
     },
   };
