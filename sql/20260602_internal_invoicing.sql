@@ -14,42 +14,6 @@ alter table public.products
   add column if not exists sat_unit_name text,
   add column if not exists fiscal_object text not null default '02';
 
-do $$
-begin
-  if exists (
-    select 1
-    from information_schema.columns
-    where table_schema = 'public'
-      and table_name = 'products'
-      and column_name = 'sat_product_key'
-  ) then
-    execute 'update public.products set sat_product_service_code = coalesce(sat_product_service_code, nullif(sat_product_key, ''''))';
-  end if;
-
-  if exists (
-    select 1
-    from information_schema.columns
-    where table_schema = 'public'
-      and table_name = 'products'
-      and column_name = 'sat_unit_key'
-  ) then
-    execute 'update public.products set sat_unit_code = coalesce(sat_unit_code, nullif(sat_unit_key, ''''))';
-  end if;
-
-  if exists (
-    select 1
-    from information_schema.columns
-    where table_schema = 'public'
-      and table_name = 'products'
-      and column_name = 'unit_name'
-  ) then
-    execute 'update public.products set sat_unit_name = coalesce(sat_unit_name, nullif(unit_name, ''''))';
-  end if;
-
-  update public.products
-  set fiscal_object = coalesce(nullif(fiscal_object, ''), '02');
-end $$;
-
 create table if not exists public.sat_product_service_catalog (
   code text primary key,
   description text not null,
@@ -68,6 +32,7 @@ values
   ('43211500', 'Computadoras', true),
   ('43221700', 'Equipo fijo y componentes de red', true),
   ('45111600', 'Proyectores y suministros', true),
+  ('46171602', 'Alarmas de seguridad', true),
   ('52161500', 'Equipos audiovisuales', true),
   ('81161700', 'Servicios de telecomunicaciones', true)
 on conflict (code) do update
@@ -86,6 +51,58 @@ set
   name = excluded.name,
   description = excluded.description,
   is_active = excluded.is_active;
+
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'products'
+      and column_name = 'sat_product_key'
+  ) then
+    execute 'update public.products p
+      set sat_product_service_code = nullif(p.sat_product_key, '''')
+      where p.sat_product_service_code is null
+        and nullif(p.sat_product_key, '''') is not null
+        and exists (
+          select 1
+          from public.sat_product_service_catalog spsc
+          where spsc.code = nullif(p.sat_product_key, '''')
+        )';
+  end if;
+
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'products'
+      and column_name = 'sat_unit_key'
+  ) then
+    execute 'update public.products p
+      set sat_unit_code = nullif(p.sat_unit_key, '''')
+      where p.sat_unit_code is null
+        and nullif(p.sat_unit_key, '''') is not null
+        and exists (
+          select 1
+          from public.sat_unit_catalog suc
+          where suc.code = nullif(p.sat_unit_key, '''')
+        )';
+  end if;
+
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'products'
+      and column_name = 'unit_name'
+  ) then
+    execute 'update public.products set sat_unit_name = coalesce(sat_unit_name, nullif(unit_name, ''''))';
+  end if;
+
+  update public.products
+  set fiscal_object = coalesce(nullif(fiscal_object, ''), '02');
+end $$;
 
 update public.products p
 set sat_product_service_code = null
