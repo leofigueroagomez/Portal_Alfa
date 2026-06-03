@@ -3,6 +3,9 @@ import { ArrowRight, ShieldCheck } from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { formatCurrency } from "@/lib/format";
 import { getProjectFinancialSummary } from "@/lib/projectFinancials";
+import { canManageUsers } from "@/lib/permissions";
+import { getCurrentUserProfile } from "@/services/profile";
+import SyncPostSaleButton from "./SyncPostSaleButton";
 
 type ClientProject = {
   id: number;
@@ -45,6 +48,8 @@ function addMonths(value: string | null | undefined, months: number | null | und
 
 export default async function PostSalePage() {
   const supabase = await createSupabaseServerClient();
+  const profile = await getCurrentUserProfile();
+  const canSyncPostSale = canManageUsers(profile?.role);
 
   const { data: projects, error } = await supabase
     .from("client_projects")
@@ -127,9 +132,12 @@ export default async function PostSalePage() {
             Proyectos entregados, garantias, historial de entrega, mantenimiento sugerido y saldos pendientes.
           </p>
         </div>
-        <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5">
-          <p className="mb-1 text-sm text-[#B3B3B8]">Proyectos postventa</p>
-          <p className="text-2xl font-bold text-[#9E1B32]">{projectList.length}</p>
+        <div className="flex flex-col gap-3">
+          <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5">
+            <p className="mb-1 text-sm text-[#B3B3B8]">Proyectos postventa</p>
+            <p className="text-2xl font-bold text-[#9E1B32]">{projectList.length}</p>
+          </div>
+          {canSyncPostSale ? <SyncPostSaleButton /> : null}
         </div>
       </section>
 

@@ -134,6 +134,30 @@ begin
     );
 end $$;
 
+update public.client_projects
+set sales_stage = 'delivered'
+where id = 14
+  and exists (
+    select 1
+    from public.project_deliveries
+    where client_project_id = 14
+      and status in ('delivered', 'accepted')
+  )
+  and not exists (
+    select 1
+    from public.project_warranties
+    where client_project_id = 14
+  );
+
+update public.client_projects
+set sales_stage = 'warranty'
+where id = 14
+  and exists (
+    select 1
+    from public.project_warranties
+    where client_project_id = 14
+  );
+
 create index if not exists project_deliveries_project_id_idx
   on public.project_deliveries(client_project_id);
 
