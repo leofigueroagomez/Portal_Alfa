@@ -1,12 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { getAppBaseUrl } from "@/lib/appUrl";
 import { formatCurrency } from "@/lib/format";
 import { getProjectFinancialSummary } from "@/lib/projectFinancials";
 import { getProjectDeliverySystemsForDisplay } from "@/lib/projectDeliverySystems";
+import { generateProjectDeliveryPdf, generateWarrantyLetterPdf } from "@/lib/postSalePdf";
 
 type Delivery = {
   id: number;
@@ -390,15 +390,11 @@ export async function sendProjectDeliveryEmail(
       throw new Error("La garantia no ha sido generada todavia.");
     }
 
-    const { renderPrintRouteToPdf } = await import("@/lib/serverPdf");
-    const cookieHeader = (await cookies()).toString();
-    const deliveryPdf = await renderPrintRouteToPdf(
-      `/projects/${projectId}/deliveries/${deliveryId}/print`,
-      cookieHeader
-    );
-    const warrantyPdf = await renderPrintRouteToPdf(
-      `/projects/${projectId}/warranty/${emailDraft.warrantyId}/print`,
-      cookieHeader
+    const deliveryPdf = await generateProjectDeliveryPdf(supabase, projectId, deliveryId);
+    const warrantyPdf = await generateWarrantyLetterPdf(
+      supabase,
+      projectId,
+      emailDraft.warrantyId
     );
 
     return [

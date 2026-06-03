@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { getCurrentUserProfile } from "@/services/profile";
-import { renderPrintRouteToPdf } from "@/lib/serverPdf";
+import { generateProjectDeliveryPdf } from "@/lib/postSalePdf";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string; deliveryId: string }> }
 ) {
   const profile = await getCurrentUserProfile();
@@ -35,10 +35,7 @@ export async function GET(
   }
 
   try {
-    const pdf = await renderPrintRouteToPdf(
-      `/projects/${id}/deliveries/${deliveryId}/print`,
-      request.headers.get("cookie")
-    );
+    const pdf = await generateProjectDeliveryPdf(supabase, Number(id), Number(deliveryId));
 
     return new Response(new Uint8Array(pdf), {
       headers: {
