@@ -14,7 +14,9 @@ type Draft = {
   pdfGenerationPending: boolean;
   pendingBalanceMxn: number;
   deliveryUrl: string;
+  deliveryPdfUrl: string;
   warrantyUrl: string | null;
+  warrantyPdfUrl: string | null;
   warrantyCreateUrl: string;
   warrantyMissing: boolean;
   warrantyEndDate: string | null;
@@ -240,16 +242,38 @@ export default function SendDeliveryEmailButton({
                         <FileText size={15} />
                         Ver acta entrega
                       </a>
+                      <a
+                        href={draft.deliveryPdfUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 rounded-lg border border-[#2A2A30] px-3 py-2 text-sm font-semibold text-[#B3B3B8] hover:text-white"
+                      >
+                        <FileText size={15} />
+                        Ver acta PDF
+                      </a>
                       {draft.warrantyUrl ? (
-                        <a
-                          href={draft.warrantyUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-2 rounded-lg border border-[#2A2A30] px-3 py-2 text-sm font-semibold text-[#B3B3B8] hover:text-white"
-                        >
-                          <FileText size={15} />
-                          Ver carta garantia
-                        </a>
+                        <>
+                          <a
+                            href={draft.warrantyUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-2 rounded-lg border border-[#2A2A30] px-3 py-2 text-sm font-semibold text-[#B3B3B8] hover:text-white"
+                          >
+                            <FileText size={15} />
+                            Ver carta garantia
+                          </a>
+                          {draft.warrantyPdfUrl ? (
+                            <a
+                              href={draft.warrantyPdfUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-2 rounded-lg border border-[#2A2A30] px-3 py-2 text-sm font-semibold text-[#B3B3B8] hover:text-white"
+                            >
+                              <FileText size={15} />
+                              Ver carta garantia PDF
+                            </a>
+                          ) : null}
+                        </>
                       ) : (
                         <a
                           href={draft.warrantyCreateUrl}

@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import crypto from "node:crypto";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
-import { getAppBaseUrl } from "@/lib/appUrl";
 import { formatCurrency } from "@/lib/format";
 import { getProjectFinancialSummary } from "@/lib/projectFinancials";
 import { getProjectDeliverySystemsForDisplay } from "@/lib/projectDeliverySystems";
@@ -51,7 +51,9 @@ type EmailDraft = {
   pdfGenerationPending: boolean;
   pendingBalanceMxn: number;
   deliveryUrl: string;
+  deliveryPdfUrl: string;
   warrantyUrl: string | null;
+  warrantyPdfUrl: string | null;
   warrantyId: number | null;
   warrantyCreateUrl: string;
   warrantyMissing: boolean;
@@ -90,6 +92,14 @@ function escapeHtml(value: string | null | undefined) {
     .replace(/"/g, "&quot;");
 }
 
+function requireAppUrl() {
+  if (!process.env.APP_URL) {
+    throw new Error("APP_URL debe estar configurado para enviar documentos publicos.");
+  }
+
+  return process.env.APP_URL.replace(/\/+$/, "");
+}
+
 function logDeliveryEmailError(
   projectId: number,
   deliveryId: number,
@@ -110,6 +120,67 @@ function logDeliveryEmailError(
     step,
     message,
   });
+}
+
+async function getOrCreatePublicDocumentLink({
+  supabase,
+  projectId,
+  documentType,
+  deliveryId,
+  warrantyId,
+}: {
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>;
+  projectId: number;
+  documentType: "project_delivery" | "project_warranty";
+  deliveryId?: number;
+  warrantyId?: number;
+}) {
+  const query = supabase
+    .from("public_document_links")
+    .select("token")
+    .eq("document_type", documentType)
+    .eq("client_project_id", projectId)
+    .is("expires_at", null)
+    .limit(1);
+
+  const existingResult =
+    documentType === "project_delivery"
+      ? await query.eq("project_delivery_id", deliveryId)
+      : await query.eq("project_warranty_id", warrantyId);
+
+  if (existingResult.error) throw existingResult.error;
+  const existing = existingResult.data?.[0] as { token: string } | undefined;
+  if (existing?.token) return existing.token;
+
+  const token = crypto.randomBytes(32).toString("base64url");
+  const { error } = await supabase.from("public_document_links").insert({
+    token,
+    document_type: documentType,
+    client_project_id: projectId,
+    project_delivery_id: deliveryId || null,
+    project_warranty_id: warrantyId || null,
+    expires_at: null,
+  });
+
+  if (error) throw error;
+  return token;
+}
+
+function validatePdfBuffer(pdf: Buffer, label: string) {
+  if (!pdf || pdf.length < 12_000) {
+    throw new Error(`No se pudo generar un PDF formal valido para ${label}.`);
+  }
+}
+
+async function validatePublicUrl(url: string) {
+  const response = await fetch(url, {
+    method: "GET",
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(`El enlace publico no responde correctamente: ${url}`);
+  }
 }
 
 async function getEmailDraft(projectId: number, deliveryId: number): Promise<EmailDraft | { error: string }> {
@@ -187,21 +258,46 @@ async function getEmailDraft(projectId: number, deliveryId: number): Promise<Ema
   } catch (error) {
     logDeliveryEmailError(projectId, deliveryId, "load financial summary", error);
   }
-  if (!process.env.NEXT_PUBLIC_APP_URL && !process.env.APP_URL) {
-    logDeliveryEmailError(
-      projectId,
-      deliveryId,
-      "resolve app base url",
-      "NEXT_PUBLIC_APP_URL/APP_URL no configurado; usando fallback."
-    );
+  let baseUrl = "";
+  try {
+    baseUrl = requireAppUrl();
+  } catch (error) {
+    logDeliveryEmailError(projectId, deliveryId, "resolve app base url", error);
+    return { error: "APP_URL debe estar configurado para generar enlaces publicos." };
   }
 
-  const baseUrl = getAppBaseUrl();
   const deliveryDate = getDateOrToday(deliveryData.delivery_date);
-  const deliveryUrl = `${baseUrl}/projects/${projectId}/deliveries/${deliveryId}/print`;
-  const warrantyUrl = warrantyData
-    ? `${baseUrl}/projects/${projectId}/warranty/${warrantyData.id}/print`
+  let deliveryToken = "";
+  let warrantyToken = "";
+  try {
+    deliveryToken = await getOrCreatePublicDocumentLink({
+      supabase,
+      projectId,
+      documentType: "project_delivery",
+      deliveryId,
+    });
+    if (warrantyData) {
+      warrantyToken = await getOrCreatePublicDocumentLink({
+        supabase,
+        projectId,
+        documentType: "project_warranty",
+        warrantyId: warrantyData.id,
+      });
+    }
+  } catch (error) {
+    logDeliveryEmailError(projectId, deliveryId, "create public document links", error);
+    return {
+      error:
+        "No se pudieron crear enlaces publicos. Ejecuta la migracion public_document_links.",
+    };
+  }
+
+  const deliveryUrl = `${baseUrl}/public/documents/${deliveryToken}`;
+  const deliveryPdfUrl = `${deliveryUrl}/pdf`;
+  const warrantyUrl = warrantyData && warrantyToken
+    ? `${baseUrl}/public/documents/${warrantyToken}`
     : null;
+  const warrantyPdfUrl = warrantyUrl ? `${warrantyUrl}/pdf` : null;
   const warrantyCreateUrl = `${baseUrl}/projects/${projectId}/warranty/new`;
   const warrantyMonths = Number(
     warrantyData?.installation_warranty_months ||
@@ -246,7 +342,7 @@ async function getEmailDraft(projectId: number, deliveryId: number): Promise<Ema
         warrantyData
           ? `<p><strong>Acta de entrega:</strong> <a href="${deliveryUrl}">${deliveryUrl}</a></p>
              <p><strong>Carta de garantia:</strong> <a href="${warrantyUrl}">${warrantyUrl}</a></p>
-             <p style="color:#666">Se adjuntan PDFs del acta de entrega y carta de garantia generados desde las vistas imprimibles. Los enlaces internos permanecen protegidos por login.</p>`
+             <p style="color:#666">Se adjuntan PDFs formales del acta de entrega y carta de garantia. Los enlaces publicos funcionan sin iniciar sesion.</p>`
           : `<p style="color:#9E1B32"><strong>La garantia no ha sido generada todavia.</strong> Generala antes de enviar este correo: <a href="${warrantyCreateUrl}">${warrantyCreateUrl}</a></p>`
       }
     </div>
@@ -263,7 +359,9 @@ async function getEmailDraft(projectId: number, deliveryId: number): Promise<Ema
     pdfGenerationPending: false,
     pendingBalanceMxn: financialSummary.pendingTotalMxn,
     deliveryUrl,
+    deliveryPdfUrl,
     warrantyUrl,
+    warrantyPdfUrl,
     warrantyId: warrantyData?.id || null,
     warrantyCreateUrl,
     warrantyMissing: !warrantyData,
@@ -334,7 +432,9 @@ export async function previewProjectDeliveryEmail(projectId: number, deliveryId:
         pdfGenerationPending: draft.pdfGenerationPending,
         pendingBalanceMxn: draft.pendingBalanceMxn,
         deliveryUrl: draft.deliveryUrl,
+        deliveryPdfUrl: draft.deliveryPdfUrl,
         warrantyUrl: draft.warrantyUrl,
+        warrantyPdfUrl: draft.warrantyPdfUrl,
         warrantyCreateUrl: draft.warrantyCreateUrl,
         warrantyMissing: draft.warrantyMissing,
         warrantyEndDate: draft.warrantyEndDate,
@@ -396,6 +496,8 @@ export async function sendProjectDeliveryEmail(
       projectId,
       emailDraft.warrantyId
     );
+    validatePdfBuffer(Buffer.from(deliveryPdf), "acta de entrega");
+    validatePdfBuffer(Buffer.from(warrantyPdf), "carta garantia");
 
     return [
       {
@@ -426,6 +528,16 @@ export async function sendProjectDeliveryEmail(
 
   try {
     const attachments = await createEmailAttachments();
+    if (!emailDraft.warrantyUrl || !emailDraft.warrantyPdfUrl) {
+      throw new Error("No se generaron enlaces publicos de garantia.");
+    }
+    await Promise.all([
+      validatePublicUrl(emailDraft.deliveryUrl),
+      validatePublicUrl(emailDraft.deliveryPdfUrl),
+      validatePublicUrl(emailDraft.warrantyUrl),
+      validatePublicUrl(emailDraft.warrantyPdfUrl),
+    ]);
+
     const response = await sendResendEmail({
       to,
       cc,

@@ -1,4 +1,6 @@
 import React from "react";
+import fs from "node:fs";
+import path from "node:path";
 import {
   Document,
   Image,
@@ -10,6 +12,9 @@ import {
 } from "@react-pdf/renderer";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getProjectDeliverySystemsForDisplay } from "@/lib/projectDeliverySystems";
+
+const logoPath = path.join(process.cwd(), "public", "logo-print.png");
+const logoSrc = fs.existsSync(logoPath) ? logoPath : null;
 
 type ClientProject = {
   id: number;
@@ -114,9 +119,11 @@ async function resolveStorageUrl(
 
 const styles = StyleSheet.create({
   page: {
-    padding: 36,
+    paddingTop: 36,
+    paddingHorizontal: 40,
+    paddingBottom: 44,
     fontFamily: "Helvetica",
-    fontSize: 10,
+    fontSize: 9.5,
     color: "#111318",
     lineHeight: 1.45,
   },
@@ -132,6 +139,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 700,
     color: "#111318",
+  },
+  logo: {
+    width: 112,
+    maxHeight: 36,
+    objectFit: "contain",
+    marginBottom: 8,
   },
   eyebrow: {
     marginTop: 8,
@@ -178,7 +191,7 @@ const styles = StyleSheet.create({
     color: "#555963",
   },
   section: {
-    marginTop: 12,
+    marginTop: 14,
     paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: "#D6D1C8",
@@ -230,7 +243,29 @@ const styles = StyleSheet.create({
     padding: 10,
     marginTop: 10,
   },
+  footer: {
+    position: "absolute",
+    left: 40,
+    right: 40,
+    bottom: 22,
+    borderTopWidth: 1,
+    borderTopColor: "#E1DDD5",
+    paddingTop: 6,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    color: "#77777D",
+    fontSize: 8,
+  },
 });
+
+function PdfFooter() {
+  return (
+    <View style={styles.footer} fixed>
+      <Text>ALFA IT - Documento de postventa</Text>
+      <Text render={({ pageNumber, totalPages }) => `Pagina ${pageNumber} de ${totalPages}`} />
+    </View>
+  );
+}
 
 export function ProjectDeliveryPdfDocument({
   delivery,
@@ -256,7 +291,7 @@ export function ProjectDeliveryPdfDocument({
       <Page size="LETTER" style={styles.page}>
         <View style={styles.header}>
           <View>
-            <Text style={styles.brand}>ALFA IT</Text>
+            {logoSrc ? <Image src={logoSrc} style={styles.logo} /> : <Text style={styles.brand}>ALFA IT</Text>}
             <Text style={styles.eyebrow}>Acta de entrega de proyecto</Text>
           </View>
           <View style={styles.rightHeader}>
@@ -299,7 +334,7 @@ export function ProjectDeliveryPdfDocument({
             <View style={styles.twoColumnWrap}>
               {systems.map((system) => (
                 <View key={system.system_name} style={styles.halfBox}>
-                  <Text style={styles.value}>✓ {system.system_name}</Text>
+                  <Text style={styles.value}>Sistema entregado: {system.system_name}</Text>
                   {system.notes ? <Text style={styles.muted}>{system.notes}</Text> : null}
                 </View>
               ))}
@@ -364,6 +399,7 @@ export function ProjectDeliveryPdfDocument({
             </View>
           </View>
         </View>
+        <PdfFooter />
       </Page>
     </Document>
   );
@@ -394,7 +430,7 @@ export function WarrantyLetterPdfDocument({
       <Page size="LETTER" style={styles.page}>
         <View style={styles.header}>
           <View>
-            <Text style={styles.brand}>ALFA IT</Text>
+            {logoSrc ? <Image src={logoSrc} style={styles.logo} /> : <Text style={styles.brand}>ALFA IT</Text>}
             <Text style={styles.eyebrow}>Carta de garantia</Text>
           </View>
           <View style={styles.rightHeader}>
@@ -510,6 +546,7 @@ export function WarrantyLetterPdfDocument({
             </View>
           </View>
         </View>
+        <PdfFooter />
       </Page>
     </Document>
   );
