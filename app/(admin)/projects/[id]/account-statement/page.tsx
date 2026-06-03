@@ -2,6 +2,12 @@ import Link from "next/link";
 import { ArrowLeft, FileText } from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { formatCurrency, formatNumber } from "@/lib/format";
+import {
+  invoiceStatusClasses,
+  invoiceStatusLabels,
+  normalizeInvoiceStatus,
+  type ProjectInvoice,
+} from "@/lib/invoices";
 import ProjectPaymentForm from "./ProjectPaymentForm";
 
 type ClientProject = {
@@ -123,9 +129,21 @@ export default async function ProjectAccountStatementPage({
       .order("created_at", { ascending: false }),
   ]);
 
+  const invoicesResult = await supabase
+    .from("project_invoices")
+    .select(
+      "id, internal_folio, invoice_date, subtotal, iva, total, currency, status, xml_url, pdf_url, sat_uuid"
+    )
+    .eq("client_project_id", projectData.id)
+    .order("invoice_date", { ascending: false })
+    .order("created_at", { ascending: false });
+
   const clientData = client as Client | null;
   const quotes = (approvedQuotes || []) as Quote[];
   const payments = paymentsResult.error ? [] : ((paymentsResult.data || []) as ProjectPayment[]);
+  const invoices = invoicesResult.error
+    ? []
+    : ((invoicesResult.data || []) as ProjectInvoice[]);
 
   const totalEquipmentUsd = quotes.reduce(
     (sum, quote) => sum + Number(quote.equipment_total || 0),
@@ -325,6 +343,80 @@ export default async function ProjectAccountStatementPage({
                     </td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section className="mt-8 rounded-2xl border border-[#1F1F24] bg-[#151518] p-5 sm:p-6">
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-2xl font-semibold">Facturas asociadas</h2>
+            <p className="mt-1 text-sm text-[#B3B3B8]">
+              Registro interno de facturacion vinculado a este proyecto.
+            </p>
+          </div>
+          <Link
+            href={`/projects/${projectData.id}/invoices`}
+            className="inline-flex w-fit items-center gap-2 rounded-xl border border-[#2A2A30] bg-[#222228] px-5 py-3 font-semibold text-[#B3B3B8] hover:bg-[#2A2A30] hover:text-white"
+          >
+            <FileText size={18} />
+            Ver modulo
+          </Link>
+        </div>
+
+        {invoicesResult.error ? (
+          <div className="rounded-xl border border-[#614620] bg-[#322514] p-4 text-sm text-[#F4C66A]">
+            Ejecuta el SQL de facturacion interna para mostrar facturas asociadas.
+          </div>
+        ) : invoices.length === 0 ? (
+          <p className="text-[#77777D]">Aun no hay facturas asociadas.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[820px] border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-[#2A2A30] text-left text-[#B3B3B8]">
+                  <th className="px-3 py-3">Folio</th>
+                  <th className="px-3 py-3">Fecha</th>
+                  <th className="px-3 py-3 text-right">Subtotal</th>
+                  <th className="px-3 py-3 text-right">IVA</th>
+                  <th className="px-3 py-3 text-right">Total</th>
+                  <th className="px-3 py-3">Estado</th>
+                  <th className="px-3 py-3">SAT</th>
+                </tr>
+              </thead>
+              <tbody>
+                {invoices.map((invoice) => {
+                  const status = normalizeInvoiceStatus(invoice.status);
+                  return (
+                    <tr key={invoice.id} className="border-b border-[#222228]">
+                      <td className="px-3 py-3 font-semibold text-[#9E1B32]">
+                        {invoice.internal_folio || `#${invoice.id}`}
+                      </td>
+                      <td className="px-3 py-3">{formatDate(invoice.invoice_date)}</td>
+                      <td className="px-3 py-3 text-right">
+                        {formatCurrency(invoice.subtotal, invoice.currency)}
+                      </td>
+                      <td className="px-3 py-3 text-right">
+                        {formatCurrency(invoice.iva, invoice.currency)}
+                      </td>
+                      <td className="px-3 py-3 text-right font-semibold">
+                        {formatCurrency(invoice.total, invoice.currency)}
+                      </td>
+                      <td className="px-3 py-3">
+                        <span
+                          className={`inline-flex rounded-full border px-3 py-1 text-xs ${invoiceStatusClasses[status]}`}
+                        >
+                          {invoiceStatusLabels[status]}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-[#B3B3B8]">
+                        {invoice.sat_uuid ? "UUID capturado" : "Sin timbrado"}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

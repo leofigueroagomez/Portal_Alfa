@@ -16,6 +16,11 @@ type Client = {
   notes: string | null;
   source?: string | null;
   lead_captured_at?: string | null;
+  tax_rfc?: string | null;
+  tax_business_name?: string | null;
+  tax_regime?: string | null;
+  default_cfdi_use?: string | null;
+  tax_zip_code?: string | null;
 };
 
 type ClientProject = {
@@ -179,6 +184,30 @@ export default async function ClientDetailPage({
         </p>
       </section>
 
+      <section className="mb-10 rounded-2xl border border-[#1F1F24] bg-[#151518] p-4 sm:p-6">
+        <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-2xl font-semibold">Datos fiscales</h2>
+            <p className="mt-1 text-sm text-[#B3B3B8]">
+              Base para facturacion interna y futura integracion SAT.
+            </p>
+          </div>
+          <Link
+            href={`/clients/${clientData.id}/edit`}
+            className="w-fit rounded-xl border border-[#2A2A30] bg-[#222228] px-5 py-3 font-semibold hover:bg-[#2A2A30]"
+          >
+            Editar fiscales
+          </Link>
+        </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <FiscalField label="RFC" value={clientData.tax_rfc} />
+          <FiscalField label="Razon social" value={clientData.tax_business_name} />
+          <FiscalField label="Regimen fiscal" value={clientData.tax_regime} />
+          <FiscalField label="Uso CFDI default" value={clientData.default_cfdi_use} />
+          <FiscalField label="CP fiscal" value={clientData.tax_zip_code} />
+        </div>
+      </section>
+
       <section className="bg-[#151518] border border-[#1F1F24] rounded-2xl overflow-hidden">
         <div className="flex flex-col gap-4 border-b border-[#2A2A30] p-4 sm:p-6 md:flex-row md:items-center md:justify-between">
           <div>
@@ -244,5 +273,14 @@ export default async function ClientDetailPage({
         </div>
       </section>
     </main>
+  );
+}
+
+function FiscalField({ label, value }: { label: string; value: string | null | undefined }) {
+  return (
+    <div className="rounded-xl border border-[#2A2A30] bg-[#222228] p-4">
+      <p className="mb-2 text-sm text-[#B3B3B8]">{label}</p>
+      <p className="font-semibold">{value || "Pendiente"}</p>
+    </div>
   );
 }

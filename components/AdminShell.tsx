@@ -15,6 +15,7 @@ import {
   Menu,
   Package,
   PlusCircle,
+  ReceiptText,
   Ruler,
   Settings,
   SlidersHorizontal,
@@ -30,6 +31,7 @@ import {
   canManageContractors,
   canManageProductTaxonomy,
   canManageServices,
+  canViewFinancials,
   canManageUsers,
   normalizeRole,
 } from "@/lib/permissions";
@@ -109,6 +111,15 @@ export default function AdminShell({
     },
   ];
 
+  const financeItems: NavLink[] = [
+    {
+      href: "/invoices",
+      label: "Facturacion",
+      icon: ReceiptText,
+      visible: canViewFinancials(role),
+    },
+  ];
+
   const settingsItems: NavLink[] = [
     { href: "/users", label: "Usuarios", icon: UserCog, visible: canManageUsers(role) },
     {
@@ -134,6 +145,7 @@ export default function AdminShell({
   const navGroups: NavGroup[] = [
     { label: "Comercial", icon: FileText, items: commercialItems },
     { label: "Operaciones", icon: FolderOpen, items: operationsItems },
+    { label: "Finanzas", icon: ReceiptText, items: financeItems },
   ];
 
   async function handleLogout() {

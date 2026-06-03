@@ -28,6 +28,11 @@ export default function EditClientPage() {
     phone: "",
     address: "",
     notes: "",
+    tax_rfc: "",
+    tax_business_name: "",
+    tax_regime: "",
+    default_cfdi_use: "",
+    tax_zip_code: "",
     source: "Prospectación Directa",
   });
 
@@ -76,6 +81,11 @@ export default function EditClientPage() {
         phone: data.phone || "",
         address: data.address || "",
         notes: data.notes || "",
+        tax_rfc: data.tax_rfc || "",
+        tax_business_name: data.tax_business_name || "",
+        tax_regime: data.tax_regime || "",
+        default_cfdi_use: data.default_cfdi_use || "",
+        tax_zip_code: data.tax_zip_code || "",
         source: data.source || "Prospectación Directa",
       });
       setLoading(false);
@@ -102,6 +112,11 @@ export default function EditClientPage() {
         phone: form.phone,
         address: form.address,
         notes: form.notes,
+        tax_rfc: form.tax_rfc.trim().toUpperCase() || null,
+        tax_business_name: form.tax_business_name.trim() || null,
+        tax_regime: form.tax_regime.trim() || null,
+        default_cfdi_use: form.default_cfdi_use.trim().toUpperCase() || null,
+        tax_zip_code: form.tax_zip_code.trim() || null,
         source: form.source,
       })
       .eq("id", clientId)
@@ -178,6 +193,19 @@ export default function EditClientPage() {
         </div>
 
         <aside className="space-y-6">
+          <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-4 sm:p-6">
+            <h2 className="mb-4 text-2xl font-semibold">
+              Datos fiscales
+            </h2>
+            <div className="space-y-3">
+              <input className="w-full rounded-xl bg-[#222228] p-4 outline-none" placeholder="RFC" value={form.tax_rfc} onChange={(e) => updateField("tax_rfc", e.target.value)} />
+              <input className="w-full rounded-xl bg-[#222228] p-4 outline-none" placeholder="Razon social" value={form.tax_business_name} onChange={(e) => updateField("tax_business_name", e.target.value)} />
+              <input className="w-full rounded-xl bg-[#222228] p-4 outline-none" placeholder="Regimen fiscal" value={form.tax_regime} onChange={(e) => updateField("tax_regime", e.target.value)} />
+              <input className="w-full rounded-xl bg-[#222228] p-4 outline-none" placeholder="Uso CFDI default" value={form.default_cfdi_use} onChange={(e) => updateField("default_cfdi_use", e.target.value)} />
+              <input className="w-full rounded-xl bg-[#222228] p-4 outline-none" placeholder="Codigo postal fiscal" value={form.tax_zip_code} onChange={(e) => updateField("tax_zip_code", e.target.value)} />
+            </div>
+          </div>
+
           <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-4 sm:p-6">
             <h2 className="text-2xl font-semibold mb-4">
               Folios futuros
