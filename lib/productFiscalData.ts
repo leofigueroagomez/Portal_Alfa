@@ -11,6 +11,12 @@ export type SatUnitCatalogItem = {
   is_active: boolean;
 };
 
+export type TaxObjectCatalogItem = {
+  code: string;
+  name: string;
+  is_active: boolean;
+};
+
 export type ProductFiscalData = {
   id: number;
   name?: string | null;
@@ -26,18 +32,15 @@ export type ProductFiscalData = {
 export type ProductFiscalCatalogs = {
   productServices: SatProductServiceCatalogItem[];
   units: SatUnitCatalogItem[];
+  taxObjects?: TaxObjectCatalogItem[];
 };
 
 export function getProductSatProductCode(product: ProductFiscalData | null | undefined) {
-  return (
-    product?.sat_product_service_code?.trim() ||
-    product?.sat_product_key?.trim() ||
-    ""
-  );
+  return product?.sat_product_service_code?.trim() || "";
 }
 
 export function getProductSatUnitCode(product: ProductFiscalData | null | undefined) {
-  return product?.sat_unit_code?.trim() || product?.sat_unit_key?.trim() || "";
+  return product?.sat_unit_code?.trim() || "";
 }
 
 export function getProductSatUnitName(product: ProductFiscalData | null | undefined) {
@@ -58,8 +61,20 @@ export function getMissingProductFiscalFields(
   const unitName = getProductSatUnitName(product);
   const fiscalObject = getProductFiscalObject(product);
 
-  if (!productCode) missing.push("Codigo SAT producto/servicio");
-  if (!unitCode) missing.push("Clave unidad SAT");
+  if (!productCode) {
+    missing.push(
+      product?.sat_product_key?.trim()
+        ? "Codigo SAT producto/servicio requiere actualizacion"
+        : "Codigo SAT producto/servicio"
+    );
+  }
+  if (!unitCode) {
+    missing.push(
+      product?.sat_unit_key?.trim()
+        ? "Clave unidad SAT requiere actualizacion"
+        : "Clave unidad SAT"
+    );
+  }
   if (!unitName) missing.push("Nombre unidad SAT");
   if (!fiscalObject) missing.push("Objeto de impuesto");
 
@@ -74,6 +89,13 @@ export function getMissingProductFiscalFields(
     const item = catalogs.units.find((option) => option.code === unitCode);
     if (!item || !item.is_active) {
       missing.push("Clave unidad SAT requiere actualizacion");
+    }
+  }
+
+  if (catalogs?.taxObjects && fiscalObject) {
+    const item = catalogs.taxObjects.find((option) => option.code === fiscalObject);
+    if (!item || !item.is_active) {
+      missing.push("Objeto de impuesto requiere actualizacion");
     }
   }
 

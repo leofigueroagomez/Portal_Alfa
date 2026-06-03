@@ -27,29 +27,25 @@ create table if not exists public.sat_unit_catalog (
   is_active boolean not null default true
 );
 
-insert into public.sat_product_service_catalog (code, description, is_active)
-values
-  ('43211500', 'Computadoras', true),
-  ('43221700', 'Equipo fijo y componentes de red', true),
-  ('45111600', 'Proyectores y suministros', true),
-  ('46171602', 'Alarmas de seguridad', true),
-  ('52161500', 'Equipos audiovisuales', true),
-  ('81161700', 'Servicios de telecomunicaciones', true)
-on conflict (code) do update
-set
-  description = excluded.description,
-  is_active = excluded.is_active;
+create table if not exists public.tax_object_catalog (
+  code text primary key,
+  name text not null,
+  is_active boolean not null default true
+);
 
-insert into public.sat_unit_catalog (code, name, description, is_active)
+insert into public.tax_object_catalog (code, name, is_active)
 values
-  ('E48', 'Unidad de servicio', 'Unidad de servicio', true),
-  ('H87', 'Pieza', 'Pieza', true),
-  ('ACT', 'Actividad', 'Actividad', true),
-  ('E51', 'Trabajo', 'Trabajo', true)
+  ('01', 'No objeto de impuesto.', true),
+  ('02', 'Si objeto de impuesto.', true),
+  ('03', 'Si objeto del impuesto y no obligado al desglose.', true),
+  ('04', 'Si objeto del impuesto y no causa impuesto.', true),
+  ('05', 'Si objeto del impuesto, IVA credito PODEBI.', true),
+  ('06', 'Si objeto del IVA, No traslado IVA.', true),
+  ('07', 'No traslado del IVA, Si desglose IEPS.', true),
+  ('08', 'No traslado del IVA, No desglose IEPS.', true)
 on conflict (code) do update
 set
   name = excluded.name,
-  description = excluded.description,
   is_active = excluded.is_active;
 
 do $$
@@ -127,6 +123,15 @@ set sat_unit_name = coalesce(nullif(p.sat_unit_name, ''), suc.name)
 from public.sat_unit_catalog suc
 where p.sat_unit_code = suc.code;
 
+update public.products
+set fiscal_object = '02'
+where fiscal_object is null
+   or not exists (
+    select 1
+    from public.tax_object_catalog toc
+    where toc.code = public.products.fiscal_object
+  );
+
 do $$
 begin
   if not exists (
@@ -150,13 +155,26 @@ begin
       foreign key (sat_unit_code)
       references public.sat_unit_catalog(code);
   end if;
+
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'products_fiscal_object_fkey'
+  ) then
+    alter table public.products
+      add constraint products_fiscal_object_fkey
+      foreign key (fiscal_object)
+      references public.tax_object_catalog(code);
+  end if;
 end $$;
 
 alter table public.sat_product_service_catalog enable row level security;
 alter table public.sat_unit_catalog enable row level security;
+alter table public.tax_object_catalog enable row level security;
 
 drop policy if exists beta_authenticated_select on public.sat_product_service_catalog;
 drop policy if exists beta_authenticated_select on public.sat_unit_catalog;
+drop policy if exists beta_authenticated_select on public.tax_object_catalog;
 
 create policy beta_authenticated_select
 on public.sat_product_service_catalog
@@ -169,6 +187,26 @@ on public.sat_unit_catalog
 for select
 to authenticated
 using (true);
+
+create policy beta_authenticated_select
+on public.tax_object_catalog
+for select
+to authenticated
+using (true);
+
+create extension if not exists pg_trgm with schema extensions;
+
+create index if not exists sat_product_service_catalog_description_trgm_idx
+  on public.sat_product_service_catalog using gin (description gin_trgm_ops);
+
+create index if not exists sat_unit_catalog_name_trgm_idx
+  on public.sat_unit_catalog using gin (name gin_trgm_ops);
+
+create index if not exists sat_unit_catalog_description_trgm_idx
+  on public.sat_unit_catalog using gin (description gin_trgm_ops);
+
+create index if not exists tax_object_catalog_name_trgm_idx
+  on public.tax_object_catalog using gin (name gin_trgm_ops);
 
 create table if not exists public.fiscal_regime_catalog (
   code text primary key,
@@ -189,7 +227,21 @@ values
   ('601', 'General de Ley Personas Morales', 'moral', true),
   ('603', 'Personas Morales con Fines no Lucrativos', 'moral', true),
   ('605', 'Sueldos y Salarios e Ingresos Asimilados a Salarios', 'physical', true),
+  ('606', 'Arrendamiento', 'physical', true),
+  ('607', 'Regimen de Enajenacion o Adquisicion de Bienes', 'physical', true),
+  ('608', 'Demas ingresos', 'physical', true),
+  ('610', 'Residentes en el Extranjero sin Establecimiento Permanente en Mexico', 'both', true),
+  ('611', 'Ingresos por Dividendos socios y accionistas', 'physical', true),
   ('612', 'Personas Fisicas con Actividades Empresariales y Profesionales', 'physical', true),
+  ('614', 'Ingresos por intereses', 'physical', true),
+  ('615', 'Regimen de los ingresos por obtencion de premios', 'physical', true),
+  ('616', 'Sin obligaciones fiscales', 'physical', true),
+  ('620', 'Sociedades Cooperativas de Produccion que optan por diferir sus ingresos', 'moral', true),
+  ('621', 'Incorporacion Fiscal', 'physical', true),
+  ('622', 'Actividades Agricolas, Ganaderas, Silvicolas y Pesqueras', 'moral', true),
+  ('623', 'Opcional para Grupos de Sociedades', 'moral', true),
+  ('624', 'Coordinados', 'moral', true),
+  ('625', 'Regimen de las Actividades Empresariales con ingresos a traves de Plataformas Tecnologicas', 'physical', true),
   ('626', 'Regimen Simplificado de Confianza', 'both', true)
 on conflict (code) do update
 set
@@ -199,10 +251,30 @@ set
 
 insert into public.cfdi_use_catalog (code, name, applies_to_person_type, is_active)
 values
-  ('G01', 'Adquisicion de mercancias', 'both', true),
-  ('G03', 'Gastos en general', 'both', true),
-  ('I04', 'Equipo de computo y accesorios', 'both', true),
-  ('S01', 'Sin efectos fiscales', 'both', true)
+  ('G01', 'Adquisicion de mercancias.', 'both', true),
+  ('G02', 'Devoluciones, descuentos o bonificaciones.', 'both', true),
+  ('G03', 'Gastos en general.', 'both', true),
+  ('I01', 'Construcciones.', 'both', true),
+  ('I02', 'Mobiliario y equipo de oficina por inversiones.', 'both', true),
+  ('I03', 'Equipo de transporte.', 'both', true),
+  ('I04', 'Equipo de computo y accesorios.', 'both', true),
+  ('I05', 'Dados, troqueles, moldes, matrices y herramental.', 'both', true),
+  ('I06', 'Comunicaciones telefonicas.', 'both', true),
+  ('I07', 'Comunicaciones satelitales.', 'both', true),
+  ('I08', 'Otra maquinaria y equipo.', 'both', true),
+  ('D01', 'Honorarios medicos, dentales y gastos hospitalarios.', 'physical', true),
+  ('D02', 'Gastos medicos por incapacidad o discapacidad.', 'physical', true),
+  ('D03', 'Gastos funerales.', 'physical', true),
+  ('D04', 'Donativos.', 'physical', true),
+  ('D05', 'Intereses reales efectivamente pagados por creditos hipotecarios casa habitacion.', 'physical', true),
+  ('D06', 'Aportaciones voluntarias al SAR.', 'physical', true),
+  ('D07', 'Primas por seguros de gastos medicos.', 'physical', true),
+  ('D08', 'Gastos de transportacion escolar obligatoria.', 'physical', true),
+  ('D09', 'Depositos en cuentas para el ahorro, primas que tengan como base planes de pensiones.', 'physical', true),
+  ('D10', 'Pagos por servicios educativos colegiaturas.', 'physical', true),
+  ('S01', 'Sin efectos fiscales.', 'both', true),
+  ('CP01', 'Pagos', 'both', true),
+  ('CN01', 'Nomina', 'physical', true)
 on conflict (code) do update
 set
   name = excluded.name,
@@ -278,6 +350,12 @@ on public.cfdi_use_catalog
 for select
 to authenticated
 using (true);
+
+create index if not exists fiscal_regime_catalog_name_trgm_idx
+  on public.fiscal_regime_catalog using gin (name gin_trgm_ops);
+
+create index if not exists cfdi_use_catalog_name_trgm_idx
+  on public.cfdi_use_catalog using gin (name gin_trgm_ops);
 
 create table if not exists public.project_invoices (
   id bigint generated by default as identity primary key,
@@ -372,10 +450,33 @@ create table if not exists public.project_invoice_items (
   sat_product_service_code text not null references public.sat_product_service_catalog(code),
   sat_unit_code text not null references public.sat_unit_catalog(code),
   sat_unit_name text not null,
-  fiscal_object text not null default '02',
+  fiscal_object text not null default '02' references public.tax_object_catalog(code),
   sort_order integer not null default 0,
   created_at timestamptz not null default now()
 );
+
+update public.project_invoice_items
+set fiscal_object = '02'
+where fiscal_object is null
+   or not exists (
+    select 1
+    from public.tax_object_catalog toc
+    where toc.code = public.project_invoice_items.fiscal_object
+  );
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'project_invoice_items_fiscal_object_fkey'
+  ) then
+    alter table public.project_invoice_items
+      add constraint project_invoice_items_fiscal_object_fkey
+      foreign key (fiscal_object)
+      references public.tax_object_catalog(code);
+  end if;
+end $$;
 
 create index if not exists project_invoice_items_invoice_id_idx
   on public.project_invoice_items(project_invoice_id);

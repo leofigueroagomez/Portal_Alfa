@@ -3,14 +3,17 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { supabase } from "@/services/supabase";
-import { SatProductServiceSelect, SatUnitSelect } from "@/components/SatCatalogSelect";
+import {
+  SatProductServiceSelect,
+  SatUnitSelect,
+  TaxObjectSelect,
+} from "@/components/SatCatalogSelect";
 import {
   getMissingProductFiscalFields,
   getProductFiscalObject,
   getProductSatProductCode,
   getProductSatUnitCode,
   getProductSatUnitName,
-  type ProductFiscalCatalogs,
   type ProductFiscalData,
 } from "@/lib/productFiscalData";
 
@@ -32,10 +35,6 @@ export default function ProductFiscalDataModal({
   onSaved,
 }: Props) {
   const [rows, setRows] = useState<EditableProduct[]>([]);
-  const [catalogs, setCatalogs] = useState<ProductFiscalCatalogs>({
-    productServices: [],
-    units: [],
-  });
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -54,50 +53,60 @@ export default function ProductFiscalDataModal({
     setErrorMessage(null);
   }, [open, products]);
 
-  useEffect(() => {
-    if (!open) return;
-
-    async function loadCatalogs() {
-      const [productServicesResult, unitsResult] = await Promise.all([
-        supabase
-          .from("sat_product_service_catalog")
-          .select("code, description, is_active")
-          .order("code"),
-        supabase
-          .from("sat_unit_catalog")
-          .select("code, name, description, is_active")
-          .order("code"),
-      ]);
-
-      if (productServicesResult.error || unitsResult.error) {
-        setErrorMessage(
-          productServicesResult.error?.message ||
-            unitsResult.error?.message ||
-            "No se pudieron cargar catalogos SAT."
-        );
-        return;
-      }
-
-      setCatalogs({
-        productServices: productServicesResult.data || [],
-        units: unitsResult.data || [],
-      });
-    }
-
-    loadCatalogs();
-  }, [open]);
-
   function updateRow(id: number, patch: Partial<EditableProduct>) {
     setRows((current) =>
       current.map((row) => (row.id === id ? { ...row, ...patch } : row))
     );
   }
 
+  async function isActiveCatalogCode(endpoint: string, code: string) {
+    if (!code.trim()) return false;
+
+    const response = await fetch(`${endpoint}?code=${encodeURIComponent(code.trim())}`);
+    const payload = (await response.json()) as {
+      items?: Array<{ code: string; is_active: boolean }>;
+    };
+    const item = payload.items?.[0];
+
+    return Boolean(response.ok && item?.is_active);
+  }
+
+  async function validateRows() {
+    const messages: string[] = [];
+
+    for (const row of rows) {
+      const rowMissing = getMissingProductFiscalFields(row);
+      const [validProductCode, validUnitCode, validTaxObject] = await Promise.all([
+        isActiveCatalogCode(
+          "/api/sat-catalogs/product-services",
+          row.sat_product_service_code || ""
+        ),
+        isActiveCatalogCode("/api/sat-catalogs/units", row.sat_unit_code || ""),
+        isActiveCatalogCode("/api/sat-catalogs/tax-objects", row.fiscal_object || ""),
+      ]);
+
+      if (!validProductCode) {
+        rowMissing.push("Codigo SAT producto/servicio requiere actualizacion");
+      }
+      if (!validUnitCode) {
+        rowMissing.push("Clave unidad SAT requiere actualizacion");
+      }
+      if (!validTaxObject) {
+        rowMissing.push("Objeto de impuesto requiere actualizacion");
+      }
+
+      if (rowMissing.length > 0) {
+        messages.push(
+          `${row.name || `Producto #${row.id}`}: ${[...new Set(rowMissing)].join(", ")}`
+        );
+      }
+    }
+
+    return messages;
+  }
+
   async function handleSave() {
-    const missing = rows.flatMap((row) => {
-      const rowMissing = getMissingProductFiscalFields(row, catalogs);
-      return rowMissing.length > 0 ? [`${row.name || `Producto #${row.id}`}: ${rowMissing.join(", ")}`] : [];
-    });
+    const missing = await validateRows();
 
     if (missing.length > 0) {
       setErrorMessage(missing.join(" | "));
@@ -173,33 +182,27 @@ export default function ProductFiscalDataModal({
                     </p>
                   ) : null}
                 </div>
-                <select
-                  className="w-fit rounded-xl border border-[#2A2A30] bg-[#222228] px-3 py-2 text-sm outline-none"
-                  value={row.fiscal_object || "02"}
-                  onChange={(event) => updateRow(row.id, { fiscal_object: event.target.value })}
-                >
-                  <option value="02">02 - Si objeto de impuesto</option>
-                  <option value="01">01 - No objeto de impuesto</option>
-                  <option value="03">03 - Si objeto de impuesto y no obligado al desglose</option>
-                </select>
               </div>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <SatProductServiceSelect
                   label="Codigo SAT Producto/Servicio"
                   value={row.sat_product_service_code || ""}
-                  options={catalogs.productServices}
                   onChange={(value) => updateRow(row.id, { sat_product_service_code: value })}
                 />
                 <SatUnitSelect
                   label="Clave Unidad SAT"
                   value={row.sat_unit_code || ""}
-                  options={catalogs.units}
                   onChange={(value, unitName) =>
                     updateRow(row.id, {
                       sat_unit_code: value,
                       sat_unit_name: unitName || row.sat_unit_name,
                     })
                   }
+                />
+                <TaxObjectSelect
+                  label="Objeto de impuesto"
+                  value={row.fiscal_object || "02"}
+                  onChange={(value) => updateRow(row.id, { fiscal_object: value })}
                 />
               </div>
             </div>

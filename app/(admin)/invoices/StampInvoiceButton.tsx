@@ -6,11 +6,12 @@ import { BadgeCheck, Loader2 } from "lucide-react";
 import ClientFiscalDataModal from "@/components/ClientFiscalDataModal";
 import {
   formatMissingFiscalFields,
+  getCfdiUseCode,
+  getFiscalRegimeCode,
   getMissingFiscalFields,
   type FiscalCatalogItem,
   type FiscalClientData,
 } from "@/lib/fiscalData";
-import { supabase } from "@/services/supabase";
 import { stampProjectInvoice } from "./actions";
 
 type Props = {
@@ -35,8 +36,6 @@ export default function StampInvoiceButton({
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [localClient, setLocalClient] = useState<FiscalClientData | null>(client || null);
-  const [fiscalRegimes, setFiscalRegimes] = useState<FiscalCatalogItem[]>([]);
-  const [cfdiUses, setCfdiUses] = useState<FiscalCatalogItem[]>([]);
   const [fiscalModalOpen, setFiscalModalOpen] = useState(false);
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const canStamp = status === "draft" && !facturamaId;
@@ -45,33 +44,29 @@ export default function StampInvoiceButton({
     setLocalClient(client || null);
   }, [client]);
 
-  async function loadCatalogs() {
-    if (fiscalRegimes.length > 0 && cfdiUses.length > 0) {
-      return { fiscalRegimes, cfdiUses };
-    }
+  async function getCatalogCode(endpoint: string, code: string) {
+    if (!code.trim()) return null;
 
-    const [regimesResult, cfdiUsesResult] = await Promise.all([
-      supabase
-        .from("fiscal_regime_catalog")
-        .select("code, name, applies_to_person_type, is_active"),
-      supabase
-        .from("cfdi_use_catalog")
-        .select("code, name, applies_to_person_type, is_active"),
+    const response = await fetch(`${endpoint}?code=${encodeURIComponent(code.trim())}`);
+    const payload = (await response.json()) as {
+      items?: FiscalCatalogItem[];
+    };
+
+    return response.ok ? payload.items?.[0] || null : null;
+  }
+
+  async function loadCatalogs() {
+    const [regime, cfdiUse] = await Promise.all([
+      getCatalogCode(
+        "/api/sat-catalogs/fiscal-regimes",
+        getFiscalRegimeCode(localClient)
+      ),
+      getCatalogCode("/api/sat-catalogs/cfdi-uses", getCfdiUseCode(localClient)),
     ]);
 
-    const nextFiscalRegimes = regimesResult.error
-      ? []
-      : ((regimesResult.data || []) as FiscalCatalogItem[]);
-    const nextCfdiUses = cfdiUsesResult.error
-      ? []
-      : ((cfdiUsesResult.data || []) as FiscalCatalogItem[]);
-
-    setFiscalRegimes(nextFiscalRegimes);
-    setCfdiUses(nextCfdiUses);
-
     return {
-      fiscalRegimes: nextFiscalRegimes,
-      cfdiUses: nextCfdiUses,
+      fiscalRegimes: regime ? [regime] : [],
+      cfdiUses: cfdiUse ? [cfdiUse] : [],
     };
   }
 

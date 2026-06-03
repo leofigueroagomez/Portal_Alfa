@@ -8,7 +8,6 @@ import ProductFiscalDataModal from "@/components/ProductFiscalDataModal";
 import {
   formatMissingFiscalFields,
   getMissingFiscalFields,
-  type FiscalCatalogItem,
   type FiscalClientData,
 } from "@/lib/fiscalData";
 import {
@@ -17,7 +16,6 @@ import {
   getProductSatProductCode,
   getProductSatUnitCode,
   getProductSatUnitName,
-  type ProductFiscalCatalogs,
   type ProductFiscalData,
 } from "@/lib/productFiscalData";
 import { formatCurrency } from "@/lib/format";
@@ -146,12 +144,6 @@ export default function InvoiceForm({
   const [quoteItems, setQuoteItems] = useState<QuoteItem[]>([]);
   const [manualSubtotal, setManualSubtotal] = useState("");
   const [manualIva, setManualIva] = useState("");
-  const [fiscalRegimes, setFiscalRegimes] = useState<FiscalCatalogItem[]>([]);
-  const [cfdiUses, setCfdiUses] = useState<FiscalCatalogItem[]>([]);
-  const [productCatalogs, setProductCatalogs] = useState<ProductFiscalCatalogs>({
-    productServices: [],
-    units: [],
-  });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [fiscalModalOpen, setFiscalModalOpen] = useState(false);
   const [fiscalModalIntro, setFiscalModalIntro] = useState<string | null>(null);
@@ -166,12 +158,7 @@ export default function InvoiceForm({
   const selectedQuote =
     approvedQuotes.find((quote) => String(quote.id) === quoteId) || null;
   const missingFiscalFields = clientId
-    ? getMissingFiscalFields(
-        selectedClient,
-        fiscalRegimes.length > 0 && cfdiUses.length > 0
-          ? { fiscalRegimes, cfdiUses }
-          : undefined
-      )
+    ? getMissingFiscalFields(selectedClient)
     : [];
 
   const concepts = useMemo(() => {
@@ -208,7 +195,7 @@ export default function InvoiceForm({
       const product = getRelation(item.products);
       if (!product?.id) continue;
 
-      const missing = getMissingProductFiscalFields(product, productCatalogs);
+      const missing = getMissingProductFiscalFields(product);
       if (missing.length > 0) {
         byId.set(product.id, {
           ...product,
@@ -219,7 +206,7 @@ export default function InvoiceForm({
     }
 
     return [...byId.values()];
-  }, [productCatalogs, quoteItems]);
+  }, [quoteItems]);
 
   const subtotal = sourceType === "manual"
     ? Number(manualSubtotal || 0)
@@ -232,45 +219,6 @@ export default function InvoiceForm({
   useEffect(() => {
     setClientList(clients);
   }, [clients]);
-
-  useEffect(() => {
-    if (!open) return;
-
-    async function loadCatalogs() {
-      const [regimesResult, cfdiUsesResult, productServicesResult, unitsResult] =
-        await Promise.all([
-          supabase
-            .from("fiscal_regime_catalog")
-            .select("code, name, applies_to_person_type, is_active"),
-          supabase
-            .from("cfdi_use_catalog")
-            .select("code, name, applies_to_person_type, is_active"),
-          supabase
-            .from("sat_product_service_catalog")
-            .select("code, description, is_active")
-            .order("code"),
-          supabase
-            .from("sat_unit_catalog")
-            .select("code, name, description, is_active")
-            .order("code"),
-        ]);
-
-      if (!regimesResult.error) {
-        setFiscalRegimes((regimesResult.data || []) as FiscalCatalogItem[]);
-      }
-      if (!cfdiUsesResult.error) {
-        setCfdiUses((cfdiUsesResult.data || []) as FiscalCatalogItem[]);
-      }
-      if (!productServicesResult.error && !unitsResult.error) {
-        setProductCatalogs({
-          productServices: productServicesResult.data || [],
-          units: unitsResult.data || [],
-        });
-      }
-    }
-
-    loadCatalogs();
-  }, [open]);
 
   useEffect(() => {
     async function loadApprovedQuotes() {
@@ -352,10 +300,54 @@ export default function InvoiceForm({
     setQuoteItems((current) =>
       current.map((item) => {
         const product = item.product_id ? productMap.get(item.product_id) : null;
-        return product ? { ...item, products: { ...getRelation(item.products), ...product } } : item;
+        const currentProduct = getRelation(item.products) || {};
+        return product ? { ...item, products: { ...currentProduct, ...product } } : item;
       })
     );
     setErrorMessage(null);
+  }
+
+  async function isActiveCatalogCode(endpoint: string, code: string) {
+    if (!code.trim()) return false;
+
+    const response = await fetch(`${endpoint}?code=${encodeURIComponent(code.trim())}`);
+    const payload = (await response.json()) as {
+      items?: Array<{ code: string; is_active: boolean }>;
+    };
+
+    return Boolean(response.ok && payload.items?.[0]?.is_active);
+  }
+
+  async function getConceptFiscalErrors() {
+    const messages: string[] = [];
+
+    for (const concept of concepts) {
+      const [validProductCode, validUnitCode, validTaxObject] = await Promise.all([
+        isActiveCatalogCode(
+          "/api/sat-catalogs/product-services",
+          concept.sat_product_service_code
+        ),
+        isActiveCatalogCode("/api/sat-catalogs/units", concept.sat_unit_code),
+        isActiveCatalogCode("/api/sat-catalogs/tax-objects", concept.fiscal_object),
+      ]);
+      const missing: string[] = [];
+
+      if (!validProductCode) {
+        missing.push("Codigo SAT producto/servicio requiere actualizacion");
+      }
+      if (!validUnitCode) {
+        missing.push("Clave unidad SAT requiere actualizacion");
+      }
+      if (!validTaxObject) {
+        missing.push("Objeto de impuesto requiere actualizacion");
+      }
+
+      if (missing.length > 0) {
+        messages.push(`${concept.description}: ${missing.join(", ")}`);
+      }
+    }
+
+    return messages;
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -402,6 +394,16 @@ export default function InvoiceForm({
       setErrorMessage("Faltan datos fiscales en productos de la cotizacion.");
       setProductModalOpen(true);
       return;
+    }
+
+    if (sourceType === "quote") {
+      const conceptFiscalErrors = await getConceptFiscalErrors();
+
+      if (conceptFiscalErrors.length > 0) {
+        setErrorMessage(`Faltan datos fiscales en conceptos: ${conceptFiscalErrors.join(" | ")}`);
+        setProductModalOpen(true);
+        return;
+      }
     }
 
     if (!Number.isFinite(subtotal) || subtotal <= 0) {

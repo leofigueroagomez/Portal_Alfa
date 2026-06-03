@@ -3,11 +3,11 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/services/supabase";
 import { formatCurrency } from "@/lib/format";
-import { SatProductServiceSelect, SatUnitSelect } from "@/components/SatCatalogSelect";
-import type {
-  SatProductServiceCatalogItem,
-  SatUnitCatalogItem,
-} from "@/lib/productFiscalData";
+import {
+  SatProductServiceSelect,
+  SatUnitSelect,
+  TaxObjectSelect,
+} from "@/components/SatCatalogSelect";
 
 type TaxonomyOption = {
   id: number;
@@ -81,8 +81,6 @@ export default function NewProductPage() {
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [categories, setCategories] = useState<TaxonomyOption[]>([]);
   const [tags, setTags] = useState<TaxonomyOption[]>([]);
-  const [satProductServices, setSatProductServices] = useState<SatProductServiceCatalogItem[]>([]);
-  const [satUnits, setSatUnits] = useState<SatUnitCatalogItem[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
   const [successMessage, setSuccessMessage] = useState("");
   const laborUnitSalePrice =
@@ -113,13 +111,46 @@ export default function NewProductPage() {
     alert(`Error en ${step}: ${JSON.stringify(error)}${message}`);
   }
 
+  async function isActiveCatalogCode(endpoint: string, code: string) {
+    if (!code.trim()) return false;
+
+    const response = await fetch(`${endpoint}?code=${encodeURIComponent(code.trim())}`);
+    const payload = (await response.json()) as {
+      items?: Array<{ code: string; is_active: boolean }>;
+    };
+
+    return Boolean(response.ok && payload.items?.[0]?.is_active);
+  }
+
+  async function getFiscalErrors() {
+    const errors: string[] = [];
+    const [validProductCode, validUnitCode, validTaxObject] = await Promise.all([
+      isActiveCatalogCode(
+        "/api/sat-catalogs/product-services",
+        form.sat_product_service_code
+      ),
+      isActiveCatalogCode("/api/sat-catalogs/units", form.sat_unit_code),
+      isActiveCatalogCode("/api/sat-catalogs/tax-objects", form.fiscal_object),
+    ]);
+
+    if (!validProductCode) {
+      errors.push("Codigo SAT Producto/Servicio requiere actualizacion fiscal.");
+    }
+    if (!validUnitCode) {
+      errors.push("Clave Unidad SAT requiere actualizacion fiscal.");
+    }
+    if (!validTaxObject) {
+      errors.push("Objeto de impuesto requiere actualizacion fiscal.");
+    }
+
+    return errors;
+  }
+
   useEffect(() => {
     async function loadTaxonomy() {
       const [
         { data: categoryData },
         { data: tagData },
-        { data: productServiceData },
-        { data: unitData },
       ] = await Promise.all([
         supabase
           .from("product_categories")
@@ -133,20 +164,10 @@ export default function NewProductPage() {
           .eq("is_active", true)
           .order("sort_order", { ascending: true })
           .order("name", { ascending: true }),
-        supabase
-          .from("sat_product_service_catalog")
-          .select("code, description, is_active")
-          .order("code"),
-        supabase
-          .from("sat_unit_catalog")
-          .select("code, name, description, is_active")
-          .order("code"),
       ]);
 
       setCategories((categoryData || []) as TaxonomyOption[]);
       setTags((tagData || []) as TaxonomyOption[]);
-      setSatProductServices((productServiceData || []) as SatProductServiceCatalogItem[]);
-      setSatUnits((unitData || []) as SatUnitCatalogItem[]);
     }
 
     loadTaxonomy();
@@ -196,6 +217,14 @@ export default function NewProductPage() {
   async function handleSave() {
     setLoading(true);
     setSuccessMessage("");
+
+    const fiscalErrors = await getFiscalErrors();
+
+    if (fiscalErrors.length > 0) {
+      setLoading(false);
+      reportError("validar datos SAT", { message: fiscalErrors.join(" ") });
+      return;
+    }
 
     const { data: product, error } = await supabase
       .from("products")
@@ -356,23 +385,21 @@ export default function NewProductPage() {
               <SatProductServiceSelect
                 label="Codigo SAT Producto/Servicio"
                 value={form.sat_product_service_code}
-                options={satProductServices}
                 onChange={(value) => updateField("sat_product_service_code", value)}
               />
               <SatUnitSelect
                 label="Clave Unidad SAT"
                 value={form.sat_unit_code}
-                options={satUnits}
                 onChange={(value, unitName) => {
                   updateField("sat_unit_code", value);
                   updateField("sat_unit_name", unitName || "");
                 }}
               />
-              <select className="bg-[#222228] rounded-xl p-4 outline-none" value={form.fiscal_object} onChange={(e) => updateField("fiscal_object", e.target.value)}>
-                <option value="02">02 - Si objeto de impuesto</option>
-                <option value="01">01 - No objeto de impuesto</option>
-                <option value="03">03 - Si objeto de impuesto y no obligado al desglose</option>
-              </select>
+              <TaxObjectSelect
+                label="Objeto de impuesto"
+                value={form.fiscal_object}
+                onChange={(value) => updateField("fiscal_object", value)}
+              />
               <input className="bg-[#222228] rounded-xl p-4 outline-none" placeholder="IVA %" value={form.tax_rate} onChange={(e) => updateField("tax_rate", e.target.value)} />
             </div>
           </div>

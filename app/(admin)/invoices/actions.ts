@@ -108,13 +108,17 @@ export async function stampProjectInvoice(invoiceId: number) {
     throw new Error("La factura no tiene cliente asociado.");
   }
 
+  const fiscalRegimeCode = getFiscalRegimeCode(client);
+  const cfdiUseCode = getCfdiUseCode(client);
   const [regimesResult, cfdiUsesResult] = await Promise.all([
     supabase
       .from("fiscal_regime_catalog")
-      .select("code, name, applies_to_person_type, is_active"),
+      .select("code, name, applies_to_person_type, is_active")
+      .eq("code", fiscalRegimeCode),
     supabase
       .from("cfdi_use_catalog")
-      .select("code, name, applies_to_person_type, is_active"),
+      .select("code, name, applies_to_person_type, is_active")
+      .eq("code", cfdiUseCode),
   ]);
 
   if (regimesResult.error || cfdiUsesResult.error) {
@@ -132,41 +136,56 @@ export async function stampProjectInvoice(invoiceId: number) {
     );
   }
 
-  const fiscalRegimeCode = getFiscalRegimeCode(client);
-  const cfdiUseCode = getCfdiUseCode(client);
-  const [itemsResult, productServicesResult, unitsResult] = await Promise.all([
-    supabase
-      .from("project_invoice_items")
-      .select(
-        "id, description, quantity, unit_price_mxn, subtotal_mxn, iva_mxn, total_mxn, sat_product_service_code, sat_unit_code, sat_unit_name, fiscal_object, product_id"
-      )
-      .eq("project_invoice_id", invoice.id)
-      .order("sort_order", { ascending: true }),
-    supabase
-      .from("sat_product_service_catalog")
-      .select("code, description, is_active"),
-    supabase
-      .from("sat_unit_catalog")
-      .select("code, name, description, is_active"),
-  ]);
+  const { data: itemData, error: itemsError } = await supabase
+    .from("project_invoice_items")
+    .select(
+      "id, description, quantity, unit_price_mxn, subtotal_mxn, iva_mxn, total_mxn, sat_product_service_code, sat_unit_code, sat_unit_name, fiscal_object, product_id"
+    )
+    .eq("project_invoice_id", invoice.id)
+    .order("sort_order", { ascending: true });
 
-  if (itemsResult.error) {
-    throw new Error(`Error leyendo conceptos fiscales: ${itemsResult.error.message}`);
+  if (itemsError) {
+    throw new Error(`Error leyendo conceptos fiscales: ${itemsError.message}`);
   }
 
-  if (productServicesResult.error || unitsResult.error) {
-    throw new Error("No se pudieron validar catalogos SAT de conceptos.");
-  }
-
-  const invoiceItems = (itemsResult.data || []) as InvoiceItemForStamping[];
+  const invoiceItems = (itemData || []) as InvoiceItemForStamping[];
 
   if (invoiceItems.length === 0) {
     throw new Error("La factura no tiene conceptos fiscales.");
   }
 
+  const productCodes = [
+    ...new Set(invoiceItems.map((item) => item.sat_product_service_code).filter(Boolean)),
+  ] as string[];
+  const unitCodes = [
+    ...new Set(invoiceItems.map((item) => item.sat_unit_code).filter(Boolean)),
+  ] as string[];
+  const taxObjectCodes = [
+    ...new Set(invoiceItems.map((item) => item.fiscal_object || "02").filter(Boolean)),
+  ] as string[];
+  const [productServicesResult, unitsResult, taxObjectsResult] = await Promise.all([
+    supabase
+      .from("sat_product_service_catalog")
+      .select("code, description, is_active")
+      .in("code", productCodes.length > 0 ? productCodes : ["__none__"]),
+    supabase
+      .from("sat_unit_catalog")
+      .select("code, name, description, is_active")
+      .in("code", unitCodes.length > 0 ? unitCodes : ["__none__"]),
+    supabase
+      .from("tax_object_catalog")
+      .select("code, name, is_active")
+      .in("code", taxObjectCodes.length > 0 ? taxObjectCodes : ["__none__"]),
+  ]);
+
+  if (productServicesResult.error || unitsResult.error || taxObjectsResult.error) {
+    throw new Error("No se pudieron validar catalogos SAT de conceptos.");
+  }
+
   const productCatalogs: ProductFiscalCatalogs = {
     productServices: productServicesResult.data || [],
     units: unitsResult.data || [],
+    taxObjects: taxObjectsResult.data || [],
   };
   const missingItemFields = invoiceItems.flatMap((item) => {
     const missing = getMissingProductFiscalFields(
