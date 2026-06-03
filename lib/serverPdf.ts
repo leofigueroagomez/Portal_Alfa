@@ -1,16 +1,6 @@
 import chromium from "@sparticuz/chromium";
-import { chromium as playwrightChromium, type Browser } from "playwright-core";
+import puppeteer, { type Browser, type CookieParam, type LaunchOptions } from "puppeteer-core";
 import { getAppBaseUrl } from "@/lib/appUrl";
-
-type PdfCookie = {
-  name: string;
-  value: string;
-  domain: string;
-  path: string;
-  httpOnly?: boolean;
-  secure?: boolean;
-  sameSite?: "Lax" | "None" | "Strict";
-};
 
 function parseCookieHeader(cookieHeader: string | null | undefined, baseUrl: string) {
   if (!cookieHeader) return [];
@@ -22,7 +12,7 @@ function parseCookieHeader(cookieHeader: string | null | undefined, baseUrl: str
     .split(";")
     .map((cookie) => cookie.trim())
     .filter(Boolean)
-    .map((cookie): PdfCookie | null => {
+    .map((cookie): CookieParam | null => {
       const separatorIndex = cookie.indexOf("=");
       if (separatorIndex <= 0) return null;
 
@@ -35,42 +25,58 @@ function parseCookieHeader(cookieHeader: string | null | undefined, baseUrl: str
         sameSite: "Lax",
       };
     })
-    .filter((cookie): cookie is PdfCookie => Boolean(cookie));
+    .filter((cookie): cookie is CookieParam => Boolean(cookie));
 }
 
 async function getExecutablePath() {
-  if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {
-    return process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+    return process.env.PUPPETEER_EXECUTABLE_PATH;
   }
 
-  return chromium.executablePath();
+  const executablePath = await chromium.executablePath();
+
+  if (!executablePath) {
+    throw new Error(
+      "No se encontro Chromium para generar PDFs. Configura PUPPETEER_EXECUTABLE_PATH en local o usa @sparticuz/chromium en Vercel."
+    );
+  }
+
+  return executablePath;
 }
 
-export async function renderPrintRouteToPdf(pathname: string, cookieHeader?: string | null) {
-  const baseUrl = getAppBaseUrl();
-  const url = new URL(pathname, baseUrl).toString();
+function getChromiumHeadlessMode(): LaunchOptions["headless"] {
+  return (chromium as unknown as { headless?: LaunchOptions["headless"] }).headless ?? true;
+}
+
+export async function generatePdfFromUrl(url: string, cookieHeader?: string | null) {
   let browser: Browser | null = null;
 
   try {
-    browser = await playwrightChromium.launch({
+    const baseUrl = getAppBaseUrl();
+    browser = await puppeteer.launch({
       args: chromium.args,
       executablePath: await getExecutablePath(),
-      headless: true,
+      headless: getChromiumHeadlessMode(),
+      defaultViewport: {
+        width: 816,
+        height: 1056,
+        deviceScaleFactor: 1,
+      },
     });
 
-    const context = await browser.newContext();
+    const page = await browser.newPage();
     const cookies = parseCookieHeader(cookieHeader, baseUrl);
 
     if (cookies.length > 0) {
-      await context.addCookies(cookies);
+      await page.setCookie(...cookies);
     }
 
-    const page = await context.newPage();
     await page.goto(url, {
-      waitUntil: "networkidle",
+      waitUntil: "networkidle0",
       timeout: 60_000,
     });
-    const renderedText = await page.locator("body").innerText({ timeout: 10_000 });
+
+    const renderedText = await page.evaluate(() => document.body?.innerText || "");
 
     if (
       renderedText.includes("Entrega no encontrada") ||
@@ -82,17 +88,24 @@ export async function renderPrintRouteToPdf(pathname: string, cookieHeader?: str
       throw new Error("La vista print no renderizo el documento formal esperado.");
     }
 
-    await page.emulateMedia({ media: "print" });
+    await page.emulateMediaType("print");
 
-    return await page.pdf({
-      format: "Letter",
-      printBackground: true,
-      preferCSSPageSize: true,
-    });
+    return Buffer.from(
+      await page.pdf({
+        format: "Letter",
+        printBackground: true,
+        preferCSSPageSize: true,
+      })
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Error desconocido.";
-    throw new Error(`No se pudo generar el PDF desde ${url}: ${message}`);
+    throw new Error(`No se pudo generar el PDF formal en servidor. ${message}`);
   } finally {
     await browser?.close();
   }
+}
+
+export async function renderPrintRouteToPdf(pathname: string, cookieHeader?: string | null) {
+  const url = new URL(pathname, getAppBaseUrl()).toString();
+  return generatePdfFromUrl(url, cookieHeader);
 }
