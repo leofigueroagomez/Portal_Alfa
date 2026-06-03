@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { getCurrentUserProfile } from "@/services/profile";
 import { canManageUsers } from "@/lib/permissions";
 import { formatCurrency } from "@/lib/format";
-import { getFacturamaSandboxReceiverNotice } from "@/lib/facturama";
+import { getFacturamaEnv, getFacturamaSandboxReceiverNotice } from "@/lib/facturama";
 import { ClientFiscalDataButton } from "@/components/ClientFiscalDataModal";
 import {
   getCfdiUseDisplay,
@@ -50,7 +50,14 @@ export default async function ProjectInvoicesPage({
   const supabase = await createSupabaseServerClient();
   const profile = await getCurrentUserProfile();
   const allowManualInvoices = canManageUsers(profile?.role);
+  const facturamaEnv = getFacturamaEnv();
   const sandboxReceiverNotice = getFacturamaSandboxReceiverNotice();
+  const facturamaEnvLabel =
+    facturamaEnv === "production" ? "Facturama Produccion" : "Facturama Sandbox";
+  const facturamaEnvBadgeClasses =
+    facturamaEnv === "production"
+      ? "border-[#1F7A4D] bg-[#143D2A] text-[#8CE0B6]"
+      : "border-[#614620] bg-[#322514] text-[#F4C66A]";
   const { id } = await params;
 
   const { data: project, error } = await supabase
@@ -139,6 +146,9 @@ export default async function ProjectInvoicesPage({
           <p className="mt-3 text-[#B3B3B8]">
             {client?.name || "Sin cliente"} / Facturas internas asociadas.
           </p>
+          <span className={`mt-4 inline-flex rounded-full border px-3 py-1 text-sm ${facturamaEnvBadgeClasses}`}>
+            {facturamaEnvLabel}
+          </span>
         </div>
         <InvoiceForm
           clients={client ? [client] : []}
@@ -198,7 +208,7 @@ export default async function ProjectInvoicesPage({
             <p>Pago CFDI</p>
             <p>Estado</p>
             <p>Actualizar</p>
-            <p>Sandbox</p>
+            <p>{facturamaEnv === "production" ? "CFDI" : "Sandbox"}</p>
             <p>Archivos</p>
           </div>
 
@@ -257,6 +267,7 @@ export default async function ProjectInvoicesPage({
                       facturamaId={invoice.facturama_id}
                       client={client}
                       sandboxNotice={sandboxReceiverNotice}
+                      facturamaEnv={facturamaEnv}
                     />
                     <InvoiceFileLinks
                       xmlUrl={invoice.xml_url}

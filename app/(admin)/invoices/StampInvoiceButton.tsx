@@ -20,6 +20,7 @@ type Props = {
   facturamaId?: string | null;
   client?: FiscalClientData | null;
   sandboxNotice?: string | null;
+  facturamaEnv: "sandbox" | "production";
 };
 
 function getErrorMessage(error: unknown) {
@@ -59,6 +60,7 @@ export default function StampInvoiceButton({
   facturamaId,
   client,
   sandboxNotice,
+  facturamaEnv,
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -70,6 +72,11 @@ export default function StampInvoiceButton({
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const canStamp = status === "draft" && !facturamaId;
   const busy = checking || isPending;
+  const isProduction = facturamaEnv === "production";
+  const environmentLabel = isProduction ? "Produccion" : "Sandbox";
+  const environmentClasses = isProduction
+    ? "border-[#1F7A4D] bg-[#143D2A] text-[#8CE0B6]"
+    : "border-[#614620] bg-[#322514] text-[#F4C66A]";
 
   useEffect(() => {
     setLocalClient(client || null);
@@ -151,15 +158,23 @@ export default function StampInvoiceButton({
 
   if (!canStamp) {
     return (
-      <span className="inline-flex rounded-full border border-[#2A2A30] bg-[#222228] px-3 py-1 text-xs text-[#77777D]">
-        {facturamaId ? "Timbrada" : "No disponible"}
-      </span>
+      <div className="space-y-2">
+        <span className={`inline-flex rounded-full border px-3 py-1 text-xs ${environmentClasses}`}>
+          {environmentLabel}
+        </span>
+        <span className="block w-fit rounded-full border border-[#2A2A30] bg-[#222228] px-3 py-1 text-xs text-[#77777D]">
+          {facturamaId ? "Timbrada" : "No disponible"}
+        </span>
+      </div>
     );
   }
 
   return (
     <>
       <div className="space-y-2">
+        <span className={`inline-flex rounded-full border px-3 py-1 text-xs ${environmentClasses}`}>
+          {environmentLabel}
+        </span>
         {sandboxNotice ? (
           <p className="max-w-[280px] rounded-xl border border-[#614620] bg-[#322514] p-3 text-xs leading-5 text-[#F4C66A]">
             {sandboxNotice}
@@ -172,7 +187,7 @@ export default function StampInvoiceButton({
           className="inline-flex items-center gap-2 rounded-xl bg-[#9E1B32] px-4 py-2 text-sm font-semibold text-white hover:bg-[#B91C3C] disabled:bg-[#222228] disabled:text-[#77777D]"
         >
           {busy ? <Loader2 size={16} className="animate-spin" /> : <BadgeCheck size={16} />}
-          {busy ? "Timbrando" : "Timbrar sandbox"}
+          {busy ? "Timbrando" : isProduction ? "Timbrar CFDI" : "Timbrar sandbox"}
         </button>
         {message ? (
           <div

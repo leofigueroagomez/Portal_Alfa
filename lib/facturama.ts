@@ -75,6 +75,8 @@ const FACTURAMA_URLS: Record<FacturamaEnv, string> = {
   production: "https://api.facturama.mx/",
 };
 
+const FACTURAMA_TEST_RECEIVER_RFC = "EKU9003173C9";
+
 export type FacturamaSandboxReceiver = {
   rfc: string;
   name: string;
@@ -86,7 +88,7 @@ export const facturamaSandboxReceiverNotice =
   "Timbrado en sandbox usando datos fiscales de prueba.";
 
 const defaultFacturamaSandboxReceiver: FacturamaSandboxReceiver = {
-  rfc: "EKU9003173C9",
+  rfc: FACTURAMA_TEST_RECEIVER_RFC,
   name: "ESCUELA KEMPER URGATE",
   fiscalRegime: "601",
   taxZipCode: "42501",
@@ -328,10 +330,22 @@ function buildFacturamaRequestLog(payload: FacturamaInvoicePayload) {
   };
 }
 
+function assertReceiverAllowedForFacturamaEnv(payload: FacturamaInvoicePayload) {
+  if (
+    getFacturamaEnv() === "production" &&
+    payload.Receiver.Rfc.trim().toUpperCase() === FACTURAMA_TEST_RECEIVER_RFC
+  ) {
+    throw new Error(
+      "Bloqueo de produccion: el RFC receptor EKU9003173C9 es de prueba y no puede timbrarse en Facturama produccion."
+    );
+  }
+}
+
 export async function stampFacturamaInvoice(
   draft: FacturamaInvoiceDraft
 ): Promise<FacturamaStampResult> {
   const payload = buildInvoicePayload(draft);
+  assertReceiverAllowedForFacturamaEnv(payload);
   const response = await facturamaRequest<FacturamaCreateCfdiResponse>(
     "3/cfdis",
     {

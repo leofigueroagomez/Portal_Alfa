@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { getCurrentUserProfile } from "@/services/profile";
 import { canManageUsers } from "@/lib/permissions";
 import { formatCurrency, formatNumber } from "@/lib/format";
-import { getFacturamaSandboxReceiverNotice } from "@/lib/facturama";
+import { getFacturamaEnv, getFacturamaSandboxReceiverNotice } from "@/lib/facturama";
 import {
   getInvoiceIva,
   getInvoicePaymentFormLabel,
@@ -90,7 +90,14 @@ export default async function ProjectAccountStatementPage({
   const supabase = await createSupabaseServerClient();
   const profile = await getCurrentUserProfile();
   const allowManualInvoices = canManageUsers(profile?.role);
+  const facturamaEnv = getFacturamaEnv();
   const sandboxReceiverNotice = getFacturamaSandboxReceiverNotice();
+  const facturamaEnvLabel =
+    facturamaEnv === "production" ? "Facturama Produccion" : "Facturama Sandbox";
+  const facturamaEnvBadgeClasses =
+    facturamaEnv === "production"
+      ? "border-[#1F7A4D] bg-[#143D2A] text-[#8CE0B6]"
+      : "border-[#614620] bg-[#322514] text-[#F4C66A]";
   const { id } = await params;
 
   const { data: project, error } = await supabase
@@ -222,6 +229,9 @@ export default async function ProjectAccountStatementPage({
           <p className="mt-3 text-[#B3B3B8]">
             {clientData?.name || "Sin cliente"} / Control financiero interno
           </p>
+          <span className={`mt-4 inline-flex rounded-full border px-3 py-1 text-sm ${facturamaEnvBadgeClasses}`}>
+            {facturamaEnvLabel}
+          </span>
         </div>
 
         <div className="flex flex-wrap gap-3">
@@ -406,7 +416,9 @@ export default async function ProjectAccountStatementPage({
                   <th className="px-3 py-3 text-right">Total</th>
                   <th className="px-3 py-3">Pago CFDI</th>
                   <th className="px-3 py-3">Estado</th>
-                  <th className="px-3 py-3">Sandbox</th>
+                  <th className="px-3 py-3">
+                    {facturamaEnv === "production" ? "CFDI" : "Sandbox"}
+                  </th>
                   <th className="px-3 py-3">SAT</th>
                 </tr>
               </thead>
@@ -462,6 +474,7 @@ export default async function ProjectAccountStatementPage({
                           facturamaId={invoice.facturama_id}
                           client={clientData}
                           sandboxNotice={sandboxReceiverNotice}
+                          facturamaEnv={facturamaEnv}
                         />
                       </td>
                       <td className="px-3 py-3 text-[#B3B3B8]">

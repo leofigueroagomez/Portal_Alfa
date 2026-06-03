@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { getCurrentUserProfile } from "@/services/profile";
 import { canManageUsers } from "@/lib/permissions";
 import { formatCurrency } from "@/lib/format";
-import { getFacturamaSandboxReceiverNotice } from "@/lib/facturama";
+import { getFacturamaEnv, getFacturamaSandboxReceiverNotice } from "@/lib/facturama";
 import {
   getCurrentMonthRange,
   getInvoiceRelation,
@@ -56,7 +56,14 @@ export default async function InvoicesPage() {
   const supabase = await createSupabaseServerClient();
   const profile = await getCurrentUserProfile();
   const allowManualInvoices = canManageUsers(profile?.role);
+  const facturamaEnv = getFacturamaEnv();
   const sandboxReceiverNotice = getFacturamaSandboxReceiverNotice();
+  const facturamaEnvLabel =
+    facturamaEnv === "production" ? "Facturama Produccion" : "Facturama Sandbox";
+  const facturamaEnvBadgeClasses =
+    facturamaEnv === "production"
+      ? "border-[#1F7A4D] bg-[#143D2A] text-[#8CE0B6]"
+      : "border-[#614620] bg-[#322514] text-[#F4C66A]";
 
   const [invoicesResult, clientsResult, projectsResult, quotesResult] = await Promise.all([
     supabase
@@ -143,6 +150,9 @@ export default async function InvoicesPage() {
           <p className="mt-3 max-w-3xl text-[#B3B3B8]">
             Control manual de facturas por proyecto, preparado para futura integracion SAT.
           </p>
+          <span className={`mt-4 inline-flex rounded-full border px-3 py-1 text-sm ${facturamaEnvBadgeClasses}`}>
+            {facturamaEnvLabel}
+          </span>
         </div>
         <InvoiceForm
           clients={clients}
@@ -165,7 +175,7 @@ export default async function InvoicesPage() {
             <h2 className="text-xl font-semibold">Estado SAT</h2>
           </div>
           <p className="text-sm text-[#B3B3B8]">
-            Facturama esta conectado en modo sandbox. Produccion queda bloqueada desde servidor.
+            Ambiente detectado desde servidor: {facturamaEnvLabel}.
           </p>
           {sandboxReceiverNotice ? (
             <p className="mt-3 rounded-xl border border-[#614620] bg-[#322514] p-3 text-sm text-[#F4C66A]">
@@ -184,11 +194,12 @@ export default async function InvoicesPage() {
                 key={provider.id}
                 className={`rounded-full border px-3 py-1 text-sm ${
                   provider.active
-                    ? "border-[#1F7A4D] bg-[#143D2A] text-[#8CE0B6]"
+                    ? facturamaEnvBadgeClasses
                     : "border-[#2A2A30] bg-[#222228] text-[#B3B3B8]"
                 }`}
               >
-                {provider.name} - {provider.mode === "sandbox" ? "Activo" : "Planeado"}
+                {provider.id === "facturama" ? facturamaEnvLabel : provider.name} -{" "}
+                {provider.active ? "Activo" : "Planeado"}
               </span>
             ))}
           </div>
@@ -206,7 +217,7 @@ export default async function InvoicesPage() {
             <p>Pago CFDI</p>
             <p>Estado</p>
             <p>Actualizar</p>
-            <p>Sandbox</p>
+            <p>{facturamaEnv === "production" ? "CFDI" : "Sandbox"}</p>
             <p>Archivos</p>
           </div>
 
@@ -279,6 +290,7 @@ export default async function InvoicesPage() {
                       facturamaId={invoice.facturama_id}
                       client={client}
                       sandboxNotice={sandboxReceiverNotice}
+                      facturamaEnv={facturamaEnv}
                     />
                     <InvoiceFileLinks
                       xmlUrl={invoice.xml_url}
