@@ -59,6 +59,17 @@ type Warranty = {
   id: number;
 };
 
+type EmailHistory = {
+  id: number;
+  sent_to: string | null;
+  cc: string | null;
+  subject: string | null;
+  attachment_names: string[] | null;
+  status: string | null;
+  error_message: string | null;
+  sent_at: string | null;
+};
+
 function formatDate(value: string | null | undefined) {
   if (!value) return "Sin fecha";
   return new Date(value).toLocaleDateString("es-MX");
@@ -109,7 +120,14 @@ export default async function ProjectDeliveryDetailPage({
   }
 
   const deliveryData = delivery as ProjectDelivery;
-  const [{ data: project }, { data: evidences }, { data: pendingItems }, { data: systems }, { data: warranty }] =
+  const [
+    { data: project },
+    { data: evidences },
+    { data: pendingItems },
+    { data: systems },
+    { data: warranty },
+    { data: emailHistory },
+  ] =
     await Promise.all([
       supabase.from("client_projects").select("id, name, client_id").eq("id", id).maybeSingle(),
       supabase
@@ -135,6 +153,11 @@ export default async function ProjectDeliveryDetailPage({
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
+      supabase
+        .from("project_delivery_email_history")
+        .select("id, sent_to, cc, subject, attachment_names, status, error_message, sent_at")
+        .eq("project_delivery_id", deliveryId)
+        .order("sent_at", { ascending: false }),
     ]);
 
   const projectData = project as ClientProject | null;
@@ -153,6 +176,7 @@ export default async function ProjectDeliveryDetailPage({
     }))
   );
   const pendingList = (pendingItems || []) as PendingItem[];
+  const emailHistoryList = (emailHistory || []) as EmailHistory[];
   const [clientSignatureUrl, alfaSignatureUrl] = await Promise.all([
     resolvePhotoUrl(supabase.storage, deliveryData.client_signature_image_url),
     resolvePhotoUrl(supabase.storage, deliveryData.alfa_signature_image_url),
@@ -199,6 +223,47 @@ export default async function ProjectDeliveryDetailPage({
           lastStatus={deliveryData.delivery_email_status}
           lastError={deliveryData.delivery_email_error}
         />
+      </section>
+
+      <section className="mb-8 rounded-2xl border border-[#1F1F24] bg-[#151518] p-5 sm:p-6">
+        <h2 className="mb-5 text-2xl font-semibold">Historial de correos</h2>
+        {emailHistoryList.length === 0 ? (
+          <p className="text-[#77777D]">Sin envios registrados.</p>
+        ) : (
+          <div className="space-y-3">
+            {emailHistoryList.map((email) => (
+              <div key={email.id} className="rounded-xl border border-[#2A2A30] bg-[#222228] p-4">
+                <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <p className="font-semibold">{email.subject || "Sin asunto"}</p>
+                    <p className="mt-1 text-sm text-[#B3B3B8]">Para: {email.sent_to || "-"}</p>
+                    {email.cc ? <p className="mt-1 text-sm text-[#B3B3B8]">CC: {email.cc}</p> : null}
+                    <p className="mt-1 text-xs text-[#77777D]">
+                      Adjuntos: {(email.attachment_names || []).join(", ") || "Sin adjuntos"}
+                    </p>
+                    {email.error_message ? (
+                      <p className="mt-2 text-sm text-[#FFB4B4]">{email.error_message}</p>
+                    ) : null}
+                  </div>
+                  <div className="text-left md:text-right">
+                    <span
+                      className={`inline-flex rounded-full border px-3 py-1 text-xs ${
+                        email.status === "sent"
+                          ? "border-[#1F7A4D] bg-[#143D2A] text-[#8CE0B6]"
+                          : "border-[#6A2A2A] bg-[#351818] text-[#FFB4B4]"
+                      }`}
+                    >
+                      {email.status === "sent" ? "Enviado" : "Error"}
+                    </span>
+                    <p className="mt-2 text-xs text-[#77777D]">
+                      {email.sent_at ? new Date(email.sent_at).toLocaleString("es-MX") : "Sin fecha"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-4">
