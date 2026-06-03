@@ -70,6 +70,18 @@ export async function renderPrintRouteToPdf(pathname: string, cookieHeader?: str
       waitUntil: "networkidle",
       timeout: 60_000,
     });
+    const renderedText = await page.locator("body").innerText({ timeout: 10_000 });
+
+    if (
+      renderedText.includes("Entrega no encontrada") ||
+      renderedText.includes("Carta de garantia no encontrada") ||
+      renderedText.includes("Carta de garantía no encontrada") ||
+      renderedText.includes("Iniciar sesion") ||
+      renderedText.includes("Iniciar sesión")
+    ) {
+      throw new Error("La vista print no renderizo el documento formal esperado.");
+    }
+
     await page.emulateMedia({ media: "print" });
 
     return await page.pdf({

@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { getAppBaseUrl } from "@/lib/appUrl";
 import { formatCurrency } from "@/lib/format";
 import { getProjectFinancialSummary } from "@/lib/projectFinancials";
+import { getProjectDeliverySystemsForDisplay } from "@/lib/projectDeliverySystems";
 import { renderPrintRouteToPdf } from "@/lib/serverPdf";
 
 type Delivery = {
@@ -35,11 +36,6 @@ type Warranty = {
   equipment_warranty_end_date: string | null;
   installation_warranty_end_date: string | null;
   preventive_maintenance_frequency_months: number | null;
-};
-
-type DeliverySystem = {
-  system_name: string | null;
-  notes: string | null;
 };
 
 type Attachment = {
@@ -117,7 +113,7 @@ async function getEmailDraft(projectId: number, deliveryId: number): Promise<Ema
 
   if (!projectData) return { error: "Proyecto no encontrado." };
 
-  const [{ data: client }, { data: warranty }, { data: systems }] = await Promise.all([
+  const [{ data: client }, { data: warranty }] = await Promise.all([
     projectData.client_id
       ? supabase
           .from("clients")
@@ -135,15 +131,15 @@ async function getEmailDraft(projectId: number, deliveryId: number): Promise<Ema
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
-    supabase
-      .from("project_delivery_systems")
-      .select("system_name, notes")
-      .eq("project_delivery_id", deliveryId),
   ]);
 
   const clientData = client as Client | null;
   const warrantyData = warranty as Warranty | null;
-  const systemList = (systems || []) as DeliverySystem[];
+  const systemList = await getProjectDeliverySystemsForDisplay(
+    supabase,
+    projectId,
+    deliveryId
+  );
   const financialSummary = await getProjectFinancialSummary(supabase, projectId);
   const baseUrl = getAppBaseUrl();
   const deliveryDate = getDateOrToday(deliveryData.delivery_date);

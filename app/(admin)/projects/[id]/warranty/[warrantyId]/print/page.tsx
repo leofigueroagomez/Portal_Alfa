@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
+import { getProjectDeliverySystemsForDisplay } from "@/lib/projectDeliverySystems";
 import PrintProjectWarrantyButton from "../../PrintProjectWarrantyButton";
 
 type ClientProject = {
@@ -105,7 +106,15 @@ export default async function ProjectWarrantyPrintPage({
         .maybeSingle()
     : { data: null };
   const clientData = client as Client | null;
-  const installedSystems = systemsList(warrantyData.installed_systems);
+  const storedInstalledSystems = systemsList(warrantyData.installed_systems);
+  const fallbackSystems =
+    storedInstalledSystems.length === 0
+      ? await getProjectDeliverySystemsForDisplay(supabase, Number(id))
+      : [];
+  const installedSystems =
+    storedInstalledSystems.length > 0
+      ? storedInstalledSystems
+      : fallbackSystems.map((system) => system.system_name);
   const clientName = clientData?.company_name || clientData?.name || "Cliente";
   const projectName = projectData?.name || "Proyecto";
   const supportEmail = warrantyData.support_email || "soporte@alfait.com";
@@ -224,6 +233,31 @@ export default async function ProjectWarrantyPrintPage({
             Esta garantia se limita a fallas atribuibles a defectos de fabricacion o
             funcionamiento del equipo, conforme a las condiciones del fabricante.
           </p>
+          <div className="mt-4 border border-[#E1DDD5] p-4">
+            <h3 className="mb-2 text-[13px] font-semibold">
+              Clausula de Gestion de Garantia en Equipos
+            </h3>
+            <p>
+              La gestion de garantia por parte de ALFA IT estara incluida
+              unicamente durante el primer año contado a partir de la fecha de
+              entrega.
+            </p>
+            {warrantyData.maintenance_policy_active ? (
+              <p className="mt-2">
+                Al existir una poliza de mantenimiento vigente
+                {warrantyData.maintenance_policy_reference
+                  ? ` (${warrantyData.maintenance_policy_reference})`
+                  : ""}
+                , la gestion continuara incluida mientras dicha poliza se
+                mantenga activa.
+              </p>
+            ) : (
+              <p className="mt-2">
+                Si no existe poliza de mantenimiento vigente, las visitas y mano
+                de obra seran cobradas conforme a las tarifas vigentes de ALFA IT.
+              </p>
+            )}
+          </div>
         </section>
 
         <section className="letter-section mb-6 text-[12px] leading-6">

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
+import { getProjectDeliverySystemsForDisplay } from "@/lib/projectDeliverySystems";
 import PrintProjectDeliveryButton from "./PrintProjectDeliveryButton";
 
 type ServerSupabaseStorage = Awaited<ReturnType<typeof createSupabaseServerClient>>["storage"];
@@ -39,13 +40,6 @@ type PendingItem = {
   id: number;
   description: string | null;
   status: string | null;
-};
-
-type DeliverySystem = {
-  id: number;
-  system_name: string | null;
-  delivered: boolean | null;
-  notes: string | null;
 };
 
 function formatDate(value: string | null | undefined) {
@@ -96,7 +90,7 @@ export default async function ProjectDeliveryPrintPage({
   }
 
   const deliveryData = delivery as ProjectDelivery;
-  const [{ data: project }, { data: evidences }, { data: pendingItems }, { data: systems }] =
+  const [{ data: project }, { data: evidences }, { data: pendingItems }] =
     await Promise.all([
       supabase
         .from("client_projects")
@@ -113,11 +107,6 @@ export default async function ProjectDeliveryPrintPage({
         .select("id, description, status")
         .eq("project_delivery_id", deliveryId)
         .order("sort_order", { ascending: true }),
-      supabase
-        .from("project_delivery_systems")
-        .select("id, system_name, delivered, notes")
-        .eq("project_delivery_id", deliveryId)
-        .order("created_at", { ascending: true }),
     ]);
 
   const projectData = project as ClientProject | null;
@@ -136,7 +125,11 @@ export default async function ProjectDeliveryPrintPage({
     }))
   );
   const pendingList = (pendingItems || []) as PendingItem[];
-  const deliverySystems = (systems || []) as DeliverySystem[];
+  const deliverySystems = await getProjectDeliverySystemsForDisplay(
+    supabase,
+    Number(id),
+    deliveryId
+  );
   const [clientSignatureUrl, alfaSignatureUrl] = await Promise.all([
     resolvePhotoUrl(supabase.storage, deliveryData.client_signature_image_url),
     resolvePhotoUrl(supabase.storage, deliveryData.alfa_signature_image_url),
