@@ -11,9 +11,11 @@ import {
 } from "@/lib/facturama";
 import {
   formatMissingFiscalFields,
+  getClientPersonType,
   getCfdiUseCode,
   getFiscalRegimeCode,
   getMissingFiscalFields,
+  optionMatchesPersonType,
   type FiscalCatalogItem,
 } from "@/lib/fiscalData";
 import { getMissingProductFiscalFields, type ProductFiscalCatalogs } from "@/lib/productFiscalData";
@@ -86,6 +88,15 @@ type StampFailureDetailsWithDiagnostics = StampFailureDetails & {
   rfc?: RfcDiagnostic;
   clientRfc?: RfcDiagnostic;
   sandboxReceiver?: FacturamaSandboxReceiver;
+  receiver?: CfdiReceiverDiagnostic;
+};
+
+type CfdiReceiverDiagnostic = {
+  Rfc: string;
+  Name: string;
+  CfdiUse: string;
+  FiscalRegime: string;
+  TaxZipCode: string;
 };
 
 export type StampProjectInvoiceResult =
@@ -136,14 +147,111 @@ function withRfcDiagnostic(
   details: StampFailureDetails,
   rfcDiagnostic: RfcDiagnostic | null,
   clientRfcDiagnostic: RfcDiagnostic | null,
-  sandboxReceiver: FacturamaSandboxReceiver | null
+  sandboxReceiver: FacturamaSandboxReceiver | null,
+  receiverDiagnostic: CfdiReceiverDiagnostic | null
 ): StampFailureDetailsWithDiagnostics {
   return {
     ...details,
     ...(rfcDiagnostic ? { rfc: rfcDiagnostic } : {}),
     ...(clientRfcDiagnostic ? { clientRfc: clientRfcDiagnostic } : {}),
     ...(sandboxReceiver ? { sandboxReceiver } : {}),
+    ...(receiverDiagnostic ? { receiver: receiverDiagnostic } : {}),
   };
+}
+
+function buildReceiverDiagnostic(receiver: {
+  rfc: string;
+  name: string;
+  cfdiUse: string;
+  fiscalRegime: string;
+  taxZipCode: string;
+}): CfdiReceiverDiagnostic {
+  return {
+    Rfc: receiver.rfc.trim().toUpperCase(),
+    Name: receiver.name.trim().toUpperCase(),
+    CfdiUse: receiver.cfdiUse.trim().toUpperCase(),
+    FiscalRegime: receiver.fiscalRegime.trim(),
+    TaxZipCode: receiver.taxZipCode.trim(),
+  };
+}
+
+function getCorporateRegimeNameError(name: string, rfcDiagnostic: RfcDiagnostic) {
+  if (rfcDiagnostic.detectedType !== "moral") return null;
+
+  const normalizedName = name
+    .toUpperCase()
+    .replace(/[.,]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const corporateRegimePatterns = [
+    /\bS A DE C V\b/,
+    /\bSA DE CV\b/,
+    /\bS DE R L DE C V\b/,
+    /\bS DE RL DE CV\b/,
+    /\bS A P I DE C V\b/,
+    /\bSAPI DE CV\b/,
+    /\bS C\b/,
+    /\bA C\b/,
+    /\bSOCIEDAD ANONIMA\b/,
+    /\bSOCIEDAD CIVIL\b/,
+    /\bASOCIACION CIVIL\b/,
+  ];
+
+  if (!corporateRegimePatterns.some((pattern) => pattern.test(normalizedName))) {
+    return null;
+  }
+
+  return "La razon social para CFDI 4.0 no debe incluir regimen societario. Verifica el nombre contra la Constancia de Situacion Fiscal.";
+}
+
+function getReceiverValidationErrors(
+  receiver: CfdiReceiverDiagnostic,
+  rfcDiagnostic: RfcDiagnostic,
+  catalogs: {
+    fiscalRegimes: FiscalCatalogItem[];
+    cfdiUses: FiscalCatalogItem[];
+  }
+) {
+  const errors: string[] = [];
+
+  if (rfcDiagnostic.length !== 12 && rfcDiagnostic.length !== 13) {
+    errors.push("RFC debe tener 12 caracteres para persona moral o 13 para persona fisica.");
+  }
+
+  if (!rfcDiagnostic.isValid) {
+    errors.push(`RFC invalido para timbrar. ${formatRfcDiagnostic(rfcDiagnostic)}`);
+  }
+
+  if (!receiver.Name) {
+    errors.push("Razon social requerida.");
+  }
+
+  const corporateRegimeError = getCorporateRegimeNameError(receiver.Name, rfcDiagnostic);
+  if (corporateRegimeError) errors.push(corporateRegimeError);
+
+  if (!/^\d{5}$/.test(receiver.TaxZipCode)) {
+    errors.push("Codigo postal fiscal debe tener 5 digitos.");
+  }
+
+  const personType = getClientPersonType(receiver.Rfc);
+  const fiscalRegime = catalogs.fiscalRegimes.find(
+    (item) => item.code === receiver.FiscalRegime
+  );
+  const cfdiUse = catalogs.cfdiUses.find((item) => item.code === receiver.CfdiUse);
+
+  if (!fiscalRegime || !fiscalRegime.is_active) {
+    errors.push("Regimen fiscal seleccionado no existe o no esta activo en el catalogo SAT.");
+  } else if (!optionMatchesPersonType(fiscalRegime, personType)) {
+    errors.push("Regimen fiscal no corresponde al tipo de persona sugerido por el RFC.");
+  }
+
+  if (!cfdiUse || !cfdiUse.is_active) {
+    errors.push("Uso CFDI seleccionado no existe o no esta activo en el catalogo SAT.");
+  } else if (!optionMatchesPersonType(cfdiUse, personType)) {
+    errors.push("Uso CFDI no corresponde al tipo de persona sugerido por el RFC.");
+  }
+
+  return [...new Set(errors)];
 }
 
 function getSandboxMissingFiscalFields(
@@ -221,6 +329,7 @@ export async function stampProjectInvoice(
   let rfcDiagnostic: RfcDiagnostic | null = null;
   let clientRfcDiagnostic: RfcDiagnostic | null = null;
   let sandboxReceiver: FacturamaSandboxReceiver | null = null;
+  let receiverDiagnostic: CfdiReceiverDiagnostic | null = null;
 
   try {
     const profile = await getCurrentUserProfile();
@@ -307,8 +416,12 @@ export async function stampProjectInvoice(
           fiscalRegime: getFiscalRegimeCode(client),
           cfdiUse: getCfdiUseCode(client),
           taxZipCode: client.tax_zip_code || "",
-        };
+    };
     rfcDiagnostic = getRfcDiagnostic(receiver.rfc);
+    receiverDiagnostic = buildReceiverDiagnostic({
+      ...receiver,
+      rfc: rfcDiagnostic.normalized || receiver.rfc,
+    });
 
     if (!rfcDiagnostic.normalized) {
       throw new Error("No se puede timbrar sin RFC fiscal del receptor.");
@@ -345,6 +458,16 @@ export async function stampProjectInvoice(
       throw new Error(
         `Faltan datos fiscales: ${formatMissingFiscalFields(missingFiscalFields)}`
       );
+    }
+
+    const receiverValidationErrors = getReceiverValidationErrors(
+      receiverDiagnostic,
+      rfcDiagnostic,
+      fiscalCatalogs
+    );
+
+    if (receiverValidationErrors.length > 0) {
+      throw new Error(`Datos fiscales del receptor invalidos: ${receiverValidationErrors.join(" | ")}`);
     }
 
     const { data: itemData, error: itemsError } = await supabase
@@ -496,7 +619,8 @@ export async function stampProjectInvoice(
       getActionErrorDetails(error),
       rfcDiagnostic,
       clientRfcDiagnostic,
-      sandboxReceiver
+      sandboxReceiver,
+      receiverDiagnostic
     );
     const facturamaStatus = "status" in details ? details.status : null;
 

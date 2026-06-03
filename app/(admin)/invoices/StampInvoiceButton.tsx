@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -41,6 +41,16 @@ function formatDetails(details: unknown) {
   }
 }
 
+function shouldShowReceiverGuidance(message: string | null, details: string | null) {
+  const text = `${message || ""} ${details || ""}`.toLowerCase();
+  return (
+    text.includes("rfc") ||
+    text.includes("receptor") ||
+    text.includes("receiver") ||
+    text.includes("formato correcto")
+  );
+}
+
 function getSandboxMissingFiscalFields(
   client: FiscalClientData | null,
   catalogs: { cfdiUses: FiscalCatalogItem[] }
@@ -76,7 +86,7 @@ export default function StampInvoiceButton({
   const productionBlocked = isProduction && !facturamaProductionEnabled;
   const canStamp = status === "draft" && !facturamaId && !productionBlocked;
   const busy = checking || isPending;
-  const environmentLabel = isProduction ? "Producción" : "Sandbox";
+  const environmentLabel = isProduction ? "Produccion" : "Sandbox";
   const environmentClasses = isProduction
     ? facturamaProductionEnabled
       ? "border-[#1F7A4D] bg-[#143D2A] text-[#8CE0B6]"
@@ -118,13 +128,13 @@ export default function StampInvoiceButton({
     setDetails(null);
 
     if (productionBlocked) {
-      setMessage("Producción bloqueada. Configura FACTURAMA_ENABLE_PRODUCTION=true para emitir CFDI reales.");
+      setMessage("Produccion bloqueada. Configura FACTURAMA_ENABLE_PRODUCTION=true para emitir CFDI reales.");
       return;
     }
 
     if (
       isProduction &&
-      !window.confirm("Vas a emitir un CFDI real con validez fiscal. ¿Deseas continuar?")
+      !window.confirm("Vas a emitir un CFDI real con validez fiscal. Deseas continuar?")
     ) {
       return;
     }
@@ -181,7 +191,7 @@ export default function StampInvoiceButton({
           {environmentLabel}
         </span>
         <span className="block w-fit rounded-full border border-[#2A2A30] bg-[#222228] px-3 py-1 text-xs text-[#77777D]">
-          {productionBlocked ? "Producción bloqueada" : facturamaId ? "Timbrada" : "No disponible"}
+          {productionBlocked ? "Produccion bloqueada" : facturamaId ? "Timbrada" : "No disponible"}
         </span>
       </div>
     );
@@ -213,6 +223,11 @@ export default function StampInvoiceButton({
             aria-live="polite"
           >
             <p>{message}</p>
+            {shouldShowReceiverGuidance(message, details) ? (
+              <p className="mt-2 text-[#FFD7D7]">
+                Verifica RFC, razon social, regimen fiscal y codigo postal contra la Constancia de Situacion Fiscal del cliente.
+              </p>
+            ) : null}
             {details ? (
               <details className="mt-2 text-[#F1C2C2]">
                 <summary className="cursor-pointer font-semibold text-white">
@@ -241,3 +256,4 @@ export default function StampInvoiceButton({
     </>
   );
 }
+
