@@ -11,6 +11,7 @@ const SOURCE_BASE =
 const TABLES = {
   productServices: "cfdi_40_productos_servicios",
   units: "cfdi_40_claves_unidades",
+  paymentForms: "cfdi_40_formas_pago",
   fiscalRegimes: "cfdi_40_regimenes_fiscales",
   cfdiUses: "cfdi_40_usos_cfdi",
   taxObjects: "cfdi_40_objetos_impuestos",
@@ -181,6 +182,11 @@ function normalizeCatalogs(rowsByTable) {
       name: row[1],
       description: row[2] || row[3] || row[6] || null,
       is_active: isActive(row[5]),
+    })),
+    sat_payment_form_catalog: rowsByTable.paymentForms.map((row) => ({
+      code: row[0],
+      name: row[1],
+      is_active: isActive(row[13]),
     })),
     fiscal_regime_catalog: rowsByTable.fiscalRegimes.map((row) => ({
       code: row[0],

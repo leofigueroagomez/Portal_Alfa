@@ -14,6 +14,8 @@ import {
 } from "@/lib/fiscalData";
 import {
   getInvoiceIva,
+  getInvoicePaymentFormLabel,
+  getInvoicePaymentMethodLabel,
   getInvoiceSubtotal,
   getInvoiceTotal,
   invoiceStatusClasses,
@@ -83,7 +85,7 @@ export default async function ProjectInvoicesPage({
     supabase
       .from("project_invoices")
       .select(
-        "id, internal_folio, client_project_id, client_id, invoice_date, subtotal_mxn, iva_mxn, total_mxn, subtotal, iva, total, status, facturama_id, xml_url, pdf_url, sat_uuid"
+        "id, internal_folio, client_project_id, client_id, invoice_date, subtotal_mxn, iva_mxn, total_mxn, subtotal, iva, total, status, facturama_id, xml_url, pdf_url, sat_uuid, payment_method_code, payment_form_code, requires_payment_complement, payment_complement_status, sat_payment_form_catalog(code, name, is_active)"
       )
       .eq("client_project_id", projectData.id)
       .order("invoice_date", { ascending: false })
@@ -187,12 +189,13 @@ export default async function ProjectInvoicesPage({
 
       <section className="overflow-hidden rounded-2xl border border-[#1F1F24] bg-[#151518]">
         <div className="overflow-x-auto">
-          <div className="grid min-w-[1180px] grid-cols-[130px_130px_130px_130px_130px_140px_150px_170px_110px] gap-4 border-b border-[#2A2A30] px-5 py-4 text-sm font-semibold text-[#B3B3B8]">
+          <div className="grid min-w-[1320px] grid-cols-[130px_130px_130px_130px_130px_150px_140px_150px_170px_110px] gap-4 border-b border-[#2A2A30] px-5 py-4 text-sm font-semibold text-[#B3B3B8]">
             <p>Folio</p>
             <p>Fecha</p>
             <p>Subtotal</p>
             <p>IVA</p>
             <p>Total</p>
+            <p>Pago CFDI</p>
             <p>Estado</p>
             <p>Actualizar</p>
             <p>Sandbox</p>
@@ -202,13 +205,13 @@ export default async function ProjectInvoicesPage({
           {invoices.length === 0 ? (
             <div className="p-8 text-[#77777D]">No hay facturas asociadas.</div>
           ) : (
-            <div className="min-w-[1180px] divide-y divide-[#2A2A30]">
+            <div className="min-w-[1320px] divide-y divide-[#2A2A30]">
               {invoices.map((invoice) => {
                 const status = normalizeInvoiceStatus(invoice.status);
                 return (
                   <div
                     key={invoice.id}
-                    className="grid grid-cols-[130px_130px_130px_130px_130px_140px_150px_170px_110px] gap-4 px-5 py-4 text-sm"
+                    className="grid grid-cols-[130px_130px_130px_130px_130px_150px_140px_150px_170px_110px] gap-4 px-5 py-4 text-sm"
                   >
                     <div>
                       <p className="font-semibold text-[#9E1B32]">
@@ -222,6 +225,23 @@ export default async function ProjectInvoicesPage({
                     <p className="font-semibold">
                       {formatCurrency(getInvoiceTotal(invoice), "MXN")}
                     </p>
+                    <div className="space-y-1 text-xs text-[#B3B3B8]">
+                      <p className="font-semibold text-white">
+                        {getInvoicePaymentMethodLabel(invoice)}
+                      </p>
+                      <p>{getInvoicePaymentFormLabel(invoice)}</p>
+                      {invoice.requires_payment_complement ? (
+                        <span className="inline-flex rounded-full border border-[#614620] bg-[#322514] px-2 py-1 text-[#F4C66A]">
+                          Requiere complemento de pago
+                        </span>
+                      ) : null}
+                      {invoice.payment_complement_status === "pending" &&
+                      normalizeInvoiceStatus(invoice.status) === "issued" ? (
+                        <p className="text-[#F4C66A]">
+                          Complemento de pago pendiente.
+                        </p>
+                      ) : null}
+                    </div>
                     <span
                       className={`inline-flex h-fit w-fit rounded-full border px-3 py-1 text-xs ${invoiceStatusClasses[status]}`}
                     >

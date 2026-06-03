@@ -14,6 +14,8 @@ export type FacturamaInvoiceDraft = {
   subtotalMxn: number;
   ivaMxn: number;
   totalMxn: number;
+  paymentMethodCode: "PUE" | "PPD";
+  paymentFormCode: string;
   projectName: string | null;
   receiver: FacturamaReceiver;
   items: FacturamaInvoiceItem[];
@@ -273,8 +275,8 @@ function buildInvoicePayload(draft: FacturamaInvoiceDraft) {
     Exportation: "01",
     Folio: String(draft.invoiceId),
     CfdiType: "I",
-    PaymentForm: "99",
-    PaymentMethod: "PPD",
+    PaymentForm: draft.paymentFormCode,
+    PaymentMethod: draft.paymentMethodCode,
     Receiver: {
       Rfc: draft.receiver.rfc,
       Name: draft.receiver.name,
@@ -320,6 +322,8 @@ function buildFacturamaRequestLog(payload: FacturamaInvoicePayload) {
     Folio: payload.Folio,
     CfdiType: payload.CfdiType,
     Currency: payload.Currency,
+    PaymentForm: payload.PaymentForm,
+    PaymentMethod: payload.PaymentMethod,
     ItemsCount: payload.Items.length,
   };
 }

@@ -19,6 +19,7 @@ import {
 import { getMissingProductFiscalFields, type ProductFiscalCatalogs } from "@/lib/productFiscalData";
 import { canViewFinancials } from "@/lib/permissions";
 import { formatRfcDiagnostic, getRfcDiagnostic, type RfcDiagnostic } from "@/lib/rfc";
+import { isPaymentMethodCode } from "@/lib/paymentTerms";
 import { getCurrentUserProfile } from "@/services/profile";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 
@@ -52,6 +53,8 @@ type InvoiceForStamping = {
   total_mxn: number | null;
   status: string | null;
   facturama_id: string | null;
+  payment_method_code: string | null;
+  payment_form_code: string | null;
   clients: InvoiceClient | InvoiceClient[] | null;
   client_projects: InvoiceProject | InvoiceProject[] | null;
 };
@@ -230,7 +233,7 @@ export async function stampProjectInvoice(
     const { data, error } = await supabase
       .from("project_invoices")
       .select(
-        "id, client_project_id, client_id, invoice_date, subtotal_mxn, iva_mxn, total_mxn, subtotal, iva, total, status, facturama_id, clients(id, name, tax_rfc, tax_business_name, tax_regime, default_cfdi_use, fiscal_regime, cfdi_use, tax_zip_code, billing_email), client_projects(name)"
+        "id, client_project_id, client_id, invoice_date, subtotal_mxn, iva_mxn, total_mxn, subtotal, iva, total, status, facturama_id, payment_method_code, payment_form_code, clients(id, name, tax_rfc, tax_business_name, tax_regime, default_cfdi_use, fiscal_regime, cfdi_use, tax_zip_code, billing_email), client_projects(name)"
       )
       .eq("id", invoiceId)
       .maybeSingle();
@@ -249,6 +252,31 @@ export async function stampProjectInvoice(
 
     if (invoice.facturama_id) {
       throw new Error("Esta factura ya tiene ID de Facturama.");
+    }
+
+    const paymentMethodCode = invoice.payment_method_code || "PUE";
+    const paymentFormCode = invoice.payment_form_code || "";
+
+    if (!isPaymentMethodCode(paymentMethodCode)) {
+      throw new Error("Seleccione un metodo de pago valido: PUE o PPD.");
+    }
+
+    if (paymentMethodCode === "PPD" && paymentFormCode !== "99") {
+      throw new Error("Para PPD la forma de pago debe ser 99 Por definir.");
+    }
+
+    const { data: paymentFormData, error: paymentFormError } = await supabase
+      .from("sat_payment_form_catalog")
+      .select("code, name, is_active")
+      .eq("code", paymentFormCode)
+      .maybeSingle();
+
+    if (paymentFormError) {
+      throw new Error(`Error validando forma de pago SAT: ${paymentFormError.message}`);
+    }
+
+    if (!paymentFormData?.is_active) {
+      throw new Error("Seleccione una forma de pago valida del catalogo SAT.");
     }
 
     const subtotalMxn = Number(invoice.subtotal_mxn ?? invoice.subtotal ?? 0);
@@ -398,6 +426,8 @@ export async function stampProjectInvoice(
       subtotalMxn,
       ivaMxn,
       totalMxn,
+      paymentMethodCode,
+      paymentFormCode,
       projectName: project?.name || null,
       receiver: {
         rfc: rfcDiagnostic.normalized,

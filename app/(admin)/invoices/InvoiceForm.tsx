@@ -23,6 +23,14 @@ import {
   getNextInternalInvoiceFolio,
   isDuplicateInternalFolioError,
 } from "@/lib/invoiceFolios";
+import {
+  fallbackPaymentForms,
+  getPaymentComplementStatus,
+  paymentMethodOptions,
+  sortPaymentForms,
+  type PaymentFormCatalogItem,
+  type PaymentMethodCode,
+} from "@/lib/paymentTerms";
 import { supabase } from "@/services/supabase";
 
 type Project = {
@@ -164,6 +172,11 @@ export default function InvoiceForm({
   const [quoteItems, setQuoteItems] = useState<QuoteItem[]>([]);
   const [manualSubtotal, setManualSubtotal] = useState("");
   const [manualIva, setManualIva] = useState("");
+  const [paymentMethodCode, setPaymentMethodCode] = useState<PaymentMethodCode>("PUE");
+  const [paymentFormCode, setPaymentFormCode] = useState("03");
+  const [paymentFormQuery, setPaymentFormQuery] = useState("");
+  const [paymentForms, setPaymentForms] =
+    useState<PaymentFormCatalogItem[]>(fallbackPaymentForms);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [fiscalModalOpen, setFiscalModalOpen] = useState(false);
   const [fiscalModalIntro, setFiscalModalIntro] = useState<string | null>(null);
@@ -235,10 +248,71 @@ export default function InvoiceForm({
     ? Number(manualIva || 0)
     : concepts.reduce((sum, item) => sum + item.iva_mxn, 0);
   const total = subtotal + iva;
+  const sortedPaymentForms = useMemo(
+    () => sortPaymentForms(paymentForms.filter((item) => item.is_active)),
+    [paymentForms]
+  );
+  const selectedPaymentForm = sortedPaymentForms.find(
+    (item) => item.code === paymentFormCode
+  );
 
   useEffect(() => {
     setClientList(clients);
   }, [clients]);
+
+  useEffect(() => {
+    if (paymentMethodCode === "PPD") {
+      setPaymentFormCode("99");
+      setPaymentFormQuery("");
+    } else if (paymentFormCode === "99") {
+      setPaymentFormCode("03");
+    }
+  }, [paymentFormCode, paymentMethodCode]);
+
+  useEffect(() => {
+    async function loadPaymentForms() {
+      const query = paymentFormQuery.trim();
+      const codesToLoad = ["03", "04", "28", "01", "02", "99"];
+
+      try {
+        const codeResponses = await Promise.all(
+          codesToLoad.map((code) =>
+            fetch(`/api/sat-catalogs/payment-forms?code=${encodeURIComponent(code)}`)
+          )
+        );
+        const codePayloads = await Promise.all(
+          codeResponses.map((response) =>
+            response.json() as Promise<{ items?: PaymentFormCatalogItem[] }>
+          )
+        );
+        const commonItems = codePayloads.flatMap((payload) => payload.items || []);
+        let searchItems: PaymentFormCatalogItem[] = [];
+
+        if (query.length >= 1) {
+          const searchResponse = await fetch(
+            `/api/sat-catalogs/payment-forms?q=${encodeURIComponent(query)}`
+          );
+          const searchPayload = (await searchResponse.json()) as {
+            items?: PaymentFormCatalogItem[];
+          };
+          searchItems = searchPayload.items || [];
+        }
+
+        const byCode = new Map<string, PaymentFormCatalogItem>();
+        for (const item of [...commonItems, ...searchItems]) {
+          byCode.set(item.code, item);
+        }
+
+        setPaymentForms(
+          byCode.size > 0 ? [...byCode.values()] : fallbackPaymentForms
+        );
+      } catch {
+        setPaymentForms(fallbackPaymentForms);
+      }
+    }
+
+    loadPaymentForms();
+  }, [paymentFormQuery]);
 
   useEffect(() => {
     async function loadApprovedQuotes() {
@@ -390,6 +464,21 @@ export default function InvoiceForm({
       return;
     }
 
+    if (paymentMethodCode !== "PUE" && paymentMethodCode !== "PPD") {
+      setErrorMessage("Selecciona metodo de pago PUE o PPD.");
+      return;
+    }
+
+    if (paymentMethodCode === "PPD" && paymentFormCode !== "99") {
+      setErrorMessage("Para PPD la forma de pago debe ser 99 Por definir.");
+      return;
+    }
+
+    if (paymentMethodCode === "PUE" && !selectedPaymentForm?.is_active) {
+      setErrorMessage("Seleccione una forma de pago valida del catalogo SAT.");
+      return;
+    }
+
     if (sourceType !== "quote" && sourceType !== "manual") {
       setErrorMessage("Este origen esta preparado para una siguiente fase.");
       return;
@@ -442,6 +531,7 @@ export default function InvoiceForm({
     const subtotalValue = roundMoney(subtotal);
     const ivaValue = roundMoney(iva);
     const totalValue = roundMoney(total);
+    const paymentComplement = getPaymentComplementStatus(paymentMethodCode);
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const internalFolio = await getNextInternalInvoiceFolio(supabase);
@@ -455,6 +545,10 @@ export default function InvoiceForm({
         subtotal_mxn: subtotalValue,
         iva_mxn: ivaValue,
         total_mxn: totalValue,
+        payment_method_code: paymentMethodCode,
+        payment_form_code: paymentMethodCode === "PPD" ? "99" : paymentFormCode,
+        requires_payment_complement: paymentComplement.requiresPaymentComplement,
+        payment_complement_status: paymentComplement.paymentComplementStatus,
         status: "draft",
       };
       let result = await supabase
@@ -544,6 +638,9 @@ export default function InvoiceForm({
     setQuoteItems([]);
     setManualSubtotal("");
     setManualIva("");
+    setPaymentMethodCode("PUE");
+    setPaymentFormCode("03");
+    setPaymentFormQuery("");
     router.refresh();
   }
 
@@ -707,6 +804,65 @@ export default function InvoiceForm({
                 </>
               ) : null}
             </div>
+
+            <section className="mt-6 rounded-2xl border border-[#2A2A30] bg-[#101114] p-4">
+              <h3 className="text-xl font-semibold">Condiciones de pago CFDI</h3>
+              <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                <label className="space-y-2">
+                  <span className="text-sm text-[#B3B3B8]">Metodo de pago</span>
+                  <select
+                    className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none"
+                    value={paymentMethodCode}
+                    onChange={(event) =>
+                      setPaymentMethodCode(event.target.value as PaymentMethodCode)
+                    }
+                  >
+                    {paymentMethodOptions.map((option) => (
+                      <option key={option.code} value={option.code}>
+                        {option.code} - {option.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <div className="space-y-2">
+                  <label className="block space-y-2">
+                    <span className="text-sm text-[#B3B3B8]">Forma de pago</span>
+                    <select
+                      className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none disabled:text-[#77777D]"
+                      value={paymentFormCode}
+                      disabled={paymentMethodCode === "PPD"}
+                      onChange={(event) => setPaymentFormCode(event.target.value)}
+                    >
+                      {paymentMethodCode === "PPD" ? (
+                        <option value="99">99 - Por definir</option>
+                      ) : (
+                        sortedPaymentForms
+                          .filter((item) => item.code !== "99")
+                          .map((item) => (
+                            <option key={item.code} value={item.code}>
+                              {item.code} - {item.name}
+                            </option>
+                          ))
+                      )}
+                    </select>
+                  </label>
+                  {paymentMethodCode === "PUE" ? (
+                    <input
+                      type="search"
+                      className="w-full rounded-xl border border-[#2A2A30] bg-[#151518] px-4 py-2 text-sm outline-none"
+                      value={paymentFormQuery}
+                      placeholder="Buscar forma de pago SAT"
+                      onChange={(event) => setPaymentFormQuery(event.target.value)}
+                    />
+                  ) : (
+                    <p className="rounded-xl border border-[#614620] bg-[#322514] p-3 text-sm text-[#F4C66A]">
+                      En PPD la forma de pago debe ser 99 Por definir. Los pagos reales se timbraran despues mediante complemento de pago.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </section>
 
             {selectedClient ? (
               <div

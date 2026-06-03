@@ -7,6 +7,8 @@ import { formatCurrency, formatNumber } from "@/lib/format";
 import { getFacturamaSandboxReceiverNotice } from "@/lib/facturama";
 import {
   getInvoiceIva,
+  getInvoicePaymentFormLabel,
+  getInvoicePaymentMethodLabel,
   getInvoiceSubtotal,
   getInvoiceTotal,
   invoiceStatusClasses,
@@ -142,7 +144,7 @@ export default async function ProjectAccountStatementPage({
   const invoicesResult = await supabase
     .from("project_invoices")
     .select(
-      "id, internal_folio, client_project_id, client_id, invoice_date, subtotal_mxn, iva_mxn, total_mxn, subtotal, iva, total, status, facturama_id, xml_url, pdf_url, sat_uuid"
+      "id, internal_folio, client_project_id, client_id, invoice_date, subtotal_mxn, iva_mxn, total_mxn, subtotal, iva, total, status, facturama_id, xml_url, pdf_url, sat_uuid, payment_method_code, payment_form_code, requires_payment_complement, payment_complement_status, sat_payment_form_catalog(code, name, is_active)"
     )
     .eq("client_project_id", projectData.id)
     .order("invoice_date", { ascending: false })
@@ -402,6 +404,7 @@ export default async function ProjectAccountStatementPage({
                   <th className="px-3 py-3 text-right">Subtotal</th>
                   <th className="px-3 py-3 text-right">IVA</th>
                   <th className="px-3 py-3 text-right">Total</th>
+                  <th className="px-3 py-3">Pago CFDI</th>
                   <th className="px-3 py-3">Estado</th>
                   <th className="px-3 py-3">Sandbox</th>
                   <th className="px-3 py-3">SAT</th>
@@ -427,6 +430,23 @@ export default async function ProjectAccountStatementPage({
                       </td>
                       <td className="px-3 py-3 text-right font-semibold">
                         {formatCurrency(getInvoiceTotal(invoice), "MXN")}
+                      </td>
+                      <td className="px-3 py-3 text-xs text-[#B3B3B8]">
+                        <p className="font-semibold text-white">
+                          {getInvoicePaymentMethodLabel(invoice)}
+                        </p>
+                        <p className="mt-1">{getInvoicePaymentFormLabel(invoice)}</p>
+                        {invoice.requires_payment_complement ? (
+                          <span className="mt-2 inline-flex rounded-full border border-[#614620] bg-[#322514] px-2 py-1 text-[#F4C66A]">
+                            Requiere complemento de pago
+                          </span>
+                        ) : null}
+                        {invoice.payment_complement_status === "pending" &&
+                        normalizeInvoiceStatus(invoice.status) === "issued" ? (
+                          <p className="mt-2 text-[#F4C66A]">
+                            Complemento de pago pendiente.
+                          </p>
+                        ) : null}
                       </td>
                       <td className="px-3 py-3">
                         <span

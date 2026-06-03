@@ -1,4 +1,9 @@
 import type { FiscalClientData } from "@/lib/fiscalData";
+import {
+  getPaymentFormLabel,
+  getPaymentMethodLabel,
+  type PaymentFormCatalogItem,
+} from "@/lib/paymentTerms";
 
 export const invoiceStatuses = ["draft", "issued", "cancelled", "paid"] as const;
 
@@ -38,6 +43,11 @@ export type ProjectInvoice = {
   xml_url?: string | null;
   pdf_url?: string | null;
   sat_uuid?: string | null;
+  payment_method_code?: string | null;
+  payment_form_code?: string | null;
+  requires_payment_complement?: boolean | null;
+  payment_complement_status?: string | null;
+  sat_payment_form_catalog?: PaymentFormCatalogItem | PaymentFormCatalogItem[] | null;
   clients?: FiscalClientData | FiscalClientData[] | null;
   client_projects?: { name: string | null } | { name: string | null }[] | null;
 };
@@ -94,4 +104,13 @@ export function getCurrentMonthRange(now = new Date()) {
 export function getInvoiceRelation<T>(relation: T | T[] | null | undefined) {
   if (Array.isArray(relation)) return relation[0] || null;
   return relation || null;
+}
+
+export function getInvoicePaymentMethodLabel(invoice: ProjectInvoice) {
+  return getPaymentMethodLabel(invoice.payment_method_code);
+}
+
+export function getInvoicePaymentFormLabel(invoice: ProjectInvoice) {
+  const paymentForm = getInvoiceRelation(invoice.sat_payment_form_catalog);
+  return getPaymentFormLabel(invoice.payment_form_code, paymentForm?.name);
 }

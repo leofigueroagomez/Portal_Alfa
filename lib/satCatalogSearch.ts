@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/services/supabaseServer";
 type CatalogKind =
   | "product-services"
   | "units"
+  | "payment-forms"
   | "fiscal-regimes"
   | "cfdi-uses"
   | "tax-objects";
@@ -29,6 +30,12 @@ const configs: Record<CatalogKind, CatalogConfig> = {
     select: "code, name, description, is_active",
     textFields: ["name", "description"],
     minQueryLength: 2,
+  },
+  "payment-forms": {
+    table: "sat_payment_form_catalog",
+    select: "code, name, is_active",
+    textFields: ["name"],
+    minQueryLength: 1,
   },
   "fiscal-regimes": {
     table: "fiscal_regime_catalog",
