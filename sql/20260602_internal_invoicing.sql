@@ -374,6 +374,8 @@ create table if not exists public.project_invoices (
   sat_uuid text,
   xml_url text,
   pdf_url text,
+  last_error text,
+  facturama_response jsonb,
   created_at timestamptz not null default now()
 );
 
@@ -396,6 +398,8 @@ alter table public.project_invoices
   add column if not exists sat_uuid text,
   add column if not exists xml_url text,
   add column if not exists pdf_url text,
+  add column if not exists last_error text,
+  add column if not exists facturama_response jsonb,
   add column if not exists created_at timestamptz default now();
 
 do $$

@@ -26,6 +26,18 @@ function getErrorMessage(error: unknown) {
   return "No se pudo timbrar la factura.";
 }
 
+function formatDetails(details: unknown) {
+  if (!details) return null;
+  if (typeof details === "string") return details;
+
+  try {
+    const text = JSON.stringify(details, null, 2);
+    return text.length > 1800 ? `${text.slice(0, 1800)}...` : text;
+  } catch {
+    return "No se pudieron mostrar los detalles tecnicos.";
+  }
+}
+
 export default function StampInvoiceButton({
   invoiceId,
   status,
@@ -35,10 +47,13 @@ export default function StampInvoiceButton({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
+  const [details, setDetails] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
   const [localClient, setLocalClient] = useState<FiscalClientData | null>(client || null);
   const [fiscalModalOpen, setFiscalModalOpen] = useState(false);
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const canStamp = status === "draft" && !facturamaId;
+  const busy = checking || isPending;
 
   useEffect(() => {
     setLocalClient(client || null);
@@ -72,8 +87,20 @@ export default function StampInvoiceButton({
 
   async function handleStamp() {
     setMessage(null);
-    const catalogs = await loadCatalogs();
-    const currentMissing = getMissingFiscalFields(localClient, catalogs);
+    setDetails(null);
+    setChecking(true);
+
+    let currentMissing: string[] = [];
+    try {
+      const catalogs = await loadCatalogs();
+      currentMissing = getMissingFiscalFields(localClient, catalogs);
+    } catch (error) {
+      setMessage(getErrorMessage(error));
+      setChecking(false);
+      return;
+    }
+
+    setChecking(false);
 
     if (currentMissing.length > 0) {
       setMissingFields(currentMissing);
@@ -84,7 +111,14 @@ export default function StampInvoiceButton({
 
     startTransition(async () => {
       try {
-        await stampProjectInvoice(invoiceId);
+        const result = await stampProjectInvoice(invoiceId);
+
+        if (!result.ok) {
+          setMessage(result.error);
+          setDetails(formatDetails(result.details));
+          return;
+        }
+
         router.refresh();
       } catch (error) {
         setMessage(getErrorMessage(error));
@@ -106,14 +140,29 @@ export default function StampInvoiceButton({
         <button
           type="button"
           onClick={handleStamp}
-          disabled={isPending}
+          disabled={busy}
           className="inline-flex items-center gap-2 rounded-xl bg-[#9E1B32] px-4 py-2 text-sm font-semibold text-white hover:bg-[#B91C3C] disabled:bg-[#222228] disabled:text-[#77777D]"
         >
-          {isPending ? <Loader2 size={16} className="animate-spin" /> : <BadgeCheck size={16} />}
-          {isPending ? "Timbrando" : "Timbrar sandbox"}
+          {busy ? <Loader2 size={16} className="animate-spin" /> : <BadgeCheck size={16} />}
+          {busy ? "Timbrando" : "Timbrar sandbox"}
         </button>
         {message ? (
-          <p className="max-w-[220px] text-xs leading-5 text-[#FFB4B4]">{message}</p>
+          <div
+            className="max-w-[280px] rounded-xl border border-[#6A2A2A] bg-[#351818] p-3 text-xs leading-5 text-[#FFB4B4]"
+            aria-live="polite"
+          >
+            <p>{message}</p>
+            {details ? (
+              <details className="mt-2 text-[#F1C2C2]">
+                <summary className="cursor-pointer font-semibold text-white">
+                  Detalles
+                </summary>
+                <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-black/30 p-2 text-[11px] leading-4">
+                  {details}
+                </pre>
+              </details>
+            ) : null}
+          </div>
         ) : null}
       </div>
       <ClientFiscalDataModal
@@ -125,6 +174,7 @@ export default function StampInvoiceButton({
           setLocalClient(nextClient);
           setMissingFields([]);
           setMessage(null);
+          setDetails(null);
         }}
       />
     </>
