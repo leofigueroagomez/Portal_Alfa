@@ -27,6 +27,8 @@ type Client = {
 
 type Warranty = {
   id: number;
+  equipment_warranty_months: number | null;
+  installation_warranty_months: number | null;
   equipment_warranty_end_date: string | null;
   installation_warranty_end_date: string | null;
   preventive_maintenance_frequency_months: number | null;
@@ -52,6 +54,8 @@ type EmailDraft = {
   pendingBalanceMxn: number;
   deliveryUrl: string;
   warrantyUrl: string | null;
+  warrantyCreateUrl: string;
+  warrantyMissing: boolean;
   warrantyEndDate: string | null;
   nextMaintenanceDate: string | null;
 };
@@ -61,6 +65,10 @@ function addMonths(value: string | null | undefined, months: number | null | und
   const date = new Date(`${value}T00:00:00`);
   date.setMonth(date.getMonth() + Number(months || 0));
   return date.toISOString().slice(0, 10);
+}
+
+function getDateOrToday(value: string | null | undefined) {
+  return value || new Date().toISOString().slice(0, 10);
 }
 
 function formatDate(value: string | null | undefined) {
@@ -170,7 +178,7 @@ async function getEmailDraft(projectId: number, deliveryId: number): Promise<Ema
     supabase
       .from("project_warranties")
       .select(
-        "id, equipment_warranty_end_date, installation_warranty_end_date, preventive_maintenance_frequency_months"
+        "id, equipment_warranty_months, installation_warranty_months, equipment_warranty_end_date, installation_warranty_end_date, preventive_maintenance_frequency_months"
       )
       .eq("client_project_id", projectId)
       .order("warranty_date", { ascending: false })
@@ -188,18 +196,27 @@ async function getEmailDraft(projectId: number, deliveryId: number): Promise<Ema
   const systemList = (systems || []) as DeliverySystem[];
   const financialSummary = await getProjectFinancialSummary(supabase, projectId);
   const baseUrl = getBaseUrl();
+  const deliveryDate = getDateOrToday(deliveryData.delivery_date);
   const deliveryUrl = `${baseUrl}/projects/${projectId}/deliveries/${deliveryId}/print`;
   const warrantyUrl = warrantyData
     ? `${baseUrl}/projects/${projectId}/warranty/${warrantyData.id}/print`
     : null;
+  const warrantyCreateUrl = `${baseUrl}/projects/${projectId}/warranty/new`;
+  const warrantyMonths = Number(
+    warrantyData?.installation_warranty_months ||
+      warrantyData?.equipment_warranty_months ||
+      12
+  );
   const warrantyEndDate =
     warrantyData?.installation_warranty_end_date ||
     warrantyData?.equipment_warranty_end_date ||
-    null;
-  const nextMaintenanceDate = addMonths(
-    deliveryData.delivery_date,
-    warrantyData?.preventive_maintenance_frequency_months
+    addMonths(deliveryDate, warrantyMonths) ||
+    deliveryDate;
+  const maintenanceFrequencyMonths = Number(
+    warrantyData?.preventive_maintenance_frequency_months || 6
   );
+  const nextMaintenanceDate =
+    addMonths(deliveryDate, maintenanceFrequencyMonths) || deliveryDate;
   const to = clientData?.billing_email || clientData?.email || "";
   const cc = parseEmails(process.env.POSTSALE_CC_EMAILS);
   const pendingText =
@@ -217,20 +234,24 @@ async function getEmailDraft(projectId: number, deliveryId: number): Promise<Ema
     <div style="font-family: Arial, sans-serif; color: #111318; line-height: 1.6;">
       <h1 style="font-size: 22px;">Entrega de proyecto ALFA IT</h1>
       <p>Gracias por confiar en ALFA IT para el proyecto <strong>${escapeHtml(projectData.name || "Proyecto")}</strong>.</p>
-      <p><strong>Fecha de entrega:</strong> ${formatDate(deliveryData.delivery_date)}</p>
+      <p><strong>Fecha de entrega:</strong> ${formatDate(deliveryDate)}</p>
       <p>${pendingText}</p>
       <p><strong>Sistemas entregados:</strong></p>
       ${systemsHtml}
       <p><strong>Vencimiento de garantia:</strong> ${formatDate(warrantyEndDate)}</p>
       <p><strong>Proximo mantenimiento sugerido:</strong> ${formatDate(nextMaintenanceDate)}</p>
       <p>Contacto de soporte: ${escapeHtml(process.env.ALFA_SUPPORT_EMAIL || "soporte@alfait.com")}</p>
-      <p style="color:#666">Se adjuntan PDFs del acta de entrega y carta de garantia. Los enlaces internos permanecen protegidos por login.</p>
+      ${
+        warrantyData
+          ? '<p style="color:#666">Se adjuntan PDFs del acta de entrega y carta de garantia. Los enlaces internos permanecen protegidos por login.</p>'
+          : `<p style="color:#9E1B32"><strong>La garantia no ha sido generada todavia.</strong> Generala antes de enviar este correo: <a href="${warrantyCreateUrl}">${warrantyCreateUrl}</a></p>`
+      }
     </div>
   `;
   const deliveryPdfLines = [
     `Proyecto: ${projectData.name || "Proyecto"}`,
     `Cliente: ${clientData?.name || "Cliente"}`,
-    `Fecha de entrega: ${formatDate(deliveryData.delivery_date)}`,
+    `Fecha de entrega: ${formatDate(deliveryDate)}`,
     `Recibe: ${deliveryData.delivered_to_name || "-"}`,
     `Saldo pendiente: ${formatCurrency(financialSummary.pendingTotalMxn, "MXN")}`,
     "Sistemas entregados:",
@@ -244,17 +265,21 @@ async function getEmailDraft(projectId: number, deliveryId: number): Promise<Ema
     `Vencimiento de garantia: ${formatDate(warrantyEndDate)}`,
     `Proximo mantenimiento sugerido: ${formatDate(nextMaintenanceDate)}`,
     `Soporte: ${process.env.ALFA_SUPPORT_EMAIL || "soporte@alfait.com"}`,
-    warrantyUrl ? `Carta interna: ${warrantyUrl}` : "Carta de garantia pendiente de generar.",
+    warrantyUrl ? `Carta interna: ${warrantyUrl}` : `Generar garantia: ${warrantyCreateUrl}`,
   ];
   const attachments = [
     {
       filename: `acta-entrega-${deliveryId}.pdf`,
       content: createSimplePdf("Acta de entrega de proyecto", deliveryPdfLines),
     },
-    {
-      filename: `carta-garantia-${projectId}.pdf`,
-      content: createSimplePdf("Carta de garantia ALFA IT", warrantyPdfLines),
-    },
+    ...(warrantyData
+      ? [
+          {
+            filename: `carta-garantia-${projectId}.pdf`,
+            content: createSimplePdf("Carta de garantia ALFA IT", warrantyPdfLines),
+          },
+        ]
+      : []),
   ];
 
   return {
@@ -267,6 +292,8 @@ async function getEmailDraft(projectId: number, deliveryId: number): Promise<Ema
     pendingBalanceMxn: financialSummary.pendingTotalMxn,
     deliveryUrl,
     warrantyUrl,
+    warrantyCreateUrl,
+    warrantyMissing: !warrantyData,
     warrantyEndDate,
     nextMaintenanceDate,
   };
@@ -331,6 +358,8 @@ export async function previewProjectDeliveryEmail(projectId: number, deliveryId:
       pendingBalanceMxn: draft.pendingBalanceMxn,
       deliveryUrl: draft.deliveryUrl,
       warrantyUrl: draft.warrantyUrl,
+      warrantyCreateUrl: draft.warrantyCreateUrl,
+      warrantyMissing: draft.warrantyMissing,
       warrantyEndDate: draft.warrantyEndDate,
       nextMaintenanceDate: draft.nextMaintenanceDate,
     },
@@ -356,6 +385,12 @@ export async function sendProjectDeliveryEmail(
   if (!to) return { ok: false, message: "Captura un destinatario." };
   if (!subject) return { ok: false, message: "Captura un asunto." };
   if (!html) return { ok: false, message: "El cuerpo del correo no puede estar vacio." };
+  if (!emailDraft.warrantyUrl) {
+    return {
+      ok: false,
+      message: "La garantia no ha sido generada todavia. Genera la garantia antes de enviar.",
+    };
+  }
 
   const {
     data: { user },

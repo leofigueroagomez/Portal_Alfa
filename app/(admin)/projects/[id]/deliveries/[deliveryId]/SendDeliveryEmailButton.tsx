@@ -14,6 +14,8 @@ type Draft = {
   pendingBalanceMxn: number;
   deliveryUrl: string;
   warrantyUrl: string | null;
+  warrantyCreateUrl: string;
+  warrantyMissing: boolean;
   warrantyEndDate: string | null;
   nextMaintenanceDate: string | null;
 };
@@ -78,6 +80,10 @@ export default function SendDeliveryEmailButton({
 
   function confirmSend() {
     if (!draft) return;
+    if (!draft.warrantyUrl) {
+      setMessage("La garantia no ha sido generada todavia. Genera la garantia antes de enviar.");
+      return;
+    }
     if (!window.confirm("Vas a enviar el correo de entrega y garantia con los PDFs adjuntos. Deseas continuar?")) {
       return;
     }
@@ -197,6 +203,44 @@ export default function SendDeliveryEmailButton({
                     </div>
                   </section>
 
+                  <section className="rounded-xl border border-[#2A2A30] bg-[#222228] p-4">
+                    <h4 className="mb-3 font-semibold">Revisar documentos</h4>
+                    <div className="flex flex-wrap gap-2">
+                      <a
+                        href={draft.deliveryUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 rounded-lg border border-[#2A2A30] px-3 py-2 text-sm font-semibold text-[#B3B3B8] hover:text-white"
+                      >
+                        <FileText size={15} />
+                        Ver acta entrega
+                      </a>
+                      {draft.warrantyUrl ? (
+                        <a
+                          href={draft.warrantyUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 rounded-lg border border-[#2A2A30] px-3 py-2 text-sm font-semibold text-[#B3B3B8] hover:text-white"
+                        >
+                          <FileText size={15} />
+                          Ver carta garantia
+                        </a>
+                      ) : (
+                        <a
+                          href={draft.warrantyCreateUrl}
+                          className="inline-flex items-center gap-2 rounded-lg bg-[#9E1B32] px-3 py-2 text-sm font-semibold text-white hover:bg-[#B91C3C]"
+                        >
+                          Generar garantia ahora
+                        </a>
+                      )}
+                    </div>
+                    {draft.warrantyMissing ? (
+                      <p className="mt-3 rounded-lg border border-[#614620] bg-[#322514] p-3 text-sm text-[#F4C66A]">
+                        La garantia no ha sido generada todavia.
+                      </p>
+                    ) : null}
+                  </section>
+
                   <section className="rounded-xl border border-[#2A2A30] bg-[#222228] p-4 text-sm text-[#B3B3B8]">
                     <p>Saldo pendiente: {formatCurrency(draft.pendingBalanceMxn)}</p>
                     <p>Vence garantia: {formatDate(draft.warrantyEndDate)}</p>
@@ -228,11 +272,15 @@ export default function SendDeliveryEmailButton({
                   <button
                     type="button"
                     onClick={confirmSend}
-                    disabled={isPending}
+                    disabled={isPending || !draft.warrantyUrl}
                     className="inline-flex items-center gap-2 rounded-xl bg-[#9E1B32] px-5 py-3 font-semibold hover:bg-[#B91C3C] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <Mail size={18} />
-                    {isPending ? "Enviando..." : "Confirmar envio"}
+                    {isPending
+                      ? "Enviando..."
+                      : draft.warrantyUrl
+                        ? "Confirmar envio"
+                        : "Genera garantia antes de enviar"}
                   </button>
                 </div>
               </div>
