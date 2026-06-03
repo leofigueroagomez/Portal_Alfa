@@ -16,6 +16,20 @@ export type FacturamaInvoiceDraft = {
   totalMxn: number;
   projectName: string | null;
   receiver: FacturamaReceiver;
+  items: FacturamaInvoiceItem[];
+};
+
+export type FacturamaInvoiceItem = {
+  productCode: string;
+  unitCode: string;
+  unit: string;
+  description: string;
+  quantity: number;
+  unitPriceMxn: number;
+  subtotalMxn: number;
+  ivaMxn: number;
+  totalMxn: number;
+  fiscalObject: string;
 };
 
 export type FacturamaStampResult = {
@@ -110,13 +124,6 @@ function getExpeditionPlace(receiverZipCode: string) {
 }
 
 function buildInvoicePayload(draft: FacturamaInvoiceDraft) {
-  const subtotal = amount(draft.subtotalMxn);
-  const iva = amount(draft.ivaMxn);
-  const total = amount(draft.totalMxn);
-  const description = draft.projectName
-    ? `Servicios ALFA - ${draft.projectName}`
-    : `Servicios ALFA - Proyecto ${draft.invoiceId}`;
-
   return {
     NameId: 1,
     Date: `${draft.invoiceDate}T12:00:00`,
@@ -134,29 +141,30 @@ function buildInvoicePayload(draft: FacturamaInvoiceDraft) {
       FiscalRegime: draft.receiver.fiscalRegime,
       TaxZipCode: draft.receiver.taxZipCode,
     },
-    Items: [
-      {
-        Quantity: 1,
-        ProductCode: process.env.FACTURAMA_PRODUCT_CODE || "81161700",
-        UnitCode: "E48",
-        Unit: "Servicio",
-        Description: description.slice(0, 1000),
-        UnitPrice: subtotal,
-        Subtotal: subtotal,
-        TaxObject: "02",
-        Taxes: [
-          {
-            Name: "IVA",
-            Rate: 0.16,
-            Total: iva,
-            Base: subtotal,
-            IsRetention: false,
-            IsFederalTax: true,
-          },
-        ],
-        Total: total,
-      },
-    ],
+    Items: draft.items.map((item) => ({
+      Quantity: amount(item.quantity),
+      ProductCode: item.productCode,
+      UnitCode: item.unitCode,
+      Unit: item.unit,
+      Description: item.description.slice(0, 1000),
+      UnitPrice: amount(item.unitPriceMxn),
+      Subtotal: amount(item.subtotalMxn),
+      TaxObject: item.fiscalObject,
+      Taxes:
+        item.fiscalObject === "02"
+          ? [
+              {
+                Name: "IVA",
+                Rate: 0.16,
+                Total: amount(item.ivaMxn),
+                Base: amount(item.subtotalMxn),
+                IsRetention: false,
+                IsFederalTax: true,
+              },
+            ]
+          : [],
+      Total: amount(item.totalMxn),
+    })),
   };
 }
 

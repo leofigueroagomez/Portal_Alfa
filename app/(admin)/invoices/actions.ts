@@ -9,6 +9,7 @@ import {
   getMissingFiscalFields,
   type FiscalCatalogItem,
 } from "@/lib/fiscalData";
+import { getMissingProductFiscalFields, type ProductFiscalCatalogs } from "@/lib/productFiscalData";
 import { canViewFinancials } from "@/lib/permissions";
 import { getCurrentUserProfile } from "@/services/profile";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
@@ -42,6 +43,21 @@ type InvoiceForStamping = {
   facturama_id: string | null;
   clients: InvoiceClient | InvoiceClient[] | null;
   client_projects: InvoiceProject | InvoiceProject[] | null;
+};
+
+type InvoiceItemForStamping = {
+  id: number;
+  description: string | null;
+  quantity: number | null;
+  unit_price_mxn: number | null;
+  subtotal_mxn: number | null;
+  iva_mxn: number | null;
+  total_mxn: number | null;
+  sat_product_service_code: string | null;
+  sat_unit_code: string | null;
+  sat_unit_name: string | null;
+  fiscal_object: string | null;
+  product_id: number | null;
 };
 
 function getRelation<T>(relation: T | T[] | null | undefined) {
@@ -118,6 +134,59 @@ export async function stampProjectInvoice(invoiceId: number) {
 
   const fiscalRegimeCode = getFiscalRegimeCode(client);
   const cfdiUseCode = getCfdiUseCode(client);
+  const [itemsResult, productServicesResult, unitsResult] = await Promise.all([
+    supabase
+      .from("project_invoice_items")
+      .select(
+        "id, description, quantity, unit_price_mxn, subtotal_mxn, iva_mxn, total_mxn, sat_product_service_code, sat_unit_code, sat_unit_name, fiscal_object, product_id"
+      )
+      .eq("project_invoice_id", invoice.id)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("sat_product_service_catalog")
+      .select("code, description, is_active"),
+    supabase
+      .from("sat_unit_catalog")
+      .select("code, name, description, is_active"),
+  ]);
+
+  if (itemsResult.error) {
+    throw new Error(`Error leyendo conceptos fiscales: ${itemsResult.error.message}`);
+  }
+
+  if (productServicesResult.error || unitsResult.error) {
+    throw new Error("No se pudieron validar catalogos SAT de conceptos.");
+  }
+
+  const invoiceItems = (itemsResult.data || []) as InvoiceItemForStamping[];
+
+  if (invoiceItems.length === 0) {
+    throw new Error("La factura no tiene conceptos fiscales.");
+  }
+
+  const productCatalogs: ProductFiscalCatalogs = {
+    productServices: productServicesResult.data || [],
+    units: unitsResult.data || [],
+  };
+  const missingItemFields = invoiceItems.flatMap((item) => {
+    const missing = getMissingProductFiscalFields(
+      {
+        id: Number(item.product_id || item.id),
+        name: item.description,
+        sat_product_service_code: item.sat_product_service_code,
+        sat_unit_code: item.sat_unit_code,
+        sat_unit_name: item.sat_unit_name,
+        fiscal_object: item.fiscal_object,
+      },
+      productCatalogs
+    );
+
+    return missing.length > 0 ? [`${item.description || `Concepto #${item.id}`}: ${missing.join(", ")}`] : [];
+  });
+
+  if (missingItemFields.length > 0) {
+    throw new Error(`Faltan datos fiscales en conceptos: ${missingItemFields.join(" | ")}`);
+  }
 
   const result = await stampFacturamaInvoice({
     invoiceId: invoice.id,
@@ -133,6 +202,18 @@ export async function stampProjectInvoice(invoiceId: number) {
       cfdiUse: cfdiUseCode,
       taxZipCode: client.tax_zip_code!.trim(),
     },
+    items: invoiceItems.map((item) => ({
+      productCode: item.sat_product_service_code!,
+      unitCode: item.sat_unit_code!,
+      unit: item.sat_unit_name!,
+      description: item.description || "Concepto ALFA",
+      quantity: Number(item.quantity || 1),
+      unitPriceMxn: Number(item.unit_price_mxn || 0),
+      subtotalMxn: Number(item.subtotal_mxn || 0),
+      ivaMxn: Number(item.iva_mxn || 0),
+      totalMxn: Number(item.total_mxn || 0),
+      fiscalObject: item.fiscal_object || "02",
+    })),
   });
 
   const pdfUrl = `/api/invoices/${invoice.id}/pdf`;

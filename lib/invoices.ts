@@ -22,6 +22,9 @@ export type ProjectInvoice = {
   id: number;
   client_project_id: number | null;
   client_id: number | null;
+  source_type?: string | null;
+  source_quote_id?: number | null;
+  source_service_report_id?: number | null;
   invoice_date: string | null;
   subtotal_mxn: number | null;
   iva_mxn: number | null;

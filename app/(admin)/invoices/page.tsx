@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { FileText, Landmark, ReceiptText } from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
+import { getCurrentUserProfile } from "@/services/profile";
+import { canManageUsers } from "@/lib/permissions";
 import { formatCurrency } from "@/lib/format";
 import {
   getCurrentMonthRange,
@@ -48,6 +50,8 @@ function getQuoteTotal(quote: Quote) {
 
 export default async function InvoicesPage() {
   const supabase = await createSupabaseServerClient();
+  const profile = await getCurrentUserProfile();
+  const allowManualInvoices = canManageUsers(profile?.role);
 
   const [invoicesResult, clientsResult, projectsResult, quotesResult] = await Promise.all([
     supabase
@@ -135,7 +139,11 @@ export default async function InvoicesPage() {
             Control manual de facturas por proyecto, preparado para futura integracion SAT.
           </p>
         </div>
-        <InvoiceForm clients={clients} projects={projects} />
+        <InvoiceForm
+          clients={clients}
+          projects={projects}
+          allowManual={allowManualInvoices}
+        />
       </section>
 
       <section className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">

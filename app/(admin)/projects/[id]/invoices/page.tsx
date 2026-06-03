@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { ArrowLeft, FileText } from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
+import { getCurrentUserProfile } from "@/services/profile";
+import { canManageUsers } from "@/lib/permissions";
 import { formatCurrency } from "@/lib/format";
 import { ClientFiscalDataButton } from "@/components/ClientFiscalDataModal";
 import {
@@ -40,6 +42,8 @@ export default async function ProjectInvoicesPage({
   params: Promise<{ id: string }>;
 }) {
   const supabase = await createSupabaseServerClient();
+  const profile = await getCurrentUserProfile();
+  const allowManualInvoices = canManageUsers(profile?.role);
   const { id } = await params;
 
   const { data: project, error } = await supabase
@@ -134,6 +138,7 @@ export default async function ProjectInvoicesPage({
           projects={[projectData]}
           defaultProjectId={projectData.id}
           defaultClientId={projectData.client_id}
+          allowManual={allowManualInvoices}
         />
       </section>
 

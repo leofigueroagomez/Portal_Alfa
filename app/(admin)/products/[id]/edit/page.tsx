@@ -5,6 +5,11 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/services/supabase";
 import { formatCurrency } from "@/lib/format";
+import { SatProductServiceSelect, SatUnitSelect } from "@/components/SatCatalogSelect";
+import type {
+  SatProductServiceCatalogItem,
+  SatUnitCatalogItem,
+} from "@/lib/productFiscalData";
 
 type TaxonomyOption = {
   id: number;
@@ -33,7 +38,11 @@ type ProductForm = {
   labor_unit_cost: string;
   sat_product_key: string;
   sat_unit_key: string;
+  sat_product_service_code: string;
+  sat_unit_code: string;
+  sat_unit_name: string;
   unit_name: string;
+  fiscal_object: string;
   tax_rate: string;
   is_active: boolean;
   is_favorite: boolean;
@@ -60,7 +69,11 @@ const emptyForm: ProductForm = {
   labor_unit_cost: "",
   sat_product_key: "",
   sat_unit_key: "",
+  sat_product_service_code: "",
+  sat_unit_code: "",
+  sat_unit_name: "",
   unit_name: "",
+  fiscal_object: "02",
   tax_rate: "16",
   is_active: true,
   is_favorite: false,
@@ -75,6 +88,8 @@ export default function EditProductPage() {
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [categories, setCategories] = useState<TaxonomyOption[]>([]);
   const [tags, setTags] = useState<TaxonomyOption[]>([]);
+  const [satProductServices, setSatProductServices] = useState<SatProductServiceCatalogItem[]>([]);
+  const [satUnits, setSatUnits] = useState<SatUnitCatalogItem[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
   const laborUnitSalePrice =
     (Number(form.labor_unit_cost) || 0) * LABOR_MULTIPLIER;
@@ -111,6 +126,8 @@ export default function EditProductPage() {
         categoriesResult,
         tagsResult,
         assignmentResult,
+        productServicesResult,
+        unitsResult,
       ] = await Promise.all([
         supabase.from("products").select("*").eq("id", productId).single(),
         supabase
@@ -129,6 +146,14 @@ export default function EditProductPage() {
           .from("product_tag_assignments")
           .select("tag_id")
           .eq("product_id", productId),
+        supabase
+          .from("sat_product_service_catalog")
+          .select("code, description, is_active")
+          .order("code"),
+        supabase
+          .from("sat_unit_catalog")
+          .select("code, name, description, is_active")
+          .order("code"),
       ]);
 
       if (productResult.error || !productResult.data) {
@@ -161,7 +186,11 @@ export default function EditProductPage() {
         labor_unit_cost: String(data.labor_unit_cost || ""),
         sat_product_key: data.sat_product_key || "",
         sat_unit_key: data.sat_unit_key || "",
+        sat_product_service_code: data.sat_product_service_code || data.sat_product_key || "",
+        sat_unit_code: data.sat_unit_code || data.sat_unit_key || "",
+        sat_unit_name: data.sat_unit_name || data.unit_name || "",
         unit_name: data.unit_name || "",
+        fiscal_object: data.fiscal_object || "02",
         tax_rate: String(data.tax_rate || "16"),
         is_active: Boolean(data.is_active),
         is_favorite: Boolean(data.is_favorite),
@@ -169,6 +198,8 @@ export default function EditProductPage() {
       });
       setCategories((categoriesResult.data || []) as TaxonomyOption[]);
       setTags((tagsResult.data || []) as TaxonomyOption[]);
+      setSatProductServices((productServicesResult.data || []) as SatProductServiceCatalogItem[]);
+      setSatUnits((unitsResult.data || []) as SatUnitCatalogItem[]);
       setSelectedTagIds(
         (assignmentResult.data || []).map((assignment) =>
           Number(assignment.tag_id)
@@ -246,9 +277,13 @@ export default function EditProductPage() {
         labor_unit_cost: Number(form.labor_unit_cost) || 0,
         labor_sale_multiplier: LABOR_MULTIPLIER,
         labor_unit_sale_price: laborUnitSalePrice,
-        sat_product_key: form.sat_product_key,
-        sat_unit_key: form.sat_unit_key,
-        unit_name: form.unit_name,
+        sat_product_key: form.sat_product_service_code,
+        sat_unit_key: form.sat_unit_code,
+        sat_product_service_code: form.sat_product_service_code,
+        sat_unit_code: form.sat_unit_code,
+        sat_unit_name: form.sat_unit_name,
+        unit_name: form.sat_unit_name,
+        fiscal_object: form.fiscal_object,
         tax_rate: Number(form.tax_rate) || 16,
         is_active: form.is_active,
         is_favorite: form.is_favorite,
@@ -389,9 +424,26 @@ export default function EditProductPage() {
             <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-4 sm:p-6">
             <h2 className="text-2xl font-semibold mb-6">Datos SAT</h2>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-4">
-              <input className="bg-[#222228] rounded-xl p-4 outline-none" placeholder="Clave SAT producto" value={form.sat_product_key} onChange={(e) => updateField("sat_product_key", e.target.value)} />
-              <input className="bg-[#222228] rounded-xl p-4 outline-none" placeholder="Clave SAT unidad" value={form.sat_unit_key} onChange={(e) => updateField("sat_unit_key", e.target.value)} />
-              <input className="bg-[#222228] rounded-xl p-4 outline-none" placeholder="Unidad" value={form.unit_name} onChange={(e) => updateField("unit_name", e.target.value)} />
+              <SatProductServiceSelect
+                label="Codigo SAT Producto/Servicio"
+                value={form.sat_product_service_code}
+                options={satProductServices}
+                onChange={(value) => updateField("sat_product_service_code", value)}
+              />
+              <SatUnitSelect
+                label="Clave Unidad SAT"
+                value={form.sat_unit_code}
+                options={satUnits}
+                onChange={(value, unitName) => {
+                  updateField("sat_unit_code", value);
+                  updateField("sat_unit_name", unitName || "");
+                }}
+              />
+              <select className="bg-[#222228] rounded-xl p-4 outline-none" value={form.fiscal_object} onChange={(e) => updateField("fiscal_object", e.target.value)}>
+                <option value="02">02 - Si objeto de impuesto</option>
+                <option value="01">01 - No objeto de impuesto</option>
+                <option value="03">03 - Si objeto de impuesto y no obligado al desglose</option>
+              </select>
               <input className="bg-[#222228] rounded-xl p-4 outline-none" placeholder="IVA %" value={form.tax_rate} onChange={(e) => updateField("tax_rate", e.target.value)} />
             </div>
           </div>
