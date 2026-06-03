@@ -36,6 +36,9 @@ type InvoiceForStamping = {
   client_project_id: number;
   client_id: number;
   invoice_date: string | null;
+  subtotal?: number | null;
+  iva?: number | null;
+  total?: number | null;
   subtotal_mxn: number | null;
   iva_mxn: number | null;
   total_mxn: number | null;
@@ -76,7 +79,7 @@ export async function stampProjectInvoice(invoiceId: number) {
   const { data, error } = await supabase
     .from("project_invoices")
     .select(
-      "id, client_project_id, client_id, invoice_date, subtotal_mxn, iva_mxn, total_mxn, status, facturama_id, clients(id, name, tax_rfc, tax_business_name, tax_regime, default_cfdi_use, fiscal_regime, cfdi_use, tax_zip_code, billing_email), client_projects(name)"
+      "id, client_project_id, client_id, invoice_date, subtotal_mxn, iva_mxn, total_mxn, subtotal, iva, total, status, facturama_id, clients(id, name, tax_rfc, tax_business_name, tax_regime, default_cfdi_use, fiscal_regime, cfdi_use, tax_zip_code, billing_email), client_projects(name)"
     )
     .eq("id", invoiceId)
     .maybeSingle();
@@ -96,9 +99,9 @@ export async function stampProjectInvoice(invoiceId: number) {
     throw new Error("Esta factura ya tiene ID de Facturama.");
   }
 
-  const subtotalMxn = Number(invoice.subtotal_mxn || 0);
-  const ivaMxn = Number(invoice.iva_mxn || 0);
-  const totalMxn = Number(invoice.total_mxn || 0);
+  const subtotalMxn = Number(invoice.subtotal_mxn ?? invoice.subtotal ?? 0);
+  const ivaMxn = Number(invoice.iva_mxn ?? invoice.iva ?? 0);
+  const totalMxn = Number(invoice.total_mxn ?? invoice.total ?? 0);
 
   if (subtotalMxn <= 0 || totalMxn <= 0) {
     throw new Error("La factura debe tener importes mayores a cero.");

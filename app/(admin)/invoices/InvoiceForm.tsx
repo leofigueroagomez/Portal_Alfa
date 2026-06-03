@@ -103,6 +103,17 @@ function roundMoney(value: number) {
   return Math.round(value * 100) / 100;
 }
 
+function isMissingLegacyAmountColumnError(error: unknown) {
+  if (!error || typeof error !== "object" || !("message" in error)) return false;
+  const message = String(error.message || "").toLowerCase();
+
+  return (
+    message.includes("project_invoices") &&
+    (message.includes("subtotal") || message.includes("iva") || message.includes("total")) &&
+    (message.includes("column") || message.includes("schema cache"))
+  );
+}
+
 function getQuoteItemSubtotalMxn(item: QuoteItem, quote: ApprovedQuote | null) {
   const directLineTotal = Number(item.line_total || 0);
   if (directLineTotal > 0) return directLineTotal;
@@ -395,7 +406,7 @@ export default function InvoiceForm({
     }
 
     if (sourceType === "quote" && concepts.length === 0) {
-      setErrorMessage("La cotizacion aprobada no tiene partidas para facturar.");
+      setErrorMessage("No se encontraron conceptos facturables.");
       return;
     }
 
@@ -416,7 +427,11 @@ export default function InvoiceForm({
     }
 
     if (!Number.isFinite(subtotal) || subtotal <= 0) {
-      setErrorMessage("La factura debe tener subtotal mayor a cero.");
+      setErrorMessage(
+        sourceType === "quote"
+          ? "No se encontraron conceptos facturables."
+          : "La factura debe tener subtotal mayor a cero."
+      );
       return;
     }
 
@@ -424,25 +439,42 @@ export default function InvoiceForm({
 
     let invoice: CreatedInvoice | null = null;
     let insertError: unknown = null;
+    const subtotalValue = roundMoney(subtotal);
+    const ivaValue = roundMoney(iva);
+    const totalValue = roundMoney(total);
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const internalFolio = await getNextInternalInvoiceFolio(supabase);
-      const result = await supabase
+      const invoicePayload = {
+        internal_folio: internalFolio,
+        client_project_id: Number(projectId),
+        client_id: Number(clientId),
+        source_type: sourceType,
+        source_quote_id: sourceType === "quote" ? Number(quoteId) : null,
+        invoice_date: invoiceDate,
+        subtotal_mxn: subtotalValue,
+        iva_mxn: ivaValue,
+        total_mxn: totalValue,
+        status: "draft",
+      };
+      let result = await supabase
         .from("project_invoices")
         .insert({
-          internal_folio: internalFolio,
-          client_project_id: Number(projectId),
-          client_id: Number(clientId),
-          source_type: sourceType,
-          source_quote_id: sourceType === "quote" ? Number(quoteId) : null,
-          invoice_date: invoiceDate,
-          subtotal_mxn: roundMoney(subtotal),
-          iva_mxn: roundMoney(iva),
-          total_mxn: roundMoney(total),
-          status: "draft",
+          ...invoicePayload,
+          subtotal: subtotalValue,
+          iva: ivaValue,
+          total: totalValue,
         })
         .select("id, internal_folio")
         .single();
+
+      if (result.error && isMissingLegacyAmountColumnError(result.error)) {
+        result = await supabase
+          .from("project_invoices")
+          .insert(invoicePayload)
+          .select("id, internal_folio")
+          .single();
+      }
 
       if (!result.error && result.data) {
         invoice = result.data as CreatedInvoice;
@@ -480,10 +512,10 @@ export default function InvoiceForm({
               product_id: null,
               description: "Concepto manual interno",
               quantity: 1,
-              unit_price_mxn: roundMoney(subtotal),
-              subtotal_mxn: roundMoney(subtotal),
-              iva_mxn: roundMoney(iva),
-              total_mxn: roundMoney(total),
+              unit_price_mxn: subtotalValue,
+              subtotal_mxn: subtotalValue,
+              iva_mxn: ivaValue,
+              total_mxn: totalValue,
               sat_product_service_code: "81161700",
               sat_unit_code: "E48",
               sat_unit_name: "Unidad de servicio",

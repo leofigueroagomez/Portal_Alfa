@@ -12,6 +12,8 @@ import {
   type FiscalClientData,
 } from "@/lib/fiscalData";
 import {
+  getInvoiceIva,
+  getInvoiceSubtotal,
   getInvoiceTotal,
   invoiceStatusClasses,
   invoiceStatusLabels,
@@ -78,7 +80,7 @@ export default async function ProjectInvoicesPage({
     supabase
       .from("project_invoices")
       .select(
-        "id, internal_folio, client_project_id, client_id, invoice_date, subtotal_mxn, iva_mxn, total_mxn, status, facturama_id, xml_url, pdf_url, sat_uuid"
+        "id, internal_folio, client_project_id, client_id, invoice_date, subtotal_mxn, iva_mxn, total_mxn, subtotal, iva, total, status, facturama_id, xml_url, pdf_url, sat_uuid"
       )
       .eq("client_project_id", projectData.id)
       .order("invoice_date", { ascending: false })
@@ -212,10 +214,10 @@ export default async function ProjectInvoicesPage({
                       <p className="mt-1 text-xs text-[#77777D]">ID #{invoice.id}</p>
                     </div>
                     <p>{formatDate(invoice.invoice_date)}</p>
-                    <p>{formatCurrency(invoice.subtotal_mxn, "MXN")}</p>
-                    <p>{formatCurrency(invoice.iva_mxn, "MXN")}</p>
+                    <p>{formatCurrency(getInvoiceSubtotal(invoice), "MXN")}</p>
+                    <p>{formatCurrency(getInvoiceIva(invoice), "MXN")}</p>
                     <p className="font-semibold">
-                      {formatCurrency(invoice.total_mxn, "MXN")}
+                      {formatCurrency(getInvoiceTotal(invoice), "MXN")}
                     </p>
                     <span
                       className={`inline-flex h-fit w-fit rounded-full border px-3 py-1 text-xs ${invoiceStatusClasses[status]}`}

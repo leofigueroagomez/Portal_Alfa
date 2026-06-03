@@ -388,6 +388,9 @@ alter table public.project_invoices
   add column if not exists subtotal_mxn numeric(14,2),
   add column if not exists iva_mxn numeric(14,2),
   add column if not exists total_mxn numeric(14,2),
+  add column if not exists subtotal numeric(14,2),
+  add column if not exists iva numeric(14,2),
+  add column if not exists total numeric(14,2),
   add column if not exists status text default 'draft',
   add column if not exists facturama_id text,
   add column if not exists sat_uuid text,
@@ -437,6 +440,42 @@ set
   source_type = coalesce(source_type, 'manual'),
   invoice_date = coalesce(invoice_date, current_date),
   created_at = coalesce(created_at, now());
+
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'project_invoices'
+      and column_name = 'subtotal'
+  ) then
+    execute 'update public.project_invoices set subtotal = coalesce(subtotal, subtotal_mxn, 0)';
+    execute 'alter table public.project_invoices alter column subtotal set default 0';
+  end if;
+
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'project_invoices'
+      and column_name = 'iva'
+  ) then
+    execute 'update public.project_invoices set iva = coalesce(iva, iva_mxn, 0)';
+    execute 'alter table public.project_invoices alter column iva set default 0';
+  end if;
+
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'project_invoices'
+      and column_name = 'total'
+  ) then
+    execute 'update public.project_invoices set total = coalesce(total, total_mxn, 0)';
+    execute 'alter table public.project_invoices alter column total set default 0';
+  end if;
+end $$;
 
 create sequence if not exists public.project_invoice_internal_folio_seq;
 

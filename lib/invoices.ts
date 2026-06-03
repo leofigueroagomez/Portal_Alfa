@@ -27,6 +27,9 @@ export type ProjectInvoice = {
   source_quote_id?: number | null;
   source_service_report_id?: number | null;
   invoice_date: string | null;
+  subtotal?: number | null;
+  iva?: number | null;
+  total?: number | null;
   subtotal_mxn: number | null;
   iva_mxn: number | null;
   total_mxn: number | null;
@@ -60,8 +63,22 @@ export function isCollectedStatus(status: string | null | undefined) {
   return normalizeInvoiceStatus(status) === "paid";
 }
 
-export function getInvoiceTotal(invoice: Pick<ProjectInvoice, "total_mxn">) {
-  return Number(invoice.total_mxn || 0);
+export function getInvoiceTotal(
+  invoice: Pick<ProjectInvoice, "total_mxn"> & { total?: number | null }
+) {
+  return Number(invoice.total_mxn ?? invoice.total ?? 0);
+}
+
+export function getInvoiceSubtotal(
+  invoice: Pick<ProjectInvoice, "subtotal_mxn"> & { subtotal?: number | null }
+) {
+  return Number(invoice.subtotal_mxn ?? invoice.subtotal ?? 0);
+}
+
+export function getInvoiceIva(
+  invoice: Pick<ProjectInvoice, "iva_mxn"> & { iva?: number | null }
+) {
+  return Number(invoice.iva_mxn ?? invoice.iva ?? 0);
 }
 
 export function getCurrentMonthRange(now = new Date()) {

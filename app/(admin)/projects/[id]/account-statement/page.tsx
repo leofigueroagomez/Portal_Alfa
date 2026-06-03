@@ -5,6 +5,9 @@ import { getCurrentUserProfile } from "@/services/profile";
 import { canManageUsers } from "@/lib/permissions";
 import { formatCurrency, formatNumber } from "@/lib/format";
 import {
+  getInvoiceIva,
+  getInvoiceSubtotal,
+  getInvoiceTotal,
   invoiceStatusClasses,
   invoiceStatusLabels,
   normalizeInvoiceStatus,
@@ -136,7 +139,7 @@ export default async function ProjectAccountStatementPage({
   const invoicesResult = await supabase
     .from("project_invoices")
     .select(
-      "id, internal_folio, client_project_id, client_id, invoice_date, subtotal_mxn, iva_mxn, total_mxn, status, facturama_id, xml_url, pdf_url, sat_uuid"
+      "id, internal_folio, client_project_id, client_id, invoice_date, subtotal_mxn, iva_mxn, total_mxn, subtotal, iva, total, status, facturama_id, xml_url, pdf_url, sat_uuid"
     )
     .eq("client_project_id", projectData.id)
     .order("invoice_date", { ascending: false })
@@ -414,13 +417,13 @@ export default async function ProjectAccountStatementPage({
                       </td>
                       <td className="px-3 py-3">{formatDate(invoice.invoice_date)}</td>
                       <td className="px-3 py-3 text-right">
-                        {formatCurrency(invoice.subtotal_mxn, "MXN")}
+                        {formatCurrency(getInvoiceSubtotal(invoice), "MXN")}
                       </td>
                       <td className="px-3 py-3 text-right">
-                        {formatCurrency(invoice.iva_mxn, "MXN")}
+                        {formatCurrency(getInvoiceIva(invoice), "MXN")}
                       </td>
                       <td className="px-3 py-3 text-right font-semibold">
-                        {formatCurrency(invoice.total_mxn, "MXN")}
+                        {formatCurrency(getInvoiceTotal(invoice), "MXN")}
                       </td>
                       <td className="px-3 py-3">
                         <span
