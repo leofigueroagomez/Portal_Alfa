@@ -19,6 +19,10 @@ import {
   type ProductFiscalData,
 } from "@/lib/productFiscalData";
 import { formatCurrency } from "@/lib/format";
+import {
+  getNextInternalInvoiceFolio,
+  isDuplicateInternalFolioError,
+} from "@/lib/invoiceFolios";
 import { supabase } from "@/services/supabase";
 
 type Project = {
@@ -79,6 +83,11 @@ type InvoiceConcept = {
   sat_unit_name: string;
   fiscal_object: string;
   sort_order: number;
+};
+
+type CreatedInvoice = {
+  id: number;
+  internal_folio: string | null;
 };
 
 function today() {
@@ -413,25 +422,48 @@ export default function InvoiceForm({
 
     setSaving(true);
 
-    const { data: invoice, error } = await supabase
-      .from("project_invoices")
-      .insert({
-        client_project_id: Number(projectId),
-        client_id: Number(clientId),
-        source_type: sourceType,
-        source_quote_id: sourceType === "quote" ? Number(quoteId) : null,
-        invoice_date: invoiceDate,
-        subtotal_mxn: roundMoney(subtotal),
-        iva_mxn: roundMoney(iva),
-        total_mxn: roundMoney(total),
-        status: "draft",
-      })
-      .select("id")
-      .single();
+    let invoice: CreatedInvoice | null = null;
+    let insertError: unknown = null;
 
-    if (error || !invoice) {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const internalFolio = await getNextInternalInvoiceFolio(supabase);
+      const result = await supabase
+        .from("project_invoices")
+        .insert({
+          internal_folio: internalFolio,
+          client_project_id: Number(projectId),
+          client_id: Number(clientId),
+          source_type: sourceType,
+          source_quote_id: sourceType === "quote" ? Number(quoteId) : null,
+          invoice_date: invoiceDate,
+          subtotal_mxn: roundMoney(subtotal),
+          iva_mxn: roundMoney(iva),
+          total_mxn: roundMoney(total),
+          status: "draft",
+        })
+        .select("id, internal_folio")
+        .single();
+
+      if (!result.error && result.data) {
+        invoice = result.data as CreatedInvoice;
+        insertError = null;
+        break;
+      }
+
+      insertError = result.error;
+      if (!isDuplicateInternalFolioError(result.error)) break;
+    }
+
+    if (insertError || !invoice) {
       setSaving(false);
-      setErrorMessage(`Error al guardar factura: ${error?.message || "No se recibio factura"}`);
+      const message =
+        insertError &&
+        typeof insertError === "object" &&
+        "message" in insertError &&
+        typeof insertError.message === "string"
+          ? insertError.message
+          : "No se recibio factura";
+      setErrorMessage(`Error al guardar factura: ${message}`);
       return;
     }
 

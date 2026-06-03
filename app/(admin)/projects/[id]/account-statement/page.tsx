@@ -136,7 +136,7 @@ export default async function ProjectAccountStatementPage({
   const invoicesResult = await supabase
     .from("project_invoices")
     .select(
-      "id, client_project_id, client_id, invoice_date, subtotal_mxn, iva_mxn, total_mxn, status, facturama_id, xml_url, pdf_url, sat_uuid"
+      "id, internal_folio, client_project_id, client_id, invoice_date, subtotal_mxn, iva_mxn, total_mxn, status, facturama_id, xml_url, pdf_url, sat_uuid"
     )
     .eq("client_project_id", projectData.id)
     .order("invoice_date", { ascending: false })
@@ -388,10 +388,10 @@ export default async function ProjectAccountStatementPage({
           <p className="text-[#77777D]">Aun no hay facturas asociadas.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] border-collapse text-sm">
+            <table className="w-full min-w-[1020px] border-collapse text-sm">
               <thead>
                 <tr className="border-b border-[#2A2A30] text-left text-[#B3B3B8]">
-                  <th className="px-3 py-3">ID</th>
+                  <th className="px-3 py-3">Folio</th>
                   <th className="px-3 py-3">Fecha</th>
                   <th className="px-3 py-3 text-right">Subtotal</th>
                   <th className="px-3 py-3 text-right">IVA</th>
@@ -406,8 +406,11 @@ export default async function ProjectAccountStatementPage({
                   const status = normalizeInvoiceStatus(invoice.status);
                   return (
                     <tr key={invoice.id} className="border-b border-[#222228]">
-                      <td className="px-3 py-3 font-semibold text-[#9E1B32]">
-                        #{invoice.id}
+                      <td className="px-3 py-3">
+                        <p className="font-semibold text-[#9E1B32]">
+                          {invoice.internal_folio || `FAC-${String(invoice.id).padStart(4, "0")}`}
+                        </p>
+                        <p className="mt-1 text-xs text-[#77777D]">ID #{invoice.id}</p>
                       </td>
                       <td className="px-3 py-3">{formatDate(invoice.invoice_date)}</td>
                       <td className="px-3 py-3 text-right">

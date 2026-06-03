@@ -20,6 +20,7 @@ export const invoiceStatusClasses: Record<InvoiceStatus, string> = {
 
 export type ProjectInvoice = {
   id: number;
+  internal_folio: string | null;
   client_project_id: number | null;
   client_id: number | null;
   source_type?: string | null;

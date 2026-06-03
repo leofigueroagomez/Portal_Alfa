@@ -57,7 +57,7 @@ export default async function InvoicesPage() {
     supabase
       .from("project_invoices")
       .select(
-        "id, client_project_id, client_id, invoice_date, subtotal_mxn, iva_mxn, total_mxn, status, facturama_id, xml_url, pdf_url, sat_uuid, clients(id, name, tax_rfc, tax_business_name, tax_regime, default_cfdi_use, fiscal_regime, cfdi_use, tax_zip_code, billing_email), client_projects(name)"
+        "id, internal_folio, client_project_id, client_id, invoice_date, subtotal_mxn, iva_mxn, total_mxn, status, facturama_id, xml_url, pdf_url, sat_uuid, clients(id, name, tax_rfc, tax_business_name, tax_regime, default_cfdi_use, fiscal_regime, cfdi_use, tax_zip_code, billing_email), client_projects(name)"
       )
       .order("invoice_date", { ascending: false })
       .order("created_at", { ascending: false }),
@@ -187,8 +187,8 @@ export default async function InvoicesPage() {
 
       <section className="overflow-hidden rounded-2xl border border-[#1F1F24] bg-[#151518]">
         <div className="overflow-x-auto">
-          <div className="grid min-w-[1320px] grid-cols-[90px_130px_1fr_1fr_130px_140px_150px_170px_130px] gap-4 border-b border-[#2A2A30] px-5 py-4 text-sm font-semibold text-[#B3B3B8]">
-            <p>ID</p>
+          <div className="grid min-w-[1360px] grid-cols-[130px_130px_1fr_1fr_130px_140px_150px_170px_130px] gap-4 border-b border-[#2A2A30] px-5 py-4 text-sm font-semibold text-[#B3B3B8]">
+            <p>Folio</p>
             <p>Fecha</p>
             <p>Cliente</p>
             <p>Proyecto</p>
@@ -202,7 +202,7 @@ export default async function InvoicesPage() {
           {invoices.length === 0 ? (
             <div className="p-8 text-[#77777D]">Aun no hay facturas internas.</div>
           ) : (
-            <div className="min-w-[1320px] divide-y divide-[#2A2A30]">
+            <div className="min-w-[1360px] divide-y divide-[#2A2A30]">
               {invoices.map((invoice) => {
                 const status = normalizeInvoiceStatus(invoice.status);
                 const client = getInvoiceRelation(invoice.clients);
@@ -210,11 +210,14 @@ export default async function InvoicesPage() {
                 return (
                   <div
                     key={invoice.id}
-                    className="grid grid-cols-[90px_130px_1fr_1fr_130px_140px_150px_170px_130px] gap-4 px-5 py-4 text-sm"
+                    className="grid grid-cols-[130px_130px_1fr_1fr_130px_140px_150px_170px_130px] gap-4 px-5 py-4 text-sm"
                   >
-                    <p className="font-semibold text-[#9E1B32]">
-                      #{invoice.id}
-                    </p>
+                    <div>
+                      <p className="font-semibold text-[#9E1B32]">
+                        {invoice.internal_folio || `FAC-${String(invoice.id).padStart(4, "0")}`}
+                      </p>
+                      <p className="mt-1 text-xs text-[#77777D]">ID #{invoice.id}</p>
+                    </div>
                     <p>{formatDate(invoice.invoice_date)}</p>
                     <p>
                       {client?.name || "Sin cliente"}
