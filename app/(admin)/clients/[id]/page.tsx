@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { formatCurrency } from "@/lib/format";
+import { ClientFiscalDataButton } from "@/components/ClientFiscalDataModal";
 import AddClientProjectButton from "./AddClientProjectButton";
 import EditOpportunityButton from "./EditOpportunityButton";
 import ProjectStageSelect from "./ProjectStageSelect";
@@ -21,6 +22,7 @@ type Client = {
   tax_regime?: string | null;
   default_cfdi_use?: string | null;
   tax_zip_code?: string | null;
+  billing_email?: string | null;
 };
 
 type ClientProject = {
@@ -192,19 +194,15 @@ export default async function ClientDetailPage({
               Base para facturacion interna y futura integracion SAT.
             </p>
           </div>
-          <Link
-            href={`/clients/${clientData.id}/edit`}
-            className="w-fit rounded-xl border border-[#2A2A30] bg-[#222228] px-5 py-3 font-semibold hover:bg-[#2A2A30]"
-          >
-            Editar fiscales
-          </Link>
+          <ClientFiscalDataButton client={clientData} />
         </div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
           <FiscalField label="RFC" value={clientData.tax_rfc} />
           <FiscalField label="Razon social" value={clientData.tax_business_name} />
           <FiscalField label="Regimen fiscal" value={clientData.tax_regime} />
           <FiscalField label="Uso CFDI default" value={clientData.default_cfdi_use} />
           <FiscalField label="CP fiscal" value={clientData.tax_zip_code} />
+          <FiscalField label="Correo facturacion" value={clientData.billing_email} />
         </div>
       </section>
 

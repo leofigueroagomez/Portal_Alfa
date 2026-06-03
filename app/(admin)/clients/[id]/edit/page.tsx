@@ -33,6 +33,7 @@ export default function EditClientPage() {
     tax_regime: "",
     default_cfdi_use: "",
     tax_zip_code: "",
+    billing_email: "",
     source: "Prospectación Directa",
   });
 
@@ -86,6 +87,7 @@ export default function EditClientPage() {
         tax_regime: data.tax_regime || "",
         default_cfdi_use: data.default_cfdi_use || "",
         tax_zip_code: data.tax_zip_code || "",
+        billing_email: data.billing_email || "",
         source: data.source || "Prospectación Directa",
       });
       setLoading(false);
@@ -117,6 +119,7 @@ export default function EditClientPage() {
         tax_regime: form.tax_regime.trim() || null,
         default_cfdi_use: form.default_cfdi_use.trim().toUpperCase() || null,
         tax_zip_code: form.tax_zip_code.trim() || null,
+        billing_email: form.billing_email.trim().toLowerCase() || null,
         source: form.source,
       })
       .eq("id", clientId)
@@ -203,6 +206,7 @@ export default function EditClientPage() {
               <input className="w-full rounded-xl bg-[#222228] p-4 outline-none" placeholder="Regimen fiscal" value={form.tax_regime} onChange={(e) => updateField("tax_regime", e.target.value)} />
               <input className="w-full rounded-xl bg-[#222228] p-4 outline-none" placeholder="Uso CFDI default" value={form.default_cfdi_use} onChange={(e) => updateField("default_cfdi_use", e.target.value)} />
               <input className="w-full rounded-xl bg-[#222228] p-4 outline-none" placeholder="Codigo postal fiscal" value={form.tax_zip_code} onChange={(e) => updateField("tax_zip_code", e.target.value)} />
+              <input className="w-full rounded-xl bg-[#222228] p-4 outline-none" placeholder="Correo de facturacion" value={form.billing_email} onChange={(e) => updateField("billing_email", e.target.value)} />
             </div>
           </div>
 

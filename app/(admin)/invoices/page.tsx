@@ -14,18 +14,14 @@ import {
   normalizeInvoiceStatus,
   type ProjectInvoice,
 } from "@/lib/invoices";
+import type { FiscalClientData } from "@/lib/fiscalData";
 import { satBillingProviders } from "@/lib/satBillingProviders";
 import InvoiceForm from "./InvoiceForm";
 import InvoiceStatusSelect from "./InvoiceStatusSelect";
+import StampInvoiceButton from "./StampInvoiceButton";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-
-type Client = {
-  id: number;
-  name: string | null;
-  tax_rfc?: string | null;
-};
 
 type Project = {
   id: number;
@@ -57,11 +53,14 @@ export default async function InvoicesPage() {
     supabase
       .from("project_invoices")
       .select(
-        "id, internal_folio, client_project_id, client_id, invoice_date, subtotal, iva, total, currency, status, xml_url, pdf_url, sat_uuid, clients(name, tax_rfc), client_projects(name)"
+        "id, client_project_id, client_id, invoice_date, subtotal_mxn, iva_mxn, total_mxn, status, facturama_id, xml_url, pdf_url, sat_uuid, clients(id, name, tax_rfc, tax_business_name, tax_regime, default_cfdi_use, tax_zip_code, billing_email), client_projects(name)"
       )
       .order("invoice_date", { ascending: false })
       .order("created_at", { ascending: false }),
-    supabase.from("clients").select("id, name, tax_rfc").order("name"),
+    supabase
+      .from("clients")
+      .select("id, name, tax_rfc, tax_business_name, tax_regime, default_cfdi_use, tax_zip_code, billing_email")
+      .order("name"),
     supabase.from("client_projects").select("id, client_id, name, estimated_value_mxn"),
     supabase
       .from("quotes")
@@ -80,7 +79,7 @@ export default async function InvoicesPage() {
   }
 
   const invoices = (invoicesResult.data || []) as ProjectInvoice[];
-  const clients = clientsResult.error ? [] : ((clientsResult.data || []) as Client[]);
+  const clients = clientsResult.error ? [] : ((clientsResult.data || []) as FiscalClientData[]);
   const projects = projectsResult.error ? [] : ((projectsResult.data || []) as Project[]);
   const quotes = quotesResult.error ? [] : ((quotesResult.data || []) as Quote[]);
   const { start, end } = getCurrentMonthRange();
@@ -153,21 +152,25 @@ export default async function InvoicesPage() {
             <h2 className="text-xl font-semibold">Estado SAT</h2>
           </div>
           <p className="text-sm text-[#B3B3B8]">
-            No hay PAC conectado todavia. El modulo guarda XML, PDF y UUID como campos opcionales para migrar sin redisenar la operacion.
+            Facturama esta conectado en modo sandbox. Produccion queda bloqueada desde servidor.
           </p>
         </div>
         <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5">
           <div className="mb-4 flex items-center gap-2">
             <Landmark size={20} className="text-[#9E1B32]" />
-            <h2 className="text-xl font-semibold">PACs previstos</h2>
+            <h2 className="text-xl font-semibold">PACs</h2>
           </div>
           <div className="flex flex-wrap gap-2">
             {providers.map((provider) => (
               <span
                 key={provider.id}
-                className="rounded-full border border-[#2A2A30] bg-[#222228] px-3 py-1 text-sm text-[#B3B3B8]"
+                className={`rounded-full border px-3 py-1 text-sm ${
+                  provider.active
+                    ? "border-[#1F7A4D] bg-[#143D2A] text-[#8CE0B6]"
+                    : "border-[#2A2A30] bg-[#222228] text-[#B3B3B8]"
+                }`}
               >
-                {provider.name}
+                {provider.name} - {provider.mode === "sandbox" ? "Activo" : "Planeado"}
               </span>
             ))}
           </div>
@@ -176,21 +179,22 @@ export default async function InvoicesPage() {
 
       <section className="overflow-hidden rounded-2xl border border-[#1F1F24] bg-[#151518]">
         <div className="overflow-x-auto">
-          <div className="grid min-w-[1180px] grid-cols-[140px_140px_1fr_1fr_130px_140px_150px_110px] gap-4 border-b border-[#2A2A30] px-5 py-4 text-sm font-semibold text-[#B3B3B8]">
-            <p>Folio</p>
+          <div className="grid min-w-[1320px] grid-cols-[90px_130px_1fr_1fr_130px_140px_150px_170px_130px] gap-4 border-b border-[#2A2A30] px-5 py-4 text-sm font-semibold text-[#B3B3B8]">
+            <p>ID</p>
             <p>Fecha</p>
             <p>Cliente</p>
             <p>Proyecto</p>
             <p>Total</p>
             <p>Estado</p>
             <p>Actualizar</p>
+            <p>Sandbox</p>
             <p>Archivos</p>
           </div>
 
           {invoices.length === 0 ? (
             <div className="p-8 text-[#77777D]">Aun no hay facturas internas.</div>
           ) : (
-            <div className="min-w-[1180px] divide-y divide-[#2A2A30]">
+            <div className="min-w-[1320px] divide-y divide-[#2A2A30]">
               {invoices.map((invoice) => {
                 const status = normalizeInvoiceStatus(invoice.status);
                 const client = getInvoiceRelation(invoice.clients);
@@ -198,10 +202,10 @@ export default async function InvoicesPage() {
                 return (
                   <div
                     key={invoice.id}
-                    className="grid grid-cols-[140px_140px_1fr_1fr_130px_140px_150px_110px] gap-4 px-5 py-4 text-sm"
+                    className="grid grid-cols-[90px_130px_1fr_1fr_130px_140px_150px_170px_130px] gap-4 px-5 py-4 text-sm"
                   >
                     <p className="font-semibold text-[#9E1B32]">
-                      {invoice.internal_folio || `#${invoice.id}`}
+                      #{invoice.id}
                     </p>
                     <p>{formatDate(invoice.invoice_date)}</p>
                     <p>
@@ -219,7 +223,7 @@ export default async function InvoicesPage() {
                       {project?.name || "Sin proyecto"}
                     </Link>
                     <p className="font-semibold">
-                      {formatCurrency(invoice.total, invoice.currency)}
+                      {formatCurrency(invoice.total_mxn, "MXN")}
                     </p>
                     <span
                       className={`inline-flex h-fit w-fit rounded-full border px-3 py-1 text-xs ${invoiceStatusClasses[status]}`}
@@ -229,6 +233,12 @@ export default async function InvoicesPage() {
                     <InvoiceStatusSelect
                       invoiceId={invoice.id}
                       currentStatus={invoice.status}
+                    />
+                    <StampInvoiceButton
+                      invoiceId={invoice.id}
+                      status={invoice.status}
+                      facturamaId={invoice.facturama_id}
+                      client={client}
                     />
                     <div className="flex items-center gap-2">
                       {invoice.pdf_url ? (
@@ -242,6 +252,9 @@ export default async function InvoicesPage() {
                         </a>
                       ) : null}
                       {invoice.sat_uuid ? <span title={invoice.sat_uuid}>UUID</span> : null}
+                      {invoice.facturama_id ? (
+                        <span title={invoice.facturama_id}>ID</span>
+                      ) : null}
                     </div>
                   </div>
                 );

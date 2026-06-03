@@ -1,3 +1,5 @@
+import type { FiscalClientData } from "@/lib/fiscalData";
+
 export const invoiceStatuses = ["draft", "issued", "cancelled", "paid"] as const;
 
 export type InvoiceStatus = (typeof invoiceStatuses)[number];
@@ -18,22 +20,18 @@ export const invoiceStatusClasses: Record<InvoiceStatus, string> = {
 
 export type ProjectInvoice = {
   id: number;
-  internal_folio: string | null;
   client_project_id: number | null;
   client_id: number | null;
   invoice_date: string | null;
-  subtotal: number | null;
-  iva: number | null;
-  total: number | null;
-  currency: string | null;
+  subtotal_mxn: number | null;
+  iva_mxn: number | null;
+  total_mxn: number | null;
   status: InvoiceStatus | string | null;
+  facturama_id?: string | null;
   xml_url?: string | null;
   pdf_url?: string | null;
   sat_uuid?: string | null;
-  clients?:
-    | { name: string | null; tax_rfc?: string | null }
-    | { name: string | null; tax_rfc?: string | null }[]
-    | null;
+  clients?: FiscalClientData | FiscalClientData[] | null;
   client_projects?: { name: string | null } | { name: string | null }[] | null;
 };
 
@@ -58,8 +56,8 @@ export function isCollectedStatus(status: string | null | undefined) {
   return normalizeInvoiceStatus(status) === "paid";
 }
 
-export function getInvoiceTotal(invoice: Pick<ProjectInvoice, "total">) {
-  return Number(invoice.total || 0);
+export function getInvoiceTotal(invoice: Pick<ProjectInvoice, "total_mxn">) {
+  return Number(invoice.total_mxn || 0);
 }
 
 export function getCurrentMonthRange(now = new Date()) {

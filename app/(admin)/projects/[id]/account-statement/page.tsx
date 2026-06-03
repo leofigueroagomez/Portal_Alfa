@@ -8,15 +8,15 @@ import {
   normalizeInvoiceStatus,
   type ProjectInvoice,
 } from "@/lib/invoices";
+import { ClientFiscalDataButton } from "@/components/ClientFiscalDataModal";
+import type { FiscalClientData } from "@/lib/fiscalData";
+import InvoiceForm from "@/app/(admin)/invoices/InvoiceForm";
+import StampInvoiceButton from "@/app/(admin)/invoices/StampInvoiceButton";
 import ProjectPaymentForm from "./ProjectPaymentForm";
 
 type ClientProject = {
   id: number;
   client_id: number | null;
-  name: string | null;
-};
-
-type Client = {
   name: string | null;
 };
 
@@ -109,7 +109,7 @@ export default async function ProjectAccountStatementPage({
     projectData.client_id
       ? supabase
           .from("clients")
-          .select("name")
+          .select("id, name, tax_rfc, tax_business_name, tax_regime, default_cfdi_use, tax_zip_code, billing_email")
           .eq("id", projectData.client_id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
@@ -132,13 +132,13 @@ export default async function ProjectAccountStatementPage({
   const invoicesResult = await supabase
     .from("project_invoices")
     .select(
-      "id, internal_folio, invoice_date, subtotal, iva, total, currency, status, xml_url, pdf_url, sat_uuid"
+      "id, client_project_id, client_id, invoice_date, subtotal_mxn, iva_mxn, total_mxn, status, facturama_id, xml_url, pdf_url, sat_uuid"
     )
     .eq("client_project_id", projectData.id)
     .order("invoice_date", { ascending: false })
     .order("created_at", { ascending: false });
 
-  const clientData = client as Client | null;
+  const clientData = client as FiscalClientData | null;
   const quotes = (approvedQuotes || []) as Quote[];
   const payments = paymentsResult.error ? [] : ((paymentsResult.data || []) as ProjectPayment[]);
   const invoices = invoicesResult.error
@@ -357,13 +357,22 @@ export default async function ProjectAccountStatementPage({
               Registro interno de facturacion vinculado a este proyecto.
             </p>
           </div>
-          <Link
-            href={`/projects/${projectData.id}/invoices`}
-            className="inline-flex w-fit items-center gap-2 rounded-xl border border-[#2A2A30] bg-[#222228] px-5 py-3 font-semibold text-[#B3B3B8] hover:bg-[#2A2A30] hover:text-white"
-          >
-            <FileText size={18} />
-            Ver modulo
-          </Link>
+          <div className="flex flex-wrap gap-3">
+            <InvoiceForm
+              clients={clientData ? [clientData] : []}
+              projects={[projectData]}
+              defaultProjectId={projectData.id}
+              defaultClientId={projectData.client_id}
+            />
+            {clientData ? <ClientFiscalDataButton client={clientData} /> : null}
+            <Link
+              href={`/projects/${projectData.id}/invoices`}
+              className="inline-flex w-fit items-center gap-2 rounded-xl border border-[#2A2A30] bg-[#222228] px-5 py-3 font-semibold text-[#B3B3B8] hover:bg-[#2A2A30] hover:text-white"
+            >
+              <FileText size={18} />
+              Ver modulo
+            </Link>
+          </div>
         </div>
 
         {invoicesResult.error ? (
@@ -374,15 +383,16 @@ export default async function ProjectAccountStatementPage({
           <p className="text-[#77777D]">Aun no hay facturas asociadas.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[820px] border-collapse text-sm">
+            <table className="w-full min-w-[980px] border-collapse text-sm">
               <thead>
                 <tr className="border-b border-[#2A2A30] text-left text-[#B3B3B8]">
-                  <th className="px-3 py-3">Folio</th>
+                  <th className="px-3 py-3">ID</th>
                   <th className="px-3 py-3">Fecha</th>
                   <th className="px-3 py-3 text-right">Subtotal</th>
                   <th className="px-3 py-3 text-right">IVA</th>
                   <th className="px-3 py-3 text-right">Total</th>
                   <th className="px-3 py-3">Estado</th>
+                  <th className="px-3 py-3">Sandbox</th>
                   <th className="px-3 py-3">SAT</th>
                 </tr>
               </thead>
@@ -392,17 +402,17 @@ export default async function ProjectAccountStatementPage({
                   return (
                     <tr key={invoice.id} className="border-b border-[#222228]">
                       <td className="px-3 py-3 font-semibold text-[#9E1B32]">
-                        {invoice.internal_folio || `#${invoice.id}`}
+                        #{invoice.id}
                       </td>
                       <td className="px-3 py-3">{formatDate(invoice.invoice_date)}</td>
                       <td className="px-3 py-3 text-right">
-                        {formatCurrency(invoice.subtotal, invoice.currency)}
+                        {formatCurrency(invoice.subtotal_mxn, "MXN")}
                       </td>
                       <td className="px-3 py-3 text-right">
-                        {formatCurrency(invoice.iva, invoice.currency)}
+                        {formatCurrency(invoice.iva_mxn, "MXN")}
                       </td>
                       <td className="px-3 py-3 text-right font-semibold">
-                        {formatCurrency(invoice.total, invoice.currency)}
+                        {formatCurrency(invoice.total_mxn, "MXN")}
                       </td>
                       <td className="px-3 py-3">
                         <span
@@ -410,6 +420,14 @@ export default async function ProjectAccountStatementPage({
                         >
                           {invoiceStatusLabels[status]}
                         </span>
+                      </td>
+                      <td className="px-3 py-3">
+                        <StampInvoiceButton
+                          invoiceId={invoice.id}
+                          status={invoice.status}
+                          facturamaId={invoice.facturama_id}
+                          client={clientData}
+                        />
                       </td>
                       <td className="px-3 py-3 text-[#B3B3B8]">
                         {invoice.sat_uuid ? "UUID capturado" : "Sin timbrado"}

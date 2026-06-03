@@ -1,15 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, X } from "lucide-react";
+import ClientFiscalDataModal from "@/components/ClientFiscalDataModal";
+import {
+  formatMissingFiscalFields,
+  getMissingFiscalFields,
+  type FiscalClientData,
+} from "@/lib/fiscalData";
 import { supabase } from "@/services/supabase";
-
-type Client = {
-  id: number;
-  name: string | null;
-  tax_rfc?: string | null;
-};
 
 type Project = {
   id: number;
@@ -18,37 +18,14 @@ type Project = {
 };
 
 type Props = {
-  clients: Client[];
+  clients: FiscalClientData[];
   projects: Project[];
   defaultProjectId?: number;
   defaultClientId?: number | null;
 };
 
-type InvoiceStatus = "draft" | "issued" | "cancelled" | "paid";
-type InvoiceCurrency = "MXN" | "USD";
-
-const statusOptions: { value: InvoiceStatus; label: string }[] = [
-  { value: "draft", label: "Borrador" },
-  { value: "issued", label: "Emitida" },
-  { value: "paid", label: "Pagada" },
-  { value: "cancelled", label: "Cancelada" },
-];
-
 function today() {
   return new Date().toISOString().slice(0, 10);
-}
-
-function reportError(step: string, error: unknown) {
-  const message =
-    error &&
-    typeof error === "object" &&
-    "message" in error &&
-    typeof error.message === "string"
-      ? ` ${error.message}`
-      : "";
-
-  console.error(`Error en ${step}:`, error);
-  alert(`Error en ${step}: ${JSON.stringify(error)}${message}`);
 }
 
 export default function InvoiceForm({
@@ -60,111 +37,123 @@ export default function InvoiceForm({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [internalFolio, setInternalFolio] = useState("");
+  const [clientList, setClientList] = useState(clients);
   const [projectId, setProjectId] = useState(String(defaultProjectId || ""));
   const [clientId, setClientId] = useState(String(defaultClientId || ""));
   const [invoiceDate, setInvoiceDate] = useState(today());
   const [subtotal, setSubtotal] = useState("");
   const [iva, setIva] = useState("");
-  const [currency, setCurrency] = useState<InvoiceCurrency>("MXN");
-  const [status, setStatus] = useState<InvoiceStatus>("draft");
-  const [xmlUrl, setXmlUrl] = useState("");
-  const [pdfUrl, setPdfUrl] = useState("");
-  const [satUuid, setSatUuid] = useState("");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [fiscalModalOpen, setFiscalModalOpen] = useState(false);
+  const [fiscalModalIntro, setFiscalModalIntro] = useState<string | null>(null);
 
   const availableProjects = useMemo(() => {
     if (!clientId) return projects;
     return projects.filter((project) => String(project.client_id || "") === clientId);
   }, [clientId, projects]);
+  const selectedClient =
+    clientList.find((client) => String(client.id) === clientId) || null;
+  const missingFiscalFields = clientId
+    ? getMissingFiscalFields(selectedClient)
+    : [];
 
   const numericSubtotal = Number(subtotal || 0);
   const numericIva = Number(iva || 0);
   const total = numericSubtotal + numericIva;
+
+  useEffect(() => {
+    setClientList(clients);
+  }, [clients]);
+
+  function updateSubtotal(value: string) {
+    setSubtotal(value);
+    const nextSubtotal = Number(value || 0);
+
+    if (Number.isFinite(nextSubtotal) && nextSubtotal >= 0) {
+      setIva((nextSubtotal * 0.16).toFixed(2));
+    }
+  }
 
   function updateProject(nextProjectId: string) {
     setProjectId(nextProjectId);
     const project = projects.find((item) => String(item.id) === nextProjectId);
     if (project?.client_id) {
       setClientId(String(project.client_id));
+      setErrorMessage(null);
     }
+  }
+
+  function openFiscalModalForMissing() {
+    setFiscalModalIntro(
+      missingFiscalFields.length > 0
+        ? `Faltan datos fiscales: ${formatMissingFiscalFields(missingFiscalFields)}`
+        : null
+    );
+    setFiscalModalOpen(true);
+  }
+
+  function handleFiscalSaved(nextClient: FiscalClientData) {
+    setClientList((current) =>
+      current.map((client) => (client.id === nextClient.id ? { ...client, ...nextClient } : client))
+    );
+    setErrorMessage(null);
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setErrorMessage(null);
 
-    if (!internalFolio.trim()) {
-      alert("Captura el folio interno.");
+    if (!projectId || !clientId) {
+      setErrorMessage("Selecciona cliente y proyecto.");
       return;
     }
 
-    if (!projectId || !clientId) {
-      alert("Selecciona cliente y proyecto.");
+    if (missingFiscalFields.length > 0) {
+      setErrorMessage(`Faltan datos fiscales: ${formatMissingFiscalFields(missingFiscalFields)}`);
+      openFiscalModalForMissing();
       return;
     }
 
     if (!invoiceDate) {
-      alert("Selecciona la fecha de factura.");
+      setErrorMessage("Selecciona la fecha de factura.");
       return;
     }
 
     if (!Number.isFinite(numericSubtotal) || numericSubtotal < 0) {
-      alert("Captura un subtotal valido.");
+      setErrorMessage("Captura un subtotal valido.");
       return;
     }
 
     if (!Number.isFinite(numericIva) || numericIva < 0) {
-      alert("Captura un IVA valido.");
+      setErrorMessage("Captura un IVA valido.");
       return;
     }
 
     setSaving(true);
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError) {
-      setSaving(false);
-      reportError("leer usuario actual", userError);
-      return;
-    }
-
     const { error } = await supabase.from("project_invoices").insert({
-      internal_folio: internalFolio.trim(),
       client_project_id: Number(projectId),
       client_id: Number(clientId),
       invoice_date: invoiceDate,
-      subtotal: numericSubtotal,
-      iva: numericIva,
-      total,
-      currency,
-      status,
-      xml_url: xmlUrl.trim() || null,
-      pdf_url: pdfUrl.trim() || null,
-      sat_uuid: satUuid.trim() || null,
-      created_by_user_id: user?.id || null,
+      subtotal_mxn: numericSubtotal,
+      iva_mxn: numericIva,
+      total_mxn: total,
+      status: "draft",
     });
 
     if (error) {
       setSaving(false);
-      reportError("guardar factura", error);
+      setErrorMessage(`Error al guardar factura: ${error.message}`);
       return;
     }
 
     setSaving(false);
     setOpen(false);
-    setInternalFolio("");
     setProjectId(String(defaultProjectId || ""));
     setClientId(String(defaultClientId || ""));
     setInvoiceDate(today());
     setSubtotal("");
     setIva("");
-    setCurrency("MXN");
-    setStatus("draft");
-    setXmlUrl("");
-    setPdfUrl("");
-    setSatUuid("");
     router.refresh();
   }
 
@@ -189,7 +178,7 @@ export default function InvoiceForm({
               <div>
                 <h2 className="text-2xl font-semibold">Factura interna</h2>
                 <p className="mt-1 text-sm text-[#B3B3B8]">
-                  Registro manual preparado para timbrado futuro.
+                  Crea un borrador interno antes de timbrar en Facturama Sandbox.
                 </p>
               </div>
               <button
@@ -202,17 +191,13 @@ export default function InvoiceForm({
               </button>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <label className="space-y-2">
-                <span className="text-sm text-[#B3B3B8]">Folio interno</span>
-                <input
-                  className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none"
-                  value={internalFolio}
-                  onChange={(event) => setInternalFolio(event.target.value)}
-                  placeholder="FAC-2026-001"
-                />
-              </label>
+            {errorMessage ? (
+              <div className="mb-5 rounded-xl border border-[#6A2A2A] bg-[#351818] p-4 text-sm text-[#FFB4B4]">
+                {errorMessage}
+              </div>
+            ) : null}
 
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <label className="space-y-2">
                 <span className="text-sm text-[#B3B3B8]">Fecha</span>
                 <input
@@ -232,10 +217,11 @@ export default function InvoiceForm({
                   onChange={(event) => {
                     setClientId(event.target.value);
                     setProjectId("");
+                    setErrorMessage(null);
                   }}
                 >
                   <option value="">Seleccionar cliente</option>
-                  {clients.map((client) => (
+                  {clientList.map((client) => (
                     <option key={client.id} value={client.id}>
                       {client.name || `Cliente #${client.id}`}
                       {client.tax_rfc ? ` / ${client.tax_rfc}` : ""}
@@ -269,13 +255,13 @@ export default function InvoiceForm({
                   step="0.01"
                   className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none"
                   value={subtotal}
-                  onChange={(event) => setSubtotal(event.target.value)}
+                  onChange={(event) => updateSubtotal(event.target.value)}
                   placeholder="0.00"
                 />
               </label>
 
               <label className="space-y-2">
-                <span className="text-sm text-[#B3B3B8]">IVA</span>
+                <span className="text-sm text-[#B3B3B8]">IVA MXN</span>
                 <input
                   type="number"
                   min="0"
@@ -287,70 +273,43 @@ export default function InvoiceForm({
                 />
               </label>
 
-              <label className="space-y-2">
-                <span className="text-sm text-[#B3B3B8]">Moneda</span>
-                <select
-                  className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none"
-                  value={currency}
-                  onChange={(event) => setCurrency(event.target.value as InvoiceCurrency)}
-                >
-                  <option value="MXN">MXN</option>
-                  <option value="USD">USD</option>
-                </select>
-              </label>
-
-              <label className="space-y-2">
-                <span className="text-sm text-[#B3B3B8]">Estado</span>
-                <select
-                  className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none"
-                  value={status}
-                  onChange={(event) => setStatus(event.target.value as InvoiceStatus)}
-                >
-                  {statusOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
               <div className="rounded-xl border border-[#2A2A30] bg-[#101114] p-4">
                 <p className="text-sm text-[#B3B3B8]">Total</p>
                 <p className="mt-2 text-2xl font-semibold">
-                  {currency} {total.toFixed(2)}
+                  MXN {total.toFixed(2)}
                 </p>
               </div>
 
               <div className="rounded-xl border border-[#614620] bg-[#322514] p-4 text-sm text-[#F4C66A]">
-                Sin timbrado PAC. XML, PDF y UUID son referencias opcionales por ahora.
+                Se guardara como borrador. El timbrado genera Facturama ID, UUID, PDF y XML.
               </div>
 
-              <label className="space-y-2">
-                <span className="text-sm text-[#B3B3B8]">XML URL</span>
-                <input
-                  className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none"
-                  value={xmlUrl}
-                  onChange={(event) => setXmlUrl(event.target.value)}
-                />
-              </label>
-
-              <label className="space-y-2">
-                <span className="text-sm text-[#B3B3B8]">PDF URL</span>
-                <input
-                  className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none"
-                  value={pdfUrl}
-                  onChange={(event) => setPdfUrl(event.target.value)}
-                />
-              </label>
-
-              <label className="space-y-2 md:col-span-2">
-                <span className="text-sm text-[#B3B3B8]">SAT UUID</span>
-                <input
-                  className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none"
-                  value={satUuid}
-                  onChange={(event) => setSatUuid(event.target.value)}
-                />
-              </label>
+              {selectedClient ? (
+                <div
+                  className={`rounded-xl border p-4 text-sm md:col-span-2 ${
+                    missingFiscalFields.length > 0
+                      ? "border-[#614620] bg-[#322514] text-[#F4C66A]"
+                      : "border-[#1F7A4D] bg-[#143D2A] text-[#8CE0B6]"
+                  }`}
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p>
+                      {missingFiscalFields.length > 0
+                        ? `Faltan datos fiscales: ${formatMissingFiscalFields(missingFiscalFields)}`
+                        : "Datos fiscales completos para facturacion."}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={openFiscalModalForMissing}
+                      className="w-fit rounded-xl border border-white/15 bg-white/10 px-4 py-2 font-semibold text-white hover:bg-white/15"
+                    >
+                      {missingFiscalFields.length > 0
+                        ? "Completar datos fiscales"
+                        : "Editar datos fiscales"}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
@@ -366,12 +325,20 @@ export default function InvoiceForm({
                 disabled={saving}
                 className="rounded-xl bg-[#9E1B32] px-5 py-3 font-semibold hover:bg-[#B91C3C] disabled:bg-[#222228] disabled:text-[#77777D]"
               >
-                {saving ? "Guardando..." : "Guardar factura"}
+                {saving ? "Guardando..." : "Crear borrador"}
               </button>
             </div>
           </form>
         </div>
       ) : null}
+
+      <ClientFiscalDataModal
+        client={selectedClient}
+        open={fiscalModalOpen}
+        intro={fiscalModalIntro}
+        onClose={() => setFiscalModalOpen(false)}
+        onSaved={handleFiscalSaved}
+      />
     </>
   );
 }
