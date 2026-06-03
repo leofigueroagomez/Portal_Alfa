@@ -1,5 +1,4 @@
-import chromium from "@sparticuz/chromium";
-import puppeteer, { type Browser, type CookieParam, type LaunchOptions } from "puppeteer-core";
+import type { Browser, CookieParam, LaunchOptions } from "puppeteer-core";
 import { getAppBaseUrl } from "@/lib/appUrl";
 
 function parseCookieHeader(cookieHeader: string | null | undefined, baseUrl: string) {
@@ -28,7 +27,20 @@ function parseCookieHeader(cookieHeader: string | null | undefined, baseUrl: str
     .filter((cookie): cookie is CookieParam => Boolean(cookie));
 }
 
-async function getExecutablePath() {
+async function loadPdfRuntime() {
+  const [{ default: chromium }, puppeteerModule] = await Promise.all([
+    import("@sparticuz/chromium"),
+    import("puppeteer-core"),
+  ]);
+  return {
+    chromium,
+    puppeteer: puppeteerModule.default,
+  };
+}
+
+async function getExecutablePath(
+  chromium: Awaited<ReturnType<typeof loadPdfRuntime>>["chromium"]
+) {
   if (process.env.PUPPETEER_EXECUTABLE_PATH) {
     return process.env.PUPPETEER_EXECUTABLE_PATH;
   }
@@ -44,7 +56,9 @@ async function getExecutablePath() {
   return executablePath;
 }
 
-function getChromiumHeadlessMode(): LaunchOptions["headless"] {
+function getChromiumHeadlessMode(
+  chromium: Awaited<ReturnType<typeof loadPdfRuntime>>["chromium"]
+): LaunchOptions["headless"] {
   return (chromium as unknown as { headless?: LaunchOptions["headless"] }).headless ?? true;
 }
 
@@ -53,10 +67,11 @@ export async function generatePdfFromUrl(url: string, cookieHeader?: string | nu
 
   try {
     const baseUrl = getAppBaseUrl();
+    const { chromium, puppeteer } = await loadPdfRuntime();
     browser = await puppeteer.launch({
       args: chromium.args,
-      executablePath: await getExecutablePath(),
-      headless: getChromiumHeadlessMode(),
+      executablePath: await getExecutablePath(chromium),
+      headless: getChromiumHeadlessMode(chromium),
       defaultViewport: {
         width: 816,
         height: 1056,
