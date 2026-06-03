@@ -1,6 +1,7 @@
 import AdminShell from "@/components/AdminShell";
 import { getCurrentUserProfile } from "@/services/profile";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
+import { createSupabaseServerClient } from "@/services/supabaseServer";
 
 export default async function AdminLayout({
   children,
@@ -8,11 +9,30 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   const profile = await getCurrentUserProfile();
-  const supabase = createSupabaseAdminClient();
-  const { count, error } = await supabase
-    .from("leads")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "nuevo");
+  let newLeadsCount = 0;
+  let leadsBadgeError: { code?: string; message: string } | null = null;
+
+  try {
+    const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY
+      ? createSupabaseAdminClient()
+      : await createSupabaseServerClient();
+    const { count, error } = await supabase
+      .from("leads")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "nuevo");
+
+    newLeadsCount = count || 0;
+    leadsBadgeError = error
+      ? {
+          code: error.code,
+          message: error.message,
+        }
+      : null;
+  } catch (error) {
+    leadsBadgeError = {
+      message: error instanceof Error ? error.message : "Error cargando leads nuevos.",
+    };
+  }
 
   console.info("[admin-layout] leads badge query", {
     table: "leads",
@@ -24,17 +44,12 @@ export default async function AdminLayout({
       archived: "none",
       deleted: "none",
     },
-    found: count || 0,
-    error: error
-      ? {
-          code: error.code,
-          message: error.message,
-        }
-      : null,
+    found: newLeadsCount,
+    error: leadsBadgeError,
   });
 
   return (
-    <AdminShell profile={profile} newLeadsCount={count || 0}>
+    <AdminShell profile={profile} newLeadsCount={newLeadsCount}>
       {children}
     </AdminShell>
   );

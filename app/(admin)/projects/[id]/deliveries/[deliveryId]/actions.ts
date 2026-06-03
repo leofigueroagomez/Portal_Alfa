@@ -91,56 +91,103 @@ function escapeHtml(value: string | null | undefined) {
     .replace(/"/g, "&quot;");
 }
 
+function logDeliveryEmailError(
+  projectId: number,
+  deliveryId: number,
+  step: string,
+  error: unknown
+) {
+  const message =
+    error &&
+    typeof error === "object" &&
+    "message" in error &&
+    typeof error.message === "string"
+      ? error.message
+      : String(error || "Error desconocido");
+
+  console.error("[project-delivery-email]", {
+    projectId,
+    deliveryId,
+    step,
+    message,
+  });
+}
+
 async function getEmailDraft(projectId: number, deliveryId: number): Promise<EmailDraft | { error: string }> {
   const supabase = await createSupabaseServerClient();
 
-  const { data: delivery } = await supabase
+  const { data: delivery, error: deliveryError } = await supabase
     .from("project_deliveries")
     .select("id, client_project_id, delivery_date, delivered_to_name, observations")
     .eq("id", deliveryId)
     .eq("client_project_id", projectId)
     .maybeSingle();
 
+  if (deliveryError) {
+    logDeliveryEmailError(projectId, deliveryId, "load delivery", deliveryError);
+    return { error: "No se pudo validar la entrega." };
+  }
+
   if (!delivery) return { error: "Entrega no encontrada." };
 
   const deliveryData = delivery as Delivery;
-  const { data: project } = await supabase
+  const { data: project, error: projectError } = await supabase
     .from("client_projects")
     .select("id, name, client_id")
     .eq("id", projectId)
     .maybeSingle();
   const projectData = project as Project | null;
 
+  if (projectError) {
+    logDeliveryEmailError(projectId, deliveryId, "load project", projectError);
+    return { error: "No se pudo cargar el proyecto de la entrega." };
+  }
+
   if (!projectData) return { error: "Proyecto no encontrado." };
 
-  const [{ data: client }, { data: warranty }] = await Promise.all([
-    projectData.client_id
-      ? supabase
-          .from("clients")
-          .select("name, email, billing_email")
-          .eq("id", projectData.client_id)
-          .maybeSingle()
-      : Promise.resolve({ data: null }),
-    supabase
-      .from("project_warranties")
-      .select(
-        "id, equipment_warranty_months, installation_warranty_months, equipment_warranty_end_date, installation_warranty_end_date, preventive_maintenance_frequency_months"
-      )
-      .eq("client_project_id", projectId)
-      .order("warranty_date", { ascending: false })
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-  ]);
+  const clientResult = projectData.client_id
+    ? await supabase
+        .from("clients")
+        .select("name, email, billing_email")
+        .eq("id", projectData.client_id)
+        .maybeSingle()
+    : { data: null, error: null };
 
-  const clientData = client as Client | null;
-  const warrantyData = warranty as Warranty | null;
-  const systemList = await getProjectDeliverySystemsForDisplay(
-    supabase,
-    projectId,
-    deliveryId
-  );
-  const financialSummary = await getProjectFinancialSummary(supabase, projectId);
+  if (clientResult.error) {
+    logDeliveryEmailError(projectId, deliveryId, "load client", clientResult.error);
+  }
+
+  const warrantyResult = await supabase
+    .from("project_warranties")
+    .select(
+      "id, equipment_warranty_months, installation_warranty_months, equipment_warranty_end_date, installation_warranty_end_date, preventive_maintenance_frequency_months"
+    )
+    .eq("client_project_id", projectId)
+    .order("warranty_date", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (warrantyResult.error) {
+    logDeliveryEmailError(projectId, deliveryId, "load warranty", warrantyResult.error);
+  }
+
+  const clientData = clientResult.data as Client | null;
+  const warrantyData = warrantyResult.data as Warranty | null;
+  let systemList: Awaited<ReturnType<typeof getProjectDeliverySystemsForDisplay>> = [];
+  let financialSummary = { approvedTotalMxn: 0, paidTotalMxn: 0, pendingTotalMxn: 0 };
+
+  try {
+    systemList = await getProjectDeliverySystemsForDisplay(supabase, projectId, deliveryId);
+  } catch (error) {
+    logDeliveryEmailError(projectId, deliveryId, "load delivery systems", error);
+  }
+
+  try {
+    financialSummary = await getProjectFinancialSummary(supabase, projectId);
+  } catch (error) {
+    logDeliveryEmailError(projectId, deliveryId, "load financial summary", error);
+  }
   const baseUrl = getAppBaseUrl();
   const deliveryDate = getDateOrToday(deliveryData.delivery_date);
   const deliveryUrl = `${baseUrl}/projects/${projectId}/deliveries/${deliveryId}/print`;
@@ -262,27 +309,32 @@ async function sendResendEmail({
 }
 
 export async function previewProjectDeliveryEmail(projectId: number, deliveryId: number) {
-  const draft = await getEmailDraft(projectId, deliveryId);
-  if ("error" in draft) return { ok: false, message: draft.error };
+  try {
+    const draft = await getEmailDraft(projectId, deliveryId);
+    if ("error" in draft) return { ok: false, message: draft.error };
 
-  return {
-    ok: true,
-    draft: {
-      to: draft.to,
-      cc: draft.cc.join(", "),
-      subject: draft.subject,
-      html: draft.html,
-      attachmentNames: draft.attachmentNames,
-      pdfGenerationPending: draft.pdfGenerationPending,
-      pendingBalanceMxn: draft.pendingBalanceMxn,
-      deliveryUrl: draft.deliveryUrl,
-      warrantyUrl: draft.warrantyUrl,
-      warrantyCreateUrl: draft.warrantyCreateUrl,
-      warrantyMissing: draft.warrantyMissing,
-      warrantyEndDate: draft.warrantyEndDate,
-      nextMaintenanceDate: draft.nextMaintenanceDate,
-    },
-  };
+    return {
+      ok: true,
+      draft: {
+        to: draft.to,
+        cc: draft.cc.join(", "),
+        subject: draft.subject,
+        html: draft.html,
+        attachmentNames: draft.attachmentNames,
+        pdfGenerationPending: draft.pdfGenerationPending,
+        pendingBalanceMxn: draft.pendingBalanceMxn,
+        deliveryUrl: draft.deliveryUrl,
+        warrantyUrl: draft.warrantyUrl,
+        warrantyCreateUrl: draft.warrantyCreateUrl,
+        warrantyMissing: draft.warrantyMissing,
+        warrantyEndDate: draft.warrantyEndDate,
+        nextMaintenanceDate: draft.nextMaintenanceDate,
+      },
+    };
+  } catch (error) {
+    logDeliveryEmailError(projectId, deliveryId, "preview email", error);
+    return { ok: false, message: "No se pudo generar la vista previa del correo." };
+  }
 }
 
 export async function sendProjectDeliveryEmail(

@@ -3,6 +3,7 @@ import type React from "react";
 import { ArrowLeft, CalendarDays, CheckCircle2, FileText, UserRound } from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { getAppBaseUrl } from "@/lib/appUrl";
+import { getProjectDeliverySystemsForDisplay } from "@/lib/projectDeliverySystems";
 import { getProjectFinancialSummary } from "@/lib/projectFinancials";
 import SendDeliveryEmailButton from "./SendDeliveryEmailButton";
 
@@ -49,13 +50,6 @@ type PendingItem = {
   status: string | null;
 };
 
-type DeliverySystem = {
-  id: number;
-  system_name: string | null;
-  delivered: boolean | null;
-  notes: string | null;
-};
-
 type Warranty = {
   id: number;
 };
@@ -76,17 +70,43 @@ function formatDate(value: string | null | undefined) {
   return new Date(value).toLocaleDateString("es-MX");
 }
 
+function logDeliveryPageError(
+  projectId: string,
+  deliveryId: string,
+  step: string,
+  error: unknown
+) {
+  const message =
+    error &&
+    typeof error === "object" &&
+    "message" in error &&
+    typeof error.message === "string"
+      ? error.message
+      : String(error || "Error desconocido");
+
+  console.error("[project-delivery-detail]", {
+    projectId,
+    deliveryId,
+    step,
+    message,
+  });
+}
+
 async function resolvePhotoUrl(storage: ServerSupabaseStorage, imageUrl: string | null) {
   if (!imageUrl) return "";
   if (/^https?:\/\//i.test(imageUrl)) return imageUrl;
 
-  const bucket = storage.from("project-photos");
-  const { data: signedData } = await bucket.createSignedUrl(imageUrl, 60 * 60);
+  try {
+    const bucket = storage.from("project-photos");
+    const { data: signedData } = await bucket.createSignedUrl(imageUrl, 60 * 60);
 
-  if (signedData?.signedUrl) return signedData.signedUrl;
+    if (signedData?.signedUrl) return signedData.signedUrl;
 
-  const { data: publicData } = bucket.getPublicUrl(imageUrl);
-  return publicData.publicUrl || imageUrl;
+    const { data: publicData } = bucket.getPublicUrl(imageUrl);
+    return publicData.publicUrl || imageUrl;
+  } catch {
+    return "";
+  }
 }
 
 export default async function ProjectDeliveryDetailPage({
@@ -97,7 +117,7 @@ export default async function ProjectDeliveryDetailPage({
   const supabase = await createSupabaseServerClient();
   const { id, deliveryId } = await params;
 
-  const { data: delivery, error } = await supabase
+  const deliveryResult = await supabase
     .from("project_deliveries")
     .select(
       "id, delivery_date, status, delivered_to_name, delivered_to_role, delivered_by_name, observations, client_signature_image_url, alfa_signature_image_url, delivery_email_sent_at, delivery_email_sent_to, delivery_email_status, delivery_email_error"
@@ -106,7 +126,11 @@ export default async function ProjectDeliveryDetailPage({
     .eq("client_project_id", id)
     .maybeSingle();
 
-  if (error || !delivery) {
+  if (deliveryResult.error || !deliveryResult.data) {
+    if (deliveryResult.error) {
+      logDeliveryPageError(id, deliveryId, "load delivery", deliveryResult.error);
+    }
+
     return (
       <main className="min-h-screen bg-[#0B0D0F] p-4 text-white md:p-8 xl:p-10">
         <Link href={`/projects/${id}/deliveries`} className="mb-8 inline-flex items-center gap-2 text-[#B3B3B8]">
@@ -120,56 +144,90 @@ export default async function ProjectDeliveryDetailPage({
     );
   }
 
-  const deliveryData = delivery as ProjectDelivery;
-  const [
-    { data: project },
-    { data: evidences },
-    { data: pendingItems },
-    { data: systems },
-    { data: warranty },
-    { data: emailHistory },
-  ] =
-    await Promise.all([
-      supabase.from("client_projects").select("id, name, client_id").eq("id", id).maybeSingle(),
-      supabase
-        .from("project_delivery_evidences")
-        .select("id, file_url, caption")
-        .eq("project_delivery_id", deliveryId)
-        .order("sort_order", { ascending: true }),
-      supabase
-        .from("project_delivery_pending_items")
-        .select("id, description, status")
-        .eq("project_delivery_id", deliveryId)
-        .order("sort_order", { ascending: true }),
-      supabase
-        .from("project_delivery_systems")
-        .select("id, system_name, delivered, notes")
-        .eq("project_delivery_id", deliveryId)
-        .order("created_at", { ascending: true }),
-      supabase
-        .from("project_warranties")
-        .select("id")
-        .eq("client_project_id", id)
-        .order("warranty_date", { ascending: false })
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      supabase
-        .from("project_delivery_email_history")
-        .select("id, sent_to, cc, subject, attachment_names, status, error_message, sent_at")
-        .eq("project_delivery_id", deliveryId)
-        .order("sent_at", { ascending: false }),
-    ]);
+  const deliveryData = deliveryResult.data as ProjectDelivery;
+
+  async function safeLoad<T>(step: string, loader: () => Promise<T>, fallback: T) {
+    try {
+      return await loader();
+    } catch (error) {
+      logDeliveryPageError(id, deliveryId, step, error);
+      return fallback;
+    }
+  }
+
+  const project = await safeLoad("load project", async () => {
+    const result = await supabase
+      .from("client_projects")
+      .select("id, name, client_id")
+      .eq("id", id)
+      .maybeSingle();
+    if (result.error) throw result.error;
+    return result.data;
+  }, null);
 
   const projectData = project as ClientProject | null;
-  const { data: client } = projectData?.client_id
-    ? await supabase.from("clients").select("name, email, billing_email").eq("id", projectData.client_id).maybeSingle()
-    : { data: null };
+  const [client, evidences, pendingItems, deliverySystems, warranty, emailHistory, financialSummary] =
+    await Promise.all([
+      safeLoad("load client", async () => {
+        if (!projectData?.client_id) return null;
+        const result = await supabase
+          .from("clients")
+          .select("name, email, billing_email")
+          .eq("id", projectData.client_id)
+          .maybeSingle();
+        if (result.error) throw result.error;
+        return result.data;
+      }, null),
+      safeLoad("load evidences", async () => {
+        const result = await supabase
+          .from("project_delivery_evidences")
+          .select("id, file_url, caption")
+          .eq("project_delivery_id", deliveryId)
+          .order("sort_order", { ascending: true });
+        if (result.error) throw result.error;
+        return result.data || [];
+      }, []),
+      safeLoad("load pending items", async () => {
+        const result = await supabase
+          .from("project_delivery_pending_items")
+          .select("id, description, status")
+          .eq("project_delivery_id", deliveryId)
+          .order("sort_order", { ascending: true });
+        if (result.error) throw result.error;
+        return result.data || [];
+      }, []),
+      safeLoad("load delivery systems", () =>
+        getProjectDeliverySystemsForDisplay(supabase, Number(id), deliveryId),
+      []),
+      safeLoad("load warranty", async () => {
+        const result = await supabase
+          .from("project_warranties")
+          .select("id")
+          .eq("client_project_id", id)
+          .order("warranty_date", { ascending: false })
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (result.error) throw result.error;
+        return result.data;
+      }, null),
+      safeLoad("load email history", async () => {
+        const result = await supabase
+          .from("project_delivery_email_history")
+          .select("id, sent_to, cc, subject, attachment_names, status, error_message, sent_at")
+          .eq("project_delivery_id", deliveryId)
+          .order("sent_at", { ascending: false });
+        if (result.error) throw result.error;
+        return result.data || [];
+      }, []),
+      safeLoad("load financial summary", () =>
+        getProjectFinancialSummary(supabase, Number(id)),
+      { approvedTotalMxn: 0, paidTotalMxn: 0, pendingTotalMxn: 0 }),
+    ]);
+
   const clientData = client as Client | null;
   const recipient = clientData?.billing_email || clientData?.email || "";
-  const deliverySystems = (systems || []) as DeliverySystem[];
   const latestWarranty = warranty as Warranty | null;
-  const financialSummary = await getProjectFinancialSummary(supabase, Number(id));
   const evidenceList = await Promise.all(
     ((evidences || []) as Omit<Evidence, "displayUrl">[]).map(async (evidence) => ({
       ...evidence,
@@ -245,7 +303,9 @@ export default async function ProjectDeliveryDetailPage({
                     <p className="mt-1 text-sm text-[#B3B3B8]">Para: {email.sent_to || "-"}</p>
                     {email.cc ? <p className="mt-1 text-sm text-[#B3B3B8]">CC: {email.cc}</p> : null}
                     <p className="mt-1 text-xs text-[#77777D]">
-                      Adjuntos: {(email.attachment_names || []).join(", ") || "Sin adjuntos"}
+                      Adjuntos: {Array.isArray(email.attachment_names) && email.attachment_names.length > 0
+                        ? email.attachment_names.join(", ")
+                        : "Sin adjuntos"}
                     </p>
                     {email.error_message ? (
                       <p className="mt-2 text-sm text-[#FFB4B4]">{email.error_message}</p>
