@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { getCurrentUserProfile } from "@/services/profile";
 import { canManageUsers } from "@/lib/permissions";
 import { formatCurrency } from "@/lib/format";
+import { getFacturamaSandboxReceiverNotice } from "@/lib/facturama";
 import {
   getCurrentMonthRange,
   getInvoiceRelation,
@@ -52,6 +53,7 @@ export default async function InvoicesPage() {
   const supabase = await createSupabaseServerClient();
   const profile = await getCurrentUserProfile();
   const allowManualInvoices = canManageUsers(profile?.role);
+  const sandboxReceiverNotice = getFacturamaSandboxReceiverNotice();
 
   const [invoicesResult, clientsResult, projectsResult, quotesResult] = await Promise.all([
     supabase
@@ -162,6 +164,11 @@ export default async function InvoicesPage() {
           <p className="text-sm text-[#B3B3B8]">
             Facturama esta conectado en modo sandbox. Produccion queda bloqueada desde servidor.
           </p>
+          {sandboxReceiverNotice ? (
+            <p className="mt-3 rounded-xl border border-[#614620] bg-[#322514] p-3 text-sm text-[#F4C66A]">
+              {sandboxReceiverNotice}
+            </p>
+          ) : null}
         </div>
         <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5">
           <div className="mb-4 flex items-center gap-2">
@@ -250,6 +257,7 @@ export default async function InvoicesPage() {
                       status={invoice.status}
                       facturamaId={invoice.facturama_id}
                       client={client}
+                      sandboxNotice={sandboxReceiverNotice}
                     />
                     <div className="flex items-center gap-2">
                       {invoice.pdf_url ? (

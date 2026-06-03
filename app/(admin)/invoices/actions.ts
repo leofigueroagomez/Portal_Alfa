@@ -2,9 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import {
+  facturamaSandboxReceiverNotice,
   getFacturamaErrorDetails,
+  getFacturamaSandboxReceiverOverride,
   stampFacturamaInvoice,
   type FacturamaResponseLog,
+  type FacturamaSandboxReceiver,
 } from "@/lib/facturama";
 import {
   formatMissingFiscalFields,
@@ -78,6 +81,8 @@ type StampFailureDetails = FacturamaResponseLog | {
 
 type StampFailureDetailsWithDiagnostics = StampFailureDetails & {
   rfc?: RfcDiagnostic;
+  clientRfc?: RfcDiagnostic;
+  sandboxReceiver?: FacturamaSandboxReceiver;
 };
 
 export type StampProjectInvoiceResult =
@@ -85,6 +90,10 @@ export type StampProjectInvoiceResult =
       ok: true;
       facturamaId: string;
       satUuid: string | null;
+      warning?: string;
+      details?: {
+        sandboxReceiver?: FacturamaSandboxReceiver;
+      };
     }
   | {
       ok: false;
@@ -122,9 +131,61 @@ function getActionErrorDetails(error: unknown): StampFailureDetails {
 
 function withRfcDiagnostic(
   details: StampFailureDetails,
-  rfcDiagnostic: RfcDiagnostic | null
+  rfcDiagnostic: RfcDiagnostic | null,
+  clientRfcDiagnostic: RfcDiagnostic | null,
+  sandboxReceiver: FacturamaSandboxReceiver | null
 ): StampFailureDetailsWithDiagnostics {
-  return rfcDiagnostic ? { ...details, rfc: rfcDiagnostic } : details;
+  return {
+    ...details,
+    ...(rfcDiagnostic ? { rfc: rfcDiagnostic } : {}),
+    ...(clientRfcDiagnostic ? { clientRfc: clientRfcDiagnostic } : {}),
+    ...(sandboxReceiver ? { sandboxReceiver } : {}),
+  };
+}
+
+function getSandboxMissingFiscalFields(
+  receiver: {
+    name: string;
+    fiscalRegime: string;
+    cfdiUse: string;
+    taxZipCode: string;
+  },
+  catalogs: {
+    fiscalRegimes: FiscalCatalogItem[];
+    cfdiUses: FiscalCatalogItem[];
+  }
+) {
+  const missing: string[] = [];
+
+  if (!receiver.name.trim()) {
+    missing.push("Razon social sandbox");
+  }
+
+  if (!receiver.fiscalRegime) {
+    missing.push("Regimen fiscal sandbox");
+  } else {
+    const fiscalRegime = catalogs.fiscalRegimes.find(
+      (item) => item.code === receiver.fiscalRegime
+    );
+    if (!fiscalRegime || !fiscalRegime.is_active) {
+      missing.push("Regimen fiscal sandbox (requiere actualizacion)");
+    }
+  }
+
+  if (!/^\d{5}$/.test(receiver.taxZipCode)) {
+    missing.push("Codigo postal fiscal sandbox");
+  }
+
+  if (!receiver.cfdiUse) {
+    missing.push("Uso CFDI");
+  } else {
+    const cfdiUse = catalogs.cfdiUses.find((item) => item.code === receiver.cfdiUse);
+    if (!cfdiUse || !cfdiUse.is_active) {
+      missing.push("Uso CFDI (requiere actualizacion)");
+    }
+  }
+
+  return missing;
 }
 
 async function saveInvoiceStampMetadata(
@@ -155,6 +216,8 @@ export async function stampProjectInvoice(
   let supabase: SupabaseAdminClient | null = null;
   let invoiceProjectId: number | null = null;
   let rfcDiagnostic: RfcDiagnostic | null = null;
+  let clientRfcDiagnostic: RfcDiagnostic | null = null;
+  let sandboxReceiver: FacturamaSandboxReceiver | null = null;
 
   try {
     const profile = await getCurrentUserProfile();
@@ -200,7 +263,24 @@ export async function stampProjectInvoice(
       throw new Error("La factura no tiene cliente asociado.");
     }
 
-    rfcDiagnostic = getRfcDiagnostic(client.tax_rfc);
+    sandboxReceiver = getFacturamaSandboxReceiverOverride();
+    clientRfcDiagnostic = getRfcDiagnostic(client.tax_rfc);
+    const receiver = sandboxReceiver
+      ? {
+          rfc: sandboxReceiver.rfc,
+          name: sandboxReceiver.name,
+          fiscalRegime: sandboxReceiver.fiscalRegime,
+          cfdiUse: getCfdiUseCode(client),
+          taxZipCode: sandboxReceiver.taxZipCode,
+        }
+      : {
+          rfc: client.tax_rfc || "",
+          name: client.tax_business_name || "",
+          fiscalRegime: getFiscalRegimeCode(client),
+          cfdiUse: getCfdiUseCode(client),
+          taxZipCode: client.tax_zip_code || "",
+        };
+    rfcDiagnostic = getRfcDiagnostic(receiver.rfc);
 
     if (!rfcDiagnostic.normalized) {
       throw new Error("No se puede timbrar sin RFC fiscal del receptor.");
@@ -210,27 +290,28 @@ export async function stampProjectInvoice(
       throw new Error(`RFC invalido para timbrar. ${formatRfcDiagnostic(rfcDiagnostic)}`);
     }
 
-    const fiscalRegimeCode = getFiscalRegimeCode(client);
-    const cfdiUseCode = getCfdiUseCode(client);
     const [regimesResult, cfdiUsesResult] = await Promise.all([
       supabase
         .from("fiscal_regime_catalog")
         .select("code, name, applies_to_person_type, is_active")
-        .eq("code", fiscalRegimeCode),
+        .eq("code", receiver.fiscalRegime),
       supabase
         .from("cfdi_use_catalog")
         .select("code, name, applies_to_person_type, is_active")
-        .eq("code", cfdiUseCode),
+        .eq("code", receiver.cfdiUse),
     ]);
 
     if (regimesResult.error || cfdiUsesResult.error) {
       throw new Error("No se pudieron validar los catalogos SAT.");
     }
 
-    const missingFiscalFields = getMissingFiscalFields(client, {
+    const fiscalCatalogs = {
       fiscalRegimes: (regimesResult.data || []) as FiscalCatalogItem[],
       cfdiUses: (cfdiUsesResult.data || []) as FiscalCatalogItem[],
-    });
+    };
+    const missingFiscalFields = sandboxReceiver
+      ? getSandboxMissingFiscalFields(receiver, fiscalCatalogs)
+      : getMissingFiscalFields(client, fiscalCatalogs);
 
     if (missingFiscalFields.length > 0) {
       throw new Error(
@@ -320,10 +401,10 @@ export async function stampProjectInvoice(
       projectName: project?.name || null,
       receiver: {
         rfc: rfcDiagnostic.normalized,
-        name: client.tax_business_name!.trim().toUpperCase(),
-        fiscalRegime: fiscalRegimeCode,
-        cfdiUse: cfdiUseCode,
-        taxZipCode: client.tax_zip_code!.trim(),
+        name: receiver.name.trim().toUpperCase(),
+        fiscalRegime: receiver.fiscalRegime,
+        cfdiUse: receiver.cfdiUse,
+        taxZipCode: receiver.taxZipCode,
       },
       items: invoiceItems.map((item) => ({
         productCode: item.sat_product_service_code!,
@@ -372,10 +453,21 @@ export async function stampProjectInvoice(
       ok: true,
       facturamaId: result.facturamaId,
       satUuid: result.satUuid,
+      ...(sandboxReceiver
+        ? {
+            warning: facturamaSandboxReceiverNotice,
+            details: { sandboxReceiver },
+          }
+        : {}),
     };
   } catch (error) {
     const message = getActionErrorMessage(error);
-    const details = withRfcDiagnostic(getActionErrorDetails(error), rfcDiagnostic);
+    const details = withRfcDiagnostic(
+      getActionErrorDetails(error),
+      rfcDiagnostic,
+      clientRfcDiagnostic,
+      sandboxReceiver
+    );
     const facturamaStatus = "status" in details ? details.status : null;
 
     console.error("[stampProjectInvoice] failed", {

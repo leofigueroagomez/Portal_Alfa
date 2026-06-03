@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { getCurrentUserProfile } from "@/services/profile";
 import { canManageUsers } from "@/lib/permissions";
 import { formatCurrency, formatNumber } from "@/lib/format";
+import { getFacturamaSandboxReceiverNotice } from "@/lib/facturama";
 import {
   getInvoiceIva,
   getInvoiceSubtotal,
@@ -86,6 +87,7 @@ export default async function ProjectAccountStatementPage({
   const supabase = await createSupabaseServerClient();
   const profile = await getCurrentUserProfile();
   const allowManualInvoices = canManageUsers(profile?.role);
+  const sandboxReceiverNotice = getFacturamaSandboxReceiverNotice();
   const { id } = await params;
 
   const { data: project, error } = await supabase
@@ -438,6 +440,7 @@ export default async function ProjectAccountStatementPage({
                           status={invoice.status}
                           facturamaId={invoice.facturama_id}
                           client={clientData}
+                          sandboxNotice={sandboxReceiverNotice}
                         />
                       </td>
                       <td className="px-3 py-3 text-[#B3B3B8]">

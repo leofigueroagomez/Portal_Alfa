@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { getCurrentUserProfile } from "@/services/profile";
 import { canManageUsers } from "@/lib/permissions";
 import { formatCurrency } from "@/lib/format";
+import { getFacturamaSandboxReceiverNotice } from "@/lib/facturama";
 import { ClientFiscalDataButton } from "@/components/ClientFiscalDataModal";
 import {
   getCfdiUseDisplay,
@@ -46,6 +47,7 @@ export default async function ProjectInvoicesPage({
   const supabase = await createSupabaseServerClient();
   const profile = await getCurrentUserProfile();
   const allowManualInvoices = canManageUsers(profile?.role);
+  const sandboxReceiverNotice = getFacturamaSandboxReceiverNotice();
   const { id } = await params;
 
   const { data: project, error } = await supabase
@@ -233,6 +235,7 @@ export default async function ProjectInvoicesPage({
                       status={invoice.status}
                       facturamaId={invoice.facturama_id}
                       client={client}
+                      sandboxNotice={sandboxReceiverNotice}
                     />
                     <div className="flex items-center gap-2">
                       {invoice.pdf_url ? (

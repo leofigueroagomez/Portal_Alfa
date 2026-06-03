@@ -19,6 +19,7 @@ type Props = {
   status: string | null | undefined;
   facturamaId?: string | null;
   client?: FiscalClientData | null;
+  sandboxNotice?: string | null;
 };
 
 function getErrorMessage(error: unknown) {
@@ -38,11 +39,26 @@ function formatDetails(details: unknown) {
   }
 }
 
+function getSandboxMissingFiscalFields(
+  client: FiscalClientData | null,
+  catalogs: { cfdiUses: FiscalCatalogItem[] }
+) {
+  const cfdiUseCode = getCfdiUseCode(client);
+
+  if (!cfdiUseCode) return ["Uso CFDI"];
+
+  const cfdiUse = catalogs.cfdiUses.find((item) => item.code === cfdiUseCode);
+  if (!cfdiUse || !cfdiUse.is_active) return ["Uso CFDI (requiere actualizacion)"];
+
+  return [];
+}
+
 export default function StampInvoiceButton({
   invoiceId,
   status,
   facturamaId,
   client,
+  sandboxNotice,
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -93,7 +109,9 @@ export default function StampInvoiceButton({
     let currentMissing: string[] = [];
     try {
       const catalogs = await loadCatalogs();
-      currentMissing = getMissingFiscalFields(localClient, catalogs);
+      currentMissing = sandboxNotice
+        ? getSandboxMissingFiscalFields(localClient, catalogs)
+        : getMissingFiscalFields(localClient, catalogs);
     } catch (error) {
       setMessage(getErrorMessage(error));
       setChecking(false);
@@ -119,6 +137,11 @@ export default function StampInvoiceButton({
           return;
         }
 
+        if (result.warning) {
+          setMessage(result.warning);
+          setDetails(formatDetails(result.details));
+        }
+
         router.refresh();
       } catch (error) {
         setMessage(getErrorMessage(error));
@@ -137,6 +160,11 @@ export default function StampInvoiceButton({
   return (
     <>
       <div className="space-y-2">
+        {sandboxNotice ? (
+          <p className="max-w-[280px] rounded-xl border border-[#614620] bg-[#322514] p-3 text-xs leading-5 text-[#F4C66A]">
+            {sandboxNotice}
+          </p>
+        ) : null}
         <button
           type="button"
           onClick={handleStamp}

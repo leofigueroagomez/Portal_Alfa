@@ -73,6 +73,23 @@ const FACTURAMA_URLS: Record<FacturamaEnv, string> = {
   production: "https://api.facturama.mx/",
 };
 
+export type FacturamaSandboxReceiver = {
+  rfc: string;
+  name: string;
+  fiscalRegime: string;
+  taxZipCode: string;
+};
+
+export const facturamaSandboxReceiverNotice =
+  "Timbrado en sandbox usando datos fiscales de prueba.";
+
+const defaultFacturamaSandboxReceiver: FacturamaSandboxReceiver = {
+  rfc: "EKU9003173C9",
+  name: "KEMPER URGATE SCHOOL",
+  fiscalRegime: "601",
+  taxZipCode: "42501",
+};
+
 export class FacturamaRequestError extends Error {
   details: FacturamaResponseLog;
 
@@ -87,17 +104,52 @@ export function getFacturamaErrorDetails(error: unknown) {
   return error instanceof FacturamaRequestError ? error.details : null;
 }
 
-function getFacturamaConfig() {
-  const username = process.env.FACTURAMA_USERNAME;
-  const password = process.env.FACTURAMA_PASSWORD;
+export function getFacturamaEnv() {
   const env = process.env.FACTURAMA_ENV || "sandbox";
-
-  if (!username || !password) {
-    throw new Error("Configura FACTURAMA_USERNAME y FACTURAMA_PASSWORD.");
-  }
 
   if (env !== "sandbox" && env !== "production") {
     throw new Error("FACTURAMA_ENV debe ser sandbox o production.");
+  }
+
+  return env;
+}
+
+export function getFacturamaSandboxReceiverOverride() {
+  if (getFacturamaEnv() !== "sandbox") return null;
+
+  return {
+    rfc:
+      process.env.FACTURAMA_SANDBOX_RECEIVER_RFC?.trim().toUpperCase() ||
+      defaultFacturamaSandboxReceiver.rfc,
+    name:
+      process.env.FACTURAMA_SANDBOX_RECEIVER_NAME?.trim().toUpperCase() ||
+      defaultFacturamaSandboxReceiver.name,
+    fiscalRegime:
+      process.env.FACTURAMA_SANDBOX_RECEIVER_TAX_REGIME?.trim() ||
+      defaultFacturamaSandboxReceiver.fiscalRegime,
+    taxZipCode:
+      process.env.FACTURAMA_SANDBOX_RECEIVER_ZIP_CODE?.trim() ||
+      defaultFacturamaSandboxReceiver.taxZipCode,
+  };
+}
+
+export function getFacturamaSandboxReceiverNotice() {
+  try {
+    return getFacturamaSandboxReceiverOverride()
+      ? facturamaSandboxReceiverNotice
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function getFacturamaConfig() {
+  const username = process.env.FACTURAMA_USERNAME;
+  const password = process.env.FACTURAMA_PASSWORD;
+  const env = getFacturamaEnv();
+
+  if (!username || !password) {
+    throw new Error("Configura FACTURAMA_USERNAME y FACTURAMA_PASSWORD.");
   }
 
   if (env === "production") {
