@@ -2,6 +2,7 @@ import Link from "next/link";
 import type React from "react";
 import { ArrowLeft, CalendarDays, CheckCircle2, FileText, UserRound } from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
+import { getAppBaseUrl } from "@/lib/appUrl";
 import { getProjectFinancialSummary } from "@/lib/projectFinancials";
 import SendDeliveryEmailButton from "./SendDeliveryEmailButton";
 
@@ -177,6 +178,11 @@ export default async function ProjectDeliveryDetailPage({
   );
   const pendingList = (pendingItems || []) as PendingItem[];
   const emailHistoryList = (emailHistory || []) as EmailHistory[];
+  const baseUrl = getAppBaseUrl();
+  const deliveryPrintUrl = `${baseUrl}/projects/${id}/deliveries/${deliveryId}/print`;
+  const warrantyPrintUrl = latestWarranty
+    ? `${baseUrl}/projects/${id}/warranty/${latestWarranty.id}/print`
+    : null;
   const [clientSignatureUrl, alfaSignatureUrl] = await Promise.all([
     resolvePhotoUrl(supabase.storage, deliveryData.client_signature_image_url),
     resolvePhotoUrl(supabase.storage, deliveryData.alfa_signature_image_url),
@@ -217,8 +223,8 @@ export default async function ProjectDeliveryDetailPage({
           deliveryId={Number(deliveryId)}
           recipient={recipient}
           pendingBalanceMxn={financialSummary.pendingTotalMxn}
-          deliveryLink={`/projects/${id}/deliveries/${deliveryId}/print`}
-          warrantyLink={latestWarranty ? `/projects/${id}/warranty/${latestWarranty.id}/print` : null}
+          deliveryLink={deliveryPrintUrl}
+          warrantyLink={warrantyPrintUrl}
           alreadySentAt={deliveryData.delivery_email_sent_at}
           lastStatus={deliveryData.delivery_email_status}
           lastError={deliveryData.delivery_email_error}

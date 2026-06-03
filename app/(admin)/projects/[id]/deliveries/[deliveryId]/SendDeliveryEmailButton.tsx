@@ -11,6 +11,7 @@ type Draft = {
   subject: string;
   html: string;
   attachmentNames: string[];
+  pdfGenerationPending: boolean;
   pendingBalanceMxn: number;
   deliveryUrl: string;
   warrantyUrl: string | null;
@@ -84,7 +85,7 @@ export default function SendDeliveryEmailButton({
       setMessage("La garantia no ha sido generada todavia. Genera la garantia antes de enviar.");
       return;
     }
-    if (!window.confirm("Vas a enviar el correo de entrega y garantia con los PDFs adjuntos. Deseas continuar?")) {
+    if (!window.confirm("Vas a enviar el correo de entrega y garantia con PDFs adjuntos generados desde las vistas print. Deseas continuar?")) {
       return;
     }
 
@@ -113,8 +114,9 @@ export default function SendDeliveryEmailButton({
             Saldo pendiente: {formatCurrency(pendingBalanceMxn)}
           </p>
           <p className="mt-1 text-xs text-[#77777D]">
-            Adjunta PDFs de acta de entrega{warrantyLink ? " y carta de garantia" : ""}.
-            Links internos: {deliveryLink}{warrantyLink ? `, ${warrantyLink}` : ""}.
+            Adjunta PDFs reales de acta de entrega{warrantyLink ? " y carta de garantia" : ""}.
+            Links internos:
+            {" "}{deliveryLink}{warrantyLink ? `, ${warrantyLink}` : ""}.
           </p>
           {alreadySentAt ? (
             <p className="mt-2 text-xs text-[#8CE0B6]">
@@ -193,14 +195,25 @@ export default function SendDeliveryEmailButton({
 
                   <section className="rounded-xl border border-[#2A2A30] bg-[#222228] p-4">
                     <h4 className="mb-3 font-semibold">Adjuntos PDF</h4>
-                    <div className="space-y-2">
-                      {draft.attachmentNames.map((name) => (
-                        <div key={name} className="flex items-center gap-2 text-sm text-[#B3B3B8]">
-                          <FileText size={16} className="text-[#9E1B32]" />
-                          {name}
-                        </div>
-                      ))}
-                    </div>
+                    {draft.pdfGenerationPending ? (
+                      <div className="rounded-lg border border-[#614620] bg-[#322514] p-3 text-sm text-[#F4C66A]">
+                        Adjuntos PDF automaticos pendientes de generacion server-side.
+                        Por ahora el correo envia links internos protegidos por login.
+                      </div>
+                    ) : draft.attachmentNames.length === 0 ? (
+                      <div className="rounded-lg border border-[#614620] bg-[#322514] p-3 text-sm text-[#F4C66A]">
+                        Sin adjuntos disponibles hasta generar la carta garantia.
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {draft.attachmentNames.map((name) => (
+                          <div key={name} className="flex items-center gap-2 text-sm text-[#B3B3B8]">
+                            <FileText size={16} className="text-[#9E1B32]" />
+                            {name}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </section>
 
                   <section className="rounded-xl border border-[#2A2A30] bg-[#222228] p-4">
@@ -236,7 +249,7 @@ export default function SendDeliveryEmailButton({
                     </div>
                     {draft.warrantyMissing ? (
                       <p className="mt-3 rounded-lg border border-[#614620] bg-[#322514] p-3 text-sm text-[#F4C66A]">
-                        La garantia no ha sido generada todavia.
+                        Garantia no generada. Genera la carta antes de enviar el correo.
                       </p>
                     ) : null}
                   </section>

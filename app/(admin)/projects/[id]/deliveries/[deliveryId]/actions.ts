@@ -1,9 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
+import { getAppBaseUrl } from "@/lib/appUrl";
 import { formatCurrency } from "@/lib/format";
 import { getProjectFinancialSummary } from "@/lib/projectFinancials";
+import { renderPrintRouteToPdf } from "@/lib/serverPdf";
 
 type Delivery = {
   id: number;
@@ -49,11 +52,12 @@ type EmailDraft = {
   cc: string[];
   subject: string;
   html: string;
-  attachments: Attachment[];
   attachmentNames: string[];
+  pdfGenerationPending: boolean;
   pendingBalanceMxn: number;
   deliveryUrl: string;
   warrantyUrl: string | null;
+  warrantyId: number | null;
   warrantyCreateUrl: string;
   warrantyMissing: boolean;
   warrantyEndDate: string | null;
@@ -76,15 +80,6 @@ function formatDate(value: string | null | undefined) {
   return new Date(value).toLocaleDateString("es-MX");
 }
 
-function getBaseUrl() {
-  return (
-    process.env.NEXT_PUBLIC_APP_URL ||
-    process.env.APP_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "") ||
-    "http://localhost:3000"
-  );
-}
-
 function parseEmails(value: string | null | undefined) {
   return (value || "")
     .split(",")
@@ -98,51 +93,6 @@ function escapeHtml(value: string | null | undefined) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
-}
-
-function escapePdfText(value: string | null | undefined) {
-  return (value || "")
-    .replace(/[^\x20-\x7E]/g, "?")
-    .replace(/\\/g, "\\\\")
-    .replace(/\(/g, "\\(")
-    .replace(/\)/g, "\\)");
-}
-
-function createSimplePdf(title: string, lines: string[]) {
-  const textLines = [title, "", ...lines].slice(0, 44);
-  const stream = [
-    "BT",
-    "/F1 14 Tf",
-    "72 744 Td",
-    `(${escapePdfText(textLines[0])}) Tj`,
-    "/F1 10 Tf",
-    ...textLines.slice(1).flatMap((line) => ["0 -16 Td", `(${escapePdfText(line)}) Tj`]),
-    "ET",
-  ].join("\n");
-  const objects = [
-    "<< /Type /Catalog /Pages 2 0 R >>",
-    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-    `<< /Length ${Buffer.byteLength(stream, "utf8")} >>\nstream\n${stream}\nendstream`,
-  ];
-  let body = "%PDF-1.4\n";
-  const offsets = [0];
-
-  objects.forEach((object, index) => {
-    offsets.push(Buffer.byteLength(body, "utf8"));
-    body += `${index + 1} 0 obj\n${object}\nendobj\n`;
-  });
-
-  const xrefOffset = Buffer.byteLength(body, "utf8");
-  body += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
-  body += offsets
-    .slice(1)
-    .map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`)
-    .join("");
-  body += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
-
-  return Buffer.from(body, "utf8").toString("base64");
 }
 
 async function getEmailDraft(projectId: number, deliveryId: number): Promise<EmailDraft | { error: string }> {
@@ -195,7 +145,7 @@ async function getEmailDraft(projectId: number, deliveryId: number): Promise<Ema
   const warrantyData = warranty as Warranty | null;
   const systemList = (systems || []) as DeliverySystem[];
   const financialSummary = await getProjectFinancialSummary(supabase, projectId);
-  const baseUrl = getBaseUrl();
+  const baseUrl = getAppBaseUrl();
   const deliveryDate = getDateOrToday(deliveryData.delivery_date);
   const deliveryUrl = `${baseUrl}/projects/${projectId}/deliveries/${deliveryId}/print`;
   const warrantyUrl = warrantyData
@@ -243,55 +193,27 @@ async function getEmailDraft(projectId: number, deliveryId: number): Promise<Ema
       <p>Contacto de soporte: ${escapeHtml(process.env.ALFA_SUPPORT_EMAIL || "soporte@alfait.com")}</p>
       ${
         warrantyData
-          ? '<p style="color:#666">Se adjuntan PDFs del acta de entrega y carta de garantia. Los enlaces internos permanecen protegidos por login.</p>'
+          ? `<p><strong>Acta de entrega:</strong> <a href="${deliveryUrl}">${deliveryUrl}</a></p>
+             <p><strong>Carta de garantia:</strong> <a href="${warrantyUrl}">${warrantyUrl}</a></p>
+             <p style="color:#666">Se adjuntan PDFs del acta de entrega y carta de garantia generados desde las vistas imprimibles. Los enlaces internos permanecen protegidos por login.</p>`
           : `<p style="color:#9E1B32"><strong>La garantia no ha sido generada todavia.</strong> Generala antes de enviar este correo: <a href="${warrantyCreateUrl}">${warrantyCreateUrl}</a></p>`
       }
     </div>
   `;
-  const deliveryPdfLines = [
-    `Proyecto: ${projectData.name || "Proyecto"}`,
-    `Cliente: ${clientData?.name || "Cliente"}`,
-    `Fecha de entrega: ${formatDate(deliveryDate)}`,
-    `Recibe: ${deliveryData.delivered_to_name || "-"}`,
-    `Saldo pendiente: ${formatCurrency(financialSummary.pendingTotalMxn, "MXN")}`,
-    "Sistemas entregados:",
-    ...(systemList.length
-      ? systemList.map((system) => `- ${system.system_name || "Sistema"}${system.notes ? `: ${system.notes}` : ""}`)
-      : ["- Sin sistemas seleccionados"]),
-  ];
-  const warrantyPdfLines = [
-    `Proyecto: ${projectData.name || "Proyecto"}`,
-    `Cliente: ${clientData?.name || "Cliente"}`,
-    `Vencimiento de garantia: ${formatDate(warrantyEndDate)}`,
-    `Proximo mantenimiento sugerido: ${formatDate(nextMaintenanceDate)}`,
-    `Soporte: ${process.env.ALFA_SUPPORT_EMAIL || "soporte@alfait.com"}`,
-    warrantyUrl ? `Carta interna: ${warrantyUrl}` : `Generar garantia: ${warrantyCreateUrl}`,
-  ];
-  const attachments = [
-    {
-      filename: `acta-entrega-${deliveryId}.pdf`,
-      content: createSimplePdf("Acta de entrega de proyecto", deliveryPdfLines),
-    },
-    ...(warrantyData
-      ? [
-          {
-            filename: `carta-garantia-${projectId}.pdf`,
-            content: createSimplePdf("Carta de garantia ALFA IT", warrantyPdfLines),
-          },
-        ]
-      : []),
-  ];
 
   return {
     to,
     cc,
     subject,
     html,
-    attachments,
-    attachmentNames: attachments.map((attachment) => attachment.filename),
+    attachmentNames: warrantyData
+      ? [`Acta-de-entrega-${projectId}-${deliveryId}.pdf`, `Carta-garantia-${projectId}-${warrantyData.id}.pdf`]
+      : [],
+    pdfGenerationPending: false,
     pendingBalanceMxn: financialSummary.pendingTotalMxn,
     deliveryUrl,
     warrantyUrl,
+    warrantyId: warrantyData?.id || null,
     warrantyCreateUrl,
     warrantyMissing: !warrantyData,
     warrantyEndDate,
@@ -355,6 +277,7 @@ export async function previewProjectDeliveryEmail(projectId: number, deliveryId:
       subject: draft.subject,
       html: draft.html,
       attachmentNames: draft.attachmentNames,
+      pdfGenerationPending: draft.pdfGenerationPending,
       pendingBalanceMxn: draft.pendingBalanceMxn,
       deliveryUrl: draft.deliveryUrl,
       warrantyUrl: draft.warrantyUrl,
@@ -396,6 +319,33 @@ export async function sendProjectDeliveryEmail(
     data: { user },
   } = await supabase.auth.getUser();
 
+  async function createEmailAttachments() {
+    if (!emailDraft.warrantyId) {
+      throw new Error("La garantia no ha sido generada todavia.");
+    }
+
+    const cookieHeader = (await cookies()).toString();
+    const deliveryPdf = await renderPrintRouteToPdf(
+      `/projects/${projectId}/deliveries/${deliveryId}/print`,
+      cookieHeader
+    );
+    const warrantyPdf = await renderPrintRouteToPdf(
+      `/projects/${projectId}/warranty/${emailDraft.warrantyId}/print`,
+      cookieHeader
+    );
+
+    return [
+      {
+        filename: `Acta-de-entrega-${projectId}-${deliveryId}.pdf`,
+        content: Buffer.from(deliveryPdf).toString("base64"),
+      },
+      {
+        filename: `Carta-garantia-${projectId}-${emailDraft.warrantyId}.pdf`,
+        content: Buffer.from(warrantyPdf).toString("base64"),
+      },
+    ];
+  }
+
   async function insertHistory(status: "sent" | "error", errorMessage: string | null, response: unknown) {
     await supabase.from("project_delivery_email_history").insert({
       project_delivery_id: deliveryId,
@@ -412,12 +362,13 @@ export async function sendProjectDeliveryEmail(
   }
 
   try {
+    const attachments = await createEmailAttachments();
     const response = await sendResendEmail({
       to,
       cc,
       subject,
       html,
-      attachments: emailDraft.attachments,
+      attachments,
     });
 
     await supabase
