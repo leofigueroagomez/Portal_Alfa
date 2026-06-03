@@ -83,6 +83,42 @@ create table if not exists public.project_delivery_systems (
   created_at timestamptz not null default now()
 );
 
+do $$
+declare
+  current_sales_stage_constraint text;
+begin
+  select pg_get_constraintdef(oid)
+  into current_sales_stage_constraint
+  from pg_constraint
+  where conname = 'client_projects_sales_stage_check';
+
+  raise notice 'client_projects_sales_stage_check actual: %',
+    coalesce(current_sales_stage_constraint, 'sin constraint existente');
+
+  alter table public.client_projects
+    drop constraint if exists client_projects_sales_stage_check;
+
+  alter table public.client_projects
+    add constraint client_projects_sales_stage_check
+    check (
+      sales_stage in (
+        'lead',
+        'prospect',
+        'site_visit',
+        'engineering',
+        'quote',
+        'quoted',
+        'negotiation',
+        'won',
+        'lost',
+        'installed',
+        'delivered',
+        'warranty',
+        'closed'
+      )
+    );
+end $$;
+
 create index if not exists project_deliveries_project_id_idx
   on public.project_deliveries(client_project_id);
 

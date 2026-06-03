@@ -180,7 +180,7 @@ export default async function PostSalePage() {
                     <p className="mb-1 text-xs text-[#77777D] xl:hidden">Estado</p>
                     <span className="inline-flex items-center gap-2 rounded-full border border-[#1F7A4D] bg-[#143D2A] px-3 py-1 text-xs text-[#8CE0B6]">
                       <ShieldCheck size={13} />
-                      {project.sales_stage === "warranty" ? "Garantia" : "Entregado"}
+                      {project.sales_stage === "warranty" ? "En garantía" : "Entregado"}
                     </span>
                   </div>
                   <div>

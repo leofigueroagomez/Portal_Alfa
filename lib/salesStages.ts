@@ -24,7 +24,7 @@ export const salesStageLabels: Record<SalesStage, string> = {
   lost: "Perdido",
   installed: "Instalado",
   delivered: "Entregado",
-  warranty: "Garantia",
+  warranty: "En garantía",
   closed: "Cerrado",
 };
 
