@@ -85,7 +85,7 @@ export const facturamaSandboxReceiverNotice =
 
 const defaultFacturamaSandboxReceiver: FacturamaSandboxReceiver = {
   rfc: "EKU9003173C9",
-  name: "KEMPER URGATE SCHOOL",
+  name: "ESCUELA KEMPER URGATE",
   fiscalRegime: "601",
   taxZipCode: "42501",
 };
@@ -315,6 +315,7 @@ function buildFacturamaRequestLog(payload: FacturamaInvoicePayload) {
   return {
     Receiver: {
       Rfc: payload.Receiver.Rfc,
+      Name: payload.Receiver.Name,
     },
     Folio: payload.Folio,
     CfdiType: payload.CfdiType,
