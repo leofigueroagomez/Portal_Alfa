@@ -41,6 +41,12 @@ async function downloadInvoiceFile(id: string, format: "pdf" | "xml") {
       headers: {
         "Content-Type": file.contentType,
         "Content-Disposition": `inline; filename="factura-${id}.${format}"`,
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+        "X-ALFA-Invoice-File": format,
+        ...(file.providerContentType
+          ? { "X-Facturama-Content-Type": file.providerContentType }
+          : {}),
       },
     });
   } catch (error) {

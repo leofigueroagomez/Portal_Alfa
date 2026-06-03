@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, FileText } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { getCurrentUserProfile } from "@/services/profile";
 import { canManageUsers } from "@/lib/permissions";
@@ -25,6 +25,7 @@ import {
   type ProjectInvoice,
 } from "@/lib/invoices";
 import InvoiceForm from "@/app/(admin)/invoices/InvoiceForm";
+import InvoiceFileLinks from "@/app/(admin)/invoices/InvoiceFileLinks";
 import InvoiceStatusSelect from "@/app/(admin)/invoices/InvoiceStatusSelect";
 import StampInvoiceButton from "@/app/(admin)/invoices/StampInvoiceButton";
 
@@ -237,19 +238,11 @@ export default async function ProjectInvoicesPage({
                       client={client}
                       sandboxNotice={sandboxReceiverNotice}
                     />
-                    <div className="flex items-center gap-2">
-                      {invoice.pdf_url ? (
-                        <a href={invoice.pdf_url} target="_blank" rel="noreferrer">
-                          <FileText size={17} />
-                        </a>
-                      ) : null}
-                      {invoice.xml_url ? (
-                        <a href={invoice.xml_url} target="_blank" rel="noreferrer">
-                          XML
-                        </a>
-                      ) : null}
-                      {invoice.sat_uuid ? <span title={invoice.sat_uuid}>UUID</span> : null}
-                    </div>
+                    <InvoiceFileLinks
+                      xmlUrl={invoice.xml_url}
+                      pdfUrl={invoice.pdf_url}
+                      satUuid={invoice.sat_uuid}
+                    />
                   </div>
                 );
               })}

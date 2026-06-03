@@ -16,6 +16,7 @@ import {
 } from "@/lib/invoices";
 import { ClientFiscalDataButton } from "@/components/ClientFiscalDataModal";
 import type { FiscalClientData } from "@/lib/fiscalData";
+import InvoiceFileLinks from "@/app/(admin)/invoices/InvoiceFileLinks";
 import InvoiceForm from "@/app/(admin)/invoices/InvoiceForm";
 import StampInvoiceButton from "@/app/(admin)/invoices/StampInvoiceButton";
 import ProjectPaymentForm from "./ProjectPaymentForm";
@@ -444,7 +445,16 @@ export default async function ProjectAccountStatementPage({
                         />
                       </td>
                       <td className="px-3 py-3 text-[#B3B3B8]">
-                        {invoice.sat_uuid ? "UUID capturado" : "Sin timbrado"}
+                        {invoice.facturama_id ? (
+                          <InvoiceFileLinks
+                            xmlUrl={invoice.xml_url}
+                            pdfUrl={invoice.pdf_url}
+                            satUuid={invoice.sat_uuid}
+                            facturamaId={invoice.facturama_id}
+                          />
+                        ) : (
+                          "Sin timbrado"
+                        )}
                       </td>
                     </tr>
                   );

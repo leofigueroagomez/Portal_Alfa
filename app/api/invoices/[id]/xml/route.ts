@@ -38,6 +38,12 @@ export async function GET(
       headers: {
         "Content-Type": file.contentType,
         "Content-Disposition": `inline; filename="factura-${id}.xml"`,
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+        "X-ALFA-Invoice-File": "xml",
+        ...(file.providerContentType
+          ? { "X-Facturama-Content-Type": file.providerContentType }
+          : {}),
       },
     });
   } catch (error) {

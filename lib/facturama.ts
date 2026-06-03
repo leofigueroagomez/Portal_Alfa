@@ -372,11 +372,30 @@ export async function downloadFacturamaInvoiceFile(
     throw new Error(`Facturama no regreso archivo ${format.toUpperCase()}.`);
   }
 
+  const bytes = Buffer.from(response.data.Content, "base64");
+  const actualFormat = detectFacturamaFileFormat(bytes);
+
+  if (actualFormat && actualFormat !== format) {
+    throw new Error(
+      `Facturama regreso ${actualFormat.toUpperCase()} al solicitar ${format.toUpperCase()}.`
+    );
+  }
+
   return {
-    bytes: Buffer.from(response.data.Content, "base64"),
+    bytes,
     contentType:
       format === "pdf"
         ? "application/pdf"
         : "application/xml; charset=utf-8",
+    providerContentType: response.data.ContentType || null,
   };
+}
+
+function detectFacturamaFileFormat(bytes: Buffer): "pdf" | "xml" | null {
+  if (bytes.subarray(0, 4).toString("utf8") === "%PDF") return "pdf";
+
+  const sample = bytes.subarray(0, 200).toString("utf8").trimStart();
+  if (sample.startsWith("<")) return "xml";
+
+  return null;
 }

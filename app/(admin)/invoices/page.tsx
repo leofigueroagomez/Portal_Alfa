@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FileText, Landmark, ReceiptText } from "lucide-react";
+import { Landmark, ReceiptText } from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { getCurrentUserProfile } from "@/services/profile";
 import { canManageUsers } from "@/lib/permissions";
@@ -20,6 +20,7 @@ import {
 import type { FiscalClientData } from "@/lib/fiscalData";
 import { satBillingProviders } from "@/lib/satBillingProviders";
 import InvoiceForm from "./InvoiceForm";
+import InvoiceFileLinks from "./InvoiceFileLinks";
 import InvoiceStatusSelect from "./InvoiceStatusSelect";
 import StampInvoiceButton from "./StampInvoiceButton";
 
@@ -259,22 +260,12 @@ export default async function InvoicesPage() {
                       client={client}
                       sandboxNotice={sandboxReceiverNotice}
                     />
-                    <div className="flex items-center gap-2">
-                      {invoice.pdf_url ? (
-                        <a href={invoice.pdf_url} target="_blank" rel="noreferrer">
-                          <FileText size={17} />
-                        </a>
-                      ) : null}
-                      {invoice.xml_url ? (
-                        <a href={invoice.xml_url} target="_blank" rel="noreferrer">
-                          XML
-                        </a>
-                      ) : null}
-                      {invoice.sat_uuid ? <span title={invoice.sat_uuid}>UUID</span> : null}
-                      {invoice.facturama_id ? (
-                        <span title={invoice.facturama_id}>ID</span>
-                      ) : null}
-                    </div>
+                    <InvoiceFileLinks
+                      xmlUrl={invoice.xml_url}
+                      pdfUrl={invoice.pdf_url}
+                      satUuid={invoice.sat_uuid}
+                      facturamaId={invoice.facturama_id}
+                    />
                   </div>
                 );
               })}
