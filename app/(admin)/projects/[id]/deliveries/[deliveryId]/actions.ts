@@ -7,7 +7,6 @@ import { getAppBaseUrl } from "@/lib/appUrl";
 import { formatCurrency } from "@/lib/format";
 import { getProjectFinancialSummary } from "@/lib/projectFinancials";
 import { getProjectDeliverySystemsForDisplay } from "@/lib/projectDeliverySystems";
-import { renderPrintRouteToPdf } from "@/lib/serverPdf";
 
 type Delivery = {
   id: number;
@@ -188,6 +187,15 @@ async function getEmailDraft(projectId: number, deliveryId: number): Promise<Ema
   } catch (error) {
     logDeliveryEmailError(projectId, deliveryId, "load financial summary", error);
   }
+  if (!process.env.NEXT_PUBLIC_APP_URL && !process.env.APP_URL) {
+    logDeliveryEmailError(
+      projectId,
+      deliveryId,
+      "resolve app base url",
+      "NEXT_PUBLIC_APP_URL/APP_URL no configurado; usando fallback."
+    );
+  }
+
   const baseUrl = getAppBaseUrl();
   const deliveryDate = getDateOrToday(deliveryData.delivery_date);
   const deliveryUrl = `${baseUrl}/projects/${projectId}/deliveries/${deliveryId}/print`;
@@ -311,7 +319,9 @@ async function sendResendEmail({
 export async function previewProjectDeliveryEmail(projectId: number, deliveryId: number) {
   try {
     const draft = await getEmailDraft(projectId, deliveryId);
-    if ("error" in draft) return { ok: false, message: draft.error };
+    if ("error" in draft) {
+      return { ok: false, error: draft.error, message: draft.error };
+    }
 
     return {
       ok: true,
@@ -333,7 +343,15 @@ export async function previewProjectDeliveryEmail(projectId: number, deliveryId:
     };
   } catch (error) {
     logDeliveryEmailError(projectId, deliveryId, "preview email", error);
-    return { ok: false, message: "No se pudo generar la vista previa del correo." };
+    const message =
+      error &&
+      typeof error === "object" &&
+      "message" in error &&
+      typeof error.message === "string"
+        ? error.message
+        : "No se pudo generar la vista previa del correo.";
+
+    return { ok: false, error: message, message };
   }
 }
 
@@ -372,6 +390,7 @@ export async function sendProjectDeliveryEmail(
       throw new Error("La garantia no ha sido generada todavia.");
     }
 
+    const { renderPrintRouteToPdf } = await import("@/lib/serverPdf");
     const cookieHeader = (await cookies()).toString();
     const deliveryPdf = await renderPrintRouteToPdf(
       `/projects/${projectId}/deliveries/${deliveryId}/print`,

@@ -65,13 +65,25 @@ export default function SendDeliveryEmailButton({
     setMessage("");
     setIsOpen(true);
     startTransition(async () => {
-      const result = await previewProjectDeliveryEmail(projectId, deliveryId);
-      if (!result.ok || !result.draft) {
-        setMessage(result.message || "No se pudo generar la vista previa.");
+      try {
+        const result = await previewProjectDeliveryEmail(projectId, deliveryId);
+        if (!result.ok || !result.draft) {
+          setMessage(result.error || result.message || "No se pudo generar la vista previa.");
+          setIsOpen(false);
+          return;
+        }
+        setDraft(result.draft);
+      } catch (error) {
+        const fallbackMessage =
+          error &&
+          typeof error === "object" &&
+          "message" in error &&
+          typeof error.message === "string"
+            ? error.message
+            : "No se pudo generar la vista previa del correo.";
+        setMessage(fallbackMessage);
         setIsOpen(false);
-        return;
       }
-      setDraft(result.draft);
     });
   }
 
