@@ -4,7 +4,11 @@ import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { getCurrentUserProfile } from "@/services/profile";
 import { canManageUsers } from "@/lib/permissions";
 import { formatCurrency } from "@/lib/format";
-import { getFacturamaEnv, getFacturamaSandboxReceiverNotice } from "@/lib/facturama";
+import {
+  getFacturamaEnv,
+  getFacturamaProductionEnabled,
+  getFacturamaSandboxReceiverNotice,
+} from "@/lib/facturama";
 import { ClientFiscalDataButton } from "@/components/ClientFiscalDataModal";
 import {
   getCfdiUseDisplay,
@@ -51,13 +55,22 @@ export default async function ProjectInvoicesPage({
   const profile = await getCurrentUserProfile();
   const allowManualInvoices = canManageUsers(profile?.role);
   const facturamaEnv = getFacturamaEnv();
+  const facturamaProductionEnabled = getFacturamaProductionEnabled();
   const sandboxReceiverNotice = getFacturamaSandboxReceiverNotice();
   const facturamaEnvLabel =
-    facturamaEnv === "production" ? "Facturama Produccion" : "Facturama Sandbox";
+    facturamaEnv === "production" ? "Facturama Producción" : "Facturama Sandbox";
   const facturamaEnvBadgeClasses =
     facturamaEnv === "production"
-      ? "border-[#1F7A4D] bg-[#143D2A] text-[#8CE0B6]"
+      ? facturamaProductionEnabled
+        ? "border-[#1F7A4D] bg-[#143D2A] text-[#8CE0B6]"
+        : "border-[#6A2A2A] bg-[#351818] text-[#FFB4B4]"
       : "border-[#614620] bg-[#322514] text-[#F4C66A]";
+  const productionStatusLabel = facturamaProductionEnabled
+    ? "Producción habilitada"
+    : "Producción bloqueada";
+  const productionStatusClasses = facturamaProductionEnabled
+    ? "border-[#1F7A4D] bg-[#143D2A] text-[#8CE0B6]"
+    : "border-[#6A2A2A] bg-[#351818] text-[#FFB4B4]";
   const { id } = await params;
 
   const { data: project, error } = await supabase
@@ -149,6 +162,11 @@ export default async function ProjectInvoicesPage({
           <span className={`mt-4 inline-flex rounded-full border px-3 py-1 text-sm ${facturamaEnvBadgeClasses}`}>
             {facturamaEnvLabel}
           </span>
+          {facturamaEnv === "production" ? (
+            <span className={`ml-2 mt-4 inline-flex rounded-full border px-3 py-1 text-sm ${productionStatusClasses}`}>
+              {productionStatusLabel}
+            </span>
+          ) : null}
         </div>
         <InvoiceForm
           clients={client ? [client] : []}
@@ -268,6 +286,7 @@ export default async function ProjectInvoicesPage({
                       client={client}
                       sandboxNotice={sandboxReceiverNotice}
                       facturamaEnv={facturamaEnv}
+                      facturamaProductionEnabled={facturamaProductionEnabled}
                     />
                     <InvoiceFileLinks
                       xmlUrl={invoice.xml_url}

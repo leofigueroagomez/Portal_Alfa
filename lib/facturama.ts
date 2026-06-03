@@ -118,6 +118,10 @@ export function getFacturamaEnv() {
   return env;
 }
 
+export function getFacturamaProductionEnabled() {
+  return process.env.FACTURAMA_ENABLE_PRODUCTION === "true";
+}
+
 export function getFacturamaSandboxReceiverOverride() {
   if (getFacturamaEnv() !== "sandbox") return null;
 
@@ -156,8 +160,8 @@ function getFacturamaConfig() {
     throw new Error("Configura FACTURAMA_USERNAME y FACTURAMA_PASSWORD.");
   }
 
-  if (env === "production") {
-    throw new Error("Facturama produccion esta deshabilitado en ALFA OS.");
+  if (env === "production" && !getFacturamaProductionEnabled()) {
+    throw new Error("Facturama producción está deshabilitado en ALFA OS.");
   }
 
   return {
@@ -336,7 +340,7 @@ function assertReceiverAllowedForFacturamaEnv(payload: FacturamaInvoicePayload) 
     payload.Receiver.Rfc.trim().toUpperCase() === FACTURAMA_TEST_RECEIVER_RFC
   ) {
     throw new Error(
-      "Bloqueo de produccion: el RFC receptor EKU9003173C9 es de prueba y no puede timbrarse en Facturama produccion."
+      "Bloqueo de producción: el RFC receptor EKU9003173C9 es de prueba y no puede timbrarse en Facturama producción."
     );
   }
 }

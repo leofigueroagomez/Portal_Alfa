@@ -21,6 +21,7 @@ type Props = {
   client?: FiscalClientData | null;
   sandboxNotice?: string | null;
   facturamaEnv: "sandbox" | "production";
+  facturamaProductionEnabled: boolean;
 };
 
 function getErrorMessage(error: unknown) {
@@ -61,6 +62,7 @@ export default function StampInvoiceButton({
   client,
   sandboxNotice,
   facturamaEnv,
+  facturamaProductionEnabled,
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -70,12 +72,15 @@ export default function StampInvoiceButton({
   const [localClient, setLocalClient] = useState<FiscalClientData | null>(client || null);
   const [fiscalModalOpen, setFiscalModalOpen] = useState(false);
   const [missingFields, setMissingFields] = useState<string[]>([]);
-  const canStamp = status === "draft" && !facturamaId;
-  const busy = checking || isPending;
   const isProduction = facturamaEnv === "production";
-  const environmentLabel = isProduction ? "Produccion" : "Sandbox";
+  const productionBlocked = isProduction && !facturamaProductionEnabled;
+  const canStamp = status === "draft" && !facturamaId && !productionBlocked;
+  const busy = checking || isPending;
+  const environmentLabel = isProduction ? "Producción" : "Sandbox";
   const environmentClasses = isProduction
-    ? "border-[#1F7A4D] bg-[#143D2A] text-[#8CE0B6]"
+    ? facturamaProductionEnabled
+      ? "border-[#1F7A4D] bg-[#143D2A] text-[#8CE0B6]"
+      : "border-[#6A2A2A] bg-[#351818] text-[#FFB4B4]"
     : "border-[#614620] bg-[#322514] text-[#F4C66A]";
 
   useEffect(() => {
@@ -111,6 +116,19 @@ export default function StampInvoiceButton({
   async function handleStamp() {
     setMessage(null);
     setDetails(null);
+
+    if (productionBlocked) {
+      setMessage("Producción bloqueada. Configura FACTURAMA_ENABLE_PRODUCTION=true para emitir CFDI reales.");
+      return;
+    }
+
+    if (
+      isProduction &&
+      !window.confirm("Vas a emitir un CFDI real con validez fiscal. ¿Deseas continuar?")
+    ) {
+      return;
+    }
+
     setChecking(true);
 
     let currentMissing: string[] = [];
@@ -163,7 +181,7 @@ export default function StampInvoiceButton({
           {environmentLabel}
         </span>
         <span className="block w-fit rounded-full border border-[#2A2A30] bg-[#222228] px-3 py-1 text-xs text-[#77777D]">
-          {facturamaId ? "Timbrada" : "No disponible"}
+          {productionBlocked ? "Producción bloqueada" : facturamaId ? "Timbrada" : "No disponible"}
         </span>
       </div>
     );
