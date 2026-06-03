@@ -7,6 +7,7 @@ import ClientFiscalDataModal from "@/components/ClientFiscalDataModal";
 import {
   formatMissingFiscalFields,
   getMissingFiscalFields,
+  type FiscalCatalogItem,
   type FiscalClientData,
 } from "@/lib/fiscalData";
 import { supabase } from "@/services/supabase";
@@ -43,6 +44,8 @@ export default function InvoiceForm({
   const [invoiceDate, setInvoiceDate] = useState(today());
   const [subtotal, setSubtotal] = useState("");
   const [iva, setIva] = useState("");
+  const [fiscalRegimes, setFiscalRegimes] = useState<FiscalCatalogItem[]>([]);
+  const [cfdiUses, setCfdiUses] = useState<FiscalCatalogItem[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [fiscalModalOpen, setFiscalModalOpen] = useState(false);
   const [fiscalModalIntro, setFiscalModalIntro] = useState<string | null>(null);
@@ -54,7 +57,12 @@ export default function InvoiceForm({
   const selectedClient =
     clientList.find((client) => String(client.id) === clientId) || null;
   const missingFiscalFields = clientId
-    ? getMissingFiscalFields(selectedClient)
+    ? getMissingFiscalFields(
+        selectedClient,
+        fiscalRegimes.length > 0 && cfdiUses.length > 0
+          ? { fiscalRegimes, cfdiUses }
+          : undefined
+      )
     : [];
 
   const numericSubtotal = Number(subtotal || 0);
@@ -64,6 +72,31 @@ export default function InvoiceForm({
   useEffect(() => {
     setClientList(clients);
   }, [clients]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    async function loadCatalogs() {
+      const [regimesResult, cfdiUsesResult] = await Promise.all([
+        supabase
+          .from("fiscal_regime_catalog")
+          .select("code, name, applies_to_person_type, is_active"),
+        supabase
+          .from("cfdi_use_catalog")
+          .select("code, name, applies_to_person_type, is_active"),
+      ]);
+
+      if (!regimesResult.error) {
+        setFiscalRegimes((regimesResult.data || []) as FiscalCatalogItem[]);
+      }
+
+      if (!cfdiUsesResult.error) {
+        setCfdiUses((cfdiUsesResult.data || []) as FiscalCatalogItem[]);
+      }
+    }
+
+    loadCatalogs();
+  }, [open]);
 
   function updateSubtotal(value: string) {
     setSubtotal(value);

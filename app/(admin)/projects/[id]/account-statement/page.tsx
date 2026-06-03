@@ -109,7 +109,7 @@ export default async function ProjectAccountStatementPage({
     projectData.client_id
       ? supabase
           .from("clients")
-          .select("id, name, tax_rfc, tax_business_name, tax_regime, default_cfdi_use, tax_zip_code, billing_email")
+          .select("id, name, tax_rfc, tax_business_name, tax_regime, default_cfdi_use, fiscal_regime, cfdi_use, tax_zip_code, billing_email")
           .eq("id", projectData.client_id)
           .maybeSingle()
       : Promise.resolve({ data: null }),

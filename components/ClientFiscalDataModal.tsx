@@ -5,7 +5,13 @@ import { useRouter } from "next/navigation";
 import { Edit3, X } from "lucide-react";
 import {
   formatMissingFiscalFields,
+  getCatalogLabel,
+  getCfdiUseCode,
+  getClientPersonType,
   getFiscalValidationErrors,
+  getFiscalRegimeCode,
+  optionMatchesPersonType,
+  type FiscalCatalogItem,
   type FiscalClientData,
 } from "@/lib/fiscalData";
 import { supabase } from "@/services/supabase";
@@ -32,8 +38,8 @@ type ButtonProps = {
 const emptyForm = {
   tax_rfc: "",
   tax_business_name: "",
-  tax_regime: "",
-  default_cfdi_use: "",
+  fiscal_regime: "",
+  cfdi_use: "",
   tax_zip_code: "",
   billing_email: "",
 };
@@ -49,9 +55,13 @@ export default function ClientFiscalDataModal({
 }: ModalProps) {
   const router = useRouter();
   const [form, setForm] = useState(emptyForm);
+  const [fiscalRegimes, setFiscalRegimes] = useState<FiscalCatalogItem[]>([]);
+  const [cfdiUses, setCfdiUses] = useState<FiscalCatalogItem[]>([]);
   const [saving, setSaving] = useState(false);
+  const [loadingCatalogs, setLoadingCatalogs] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const personType = getClientPersonType(form.tax_rfc);
 
   useEffect(() => {
     if (!open) return;
@@ -59,14 +69,48 @@ export default function ClientFiscalDataModal({
     setForm({
       tax_rfc: client?.tax_rfc || "",
       tax_business_name: client?.tax_business_name || client?.name || "",
-      tax_regime: client?.tax_regime || "",
-      default_cfdi_use: client?.default_cfdi_use || "",
+      fiscal_regime: getFiscalRegimeCode(client),
+      cfdi_use: getCfdiUseCode(client),
       tax_zip_code: client?.tax_zip_code || "",
       billing_email: client?.billing_email || "",
     });
     setErrors([]);
     setSaveError(null);
   }, [client, open]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    async function loadCatalogs() {
+      setLoadingCatalogs(true);
+      const [regimesResult, cfdiUsesResult] = await Promise.all([
+        supabase
+          .from("fiscal_regime_catalog")
+          .select("code, name, applies_to_person_type, is_active")
+          .order("code"),
+        supabase
+          .from("cfdi_use_catalog")
+          .select("code, name, applies_to_person_type, is_active")
+          .order("code"),
+      ]);
+
+      setLoadingCatalogs(false);
+
+      if (regimesResult.error || cfdiUsesResult.error) {
+        setSaveError(
+          regimesResult.error?.message ||
+            cfdiUsesResult.error?.message ||
+            "No se pudieron cargar catalogos fiscales."
+        );
+        return;
+      }
+
+      setFiscalRegimes((regimesResult.data || []) as FiscalCatalogItem[]);
+      setCfdiUses((cfdiUsesResult.data || []) as FiscalCatalogItem[]);
+    }
+
+    loadCatalogs();
+  }, [open]);
 
   function updateField(field: keyof typeof emptyForm, value: string) {
     setForm((current) => ({
@@ -88,12 +132,17 @@ export default function ClientFiscalDataModal({
       name: client.name || null,
       tax_rfc: form.tax_rfc.trim().toUpperCase(),
       tax_business_name: form.tax_business_name.trim().toUpperCase(),
-      tax_regime: form.tax_regime.trim(),
-      default_cfdi_use: form.default_cfdi_use.trim().toUpperCase(),
+      fiscal_regime: form.fiscal_regime.trim(),
+      cfdi_use: form.cfdi_use.trim().toUpperCase(),
+      tax_regime: form.fiscal_regime.trim(),
+      default_cfdi_use: form.cfdi_use.trim().toUpperCase(),
       tax_zip_code: form.tax_zip_code.trim(),
       billing_email: form.billing_email.trim().toLowerCase(),
     };
-    const nextErrors = getFiscalValidationErrors(nextClient);
+    const nextErrors = getFiscalValidationErrors(nextClient, {
+      fiscalRegimes,
+      cfdiUses,
+    });
 
     if (nextErrors.length > 0) {
       setErrors(nextErrors);
@@ -109,8 +158,10 @@ export default function ClientFiscalDataModal({
       .update({
         tax_rfc: nextClient.tax_rfc,
         tax_business_name: nextClient.tax_business_name,
-        tax_regime: nextClient.tax_regime,
-        default_cfdi_use: nextClient.default_cfdi_use,
+        fiscal_regime: nextClient.fiscal_regime,
+        cfdi_use: nextClient.cfdi_use,
+        tax_regime: nextClient.fiscal_regime,
+        default_cfdi_use: nextClient.cfdi_use,
         tax_zip_code: nextClient.tax_zip_code,
         billing_email: nextClient.billing_email,
       })
@@ -148,6 +199,14 @@ export default function ClientFiscalDataModal({
                 {formatMissingFiscalFields(missingFields)}
               </p>
             ) : null}
+            <p className="mt-2 text-xs uppercase tracking-[0.18em] text-[#77777D]">
+              RFC sugiere:{" "}
+              {personType === "moral"
+                ? "Persona moral"
+                : personType === "physical"
+                  ? "Persona fisica"
+                  : "Tipo de persona pendiente"}
+            </p>
           </div>
           <button
             type="button"
@@ -171,8 +230,22 @@ export default function ClientFiscalDataModal({
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <FiscalInput label="RFC" value={form.tax_rfc} onChange={(value) => updateField("tax_rfc", value)} />
           <FiscalInput label="Razon social" value={form.tax_business_name} onChange={(value) => updateField("tax_business_name", value)} />
-          <FiscalInput label="Regimen fiscal" value={form.tax_regime} onChange={(value) => updateField("tax_regime", value)} />
-          <FiscalInput label="Uso CFDI" value={form.default_cfdi_use} onChange={(value) => updateField("default_cfdi_use", value)} />
+          <SearchableCatalogSelect
+            label="Regimen fiscal"
+            value={form.fiscal_regime}
+            options={fiscalRegimes}
+            personType={personType}
+            loading={loadingCatalogs}
+            onChange={(value) => updateField("fiscal_regime", value)}
+          />
+          <SearchableCatalogSelect
+            label="Uso CFDI"
+            value={form.cfdi_use}
+            options={cfdiUses}
+            personType={personType}
+            loading={loadingCatalogs}
+            onChange={(value) => updateField("cfdi_use", value)}
+          />
           <FiscalInput label="Codigo postal fiscal" value={form.tax_zip_code} onChange={(value) => updateField("tax_zip_code", value)} />
           <FiscalInput label="Correo de facturacion" value={form.billing_email} onChange={(value) => updateField("billing_email", value)} type="email" />
         </div>
@@ -254,5 +327,91 @@ function FiscalInput({
         onChange={(event) => onChange(event.target.value)}
       />
     </label>
+  );
+}
+
+function SearchableCatalogSelect({
+  label,
+  value,
+  options,
+  personType,
+  loading,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: FiscalCatalogItem[];
+  personType: ReturnType<typeof getClientPersonType>;
+  loading: boolean;
+  onChange: (value: string) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const selected = options.find((option) => option.code === value);
+  const activeOptions = options.filter((option) => option.is_active);
+  const filteredOptions = activeOptions
+    .filter((option) => optionMatchesPersonType(option, personType))
+    .filter((option) => {
+      const haystack = `${option.code} ${option.name}`.toLowerCase();
+      return haystack.includes(query.trim().toLowerCase());
+    });
+
+  useEffect(() => {
+    if (!open) setQuery("");
+  }, [open]);
+
+  return (
+    <div className="relative space-y-2">
+      <span className="text-sm text-[#B3B3B8]">{label}</span>
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        className="flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 text-left outline-none"
+      >
+        <span className={selected ? "text-white" : "text-[#77777D]"}>
+          {selected ? getCatalogLabel(selected.code, options) : "Seleccionar"}
+        </span>
+        <span className="text-[#77777D]">v</span>
+      </button>
+
+      {value && !selected ? (
+        <p className="text-xs text-[#F4C66A]">Valor anterior requiere actualizacion.</p>
+      ) : null}
+
+      {open ? (
+        <div className="absolute z-20 mt-2 w-full rounded-xl border border-[#2A2A30] bg-[#101114] p-2 shadow-2xl">
+          <input
+            className="mb-2 w-full rounded-lg border border-[#2A2A30] bg-[#222228] px-3 py-2 text-sm outline-none"
+            placeholder="Buscar por codigo o nombre"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            autoFocus
+          />
+          <div className="max-h-56 overflow-y-auto">
+            {loading ? (
+              <p className="px-3 py-3 text-sm text-[#77777D]">Cargando catalogo...</p>
+            ) : filteredOptions.length === 0 ? (
+              <p className="px-3 py-3 text-sm text-[#77777D]">Sin opciones activas.</p>
+            ) : (
+              filteredOptions.map((option) => (
+                <button
+                  key={option.code}
+                  type="button"
+                  onClick={() => {
+                    onChange(option.code);
+                    setOpen(false);
+                  }}
+                  className={`block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-[#222228] ${
+                    option.code === value ? "bg-[#2A2A30] text-white" : "text-[#B3B3B8]"
+                  }`}
+                >
+                  {option.code} - {option.name}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }

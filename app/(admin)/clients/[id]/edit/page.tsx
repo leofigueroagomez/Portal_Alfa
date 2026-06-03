@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { ClientFiscalDataButton } from "@/components/ClientFiscalDataModal";
 import { supabase } from "@/services/supabase";
 
 const sourceOptions = [
@@ -32,6 +33,8 @@ export default function EditClientPage() {
     tax_business_name: "",
     tax_regime: "",
     default_cfdi_use: "",
+    fiscal_regime: "",
+    cfdi_use: "",
     tax_zip_code: "",
     billing_email: "",
     source: "Prospectación Directa",
@@ -86,6 +89,8 @@ export default function EditClientPage() {
         tax_business_name: data.tax_business_name || "",
         tax_regime: data.tax_regime || "",
         default_cfdi_use: data.default_cfdi_use || "",
+        fiscal_regime: data.fiscal_regime || "",
+        cfdi_use: data.cfdi_use || "",
         tax_zip_code: data.tax_zip_code || "",
         billing_email: data.billing_email || "",
         source: data.source || "Prospectación Directa",
@@ -118,6 +123,8 @@ export default function EditClientPage() {
         tax_business_name: form.tax_business_name.trim() || null,
         tax_regime: form.tax_regime.trim() || null,
         default_cfdi_use: form.default_cfdi_use.trim().toUpperCase() || null,
+        fiscal_regime: form.fiscal_regime.trim() || null,
+        cfdi_use: form.cfdi_use.trim().toUpperCase() || null,
         tax_zip_code: form.tax_zip_code.trim() || null,
         billing_email: form.billing_email.trim().toLowerCase() || null,
         source: form.source,
@@ -203,10 +210,41 @@ export default function EditClientPage() {
             <div className="space-y-3">
               <input className="w-full rounded-xl bg-[#222228] p-4 outline-none" placeholder="RFC" value={form.tax_rfc} onChange={(e) => updateField("tax_rfc", e.target.value)} />
               <input className="w-full rounded-xl bg-[#222228] p-4 outline-none" placeholder="Razon social" value={form.tax_business_name} onChange={(e) => updateField("tax_business_name", e.target.value)} />
-              <input className="w-full rounded-xl bg-[#222228] p-4 outline-none" placeholder="Regimen fiscal" value={form.tax_regime} onChange={(e) => updateField("tax_regime", e.target.value)} />
-              <input className="w-full rounded-xl bg-[#222228] p-4 outline-none" placeholder="Uso CFDI default" value={form.default_cfdi_use} onChange={(e) => updateField("default_cfdi_use", e.target.value)} />
               <input className="w-full rounded-xl bg-[#222228] p-4 outline-none" placeholder="Codigo postal fiscal" value={form.tax_zip_code} onChange={(e) => updateField("tax_zip_code", e.target.value)} />
               <input className="w-full rounded-xl bg-[#222228] p-4 outline-none" placeholder="Correo de facturacion" value={form.billing_email} onChange={(e) => updateField("billing_email", e.target.value)} />
+              <div className="rounded-xl border border-[#2A2A30] bg-[#222228] p-4 text-sm text-[#B3B3B8]">
+                <p>Regimen fiscal y Uso CFDI se seleccionan desde catalogos SAT.</p>
+                <p className="mt-2">
+                  Regimen: {form.fiscal_regime || "Pendiente"} / Uso CFDI: {form.cfdi_use || "Pendiente"}
+                </p>
+              </div>
+              <ClientFiscalDataButton
+                client={{
+                  id: clientId,
+                  name: form.name,
+                  tax_rfc: form.tax_rfc,
+                  tax_business_name: form.tax_business_name,
+                  tax_regime: form.tax_regime,
+                  default_cfdi_use: form.default_cfdi_use,
+                  fiscal_regime: form.fiscal_regime,
+                  cfdi_use: form.cfdi_use,
+                  tax_zip_code: form.tax_zip_code,
+                  billing_email: form.billing_email,
+                }}
+                onSaved={(client) =>
+                  setForm((current) => ({
+                    ...current,
+                    tax_rfc: client.tax_rfc || "",
+                    tax_business_name: client.tax_business_name || "",
+                    tax_regime: client.tax_regime || "",
+                    default_cfdi_use: client.default_cfdi_use || "",
+                    fiscal_regime: client.fiscal_regime || "",
+                    cfdi_use: client.cfdi_use || "",
+                    tax_zip_code: client.tax_zip_code || "",
+                    billing_email: client.billing_email || "",
+                  }))
+                }
+              />
             </div>
           </div>
 

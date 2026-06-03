@@ -7,8 +7,10 @@ import ClientFiscalDataModal from "@/components/ClientFiscalDataModal";
 import {
   formatMissingFiscalFields,
   getMissingFiscalFields,
+  type FiscalCatalogItem,
   type FiscalClientData,
 } from "@/lib/fiscalData";
+import { supabase } from "@/services/supabase";
 import { stampProjectInvoice } from "./actions";
 
 type Props = {
@@ -33,6 +35,8 @@ export default function StampInvoiceButton({
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [localClient, setLocalClient] = useState<FiscalClientData | null>(client || null);
+  const [fiscalRegimes, setFiscalRegimes] = useState<FiscalCatalogItem[]>([]);
+  const [cfdiUses, setCfdiUses] = useState<FiscalCatalogItem[]>([]);
   const [fiscalModalOpen, setFiscalModalOpen] = useState(false);
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const canStamp = status === "draft" && !facturamaId;
@@ -41,9 +45,40 @@ export default function StampInvoiceButton({
     setLocalClient(client || null);
   }, [client]);
 
-  function handleStamp() {
+  async function loadCatalogs() {
+    if (fiscalRegimes.length > 0 && cfdiUses.length > 0) {
+      return { fiscalRegimes, cfdiUses };
+    }
+
+    const [regimesResult, cfdiUsesResult] = await Promise.all([
+      supabase
+        .from("fiscal_regime_catalog")
+        .select("code, name, applies_to_person_type, is_active"),
+      supabase
+        .from("cfdi_use_catalog")
+        .select("code, name, applies_to_person_type, is_active"),
+    ]);
+
+    const nextFiscalRegimes = regimesResult.error
+      ? []
+      : ((regimesResult.data || []) as FiscalCatalogItem[]);
+    const nextCfdiUses = cfdiUsesResult.error
+      ? []
+      : ((cfdiUsesResult.data || []) as FiscalCatalogItem[]);
+
+    setFiscalRegimes(nextFiscalRegimes);
+    setCfdiUses(nextCfdiUses);
+
+    return {
+      fiscalRegimes: nextFiscalRegimes,
+      cfdiUses: nextCfdiUses,
+    };
+  }
+
+  async function handleStamp() {
     setMessage(null);
-    const currentMissing = getMissingFiscalFields(localClient);
+    const catalogs = await loadCatalogs();
+    const currentMissing = getMissingFiscalFields(localClient, catalogs);
 
     if (currentMissing.length > 0) {
       setMissingFields(currentMissing);

@@ -3,7 +3,12 @@ import { ArrowLeft, FileText } from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { formatCurrency } from "@/lib/format";
 import { ClientFiscalDataButton } from "@/components/ClientFiscalDataModal";
-import type { FiscalClientData } from "@/lib/fiscalData";
+import {
+  getCfdiUseDisplay,
+  getFiscalRegimeDisplay,
+  type FiscalCatalogItem,
+  type FiscalClientData,
+} from "@/lib/fiscalData";
 import {
   getInvoiceTotal,
   invoiceStatusClasses,
@@ -58,11 +63,11 @@ export default async function ProjectInvoicesPage({
   }
 
   const projectData = project as ClientProject;
-  const [clientResult, invoicesResult] = await Promise.all([
+  const [clientResult, invoicesResult, regimesResult, cfdiUsesResult] = await Promise.all([
     projectData.client_id
       ? supabase
           .from("clients")
-          .select("id, name, tax_rfc, tax_business_name, tax_regime, default_cfdi_use, tax_zip_code, billing_email")
+          .select("id, name, tax_rfc, tax_business_name, tax_regime, default_cfdi_use, fiscal_regime, cfdi_use, tax_zip_code, billing_email")
           .eq("id", projectData.client_id)
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
@@ -74,10 +79,24 @@ export default async function ProjectInvoicesPage({
       .eq("client_project_id", projectData.id)
       .order("invoice_date", { ascending: false })
       .order("created_at", { ascending: false }),
+    supabase
+      .from("fiscal_regime_catalog")
+      .select("code, name, applies_to_person_type, is_active")
+      .order("code"),
+    supabase
+      .from("cfdi_use_catalog")
+      .select("code, name, applies_to_person_type, is_active")
+      .order("code"),
   ]);
 
   const client = clientResult.error ? null : (clientResult.data as FiscalClientData | null);
   const invoices = invoicesResult.error ? [] : ((invoicesResult.data || []) as ProjectInvoice[]);
+  const fiscalRegimes = regimesResult.error
+    ? []
+    : ((regimesResult.data || []) as FiscalCatalogItem[]);
+  const cfdiUses = cfdiUsesResult.error
+    ? []
+    : ((cfdiUsesResult.data || []) as FiscalCatalogItem[]);
   const billed = invoices
     .filter((invoice) => isInvoicedStatus(invoice.status))
     .reduce((sum, invoice) => sum + getInvoiceTotal(invoice), 0);
@@ -143,8 +162,14 @@ export default async function ProjectInvoicesPage({
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
           <FiscalField label="RFC" value={client?.tax_rfc} />
           <FiscalField label="Razon social" value={client?.tax_business_name} />
-          <FiscalField label="Regimen fiscal" value={client?.tax_regime} />
-          <FiscalField label="Uso CFDI" value={client?.default_cfdi_use} />
+          <FiscalField
+            label="Regimen fiscal"
+            value={client ? getFiscalRegimeDisplay(client, fiscalRegimes) : null}
+          />
+          <FiscalField
+            label="Uso CFDI"
+            value={client ? getCfdiUseDisplay(client, cfdiUses) : null}
+          />
           <FiscalField label="CP fiscal" value={client?.tax_zip_code} />
           <FiscalField label="Correo facturacion" value={client?.billing_email} />
         </div>

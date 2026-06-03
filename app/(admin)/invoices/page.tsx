@@ -53,7 +53,7 @@ export default async function InvoicesPage() {
     supabase
       .from("project_invoices")
       .select(
-        "id, client_project_id, client_id, invoice_date, subtotal_mxn, iva_mxn, total_mxn, status, facturama_id, xml_url, pdf_url, sat_uuid, clients(id, name, tax_rfc, tax_business_name, tax_regime, default_cfdi_use, tax_zip_code, billing_email), client_projects(name)"
+        "id, client_project_id, client_id, invoice_date, subtotal_mxn, iva_mxn, total_mxn, status, facturama_id, xml_url, pdf_url, sat_uuid, clients(id, name, tax_rfc, tax_business_name, tax_regime, default_cfdi_use, fiscal_regime, cfdi_use, tax_zip_code, billing_email), client_projects(name)"
       )
       .order("invoice_date", { ascending: false })
       .order("created_at", { ascending: false }),

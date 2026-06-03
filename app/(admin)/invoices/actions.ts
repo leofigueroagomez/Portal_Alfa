@@ -2,7 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { stampFacturamaInvoice } from "@/lib/facturama";
-import { formatMissingFiscalFields, getMissingFiscalFields } from "@/lib/fiscalData";
+import {
+  formatMissingFiscalFields,
+  getCfdiUseCode,
+  getFiscalRegimeCode,
+  getMissingFiscalFields,
+  type FiscalCatalogItem,
+} from "@/lib/fiscalData";
 import { canViewFinancials } from "@/lib/permissions";
 import { getCurrentUserProfile } from "@/services/profile";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
@@ -14,6 +20,8 @@ type InvoiceClient = {
   tax_business_name: string | null;
   tax_regime: string | null;
   default_cfdi_use: string | null;
+  fiscal_regime: string | null;
+  cfdi_use: string | null;
   tax_zip_code: string | null;
   billing_email: string | null;
 };
@@ -52,7 +60,7 @@ export async function stampProjectInvoice(invoiceId: number) {
   const { data, error } = await supabase
     .from("project_invoices")
     .select(
-      "id, client_project_id, client_id, invoice_date, subtotal_mxn, iva_mxn, total_mxn, status, facturama_id, clients(id, name, tax_rfc, tax_business_name, tax_regime, default_cfdi_use, tax_zip_code, billing_email), client_projects(name)"
+      "id, client_project_id, client_id, invoice_date, subtotal_mxn, iva_mxn, total_mxn, status, facturama_id, clients(id, name, tax_rfc, tax_business_name, tax_regime, default_cfdi_use, fiscal_regime, cfdi_use, tax_zip_code, billing_email), client_projects(name)"
     )
     .eq("id", invoiceId)
     .maybeSingle();
@@ -84,13 +92,32 @@ export async function stampProjectInvoice(invoiceId: number) {
     throw new Error("La factura no tiene cliente asociado.");
   }
 
-  const missingFiscalFields = getMissingFiscalFields(client);
+  const [regimesResult, cfdiUsesResult] = await Promise.all([
+    supabase
+      .from("fiscal_regime_catalog")
+      .select("code, name, applies_to_person_type, is_active"),
+    supabase
+      .from("cfdi_use_catalog")
+      .select("code, name, applies_to_person_type, is_active"),
+  ]);
+
+  if (regimesResult.error || cfdiUsesResult.error) {
+    throw new Error("No se pudieron validar los catalogos SAT.");
+  }
+
+  const missingFiscalFields = getMissingFiscalFields(client, {
+    fiscalRegimes: (regimesResult.data || []) as FiscalCatalogItem[],
+    cfdiUses: (cfdiUsesResult.data || []) as FiscalCatalogItem[],
+  });
 
   if (missingFiscalFields.length > 0) {
     throw new Error(
       `Faltan datos fiscales: ${formatMissingFiscalFields(missingFiscalFields)}`
     );
   }
+
+  const fiscalRegimeCode = getFiscalRegimeCode(client);
+  const cfdiUseCode = getCfdiUseCode(client);
 
   const result = await stampFacturamaInvoice({
     invoiceId: invoice.id,
@@ -102,8 +129,8 @@ export async function stampProjectInvoice(invoiceId: number) {
     receiver: {
       rfc: client.tax_rfc!.trim().toUpperCase(),
       name: client.tax_business_name!.trim().toUpperCase(),
-      fiscalRegime: client.tax_regime!.trim(),
-      cfdiUse: client.default_cfdi_use!.trim().toUpperCase(),
+      fiscalRegime: fiscalRegimeCode,
+      cfdiUse: cfdiUseCode,
       taxZipCode: client.tax_zip_code!.trim(),
     },
   });

@@ -2,6 +2,11 @@ import Link from "next/link";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { formatCurrency } from "@/lib/format";
 import { ClientFiscalDataButton } from "@/components/ClientFiscalDataModal";
+import {
+  getCfdiUseDisplay,
+  getFiscalRegimeDisplay,
+  type FiscalCatalogItem,
+} from "@/lib/fiscalData";
 import AddClientProjectButton from "./AddClientProjectButton";
 import EditOpportunityButton from "./EditOpportunityButton";
 import ProjectStageSelect from "./ProjectStageSelect";
@@ -21,6 +26,8 @@ type Client = {
   tax_business_name?: string | null;
   tax_regime?: string | null;
   default_cfdi_use?: string | null;
+  fiscal_regime?: string | null;
+  cfdi_use?: string | null;
   tax_zip_code?: string | null;
   billing_email?: string | null;
 };
@@ -107,6 +114,22 @@ export default async function ClientDetailPage({
 
   const clientData = client as Client;
   const projectList = (projects || []) as ClientProject[];
+  const [regimesResult, cfdiUsesResult] = await Promise.all([
+    supabase
+      .from("fiscal_regime_catalog")
+      .select("code, name, applies_to_person_type, is_active")
+      .order("code"),
+    supabase
+      .from("cfdi_use_catalog")
+      .select("code, name, applies_to_person_type, is_active")
+      .order("code"),
+  ]);
+  const fiscalRegimes = regimesResult.error
+    ? []
+    : ((regimesResult.data || []) as FiscalCatalogItem[]);
+  const cfdiUses = cfdiUsesResult.error
+    ? []
+    : ((cfdiUsesResult.data || []) as FiscalCatalogItem[]);
 
   return (
     <main className="min-h-screen bg-[#0B0D0F] p-4 text-white md:p-8 xl:p-10">
@@ -199,8 +222,14 @@ export default async function ClientDetailPage({
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
           <FiscalField label="RFC" value={clientData.tax_rfc} />
           <FiscalField label="Razon social" value={clientData.tax_business_name} />
-          <FiscalField label="Regimen fiscal" value={clientData.tax_regime} />
-          <FiscalField label="Uso CFDI default" value={clientData.default_cfdi_use} />
+          <FiscalField
+            label="Regimen fiscal"
+            value={getFiscalRegimeDisplay(clientData, fiscalRegimes)}
+          />
+          <FiscalField
+            label="Uso CFDI default"
+            value={getCfdiUseDisplay(clientData, cfdiUses)}
+          />
           <FiscalField label="CP fiscal" value={clientData.tax_zip_code} />
           <FiscalField label="Correo facturacion" value={clientData.billing_email} />
         </div>
