@@ -7,6 +7,8 @@ export const salesStages = [
   "won",
   "lost",
   "installed",
+  "delivered",
+  "warranty",
   "closed",
 ] as const;
 
@@ -21,6 +23,8 @@ export const salesStageLabels: Record<SalesStage, string> = {
   won: "Ganado",
   lost: "Perdido",
   installed: "Instalado",
+  delivered: "Entregado",
+  warranty: "Garantia",
   closed: "Cerrado",
 };
 
@@ -33,6 +37,8 @@ export const salesStageClasses: Record<SalesStage, string> = {
   won: "border-[#1F7A4D] bg-[#143D2A] text-[#8CE0B6]",
   lost: "border-[#6A2A2A] bg-[#351818] text-[#FF9B9B]",
   installed: "border-[#1F6F68] bg-[#123B38] text-[#8CE0D5]",
+  delivered: "border-[#3A3A42] bg-[#222228] text-[#D7D7DC]",
+  warranty: "border-[#1F7A4D] bg-[#143D2A] text-[#8CE0B6]",
   closed: "border-[#3A3A42] bg-[#222228] text-[#B3B3B8]",
 };
 

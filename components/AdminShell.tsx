@@ -10,6 +10,7 @@ import {
   FileText,
   FolderOpen,
   Gauge,
+  Handshake,
   Inbox,
   LogOut,
   Menu,
@@ -97,6 +98,7 @@ export default function AdminShell({
 
   const operationsItems: NavLink[] = [
     { href: "/projects", label: "Proyectos", icon: FolderOpen },
+    { href: "/post-sale", label: "Postventa", icon: Handshake },
     {
       href: "/contractors",
       label: "Contratistas",

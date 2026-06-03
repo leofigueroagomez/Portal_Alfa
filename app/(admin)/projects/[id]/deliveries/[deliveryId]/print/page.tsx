@@ -41,6 +41,13 @@ type PendingItem = {
   status: string | null;
 };
 
+type DeliverySystem = {
+  id: number;
+  system_name: string | null;
+  delivered: boolean | null;
+  notes: string | null;
+};
+
 function formatDate(value: string | null | undefined) {
   if (!value) return "Sin fecha";
   return new Date(value).toLocaleDateString("es-MX", {
@@ -89,7 +96,7 @@ export default async function ProjectDeliveryPrintPage({
   }
 
   const deliveryData = delivery as ProjectDelivery;
-  const [{ data: project }, { data: evidences }, { data: pendingItems }] =
+  const [{ data: project }, { data: evidences }, { data: pendingItems }, { data: systems }] =
     await Promise.all([
       supabase
         .from("client_projects")
@@ -106,6 +113,11 @@ export default async function ProjectDeliveryPrintPage({
         .select("id, description, status")
         .eq("project_delivery_id", deliveryId)
         .order("sort_order", { ascending: true }),
+      supabase
+        .from("project_delivery_systems")
+        .select("id, system_name, delivered, notes")
+        .eq("project_delivery_id", deliveryId)
+        .order("created_at", { ascending: true }),
     ]);
 
   const projectData = project as ClientProject | null;
@@ -124,6 +136,7 @@ export default async function ProjectDeliveryPrintPage({
     }))
   );
   const pendingList = (pendingItems || []) as PendingItem[];
+  const deliverySystems = (systems || []) as DeliverySystem[];
   const [clientSignatureUrl, alfaSignatureUrl] = await Promise.all([
     resolvePhotoUrl(supabase.storage, deliveryData.client_signature_image_url),
     resolvePhotoUrl(supabase.storage, deliveryData.alfa_signature_image_url),
@@ -243,6 +256,26 @@ export default async function ProjectDeliveryPrintPage({
           <div className="whitespace-pre-line leading-5 text-[#555963]">
             {deliveryData.observations || "Sin observaciones registradas."}
           </div>
+        </section>
+
+        <section className="mb-6">
+          <h2 className="mb-3 border-b border-[#D6D1C8] pb-2 text-sm font-semibold">
+            Sistemas entregados
+          </h2>
+          {deliverySystems.length === 0 ? (
+            <p className="text-[11px] text-[#555963]">Sin sistemas seleccionados.</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-2 text-[11px]">
+              {deliverySystems.map((system) => (
+                <div key={system.id} className="border border-[#E1DDD5] p-3">
+                  <p className="font-semibold">✓ {system.system_name || "Sistema"}</p>
+                  {system.notes ? (
+                    <p className="mt-1 text-[#555963]">{system.notes}</p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          )}
         </section>
 
         <section className="mb-6">

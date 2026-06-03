@@ -46,6 +46,13 @@ function warrantyRange(start: string | null | undefined, end: string | null | un
   return `${formatDate(start)} - ${formatDate(end)}`;
 }
 
+function addMonths(value: string | null | undefined, months: number | null | undefined) {
+  if (!value || !months) return null;
+  const date = new Date(`${value}T00:00:00`);
+  date.setMonth(date.getMonth() + Number(months || 0));
+  return date.toISOString().slice(0, 10);
+}
+
 export default async function ProjectWarrantyDetailPage({
   params,
 }: {
@@ -92,6 +99,10 @@ export default async function ProjectWarrantyDetailPage({
         .maybeSingle()
     : { data: null };
   const clientData = client as Client | null;
+  const nextMaintenanceDate = addMonths(
+    warrantyData.installation_warranty_start_date || warrantyData.warranty_date,
+    warrantyData.preventive_maintenance_frequency_months
+  );
 
   return (
     <main className="min-h-screen bg-[#0B0D0F] p-4 text-white md:p-8 xl:p-10">
@@ -158,6 +169,7 @@ export default async function ProjectWarrantyDetailPage({
             <div className="space-y-2 text-[#B3B3B8]">
               <p>Frecuencia: cada {warrantyData.preventive_maintenance_frequency_months || 0} meses</p>
               <p>Costo: {formatCurrency(Number(warrantyData.preventive_maintenance_cost_mxn || 0), "MXN")}</p>
+              <p>Proximo mantenimiento sugerido: {formatDate(nextMaintenanceDate)}</p>
             </div>
           ) : (
             <p className="text-[#77777D]">No requerido.</p>

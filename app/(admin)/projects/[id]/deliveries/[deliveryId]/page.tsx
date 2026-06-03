@@ -1,7 +1,9 @@
 import Link from "next/link";
 import type React from "react";
-import { ArrowLeft, CalendarDays, FileText, UserRound } from "lucide-react";
+import { ArrowLeft, CalendarDays, CheckCircle2, FileText, UserRound } from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
+import { getProjectFinancialSummary } from "@/lib/projectFinancials";
+import SendDeliveryEmailButton from "./SendDeliveryEmailButton";
 
 type ServerSupabaseStorage = Awaited<ReturnType<typeof createSupabaseServerClient>>["storage"];
 
@@ -13,6 +15,8 @@ type ClientProject = {
 
 type Client = {
   name: string | null;
+  email?: string | null;
+  billing_email?: string | null;
 };
 
 type ProjectDelivery = {
@@ -25,6 +29,10 @@ type ProjectDelivery = {
   observations: string | null;
   client_signature_image_url: string | null;
   alfa_signature_image_url: string | null;
+  delivery_email_sent_at: string | null;
+  delivery_email_sent_to: string | null;
+  delivery_email_status: string | null;
+  delivery_email_error: string | null;
 };
 
 type Evidence = {
@@ -38,6 +46,17 @@ type PendingItem = {
   id: number;
   description: string | null;
   status: string | null;
+};
+
+type DeliverySystem = {
+  id: number;
+  system_name: string | null;
+  delivered: boolean | null;
+  notes: string | null;
+};
+
+type Warranty = {
+  id: number;
 };
 
 function formatDate(value: string | null | undefined) {
@@ -69,7 +88,7 @@ export default async function ProjectDeliveryDetailPage({
   const { data: delivery, error } = await supabase
     .from("project_deliveries")
     .select(
-      "id, delivery_date, status, delivered_to_name, delivered_to_role, delivered_by_name, observations, client_signature_image_url, alfa_signature_image_url"
+      "id, delivery_date, status, delivered_to_name, delivered_to_role, delivered_by_name, observations, client_signature_image_url, alfa_signature_image_url, delivery_email_sent_at, delivery_email_sent_to, delivery_email_status, delivery_email_error"
     )
     .eq("id", deliveryId)
     .eq("client_project_id", id)
@@ -90,7 +109,7 @@ export default async function ProjectDeliveryDetailPage({
   }
 
   const deliveryData = delivery as ProjectDelivery;
-  const [{ data: project }, { data: evidences }, { data: pendingItems }] =
+  const [{ data: project }, { data: evidences }, { data: pendingItems }, { data: systems }, { data: warranty }] =
     await Promise.all([
       supabase.from("client_projects").select("id, name, client_id").eq("id", id).maybeSingle(),
       supabase
@@ -103,13 +122,30 @@ export default async function ProjectDeliveryDetailPage({
         .select("id, description, status")
         .eq("project_delivery_id", deliveryId)
         .order("sort_order", { ascending: true }),
+      supabase
+        .from("project_delivery_systems")
+        .select("id, system_name, delivered, notes")
+        .eq("project_delivery_id", deliveryId)
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("project_warranties")
+        .select("id")
+        .eq("client_project_id", id)
+        .order("warranty_date", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ]);
 
   const projectData = project as ClientProject | null;
   const { data: client } = projectData?.client_id
-    ? await supabase.from("clients").select("name").eq("id", projectData.client_id).maybeSingle()
+    ? await supabase.from("clients").select("name, email, billing_email").eq("id", projectData.client_id).maybeSingle()
     : { data: null };
   const clientData = client as Client | null;
+  const recipient = clientData?.billing_email || clientData?.email || "";
+  const deliverySystems = (systems || []) as DeliverySystem[];
+  const latestWarranty = warranty as Warranty | null;
+  const financialSummary = await getProjectFinancialSummary(supabase, Number(id));
   const evidenceList = await Promise.all(
     ((evidences || []) as Omit<Evidence, "displayUrl">[]).map(async (evidence) => ({
       ...evidence,
@@ -151,11 +187,46 @@ export default async function ProjectDeliveryDetailPage({
         </Link>
       </section>
 
+      <section className="mb-8">
+        <SendDeliveryEmailButton
+          projectId={Number(id)}
+          deliveryId={Number(deliveryId)}
+          recipient={recipient}
+          pendingBalanceMxn={financialSummary.pendingTotalMxn}
+          deliveryLink={`/projects/${id}/deliveries/${deliveryId}/print`}
+          warrantyLink={latestWarranty ? `/projects/${id}/warranty/${latestWarranty.id}/print` : null}
+          alreadySentAt={deliveryData.delivery_email_sent_at}
+          lastStatus={deliveryData.delivery_email_status}
+          lastError={deliveryData.delivery_email_error}
+        />
+      </section>
+
       <section className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-4">
         <InfoCard icon={<CalendarDays size={16} />} label="Fecha entrega" value={formatDate(deliveryData.delivery_date)} />
         <InfoCard icon={<UserRound size={16} />} label="Recibe" value={deliveryData.delivered_to_name || "Sin receptor"} />
         <InfoCard label="Cargo" value={deliveryData.delivered_to_role || "Sin cargo"} />
         <InfoCard label="Estado" value={deliveryData.status === "delivered" ? "Entregado" : "Borrador"} />
+      </section>
+
+      <section className="mb-8 rounded-2xl border border-[#1F1F24] bg-[#151518] p-5 sm:p-6">
+        <h2 className="mb-5 text-2xl font-semibold">Sistemas entregados</h2>
+        {deliverySystems.length === 0 ? (
+          <p className="text-[#77777D]">Sin sistemas seleccionados en esta entrega.</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {deliverySystems.map((system) => (
+              <div key={system.id} className="rounded-xl border border-[#2A2A30] bg-[#222228] p-4">
+                <p className="flex items-center gap-2 font-semibold">
+                  <CheckCircle2 size={16} className="text-[#8CE0B6]" />
+                  {system.system_name || "Sistema"}
+                </p>
+                {system.notes ? (
+                  <p className="mt-2 text-sm text-[#B3B3B8]">{system.notes}</p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {deliveryData.observations?.trim() ? (

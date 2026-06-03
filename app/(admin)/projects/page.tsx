@@ -122,7 +122,7 @@ export default async function ProjectsPage() {
       const stage = normalizeSalesStage(project.sales_stage);
       const hasApprovedQuote = approvedQuotesByProject.has(project.id);
 
-      if (["lost", "installed", "closed"].includes(stage)) {
+      if (["lost", "installed", "delivered", "warranty", "closed"].includes(stage)) {
         return false;
       }
 

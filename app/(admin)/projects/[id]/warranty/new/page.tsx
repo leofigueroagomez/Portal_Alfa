@@ -12,6 +12,10 @@ type OperationalItem = {
   system_name: string | null;
 };
 
+type DeliverySystem = {
+  system_name: string | null;
+};
+
 export default async function NewProjectWarrantyPage({
   params,
 }: {
@@ -41,18 +45,36 @@ export default async function NewProjectWarrantyPage({
   }
 
   const projectData = project as ClientProject;
-  const { data: operationalItems } = await supabase
-    .from("project_operational_items")
-    .select("system_name")
-    .eq("client_project_id", projectData.id)
-    .eq("status", "active");
+  const [{ data: deliveredSystems }, { data: operationalItems }] = await Promise.all([
+    supabase
+      .from("project_delivery_systems")
+      .select("system_name, project_deliveries!inner(client_project_id, status)")
+      .eq("project_deliveries.client_project_id", projectData.id)
+      .in("project_deliveries.status", ["delivered", "accepted"]),
+    supabase
+      .from("project_operational_items")
+      .select("system_name")
+      .eq("client_project_id", projectData.id)
+      .eq("status", "active"),
+  ]);
 
-  const installedSystems = Array.from(
+  const deliveredSystemNames = Array.from(
+    new Set(
+      ((deliveredSystems || []) as DeliverySystem[])
+        .map((item) => item.system_name?.trim())
+        .filter(Boolean) as string[]
+    )
+  );
+  const fallbackSystemNames = Array.from(
     new Set(
       ((operationalItems || []) as OperationalItem[])
         .map((item) => item.system_name?.trim())
         .filter(Boolean) as string[]
     )
+  );
+  const installedSystems = (deliveredSystemNames.length > 0
+    ? deliveredSystemNames
+    : fallbackSystemNames
   ).join("\n");
 
   return (

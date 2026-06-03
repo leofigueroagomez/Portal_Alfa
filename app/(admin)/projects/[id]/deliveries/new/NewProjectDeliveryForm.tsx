@@ -8,6 +8,7 @@ import { supabase } from "@/services/supabase";
 
 type Props = {
   projectId: number;
+  systemOptions: string[];
 };
 
 function today() {
@@ -46,7 +47,7 @@ function reportError(step: string, error: unknown) {
   alert(`Error en ${step}.${message}`);
 }
 
-export default function NewProjectDeliveryForm({ projectId }: Props) {
+export default function NewProjectDeliveryForm({ projectId, systemOptions }: Props) {
   const router = useRouter();
   const clientCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const alfaCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -64,6 +65,8 @@ export default function NewProjectDeliveryForm({ projectId }: Props) {
   const [evidencePreviewUrls, setEvidencePreviewUrls] = useState<string[]>([]);
   const [hasClientSignature, setHasClientSignature] = useState(false);
   const [hasAlfaSignature, setHasAlfaSignature] = useState(false);
+  const [selectedSystems, setSelectedSystems] = useState<string[]>(systemOptions);
+  const [systemNotes, setSystemNotes] = useState<Record<string, string>>({});
 
   function setEvidences(files: FileList | null) {
     const selected = Array.from(files || []).filter((file) =>
@@ -183,6 +186,11 @@ export default function NewProjectDeliveryForm({ projectId }: Props) {
       return;
     }
 
+    if (systemOptions.length > 0 && selectedSystems.length === 0) {
+      alert("Selecciona al menos un sistema entregado.");
+      return;
+    }
+
     if (!hasClientSignature) {
       const shouldContinue = window.confirm(
         "Se recomienda capturar firma del cliente. Deseas guardar sin firma?"
@@ -269,6 +277,18 @@ export default function NewProjectDeliveryForm({ projectId }: Props) {
         if (error) throw error;
       }
 
+      if (selectedSystems.length > 0) {
+        const { error } = await supabase.from("project_delivery_systems").insert(
+          selectedSystems.map((systemName) => ({
+            project_delivery_id: deliveryId,
+            system_name: systemName,
+            delivered: true,
+            notes: systemNotes[systemName]?.trim() || null,
+          }))
+        );
+        if (error) throw error;
+      }
+
       const [clientSignaturePath, alfaSignaturePath] = await Promise.all([
         uploadSignature(
           clientCanvasRef.current,
@@ -292,6 +312,13 @@ export default function NewProjectDeliveryForm({ projectId }: Props) {
         .eq("id", deliveryId);
 
       if (updateError) throw updateError;
+
+      const { error: projectUpdateError } = await supabase
+        .from("client_projects")
+        .update({ sales_stage: "delivered" })
+        .eq("id", projectId);
+
+      if (projectUpdateError) throw projectUpdateError;
     } catch (error) {
       await supabase.from("project_deliveries").delete().eq("id", deliveryId);
       setSaving(false);
@@ -301,6 +328,14 @@ export default function NewProjectDeliveryForm({ projectId }: Props) {
 
     router.push(`/projects/${projectId}/deliveries/${deliveryId}`);
     router.refresh();
+  }
+
+  function toggleSystem(systemName: string) {
+    setSelectedSystems((current) =>
+      current.includes(systemName)
+        ? current.filter((item) => item !== systemName)
+        : [...current, systemName]
+    );
   }
 
   return (
@@ -363,6 +398,49 @@ export default function NewProjectDeliveryForm({ projectId }: Props) {
             />
           </label>
         </div>
+      </section>
+
+      <section className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-4 sm:p-6">
+        <h2 className="mb-5 text-2xl font-semibold">Sistemas entregados</h2>
+        {systemOptions.length === 0 ? (
+          <p className="rounded-xl border border-[#614620] bg-[#322514] p-4 text-sm text-[#F4C66A]">
+            No hay sistemas operativos sincronizados. La garantia usara el alcance completo del proyecto como fallback.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {systemOptions.map((systemName) => {
+              const checked = selectedSystems.includes(systemName);
+              return (
+                <div
+                  key={systemName}
+                  className="rounded-xl border border-[#2A2A30] bg-[#222228] p-4"
+                >
+                  <label className="flex items-center gap-3 font-semibold">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleSystem(systemName)}
+                      className="h-4 w-4 accent-[#9E1B32]"
+                    />
+                    {systemName}
+                  </label>
+                  <input
+                    value={systemNotes[systemName] || ""}
+                    onChange={(event) =>
+                      setSystemNotes((current) => ({
+                        ...current,
+                        [systemName]: event.target.value,
+                      }))
+                    }
+                    disabled={!checked}
+                    className="mt-3 w-full rounded-lg border border-[#2A2A30] bg-[#151518] px-3 py-2 text-sm outline-none disabled:opacity-50"
+                    placeholder="Notas opcionales del sistema"
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       <section className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-4 sm:p-6">

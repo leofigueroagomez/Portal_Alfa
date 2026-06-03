@@ -58,6 +58,13 @@ function systemsList(value: string | null | undefined) {
     .filter(Boolean);
 }
 
+function addMonths(value: string | null | undefined, months: number | null | undefined) {
+  if (!value || !months) return null;
+  const date = new Date(`${value}T00:00:00`);
+  date.setMonth(date.getMonth() + Number(months || 0));
+  return date.toISOString().slice(0, 10);
+}
+
 export default async function ProjectWarrantyPrintPage({
   params,
 }: {
@@ -103,6 +110,10 @@ export default async function ProjectWarrantyPrintPage({
   const projectName = projectData?.name || "Proyecto";
   const supportEmail = warrantyData.support_email || "soporte@alfait.com";
   const representativeName = warrantyData.alfa_representative_name || "ALFA IT";
+  const nextMaintenanceDate = addMonths(
+    warrantyData.installation_warranty_start_date || warrantyData.warranty_date,
+    warrantyData.preventive_maintenance_frequency_months
+  );
 
   return (
     <main className="print-root min-h-screen bg-[#EDEBE6] py-5 text-[#111318]">
@@ -236,6 +247,8 @@ export default async function ProjectWarrantyPrintPage({
               <strong>{warrantyData.preventive_maintenance_frequency_months || 0} meses</strong>.
               El costo registrado de mantenimiento es de{" "}
               <strong>{formatMoney(warrantyData.preventive_maintenance_cost_mxn)}</strong>.
+              El proximo mantenimiento sugerido es el{" "}
+              <strong>{formatDate(nextMaintenanceDate)}</strong>.
             </p>
           ) : (
             <p className="mt-3">

@@ -8,6 +8,10 @@ type ClientProject = {
   name: string | null;
 };
 
+type OperationalItem = {
+  system_name: string | null;
+};
+
 export default async function NewProjectDeliveryPage({
   params,
 }: {
@@ -37,6 +41,19 @@ export default async function NewProjectDeliveryPage({
   }
 
   const projectData = project as ClientProject;
+  const { data: operationalItems } = await supabase
+    .from("project_operational_items")
+    .select("system_name")
+    .eq("client_project_id", projectData.id)
+    .eq("status", "active");
+
+  const systemOptions = Array.from(
+    new Set(
+      ((operationalItems || []) as OperationalItem[])
+        .map((item) => item.system_name?.trim())
+        .filter(Boolean) as string[]
+    )
+  );
 
   return (
     <main className="min-h-screen bg-[#0B0D0F] p-4 text-white md:p-8 xl:p-10">
@@ -58,7 +75,7 @@ export default async function NewProjectDeliveryPage({
         </p>
       </section>
 
-      <NewProjectDeliveryForm projectId={projectData.id} />
+      <NewProjectDeliveryForm projectId={projectData.id} systemOptions={systemOptions} />
     </main>
   );
 }

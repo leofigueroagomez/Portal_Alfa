@@ -163,6 +163,11 @@ export default function NewProjectWarrantyForm({
       return;
     }
 
+    await supabase
+      .from("client_projects")
+      .update({ sales_stage: "warranty" })
+      .eq("id", projectId);
+
     router.push(`/projects/${projectId}/warranty/${warranty.id}`);
     router.refresh();
   }
