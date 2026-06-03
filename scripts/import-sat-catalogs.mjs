@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { mkdir, writeFile } from "node:fs/promises";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
 
@@ -20,6 +21,37 @@ const APPLY = process.argv.includes("--apply");
 const DRY_RUN = process.argv.includes("--dry-run");
 const WRITE_SQL = !DRY_RUN && (process.argv.includes("--write-sql") || !APPLY);
 const today = new Date().toISOString().slice(0, 10);
+
+function loadEnvFile(filePath) {
+  if (!existsSync(filePath)) return;
+
+  const lines = readFileSync(filePath, "utf8").split(/\r?\n/);
+
+  for (const line of lines) {
+    const clean = line.trim();
+    if (!clean || clean.startsWith("#")) continue;
+
+    const separatorIndex = clean.indexOf("=");
+    if (separatorIndex === -1) continue;
+
+    const key = clean.slice(0, separatorIndex).trim();
+    let value = clean.slice(separatorIndex + 1).trim();
+
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+
+    if (!process.env[key]) {
+      process.env[key] = value;
+    }
+  }
+}
+
+loadEnvFile(".env.local");
+loadEnvFile(".env");
 
 function isActive(vigenciaHasta) {
   const clean = String(vigenciaHasta || "").trim();

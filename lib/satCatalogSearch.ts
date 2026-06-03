@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 
 type CatalogKind =
@@ -65,6 +66,33 @@ function uniqueByCode<T extends { code?: string | null }>(items: T[]) {
   return unique;
 }
 
+function accentVariants(value: string) {
+  const replacements: Record<string, string[]> = {
+    a: ["a", "á"],
+    e: ["e", "é"],
+    i: ["i", "í"],
+    o: ["o", "ó"],
+    u: ["u", "ú", "ü"],
+  };
+  const variants = new Set([""]);
+
+  for (const char of value.toLowerCase()) {
+    const options = replacements[char] || [char];
+    const prefixes = [...variants];
+    variants.clear();
+
+    for (const prefix of prefixes) {
+      for (const option of options) {
+        variants.add(`${prefix}${option}`);
+        if (variants.size >= 50) break;
+      }
+      if (variants.size >= 50) break;
+    }
+  }
+
+  return [...variants];
+}
+
 function applyPersonTypeFilter<Query>(
   query: Query,
   personType: string | null,
@@ -83,6 +111,14 @@ function applyPersonTypeFilter<Query>(
   );
 }
 
+async function createCatalogClient() {
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return createSupabaseAdminClient();
+  }
+
+  return createSupabaseServerClient();
+}
+
 export async function handleSatCatalogSearch(
   request: NextRequest,
   kind: CatalogKind
@@ -92,7 +128,7 @@ export async function handleSatCatalogSearch(
   const code = params.get("code")?.trim();
   const queryText = params.get("q")?.trim() || "";
   const personType = params.get("person_type");
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createCatalogClient();
 
   if (code) {
     const { data, error } = await supabase
@@ -126,17 +162,20 @@ export async function handleSatCatalogSearch(
     personType,
     config
   );
-  const textQueries = config.textFields.map((field) =>
-    applyPersonTypeFilter(
-      supabase
-        .from(config.table)
-        .select(config.select)
-        .eq("is_active", true)
-        .ilike(field, `%${queryText}%`)
-        .order("code", { ascending: true })
-        .limit(20),
-      personType,
-      config
+  const queryVariants = accentVariants(queryText);
+  const textQueries = config.textFields.flatMap((field) =>
+    queryVariants.map((queryVariant) =>
+      applyPersonTypeFilter(
+        supabase
+          .from(config.table)
+          .select(config.select)
+          .eq("is_active", true)
+          .ilike(field, `%${queryVariant}%`)
+          .order("code", { ascending: true })
+          .limit(20),
+        personType,
+        config
+      )
     )
   );
   const results = await Promise.all([codeQuery, ...textQueries]);
