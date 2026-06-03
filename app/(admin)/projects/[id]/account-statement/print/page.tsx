@@ -223,10 +223,11 @@ export default async function ProjectAccountStatementPrintPage({
           }
 
           .document {
-            width: 100% !important;
+            width: 816px !important;
+            max-width: none !important;
             min-height: auto !important;
             box-shadow: none !important;
-            margin: 0 !important;
+            margin: 0 auto !important;
             padding: 0 !important;
           }
 
@@ -246,7 +247,7 @@ export default async function ProjectAccountStatementPrintPage({
         }
       `}</style>
 
-      <div className="print-actions mx-auto mb-4 flex w-[8.5in] max-w-[calc(100vw-32px)] items-center justify-between">
+      <div className="print-actions mx-auto mb-4 flex w-[816px] max-w-none items-center justify-between">
         <Link
           href={`/projects/${projectData.id}/account-statement`}
           className="text-xs text-[#5F626A]"
@@ -256,7 +257,7 @@ export default async function ProjectAccountStatementPrintPage({
         <PrintAccountStatementButton />
       </div>
 
-      <article className="document mx-auto w-[8.5in] min-h-[11in] max-w-[calc(100vw-32px)] bg-white px-10 py-8 shadow-xl">
+      <article className="document mx-auto w-[816px] min-h-[1056px] max-w-none bg-white px-10 py-8 shadow-xl">
         <header className="quote-print-header mb-5 flex items-start justify-between border-b border-[#D6D1C8] pb-4">
           <div>
             <div className="mb-3 flex h-11 items-center">

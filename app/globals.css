@@ -25,8 +25,31 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+.print-root {
+  overflow-x: auto;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.print-root .document,
+.print-root .print-actions {
+  width: 816px;
+  max-width: none;
+}
+
+.print-root .document {
+  margin-left: auto;
+  margin-right: auto;
+  background: white;
+}
+
 @media print {
+  @page {
+    size: Letter;
+    margin: 12mm;
+  }
+
   .no-print,
+  .print-actions,
   .admin-shell > .mobile-admin-header,
   .admin-shell > .admin-sidebar,
   .admin-shell > .admin-menu-overlay,
@@ -41,9 +64,41 @@ body {
   }
 
   .admin-print-route,
-  .admin-shell {
+  .admin-shell,
+  .print-root,
+  main.print-root {
     display: block !important;
     min-height: auto !important;
     background: white !important;
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  .print-root .document {
+    width: 816px !important;
+    max-width: none !important;
+    min-height: auto !important;
+    margin: 0 auto !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    box-shadow: none !important;
+    background: white !important;
+  }
+
+  .print-root table,
+  .print-root tr,
+  .print-root td,
+  .print-root th,
+  .print-root section,
+  .print-root article,
+  .print-root figure,
+  .print-root .line-item-row,
+  .print-root .summary-box,
+  .print-root .evidence-box,
+  .print-root .signature-box,
+  .print-root .pending-row,
+  .print-root .letter-section {
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 }

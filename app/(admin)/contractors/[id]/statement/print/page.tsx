@@ -47,8 +47,26 @@ export default async function ContractorStatementPrintPage({
   const balance = getContractorBalance(movementList);
 
   return (
-    <main className="min-h-screen bg-white p-8 text-[#111827] print:p-0">
-      <div className="mx-auto max-w-5xl">
+    <main className="print-root min-h-screen bg-[#EDEBE6] py-5 text-[#111827]">
+      <style>{`
+        @page { size: Letter; margin: 12mm; }
+        .print-root { font-family: Arial, Helvetica, sans-serif; }
+        @media print {
+          html, body { background: white !important; font-size: 10.5px !important; }
+          .document {
+            width: 816px !important;
+            max-width: none !important;
+            min-height: auto !important;
+            margin: 0 auto !important;
+            box-shadow: none !important;
+          }
+          table, tr, td, th, section {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+        }
+      `}</style>
+      <div className="document mx-auto min-h-[1056px] w-[816px] max-w-none bg-white p-8 shadow-xl">
         <header className="mb-8 flex items-start justify-between border-b border-[#D1D5DB] pb-6">
           <div>
             <Image src="/logo-print.png" alt="ALFA" width={140} height={56} className="mb-4 h-auto w-36" />
