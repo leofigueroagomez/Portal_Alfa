@@ -3,7 +3,7 @@ import { ArrowLeft, Mail, ShieldCheck, UserPlus, Users } from "lucide-react";
 import { notFound } from "next/navigation";
 import { getSafeErrorMessage } from "@/lib/adminUsers";
 import { canManageUsers } from "@/lib/permissions";
-import { getCurrentUserProfile } from "@/services/profile";
+import { getCurrentInternalUserProfile } from "@/services/profile";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 import {
   assignPortalProjectAccess,
@@ -90,9 +90,9 @@ export default async function ClientPortalUsersPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const profile = await getCurrentUserProfile();
+  const profile = await getCurrentInternalUserProfile();
 
-  if (!profile?.is_active || !canManageUsers(profile.role)) {
+  if (!profile || !canManageUsers(profile.role)) {
     notFound();
   }
 

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { downloadFacturamaInvoiceFile } from "@/lib/facturama";
 import { getPublicDocumentLink } from "@/lib/publicDocuments";
 import { generateProjectDeliveryPdf, generateWarrantyLetterPdf } from "@/lib/postSalePdf";
 
@@ -19,6 +20,33 @@ export async function GET(
   const { supabase, link } = result;
 
   try {
+    if (link.document_type === "project_invoice_pdf" && link.project_invoice_id) {
+      const { data: invoice, error } = await supabase
+        .from("project_invoices")
+        .select("id, client_project_id, facturama_id")
+        .eq("id", link.project_invoice_id)
+        .eq("client_project_id", link.client_project_id)
+        .maybeSingle();
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+
+      if (!invoice?.facturama_id) {
+        return NextResponse.json({ error: "Factura sin PDF disponible." }, { status: 404 });
+      }
+
+      const file = await downloadFacturamaInvoiceFile(invoice.facturama_id, "pdf");
+      return new Response(file.bytes, {
+        headers: {
+          "Content-Type": file.contentType,
+          "Content-Disposition": `inline; filename="factura-${invoice.id}.pdf"`,
+          "Cache-Control": "no-store",
+          "X-Content-Type-Options": "nosniff",
+        },
+      });
+    }
+
     const pdf =
       link.document_type === "project_delivery" && link.project_delivery_id
         ? await generateProjectDeliveryPdf(

@@ -1,4 +1,4 @@
-export const alfaRoles = [
+export const internalAlfaRoles = [
   "admin",
   "direccion",
   "comercial",
@@ -9,13 +9,23 @@ export const alfaRoles = [
   "finanzas",
 ] as const;
 
-export type AlfaRole = (typeof alfaRoles)[number];
+export const alfaRoles = internalAlfaRoles;
+
+export type InternalAlfaRole = (typeof internalAlfaRoles)[number];
+export type AlfaRole = InternalAlfaRole | "client";
 
 export function normalizeRole(role: string | null | undefined): AlfaRole {
   if (role === "sales") return "comercial";
   if (role === "engineering") return "ingenieria";
-  if (alfaRoles.includes(role as AlfaRole)) return role as AlfaRole;
+  if (role === "client") return "client";
+  if (internalAlfaRoles.includes(role as InternalAlfaRole)) {
+    return role as InternalAlfaRole;
+  }
   return "comercial";
+}
+
+export function isInternalRole(role: string | null | undefined) {
+  return internalAlfaRoles.includes(normalizeRole(role) as InternalAlfaRole);
 }
 
 function isAdminLike(role: string | null | undefined) {

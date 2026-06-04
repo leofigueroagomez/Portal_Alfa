@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { canManageUsers, normalizeRole } from "@/lib/permissions";
+import { canManageUsers, isInternalRole, normalizeRole } from "@/lib/permissions";
 import { getCurrentUserProfile } from "@/services/profile";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
@@ -17,7 +17,7 @@ export type AdminUserPayload = {
 export async function requireAdminProfile() {
   const profile = await getCurrentUserProfile();
 
-  if (!profile || !canManageUsers(profile.role)) {
+  if (!profile?.is_active || !profile.is_internal || !canManageUsers(profile.role)) {
     return {
       profile,
       response: NextResponse.json(
@@ -27,6 +27,7 @@ export async function requireAdminProfile() {
           currentUserEmail: profile?.email || null,
           hasServiceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
           isAdmin: false,
+          isInternal: Boolean(profile?.is_internal),
         },
         { status: 403 }
       ),
@@ -84,6 +85,7 @@ export async function getAdminUsersDiagnostics() {
     hasServiceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
     hasSupabaseUrl: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
     isAdmin: profile ? canManageUsers(profile.role) : false,
+    isInternal: Boolean(profile?.is_internal),
     currentRole: profile?.role || null,
   };
 }
@@ -100,7 +102,7 @@ export async function listAdminUsers(): Promise<AdminUserPayload[]> {
   const { data: profiles, error: profilesError } = userIds.length
     ? await admin
         .from("profiles")
-        .select("id, email, full_name, role, is_active, created_at")
+        .select("id, email, full_name, role, is_active, user_type, is_internal, created_at")
         .in("id", userIds)
     : { data: [], error: null };
 
@@ -110,8 +112,13 @@ export async function listAdminUsers(): Promise<AdminUserPayload[]> {
     (profiles || []).map((profile) => [profile.id as string, profile])
   );
 
-  return authUsers.map((user) => {
+  return authUsers.flatMap((user) => {
     const profile = profileById.get(user.id);
+    const role = normalizeRole(profile?.role);
+    const isInternal = Boolean(profile?.is_internal ?? isInternalRole(role));
+
+    if (!isInternal) return [];
+
     return {
       id: user.id,
       email: profile?.email || user.email || null,
@@ -121,7 +128,7 @@ export async function listAdminUsers(): Promise<AdminUserPayload[]> {
         (user.user_metadata?.name as string | undefined) ||
         user.email ||
         null,
-      role: normalizeRole(profile?.role).toString(),
+      role: role.toString(),
       is_active: profile?.is_active ?? true,
       auth_created_at: user.created_at || null,
       profile_created_at: profile?.created_at || null,

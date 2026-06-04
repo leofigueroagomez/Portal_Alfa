@@ -4,14 +4,14 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getAppBaseUrl } from "@/lib/appUrl";
 import { getSafeErrorMessage } from "@/lib/adminUsers";
-import { canManageUsers } from "@/lib/permissions";
-import { getCurrentUserProfile } from "@/services/profile";
+import { canManageUsers, isInternalRole } from "@/lib/permissions";
+import { getCurrentInternalUserProfile } from "@/services/profile";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 
 async function assertCanManagePortalUsers() {
-  const profile = await getCurrentUserProfile();
+  const profile = await getCurrentInternalUserProfile();
 
-  if (!profile?.is_active || !canManageUsers(profile.role)) {
+  if (!profile || !canManageUsers(profile.role)) {
     throw new Error("No tienes permisos para administrar usuarios del portal.");
   }
 }
@@ -57,6 +57,9 @@ async function invitePortalUser(email: string, fullName: string) {
     data: {
       full_name: fullName || email,
       portal: "client",
+      role: "client",
+      user_type: "client_portal",
+      is_internal: false,
     },
     redirectTo,
   });
@@ -73,6 +76,50 @@ async function getOrInvitePortalAuthUser(email: string, fullName: string) {
 
   const user = await invitePortalUser(email, fullName);
   return { user, invited: true };
+}
+
+async function ensureClientPortalProfile(
+  userId: string,
+  email: string,
+  fullName: string,
+  allowInternalConversion: boolean
+) {
+  const admin = createSupabaseAdminClient();
+  const { data: existingProfile, error: existingError } = await admin
+    .from("profiles")
+    .select("id, role, is_internal, user_type")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (existingError) throw existingError;
+
+  const existingRole = String(existingProfile?.role || "");
+  const isExistingInternal =
+    existingProfile?.is_internal === true || isInternalRole(existingRole);
+
+  if (
+    existingProfile &&
+    isExistingInternal &&
+    existingRole !== "client" &&
+    !allowInternalConversion
+  ) {
+    throw new Error(
+      "Este correo ya pertenece a un usuario interno ALFA. Usa otro correo para el Portal Cliente."
+    );
+  }
+
+  const { error } = await admin.from("profiles").upsert({
+    id: userId,
+    email,
+    full_name: fullName || email,
+    role: "client",
+    user_type: "client_portal",
+    is_internal: false,
+    is_active: true,
+    updated_at: new Date().toISOString(),
+  });
+
+  if (error) throw error;
 }
 
 async function validateClientProjectIds(clientId: number, projectIds: number[]) {
@@ -109,6 +156,7 @@ export async function createClientPortalUser(clientId: number, formData: FormDat
   try {
     const result = await getOrInvitePortalAuthUser(email, fullName);
     invited = result.invited;
+    await ensureClientPortalProfile(result.user.id, email, fullName, result.invited);
 
     const { data: portalUser, error: portalUserError } = await admin
       .from("client_portal_users")

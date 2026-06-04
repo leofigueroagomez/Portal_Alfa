@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
-import { alfaRoles, type AlfaRole } from "@/lib/permissions";
+import { alfaRoles } from "@/lib/permissions";
 import UserProfileForm from "../UserProfileForm";
 
 type AdminUser = {
@@ -19,7 +19,7 @@ type Props = {
   currentUserId: string;
 };
 
-const roleLabels: Record<AlfaRole, string> = {
+const roleLabels: Record<string, string> = {
   admin: "Admin",
   direccion: "Direccion",
   comercial: "Comercial",
@@ -28,6 +28,7 @@ const roleLabels: Record<AlfaRole, string> = {
   instalador: "Instalador",
   compras: "Compras",
   finanzas: "Finanzas",
+  client: "Cliente portal",
 };
 
 function formatApiError(json: unknown) {

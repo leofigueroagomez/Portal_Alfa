@@ -68,6 +68,7 @@ const roleLabels: Record<string, string> = {
   compras: "Compras",
   finanzas: "Finanzas",
   engineering: "Ingeniería",
+  client: "Cliente",
 };
 
 export default function AdminShell({

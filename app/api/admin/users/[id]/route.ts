@@ -23,7 +23,7 @@ export async function PATCH(
   const role = normalizeRole(body?.role);
   const isActive = Boolean(body?.is_active ?? true);
 
-  if (!alfaRoles.includes(role)) {
+  if (!alfaRoles.includes(role as (typeof alfaRoles)[number])) {
     return NextResponse.json({ error: "Rol invalido" }, { status: 400 });
   }
 

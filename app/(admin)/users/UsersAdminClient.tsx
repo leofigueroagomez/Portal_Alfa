@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Plus, UserCog } from "lucide-react";
-import { alfaRoles, type AlfaRole } from "@/lib/permissions";
+import { alfaRoles } from "@/lib/permissions";
 
 type AdminUser = {
   id: string;
@@ -18,7 +18,7 @@ type Props = {
   currentUserId: string;
 };
 
-const roleLabels: Record<AlfaRole, string> = {
+const roleLabels: Record<string, string> = {
   admin: "Admin",
   direccion: "Direccion",
   comercial: "Comercial",
@@ -27,6 +27,7 @@ const roleLabels: Record<AlfaRole, string> = {
   instalador: "Instalador",
   compras: "Compras",
   finanzas: "Finanzas",
+  client: "Cliente portal",
 };
 
 function reportError(step: string, error: unknown) {
@@ -228,7 +229,7 @@ export default function UsersAdminClient({ currentUserId }: Props) {
                   <tr key={user.id} className="border-b border-[#222228] hover:bg-[#1A1A1F]">
                     <td className="px-4 py-3 font-semibold">{user.full_name || "Sin nombre"}</td>
                     <td className="px-4 py-3 text-[#B3B3B8]">{user.email || "-"}</td>
-                    <td className="px-4 py-3">{roleLabels[user.role as AlfaRole] || user.role}</td>
+                    <td className="px-4 py-3">{roleLabels[user.role] || user.role}</td>
                     <td className="px-4 py-3">
                       <span className="rounded-full border border-[#2A2A30] bg-[#222228] px-3 py-1 text-xs text-[#B3B3B8]">
                         {user.is_active ? "Activo" : "Inactivo"}

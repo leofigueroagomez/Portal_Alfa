@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import {
   ArrowLeft,
   Download,
+  ExternalLink,
   FileText,
   ReceiptText,
   ShieldCheck,
@@ -23,6 +24,8 @@ import {
   type ClientPortalPayment,
 } from "@/lib/clientPortal";
 import { formatCurrency } from "@/lib/format";
+import { getOrCreatePublicDocumentLink } from "@/lib/publicDocumentLinks";
+import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -53,9 +56,51 @@ type Warranty = {
 
 type PublicDocument = {
   token: string;
-  document_type: "project_delivery" | "project_warranty";
+  document_type:
+    | "project_delivery"
+    | "project_warranty"
+    | "approved_quote"
+    | "authorized_plan"
+    | "project_invoice_pdf"
+    | "project_invoice_xml";
   project_delivery_id: number | null;
   project_warranty_id: number | null;
+  quote_id?: number | null;
+  document_id?: number | null;
+  project_invoice_id?: number | null;
+  file_format?: string | null;
+};
+
+type ApprovedQuote = {
+  id: number;
+  quote_number: string | null;
+  created_at: string | null;
+  total_mxn?: number | null;
+  grand_total?: number | null;
+};
+
+type ClientVisibleDocument = {
+  id: number;
+  name: string | null;
+  file_url: string | null;
+  created_at: string | null;
+  type?: string | null;
+  document_type?: string | null;
+  is_client_visible?: boolean | null;
+};
+
+type PortalInvoiceWithFiles = ClientPortalInvoice & {
+  facturama_id?: string | null;
+};
+
+type ProjectDocumentCard = {
+  key: string;
+  name: string;
+  type: string;
+  date: string | null;
+  openHref: string;
+  downloadHref?: string;
+  meta?: string;
 };
 
 function SectionTitle({
@@ -113,6 +158,7 @@ export default async function ClientPortalProjectPage({
 
   const { supabase, portalUser } = await getClientPortalContext();
   const project = await getAccessibleClientProject(supabase, portalUser, projectId);
+  const adminSupabase = createSupabaseAdminClient();
 
   const [
     { data: client },
@@ -121,6 +167,8 @@ export default async function ClientPortalProjectPage({
     { data: deliveries },
     { data: warranties },
     { data: documents },
+    { data: approvedQuotes },
+    { data: authorizedPlans },
   ] = await Promise.all([
     supabase
       .from("clients")
@@ -129,7 +177,7 @@ export default async function ClientPortalProjectPage({
       .maybeSingle(),
     supabase
       .from("project_invoices")
-      .select("id, internal_folio, invoice_date, total_mxn, total, status, sat_uuid")
+      .select("id, internal_folio, invoice_date, total_mxn, total, status, sat_uuid, facturama_id")
       .eq("client_project_id", project.id)
       .order("invoice_date", { ascending: false })
       .order("created_at", { ascending: false }),
@@ -157,17 +205,92 @@ export default async function ClientPortalProjectPage({
       .order("created_at", { ascending: false }),
     supabase
       .from("public_document_links")
-      .select("token, document_type, project_delivery_id, project_warranty_id")
+      .select("token, document_type, project_delivery_id, project_warranty_id, quote_id, document_id, project_invoice_id, file_format")
       .eq("client_project_id", project.id)
       .is("expires_at", null),
+    adminSupabase
+      .from("quotes")
+      .select("id, quote_number, created_at, total_mxn, grand_total")
+      .eq("client_project_id", project.id)
+      .eq("status", "approved")
+      .order("created_at", { ascending: false })
+      .limit(1),
+    adminSupabase
+      .from("documents")
+      .select("id, name, file_url, created_at, type, document_type, is_client_visible")
+      .eq("project_id", project.id)
+      .eq("is_client_visible", true)
+      .or("document_type.eq.authorized_plan,type.eq.authorized_plan")
+      .order("created_at", { ascending: false }),
   ]);
 
   const clientData = client as Client | null;
-  const invoiceList = (invoices || []) as ClientPortalInvoice[];
+  const invoiceList = (invoices || []) as PortalInvoiceWithFiles[];
   const paymentList = (payments || []) as ClientPortalPayment[];
   const deliveryList = (deliveries || []) as Delivery[];
   const warrantyList = (warranties || []) as Warranty[];
   const documentList = (documents || []) as PublicDocument[];
+  const approvedQuote = ((approvedQuotes || []) as ApprovedQuote[])[0] || null;
+  const authorizedPlanList = (authorizedPlans || []) as ClientVisibleDocument[];
+  const generatedDocuments: PublicDocument[] = [];
+
+  if (approvedQuote) {
+    const link = await getOrCreatePublicDocumentLink({
+      clientProjectId: project.id,
+      documentType: "approved_quote",
+      quoteId: approvedQuote.id,
+    });
+    generatedDocuments.push(link);
+  }
+
+  for (const plan of authorizedPlanList) {
+    const link = await getOrCreatePublicDocumentLink({
+      clientProjectId: project.id,
+      documentType: "authorized_plan",
+      documentId: plan.id,
+    });
+    generatedDocuments.push(link);
+  }
+
+  for (const delivery of deliveryList) {
+    const link = await getOrCreatePublicDocumentLink({
+      clientProjectId: project.id,
+      documentType: "project_delivery",
+      projectDeliveryId: delivery.id,
+    });
+    generatedDocuments.push(link);
+  }
+
+  for (const warranty of warrantyList) {
+    const link = await getOrCreatePublicDocumentLink({
+      clientProjectId: project.id,
+      documentType: "project_warranty",
+      projectWarrantyId: warranty.id,
+    });
+    generatedDocuments.push(link);
+  }
+
+  for (const invoice of invoiceList) {
+    if (!invoice.facturama_id) continue;
+
+    const [pdfLink, xmlLink] = await Promise.all([
+      getOrCreatePublicDocumentLink({
+        clientProjectId: project.id,
+        documentType: "project_invoice_pdf",
+        projectInvoiceId: invoice.id,
+        fileFormat: "pdf",
+      }),
+      getOrCreatePublicDocumentLink({
+        clientProjectId: project.id,
+        documentType: "project_invoice_xml",
+        projectInvoiceId: invoice.id,
+        fileFormat: "xml",
+      }),
+    ]);
+    generatedDocuments.push(pdfLink, xmlLink);
+  }
+
+  const allDocumentLinks = [...documentList, ...generatedDocuments];
   const account = getPortalAccountSummary(invoiceList, paymentList);
   const latestDelivery = deliveryList[0] || null;
   const latestWarranty = warrantyList[0] || null;
@@ -181,7 +304,7 @@ export default async function ClientPortalProjectPage({
   );
 
   function getDeliveryDocument(deliveryId: number) {
-    return documentList.find(
+    return allDocumentLinks.find(
       (document) =>
         document.document_type === "project_delivery" &&
         document.project_delivery_id === deliveryId
@@ -189,11 +312,114 @@ export default async function ClientPortalProjectPage({
   }
 
   function getWarrantyDocument(warrantyId: number) {
-    return documentList.find(
+    return allDocumentLinks.find(
       (document) =>
         document.document_type === "project_warranty" &&
         document.project_warranty_id === warrantyId
     );
+  }
+
+  function getDocumentByType(
+    documentType: PublicDocument["document_type"],
+    predicate: (document: PublicDocument) => boolean
+  ) {
+    return allDocumentLinks.find(
+      (document) => document.document_type === documentType && predicate(document)
+    );
+  }
+
+  const projectDocuments: ProjectDocumentCard[] = [];
+  const approvedQuoteLink = approvedQuote
+    ? getDocumentByType(
+        "approved_quote",
+        (document) => document.quote_id === approvedQuote.id
+      )
+    : null;
+
+  if (approvedQuote && approvedQuoteLink) {
+    projectDocuments.push({
+      key: `quote-${approvedQuote.id}`,
+      name: approvedQuote.quote_number || `Cotizacion #${approvedQuote.id}`,
+      type: "Cotizacion autorizada",
+      date: approvedQuote.created_at,
+      openHref: `/public/documents/${approvedQuoteLink.token}/quote`,
+      meta: formatCurrency(approvedQuote.total_mxn || approvedQuote.grand_total || 0, "MXN"),
+    });
+  }
+
+  for (const plan of authorizedPlanList) {
+    const link = getDocumentByType(
+      "authorized_plan",
+      (document) => document.document_id === plan.id
+    );
+
+    if (!link) continue;
+
+    projectDocuments.push({
+      key: `plan-${plan.id}`,
+      name: plan.name || `Plano autorizado #${plan.id}`,
+      type: "Plano autorizado",
+      date: plan.created_at,
+      openHref: `/public/documents/${link.token}/file`,
+      downloadHref: `/public/documents/${link.token}/file`,
+    });
+  }
+
+  for (const delivery of deliveryList) {
+    const link = getDeliveryDocument(delivery.id);
+
+    if (!link) continue;
+
+    projectDocuments.push({
+      key: `delivery-${delivery.id}`,
+      name: `Acta de entrega ${formatPortalDate(delivery.delivery_date)}`,
+      type: "Acta de entrega",
+      date: delivery.delivery_date,
+      openHref: `/public/documents/${link.token}/pdf`,
+      downloadHref: `/public/documents/${link.token}/pdf`,
+      meta: deliveryStatusLabel(delivery.status),
+    });
+  }
+
+  for (const warranty of warrantyList) {
+    const link = getWarrantyDocument(warranty.id);
+
+    if (!link) continue;
+
+    projectDocuments.push({
+      key: `warranty-${warranty.id}`,
+      name: `Carta garantia ${formatPortalDate(warranty.warranty_date)}`,
+      type: "Carta garantia",
+      date: warranty.warranty_date,
+      openHref: `/public/documents/${link.token}/pdf`,
+      downloadHref: `/public/documents/${link.token}/pdf`,
+      meta: warrantyStatusLabel(warranty.status),
+    });
+  }
+
+  for (const invoice of invoiceList) {
+    const pdfLink = getDocumentByType(
+      "project_invoice_pdf",
+      (document) => document.project_invoice_id === invoice.id
+    );
+    const xmlLink = getDocumentByType(
+      "project_invoice_xml",
+      (document) => document.project_invoice_id === invoice.id
+    );
+
+    if (!pdfLink && !xmlLink) continue;
+
+    projectDocuments.push({
+      key: `invoice-${invoice.id}`,
+      name: invoice.internal_folio || `Factura #${invoice.id}`,
+      type: "Factura PDF/XML",
+      date: invoice.invoice_date,
+      openHref: pdfLink
+        ? `/public/documents/${pdfLink.token}/pdf`
+        : `/public/documents/${xmlLink?.token}/xml`,
+      downloadHref: xmlLink ? `/public/documents/${xmlLink.token}/xml` : undefined,
+      meta: invoice.sat_uuid ? `UUID ${invoice.sat_uuid}` : invoiceStatusLabel(invoice.status),
+    });
   }
 
   return (
@@ -265,6 +491,52 @@ export default async function ClientPortalProjectPage({
         </section>
 
         <section className="grid gap-8">
+          <div>
+            <SectionTitle icon={FileText} title="Documentos del proyecto" />
+            {projectDocuments.length === 0 ? (
+              <EmptyState>
+                Aun no hay documentos autorizados disponibles para este proyecto.
+              </EmptyState>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2">
+                {projectDocuments.map((document) => (
+                  <div
+                    key={document.key}
+                    className="grid gap-4 rounded border border-black/10 bg-white p-4 md:grid-cols-[1fr_auto] md:items-center"
+                  >
+                    <div>
+                      <p className="font-semibold">{document.name}</p>
+                      <p className="mt-1 text-sm text-[#77777D]">
+                        {document.type} - {formatPortalDate(document.date)}
+                      </p>
+                      {document.meta ? (
+                        <p className="mt-2 text-sm text-[#5F626A]">{document.meta}</p>
+                      ) : null}
+                    </div>
+                    <div className="flex flex-wrap gap-2 md:justify-end">
+                      <Link
+                        href={document.openHref}
+                        className="inline-flex items-center justify-center gap-2 rounded border border-black/10 px-4 py-2 text-sm font-semibold text-[#111111] transition hover:bg-[#F7F6F3]"
+                      >
+                        <ExternalLink size={16} />
+                        Abrir
+                      </Link>
+                      {document.downloadHref ? (
+                        <Link
+                          href={document.downloadHref}
+                          className="inline-flex items-center justify-center gap-2 rounded bg-[#111111] px-4 py-2 text-sm font-semibold text-white"
+                        >
+                          <Download size={16} />
+                          Descargar
+                        </Link>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div>
             <SectionTitle icon={WalletCards} title="Estado de cuenta" />
             <div className="rounded border border-black/10 bg-white">

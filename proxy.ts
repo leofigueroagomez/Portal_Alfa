@@ -2,26 +2,38 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getConfiguredPortalHost, getCurrentHost } from "@/lib/hosts";
 
-const protectedRoutes = [
+const portalRoutes = ["/portal"];
+
+const internalRoutes = [
+  "/admin",
   "/dashboard",
-  "/portal",
   "/leads",
   "/customers",
   "/clients",
+  "/projects",
+  "/post-sale",
+  "/contractors",
+  "/services",
+  "/invoices",
   "/products",
   "/quotes",
   "/engineering",
   "/engineering-quotes",
   "/users",
   "/settings",
+  "/notifications",
   "/product-categories",
   "/product-tags",
 ];
 
-function isProtectedPath(pathname: string) {
-  return protectedRoutes.some(
+function matchesRoute(pathname: string, routes: string[]) {
+  return routes.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`)
   );
+}
+
+function isProtectedPath(pathname: string) {
+  return matchesRoute(pathname, portalRoutes) || matchesRoute(pathname, internalRoutes);
 }
 
 function isPortalHomeRequest(request: NextRequest) {
@@ -87,23 +99,49 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
+  if (matchesRoute(request.nextUrl.pathname, internalRoutes)) {
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("role, is_active, user_type, is_internal")
+      .eq("id", data.claims.sub)
+      .maybeSingle();
+
+    const role = String(profile?.role || "");
+    const isClientPortal =
+      role === "client" ||
+      profile?.user_type === "client_portal" ||
+      profile?.is_internal === false;
+    const isInternal = Boolean(profile?.is_active && profile?.is_internal === true);
+
+    if (profileError || !profile || isClientPortal || !isInternal) {
+      return NextResponse.redirect(new URL("/portal", request.url));
+    }
+  }
+
   return response;
 }
 
 export const config = {
   matcher: [
     "/",
+    "/admin/:path*",
     "/dashboard/:path*",
     "/portal/:path*",
     "/leads/:path*",
     "/customers/:path*",
     "/clients/:path*",
+    "/projects/:path*",
+    "/post-sale/:path*",
+    "/contractors/:path*",
+    "/services/:path*",
+    "/invoices/:path*",
     "/products/:path*",
     "/quotes/:path*",
     "/engineering/:path*",
     "/engineering-quotes/:path*",
     "/users/:path*",
     "/settings/:path*",
+    "/notifications/:path*",
     "/product-categories/:path*",
     "/product-tags/:path*",
   ],

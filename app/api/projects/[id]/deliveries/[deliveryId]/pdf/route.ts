@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
-import { getCurrentUserProfile } from "@/services/profile";
+import { getCurrentInternalUserProfile } from "@/services/profile";
 import { generateProjectDeliveryPdf } from "@/lib/postSalePdf";
 
 export const dynamic = "force-dynamic";
@@ -11,9 +11,9 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string; deliveryId: string }> }
 ) {
-  const profile = await getCurrentUserProfile();
+  const profile = await getCurrentInternalUserProfile();
 
-  if (!profile?.is_active) {
+  if (!profile) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 

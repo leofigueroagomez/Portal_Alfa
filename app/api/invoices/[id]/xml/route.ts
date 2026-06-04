@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { downloadFacturamaInvoiceFile } from "@/lib/facturama";
 import { canViewFinancials } from "@/lib/permissions";
-import { getCurrentUserProfile } from "@/services/profile";
+import { getCurrentInternalUserProfile } from "@/services/profile";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
@@ -10,9 +10,9 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const profile = await getCurrentUserProfile();
+  const profile = await getCurrentInternalUserProfile();
 
-  if (!profile?.is_active || !canViewFinancials(profile.role)) {
+  if (!profile || !canViewFinancials(profile.role)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 

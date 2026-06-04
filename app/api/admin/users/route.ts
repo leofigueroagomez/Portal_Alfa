@@ -54,7 +54,7 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!alfaRoles.includes(role)) {
+  if (!alfaRoles.includes(role as (typeof alfaRoles)[number])) {
     return NextResponse.json({ error: "Rol invalido" }, { status: 400 });
   }
 
