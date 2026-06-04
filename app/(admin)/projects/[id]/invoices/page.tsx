@@ -30,15 +30,29 @@ import {
   normalizeInvoiceStatus,
   type ProjectInvoice,
 } from "@/lib/invoices";
+import {
+  getPaymentComplementsConfig,
+  type PaymentComplementRecord,
+} from "@/lib/paymentComplements";
 import InvoiceForm from "@/app/(admin)/invoices/InvoiceForm";
 import InvoiceFileLinks from "@/app/(admin)/invoices/InvoiceFileLinks";
 import InvoiceStatusSelect from "@/app/(admin)/invoices/InvoiceStatusSelect";
 import StampInvoiceButton from "@/app/(admin)/invoices/StampInvoiceButton";
+import PaymentComplementPanel from "@/app/(admin)/invoices/PaymentComplementPanel";
+import type { PaymentFormCatalogItem } from "@/lib/paymentTerms";
 
 type ClientProject = {
   id: number;
   client_id: number | null;
   name: string | null;
+};
+
+type ProjectPaymentForComplement = {
+  id: number;
+  payment_date: string | null;
+  payment_method: string | null;
+  payment_reference: string | null;
+  amount_mxn: number | null;
 };
 
 function formatDate(value: string | null | undefined) {
@@ -56,6 +70,7 @@ export default async function ProjectInvoicesPage({
   const allowManualInvoices = canManageUsers(profile?.role);
   const facturamaEnv = getFacturamaEnv();
   const facturamaProductionEnabled = getFacturamaProductionEnabled();
+  const paymentComplementsConfig = getPaymentComplementsConfig();
   const sandboxReceiverNotice = getFacturamaSandboxReceiverNotice();
   const facturamaEnvLabel =
     facturamaEnv === "production" ? "Facturama Producción" : "Facturama Sandbox";
@@ -94,7 +109,15 @@ export default async function ProjectInvoicesPage({
   }
 
   const projectData = project as ClientProject;
-  const [clientResult, invoicesResult, regimesResult, cfdiUsesResult] = await Promise.all([
+  const [
+    clientResult,
+    invoicesResult,
+    regimesResult,
+    cfdiUsesResult,
+    projectPaymentsResult,
+    paymentComplementsResult,
+    paymentFormsResult,
+  ] = await Promise.all([
     projectData.client_id
       ? supabase
           .from("clients")
@@ -118,6 +141,28 @@ export default async function ProjectInvoicesPage({
       .from("cfdi_use_catalog")
       .select("code, name, applies_to_person_type, is_active")
       .order("code"),
+    paymentComplementsConfig.enabled
+      ? supabase
+          .from("project_payments")
+          .select("id, payment_date, payment_method, payment_reference, amount_mxn")
+          .eq("client_project_id", projectData.id)
+          .order("payment_date", { ascending: false })
+      : Promise.resolve({ data: [], error: null }),
+    paymentComplementsConfig.enabled
+      ? supabase
+          .from("project_payment_complements")
+          .select(
+            "id, project_invoice_id, project_payment_id, client_project_id, client_id, status, complement_env, partiality_number, previous_balance_mxn, amount_paid_mxn, outstanding_balance_mxn, payment_date, payment_form_code, currency, exchange_rate, payment_reference, payload_preview, facturama_id, sat_uuid, last_error, created_at"
+          )
+          .eq("client_project_id", projectData.id)
+          .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [], error: null }),
+    paymentComplementsConfig.enabled
+      ? supabase
+          .from("sat_payment_form_catalog")
+          .select("code, name, is_active")
+          .order("code")
+      : Promise.resolve({ data: [], error: null }),
   ]);
 
   const client = clientResult.error ? null : (clientResult.data as FiscalClientData | null);
@@ -128,6 +173,15 @@ export default async function ProjectInvoicesPage({
   const cfdiUses = cfdiUsesResult.error
     ? []
     : ((cfdiUsesResult.data || []) as FiscalCatalogItem[]);
+  const projectPayments = projectPaymentsResult.error
+    ? []
+    : ((projectPaymentsResult.data || []) as ProjectPaymentForComplement[]);
+  const paymentComplements = paymentComplementsResult.error
+    ? []
+    : ((paymentComplementsResult.data || []) as PaymentComplementRecord[]);
+  const paymentForms = paymentFormsResult.error
+    ? []
+    : ((paymentFormsResult.data || []) as PaymentFormCatalogItem[]);
   const billed = invoices
     .filter((invoice) => isInvoicedStatus(invoice.status))
     .reduce((sum, invoice) => sum + getInvoiceTotal(invoice), 0);
@@ -236,63 +290,77 @@ export default async function ProjectInvoicesPage({
             <div className="min-w-[1320px] divide-y divide-[#2A2A30]">
               {invoices.map((invoice) => {
                 const status = normalizeInvoiceStatus(invoice.status);
+                const invoiceComplements = paymentComplements.filter(
+                  (complement) => Number(complement.project_invoice_id) === Number(invoice.id)
+                );
                 return (
-                  <div
-                    key={invoice.id}
-                    className="grid grid-cols-[130px_130px_130px_130px_130px_150px_140px_150px_170px_110px] gap-4 px-5 py-4 text-sm"
-                  >
-                    <div>
-                      <p className="font-semibold text-[#9E1B32]">
-                        {invoice.internal_folio || `FAC-${String(invoice.id).padStart(4, "0")}`}
-                      </p>
-                      <p className="mt-1 text-xs text-[#77777D]">ID #{invoice.id}</p>
-                    </div>
-                    <p>{formatDate(invoice.invoice_date)}</p>
-                    <p>{formatCurrency(getInvoiceSubtotal(invoice), "MXN")}</p>
-                    <p>{formatCurrency(getInvoiceIva(invoice), "MXN")}</p>
-                    <p className="font-semibold">
-                      {formatCurrency(getInvoiceTotal(invoice), "MXN")}
-                    </p>
-                    <div className="space-y-1 text-xs text-[#B3B3B8]">
-                      <p className="font-semibold text-white">
-                        {getInvoicePaymentMethodLabel(invoice)}
-                      </p>
-                      <p>{getInvoicePaymentFormLabel(invoice)}</p>
-                      {invoice.requires_payment_complement ? (
-                        <span className="inline-flex rounded-full border border-[#614620] bg-[#322514] px-2 py-1 text-[#F4C66A]">
-                          Requiere complemento de pago
-                        </span>
-                      ) : null}
-                      {invoice.payment_complement_status === "pending" &&
-                      normalizeInvoiceStatus(invoice.status) === "issued" ? (
-                        <p className="text-[#F4C66A]">
-                          Complemento de pago pendiente.
+                  <div key={invoice.id}>
+                    <div className="grid grid-cols-[130px_130px_130px_130px_130px_150px_140px_150px_170px_110px] gap-4 px-5 py-4 text-sm">
+                      <div>
+                        <p className="font-semibold text-[#9E1B32]">
+                          {invoice.internal_folio || `FAC-${String(invoice.id).padStart(4, "0")}`}
                         </p>
-                      ) : null}
+                        <p className="mt-1 text-xs text-[#77777D]">ID #{invoice.id}</p>
+                      </div>
+                      <p>{formatDate(invoice.invoice_date)}</p>
+                      <p>{formatCurrency(getInvoiceSubtotal(invoice), "MXN")}</p>
+                      <p>{formatCurrency(getInvoiceIva(invoice), "MXN")}</p>
+                      <p className="font-semibold">
+                        {formatCurrency(getInvoiceTotal(invoice), "MXN")}
+                      </p>
+                      <div className="space-y-1 text-xs text-[#B3B3B8]">
+                        <p className="font-semibold text-white">
+                          {getInvoicePaymentMethodLabel(invoice)}
+                        </p>
+                        <p>{getInvoicePaymentFormLabel(invoice)}</p>
+                        {invoice.requires_payment_complement ? (
+                          <span className="inline-flex rounded-full border border-[#614620] bg-[#322514] px-2 py-1 text-[#F4C66A]">
+                            Requiere complemento de pago
+                          </span>
+                        ) : null}
+                        {invoice.payment_complement_status === "pending" &&
+                        normalizeInvoiceStatus(invoice.status) === "issued" ? (
+                          <p className="text-[#F4C66A]">
+                            Complemento de pago pendiente.
+                          </p>
+                        ) : null}
+                      </div>
+                      <span
+                        className={`inline-flex h-fit w-fit rounded-full border px-3 py-1 text-xs ${invoiceStatusClasses[status]}`}
+                      >
+                        {invoiceStatusLabels[status]}
+                      </span>
+                      <InvoiceStatusSelect
+                        invoiceId={invoice.id}
+                        currentStatus={invoice.status}
+                      />
+                      <StampInvoiceButton
+                        invoiceId={invoice.id}
+                        status={invoice.status}
+                        facturamaId={invoice.facturama_id}
+                        client={client}
+                        sandboxNotice={sandboxReceiverNotice}
+                        facturamaEnv={facturamaEnv}
+                        facturamaProductionEnabled={facturamaProductionEnabled}
+                      />
+                      <InvoiceFileLinks
+                        xmlUrl={invoice.xml_url}
+                        pdfUrl={invoice.pdf_url}
+                        satUuid={invoice.sat_uuid}
+                      />
                     </div>
-                    <span
-                      className={`inline-flex h-fit w-fit rounded-full border px-3 py-1 text-xs ${invoiceStatusClasses[status]}`}
-                    >
-                      {invoiceStatusLabels[status]}
-                    </span>
-                    <InvoiceStatusSelect
-                      invoiceId={invoice.id}
-                      currentStatus={invoice.status}
-                    />
-                    <StampInvoiceButton
-                      invoiceId={invoice.id}
-                      status={invoice.status}
-                      facturamaId={invoice.facturama_id}
-                      client={client}
-                      sandboxNotice={sandboxReceiverNotice}
-                      facturamaEnv={facturamaEnv}
-                      facturamaProductionEnabled={facturamaProductionEnabled}
-                    />
-                    <InvoiceFileLinks
-                      xmlUrl={invoice.xml_url}
-                      pdfUrl={invoice.pdf_url}
-                      satUuid={invoice.sat_uuid}
-                    />
+                    {paymentComplementsConfig.enabled ? (
+                      <div className="px-5 pb-5">
+                        <PaymentComplementPanel
+                          invoice={invoice}
+                          payments={projectPayments}
+                          complements={invoiceComplements}
+                          paymentForms={paymentForms}
+                          stampingEnabled={paymentComplementsConfig.stampingEnabled}
+                          complementEnv={paymentComplementsConfig.env}
+                        />
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}
