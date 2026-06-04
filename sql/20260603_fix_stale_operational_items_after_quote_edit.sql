@@ -44,10 +44,12 @@ stale_operational_items as (
     on current_items.client_project_id = poi.client_project_id
    and current_items.quote_item_id = poi.source_quote_item_id
   where q.status = 'approved'
-    and poi.source_quote_item_id is not null
     and poi.change_origin = 'quote_seed'
     and poi.status not in ('purchased', 'partially_purchased', 'delivered', 'deleted')
-    and current_items.quote_item_id is null
+    and (
+      poi.source_quote_item_id is null
+      or current_items.quote_item_id is null
+    )
 )
 update public.project_operational_items poi
 set

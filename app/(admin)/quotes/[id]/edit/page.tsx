@@ -1096,6 +1096,25 @@ export default function EditQuotePage() {
       return;
     }
 
+    if (quote.status === "approved" && selectedClientProjectId) {
+      const { error: markOperationalItemsError } = await supabase
+        .from("project_operational_items")
+        .update({
+          status: "deleted",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("client_project_id", Number(selectedClientProjectId))
+        .eq("source_quote_id", quoteId)
+        .eq("change_origin", "quote_seed")
+        .not("status", "in", "(purchased,partially_purchased,delivered)");
+
+      if (markOperationalItemsError) {
+        reportStepError("marcar base operativa anterior", markOperationalItemsError);
+        setSavingQuote(false);
+        return;
+      }
+    }
+
     const { error: deleteItemsError } = await supabase
       .from("quote_items")
       .delete()
