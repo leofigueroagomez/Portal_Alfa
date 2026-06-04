@@ -246,12 +246,6 @@ export function buildFiscalDocumentEmailTemplate(input: {
         input.customMessage
       ).replaceAll("\n", "<br />")}</p>`
     : "";
-  const portalButton = input.portalUrl
-    ? `<p style="margin:24px 0;"><a href="${escapeHtml(
-        input.portalUrl
-      )}" style="display:inline-block; background:#9E1B32; color:#ffffff; text-decoration:none; padding:12px 18px; border-radius:999px; font-size:14px; font-weight:bold;">Entrar al portal</a></p>`
-    : "";
-
   return `<!DOCTYPE html>
 <html lang="es">
   <body style="margin:0; padding:0; background:#f4f6f8; font-family:Arial, Helvetica, sans-serif; color:#1f2937;">
@@ -292,7 +286,6 @@ export function buildFiscalDocumentEmailTemplate(input: {
                     </td>
                   </tr>
                 </table>
-                ${portalButton}
                 <p style="font-size:15px; line-height:1.7; margin:24px 0 0;">Quedamos atentos a cualquier duda o comentario.</p>
                 <p style="font-size:15px; line-height:1.7; margin:16px 0 0;">Con aprecio,<br /><strong>Equipo ALFA IT</strong></p>
               </td>
