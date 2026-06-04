@@ -5,6 +5,9 @@ import { Code2, FileText, History, Mail, Send, X } from "lucide-react";
 
 type InvoiceFileLinksProps = {
   invoiceId?: number;
+  documentType?: "invoice" | "payment_complement";
+  documentId?: number;
+  documentLabel?: string;
   folio?: string | null;
   clientName?: string | null;
   billingEmail?: string | null;
@@ -13,12 +16,14 @@ type InvoiceFileLinksProps = {
   satUuid?: string | null;
   facturamaId?: string | null;
   status?: string | null;
-  emailLogs?: InvoiceEmailLog[];
+  emailLogs?: FiscalDocumentEmailLog[];
 };
 
-export type InvoiceEmailLog = {
+export type FiscalDocumentEmailLog = {
   id: number;
-  invoice_id: number;
+  document_type: string;
+  document_id: number;
+  document_uuid: string | null;
   to_email: string;
   cc_email: string | null;
   subject: string | null;
@@ -32,6 +37,9 @@ export type InvoiceEmailLog = {
 
 export default function InvoiceFileLinks({
   invoiceId,
+  documentType = "invoice",
+  documentId,
+  documentLabel,
   folio,
   clientName,
   billingEmail,
@@ -46,15 +54,22 @@ export default function InvoiceFileLinks({
   const [toEmail, setToEmail] = useState(billingEmail || "");
   const [ccEmail, setCcEmail] = useState("");
   const [message, setMessage] = useState("");
+  const [subject, setSubject] = useState(
+    `${documentLabel || "Factura"} ${folio || invoiceId || documentId || ""} - ALFA IT`
+  );
+  const [previewHtml, setPreviewHtml] = useState("");
   const [result, setResult] = useState<{
     ok: boolean;
     message: string;
   } | null>(null);
   const [logs, setLogs] = useState(emailLogs);
   const [pending, startTransition] = useTransition();
+  const effectiveDocumentId = documentId || invoiceId;
+  const effectiveDocumentLabel =
+    documentLabel || (documentType === "payment_complement" ? "Complemento de pago" : "Factura");
   const canSend =
-    Boolean(invoiceId) &&
-    (status === "issued" || status === "paid") &&
+    Boolean(effectiveDocumentId) &&
+    (status === "issued" || status === "paid" || status === "stamped") &&
     Boolean(pdfUrl) &&
     Boolean(xmlUrl) &&
     Boolean(satUuid) &&
@@ -62,58 +77,93 @@ export default function InvoiceFileLinks({
 
   if (!xmlUrl && !pdfUrl && !satUuid && !facturamaId) return null;
 
-  function sendEmail() {
-    if (!invoiceId) return;
+  function openModal() {
+    setOpen(true);
+    loadPreview();
+  }
+
+  function loadPreview(nextMessage = message, nextSubject = subject) {
+    if (!effectiveDocumentId) return;
 
     setResult(null);
     startTransition(async () => {
       try {
-        const response = await fetch(`/api/invoices/${invoiceId}/send-email`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            to: toEmail,
-            cc: ccEmail,
-            message,
-          }),
+        const params = new URLSearchParams();
+        if (nextMessage) params.set("message", nextMessage);
+        if (nextSubject) params.set("subject", nextSubject);
+        const response = await fetch(
+          `/api/fiscal-documents/${documentType}/${effectiveDocumentId}/email-preview?${params.toString()}`
+        );
+        const body = (await response.json().catch(() => ({}))) as {
+          error?: string;
+          html?: string;
+          subject?: string;
+        };
+
+        if (!response.ok || !body.html) {
+          throw new Error(body.error || "No se pudo generar la previsualizacion.");
+        }
+
+        setPreviewHtml(body.html);
+        if (body.subject) setSubject(body.subject);
+      } catch (error) {
+        setResult({
+          ok: false,
+          message:
+            error instanceof Error
+              ? error.message
+              : "No se pudo generar la previsualizacion.",
         });
+      }
+    });
+  }
+
+  function sendEmail() {
+    if (!effectiveDocumentId) return;
+
+    setResult(null);
+    startTransition(async () => {
+      try {
+        const response = await fetch(
+          `/api/fiscal-documents/${documentType}/${effectiveDocumentId}/send-email`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ to: toEmail, cc: ccEmail, subject, message }),
+          }
+        );
         const body = (await response.json().catch(() => ({}))) as {
           ok?: boolean;
           error?: string;
-          warning?: string;
           resendEmailId?: string | null;
         };
-
         if (!response.ok || !body.ok) {
-          throw new Error(body.error || "No se pudo enviar la factura.");
+          throw new Error(body.error || "No se pudo enviar el correo.");
         }
-
         const now = new Date().toISOString();
         setLogs((current) => [
           {
             id: Date.now(),
-            invoice_id: invoiceId,
+            document_type: documentType,
+            document_id: effectiveDocumentId,
+            document_uuid: satUuid || null,
             to_email: toEmail,
             cc_email: ccEmail || null,
-            subject: `Factura ${folio || invoiceId} - ALFA IT`,
+            subject,
             message: message || null,
             status: "sent",
             resend_email_id: body.resendEmailId || null,
-            error_message: body.warning || null,
+            error_message: null,
             sent_at: now,
             created_at: now,
           },
           ...current,
         ]);
-        setResult({
-          ok: true,
-          message: body.warning || "Factura enviada correctamente.",
-        });
+        setResult({ ok: true, message: "Correo enviado correctamente." });
       } catch (error) {
         setResult({
           ok: false,
-          message:
-            error instanceof Error ? error.message : "No se pudo enviar la factura.",
+          message: error instanceof Error ? error.message : "No se pudo enviar el correo.",
         });
       }
     });
@@ -159,7 +209,7 @@ export default function InvoiceFileLinks({
         {canSend ? (
           <button
             type="button"
-            onClick={() => setOpen(true)}
+            onClick={openModal}
             className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#2A2A30] text-[#B3B3B8] hover:border-[#9E1B32] hover:text-white"
             title="Enviar por correo"
             aria-label="Enviar por correo"
@@ -179,7 +229,7 @@ export default function InvoiceFileLinks({
       {logs.length > 0 ? (
         <button
           type="button"
-          onClick={() => setOpen(true)}
+          onClick={openModal}
           className="inline-flex items-center gap-1 text-xs text-[#B3B3B8] hover:text-white"
         >
           <History size={13} />
@@ -191,9 +241,10 @@ export default function InvoiceFileLinks({
           <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-[#2A2A30] bg-[#151518] p-5 text-white shadow-2xl">
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-2xl font-semibold">Enviar factura</h3>
+                <h3 className="text-2xl font-semibold">Enviar por correo</h3>
                 <p className="mt-1 text-sm text-[#B3B3B8]">
-                  {folio || `Factura #${invoiceId}`} / {clientName || "Cliente"}
+                  {folio || `${effectiveDocumentLabel} #${effectiveDocumentId}`} /{" "}
+                  {clientName || "Cliente"}
                 </p>
               </div>
               <button
@@ -213,6 +264,17 @@ export default function InvoiceFileLinks({
             </div>
 
             <div className="grid grid-cols-1 gap-4">
+              <label className="space-y-2">
+                <span className="text-sm text-[#B3B3B8]">Asunto</span>
+                <input
+                  value={subject}
+                  onChange={(event) => {
+                    setSubject(event.target.value);
+                    loadPreview(message, event.target.value);
+                  }}
+                  className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none"
+                />
+              </label>
               <label className="space-y-2">
                 <span className="text-sm text-[#B3B3B8]">Correo destino</span>
                 <input
@@ -237,7 +299,10 @@ export default function InvoiceFileLinks({
                 <span className="text-sm text-[#B3B3B8]">Mensaje opcional</span>
                 <textarea
                   value={message}
-                  onChange={(event) => setMessage(event.target.value)}
+                  onChange={(event) => {
+                    setMessage(event.target.value);
+                    loadPreview(event.target.value, subject);
+                  }}
                   className="min-h-24 w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none"
                   placeholder="Mensaje adicional para el cliente."
                 />
@@ -247,6 +312,21 @@ export default function InvoiceFileLinks({
             <div className="mt-5 rounded-xl border border-[#2A2A30] bg-[#101114] p-4 text-sm text-[#B3B3B8]">
               <p className="font-semibold text-white">Adjuntos</p>
               <p className="mt-2">PDF + XML existentes de la factura timbrada.</p>
+            </div>
+
+            <div className="mt-5 rounded-xl border border-[#2A2A30] bg-[#101114] p-4">
+              <p className="mb-3 font-semibold text-white">Previsualizacion del correo</p>
+              <div className="max-h-96 overflow-auto rounded-lg bg-white p-3">
+                {previewHtml ? (
+                  <iframe
+                    title="Previsualizacion del correo"
+                    srcDoc={previewHtml}
+                    className="h-[520px] w-full rounded border-0 bg-white"
+                  />
+                ) : (
+                  <p className="text-sm text-[#77777D]">Generando previsualizacion...</p>
+                )}
+              </div>
             </div>
 
             {result ? (
@@ -299,7 +379,7 @@ export default function InvoiceFileLinks({
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#9E1B32] px-5 py-3 font-semibold hover:bg-[#B91C3C] disabled:bg-[#222228] disabled:text-[#77777D]"
               >
                 <Send size={16} />
-                {pending ? "Enviando..." : "Enviar factura"}
+                {pending ? "Enviando..." : "Enviar correo"}
               </button>
             </div>
           </div>

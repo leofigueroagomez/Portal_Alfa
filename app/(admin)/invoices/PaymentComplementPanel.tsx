@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { FileJson, Plus, X } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
+import InvoiceFileLinks, { type FiscalDocumentEmailLog } from "./InvoiceFileLinks";
 import type { PaymentFormCatalogItem } from "@/lib/paymentTerms";
 import {
   createPaymentComplementDraft,
@@ -58,8 +59,11 @@ type PaymentComplementForPanel = {
 
 type Props = {
   invoice: InvoiceForComplement;
+  clientName?: string | null;
+  billingEmail?: string | null;
   payments: ProjectPaymentForComplement[];
   complements: PaymentComplementForPanel[];
+  emailLogsByComplementId?: Map<number, FiscalDocumentEmailLog[]>;
   paymentForms: PaymentFormCatalogItem[];
   stampingEnabled: boolean;
   complementEnv: "sandbox" | "production";
@@ -87,8 +91,11 @@ function formatDateTime(value: string | null | undefined) {
 
 export default function PaymentComplementPanel({
   invoice,
+  clientName,
+  billingEmail,
   payments,
   complements,
+  emailLogsByComplementId,
   paymentForms,
   stampingEnabled,
   complementEnv,
@@ -366,6 +373,22 @@ export default function PaymentComplementPanel({
                       >
                         XML
                       </a>
+                      <InvoiceFileLinks
+                        documentType="payment_complement"
+                        documentId={complement.id}
+                        documentLabel="Complemento de pago"
+                        folio={`${invoice.internal_folio || `FAC-${invoice.id}`}-P${
+                          complement.partiality_number || complement.id
+                        }`}
+                        clientName={clientName}
+                        billingEmail={billingEmail}
+                        xmlUrl={complement.xml_url}
+                        pdfUrl={complement.pdf_url}
+                        satUuid={complement.sat_uuid}
+                        facturamaId={complement.facturama_id}
+                        status={complement.status}
+                        emailLogs={emailLogsByComplementId?.get(complement.id) || []}
+                      />
                     </>
                   ) : null}
                 </div>

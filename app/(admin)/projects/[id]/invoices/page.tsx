@@ -36,7 +36,7 @@ import {
 } from "@/lib/paymentComplements";
 import InvoiceForm from "@/app/(admin)/invoices/InvoiceForm";
 import InvoiceFileLinks, {
-  type InvoiceEmailLog,
+  type FiscalDocumentEmailLog,
 } from "@/app/(admin)/invoices/InvoiceFileLinks";
 import InvoiceStatusSelect from "@/app/(admin)/invoices/InvoiceStatusSelect";
 import StampInvoiceButton from "@/app/(admin)/invoices/StampInvoiceButton";
@@ -174,8 +174,8 @@ export default async function ProjectInvoicesPage({
           .order("code")
       : Promise.resolve({ data: [], error: null }),
     supabase
-      .from("invoice_email_logs")
-      .select("id, invoice_id, to_email, cc_email, subject, message, status, resend_email_id, error_message, sent_at, created_at")
+      .from("fiscal_document_email_logs")
+      .select("id, document_type, document_id, document_uuid, to_email, cc_email, subject, message, status, resend_email_id, error_message, sent_at, created_at")
       .order("created_at", { ascending: false }),
   ]);
 
@@ -227,12 +227,19 @@ export default async function ProjectInvoicesPage({
     : ((paymentFormsResult.data || []) as PaymentFormCatalogItem[]);
   const invoiceEmailLogs = invoiceEmailLogsResult.error
     ? []
-    : ((invoiceEmailLogsResult.data || []) as InvoiceEmailLog[]);
-  const emailLogsByInvoice = new Map<number, InvoiceEmailLog[]>();
+    : ((invoiceEmailLogsResult.data || []) as FiscalDocumentEmailLog[]);
+  const emailLogsByInvoice = new Map<number, FiscalDocumentEmailLog[]>();
+  const emailLogsByPaymentComplement = new Map<number, FiscalDocumentEmailLog[]>();
   for (const log of invoiceEmailLogs) {
-    const current = emailLogsByInvoice.get(Number(log.invoice_id)) || [];
-    current.push(log);
-    emailLogsByInvoice.set(Number(log.invoice_id), current);
+    if (log.document_type === "payment_complement") {
+      const current = emailLogsByPaymentComplement.get(Number(log.document_id)) || [];
+      current.push(log);
+      emailLogsByPaymentComplement.set(Number(log.document_id), current);
+    } else {
+      const current = emailLogsByInvoice.get(Number(log.document_id)) || [];
+      current.push(log);
+      emailLogsByInvoice.set(Number(log.document_id), current);
+    }
   }
   const billed = invoices
     .filter((invoice) => isInvoicedStatus(invoice.status))
@@ -397,6 +404,9 @@ export default async function ProjectInvoicesPage({
                       />
                       <InvoiceFileLinks
                         invoiceId={invoice.id}
+                        documentType="invoice"
+                        documentId={invoice.id}
+                        documentLabel="Factura"
                         folio={invoice.internal_folio}
                         clientName={client?.name || client?.tax_business_name || null}
                         billingEmail={client?.billing_email || null}
@@ -412,8 +422,11 @@ export default async function ProjectInvoicesPage({
                       <div className="px-5 pb-5">
                         <PaymentComplementPanel
                           invoice={invoice}
+                          clientName={client?.name || client?.tax_business_name || null}
+                          billingEmail={client?.billing_email || null}
                           payments={projectPayments}
                           complements={invoiceComplements}
+                          emailLogsByComplementId={emailLogsByPaymentComplement}
                           paymentForms={paymentForms}
                           stampingEnabled={paymentComplementsConfig.stampingEnabled}
                           complementEnv={paymentComplementsConfig.env}

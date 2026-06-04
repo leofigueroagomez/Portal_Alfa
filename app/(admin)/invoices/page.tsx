@@ -26,7 +26,7 @@ import {
 import type { FiscalClientData } from "@/lib/fiscalData";
 import { satBillingProviders } from "@/lib/satBillingProviders";
 import InvoiceForm from "./InvoiceForm";
-import InvoiceFileLinks, { type InvoiceEmailLog } from "./InvoiceFileLinks";
+import InvoiceFileLinks, { type FiscalDocumentEmailLog } from "./InvoiceFileLinks";
 import InvoiceStatusSelect from "./InvoiceStatusSelect";
 import StampInvoiceButton from "./StampInvoiceButton";
 
@@ -102,8 +102,9 @@ export default async function InvoicesPage() {
       .select("id, client_project_id, total_mxn, grand_total")
       .eq("status", "approved"),
     supabase
-      .from("invoice_email_logs")
-      .select("id, invoice_id, to_email, cc_email, subject, message, status, resend_email_id, error_message, sent_at, created_at")
+      .from("fiscal_document_email_logs")
+      .select("id, document_type, document_id, document_uuid, to_email, cc_email, subject, message, status, resend_email_id, error_message, sent_at, created_at")
+      .eq("document_type", "invoice")
       .order("created_at", { ascending: false }),
   ]);
 
@@ -123,12 +124,12 @@ export default async function InvoicesPage() {
   const quotes = quotesResult.error ? [] : ((quotesResult.data || []) as Quote[]);
   const invoiceEmailLogs = invoiceEmailLogsResult.error
     ? []
-    : ((invoiceEmailLogsResult.data || []) as InvoiceEmailLog[]);
-  const emailLogsByInvoice = new Map<number, InvoiceEmailLog[]>();
+    : ((invoiceEmailLogsResult.data || []) as FiscalDocumentEmailLog[]);
+  const emailLogsByInvoice = new Map<number, FiscalDocumentEmailLog[]>();
   for (const log of invoiceEmailLogs) {
-    const current = emailLogsByInvoice.get(Number(log.invoice_id)) || [];
+    const current = emailLogsByInvoice.get(Number(log.document_id)) || [];
     current.push(log);
-    emailLogsByInvoice.set(Number(log.invoice_id), current);
+    emailLogsByInvoice.set(Number(log.document_id), current);
   }
   const { start, end } = getCurrentMonthRange();
 
@@ -337,6 +338,9 @@ export default async function InvoicesPage() {
                     />
                     <InvoiceFileLinks
                       invoiceId={invoice.id}
+                      documentType="invoice"
+                      documentId={invoice.id}
+                      documentLabel="Factura"
                       folio={invoice.internal_folio}
                       clientName={client?.name || client?.tax_business_name || null}
                       billingEmail={client?.billing_email || null}
