@@ -699,6 +699,10 @@ export function WarrantyLetterPdfDocument({
               Cualquier solicitud de garantia debera reportarse al correo {supportEmail},
               indicando cliente, proyecto, descripcion de la falla, evidencia fotografica
               o en video y datos de contacto para coordinacion de revision tecnica.
+
+              La gestión de garantía por parte de ALFA IT estará incluida únicamente durante el primer año contado a partir de la fecha de entrega.
+              Al no existir una poliza de mantenimiento vigente, las visitas tecnicas y mano de obra requeridas para la gestion posterior al primer año seran cobradas
+              conforme a las tarifas vigentes de ALFA IT.
             </Text>
           </View>
 
