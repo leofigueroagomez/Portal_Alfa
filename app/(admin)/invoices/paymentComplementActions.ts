@@ -53,6 +53,7 @@ export type StampPaymentComplementResult =
   | {
       ok: false;
       error: string;
+      details: unknown;
     };
 
 function getFormString(formData: FormData, key: string) {
@@ -466,13 +467,14 @@ export async function stampPaymentComplementDraft(
     };
   } catch (error) {
     const message = getActionErrorMessage(error);
+    const details = getStampErrorDetails(error);
 
     if (supabase && complementId) {
       await supabase
         .from("project_payment_complements")
         .update({
           last_error: message,
-          facturama_response: getStampErrorDetails(error),
+          facturama_response: details,
           updated_at: new Date().toISOString(),
         })
         .eq("id", complementId)
@@ -487,6 +489,7 @@ export async function stampPaymentComplementDraft(
     return {
       ok: false,
       error: message,
+      details,
     };
   }
 }

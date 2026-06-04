@@ -49,6 +49,7 @@ export type FacturamaPaymentComplementPayload = {
   CfdiType: "P";
   ExpeditionPlace: string;
   Receiver: Record<string, unknown>;
+  PreviewNotice?: string;
   Complemento: {
     Payments: Array<Record<string, unknown>>;
   };
@@ -381,17 +382,42 @@ function buildFacturamaRequestLog(payload: FacturamaInvoicePayload) {
   };
 }
 
-function buildPaymentComplementRequestLog(payload: FacturamaPaymentComplementPayload) {
+function buildPaymentComplementRequestLog(
+  payload: FacturamaPaymentComplementPayload,
+  env: FacturamaEnv
+) {
   const payment = payload.Complemento.Payments[0] || {};
   const relatedDocuments = Array.isArray(payment.RelatedDocuments)
     ? payment.RelatedDocuments
     : [];
+  const relatedDocument = (relatedDocuments[0] || {}) as Record<string, unknown>;
+  const receiverSource = payload.PreviewNotice ? "sandbox" : "real";
 
   return {
-    Receiver: payload.Receiver,
+    PAYMENT_COMPLEMENTS_ENV: env,
+    ReceiverSource: receiverSource,
+    UsesSandboxReceiver: receiverSource === "sandbox",
+    SandboxNotice: payload.PreviewNotice || null,
     CfdiType: payload.CfdiType,
-    PaymentAmount: payment.Amount,
-    PaymentForm: payment.PaymentForm,
+    Receiver: {
+      Rfc: payload.Receiver.Rfc,
+      Name: payload.Receiver.Name,
+      CfdiUse: payload.Receiver.CfdiUse,
+    },
+    Payment: {
+      Date: payment.Date,
+      Amount: payment.Amount,
+      PaymentForm: payment.PaymentForm,
+    },
+    RelatedDocuments: [
+      {
+        Uuid: relatedDocument.Uuid,
+        PartialityNumber: relatedDocument.PartialityNumber,
+        PreviousBalanceAmount: relatedDocument.PreviousBalanceAmount,
+        AmountPaid: relatedDocument.AmountPaid,
+        OutstandingBalanceAmount: relatedDocument.OutstandingBalanceAmount,
+      },
+    ],
     RelatedDocumentsCount: relatedDocuments.length,
   };
 }
@@ -457,7 +483,7 @@ export async function stampPaymentComplement(
       method: "POST",
       body: JSON.stringify(payload),
     },
-    buildPaymentComplementRequestLog(payload),
+    buildPaymentComplementRequestLog(payload, env),
     env
   );
   const facturamaId = response.data.Id;

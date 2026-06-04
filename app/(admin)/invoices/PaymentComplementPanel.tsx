@@ -49,6 +49,7 @@ type PaymentComplementForPanel = {
   pdf_url?: string | null;
   xml_url?: string | null;
   last_error?: string | null;
+  facturama_response?: unknown;
 };
 
 type Props = {
@@ -292,7 +293,13 @@ export default function PaymentComplementPanel({
                 ) : null}
                 {complement.last_error ? (
                   <div className="mt-3 rounded-lg border border-[#6A2A2A] bg-[#351818] p-3 text-[#FFB4B4]">
-                    {complement.last_error}
+                    <p className="font-semibold">Error Facturama</p>
+                    <p className="mt-1">{complement.last_error}</p>
+                    {complement.facturama_response ? (
+                      <pre className="mt-3 max-h-80 overflow-auto rounded-lg bg-black/30 p-3 text-xs text-white">
+                        {JSON.stringify(complement.facturama_response, null, 2)}
+                      </pre>
+                    ) : null}
                   </div>
                 ) : null}
                 {payloadOpenId === complement.id ? (
@@ -544,7 +551,16 @@ function StampResultMessage({ result }: { result: StampPaymentComplementResult }
           : "border-[#6A2A2A] bg-[#351818] text-[#FFB4B4]"
       }`}
     >
-      {result.ok ? `Complemento timbrado: ${result.facturamaId}` : result.error}
+      {result.ok ? (
+        `Complemento timbrado: ${result.facturamaId}`
+      ) : (
+        <>
+          <p className="font-semibold">{result.error}</p>
+          <pre className="mt-3 max-h-80 overflow-auto rounded-lg bg-black/30 p-3 text-xs text-white">
+            {JSON.stringify(result.details, null, 2)}
+          </pre>
+        </>
+      )}
     </div>
   );
 }
