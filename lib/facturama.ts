@@ -1,3 +1,5 @@
+import { sanitizeCfdiDescription } from "@/lib/cfdiDescription";
+
 type FacturamaEnv = "sandbox" | "production";
 
 type FacturamaReceiver = {
@@ -303,7 +305,7 @@ function buildInvoicePayload(draft: FacturamaInvoiceDraft) {
         ProductCode: item.productCode,
         UnitCode: item.unitCode,
         Unit: item.unit,
-        Description: item.description.slice(0, 1000),
+        Description: sanitizeCfdiDescription(item.description),
         UnitPrice: amount(item.unitPriceMxn),
         Subtotal: amount(item.subtotalMxn),
         ...(discount > 0 ? { Discount: discount } : {}),

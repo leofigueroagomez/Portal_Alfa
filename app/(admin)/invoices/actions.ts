@@ -10,6 +10,10 @@ import {
   type FacturamaSandboxReceiver,
 } from "@/lib/facturama";
 import {
+  sanitizeCfdiDescription,
+  validateCfdiDescription,
+} from "@/lib/cfdiDescription";
+import {
   formatMissingFiscalFields,
   getClientPersonType,
   getCfdiUseCode,
@@ -178,6 +182,33 @@ function buildReceiverDiagnostic(receiver: {
     FiscalRegime: receiver.fiscalRegime.trim(),
     TaxZipCode: receiver.taxZipCode.trim(),
   };
+}
+
+function getInvoiceItemLabel(item: InvoiceItemForStamping) {
+  const currentDescription = String(item.description || "").trim();
+  return currentDescription
+    ? currentDescription.slice(0, 160)
+    : `Concepto #${item.id}`;
+}
+
+function getCfdiDescriptionError(item: InvoiceItemForStamping) {
+  const validation = validateCfdiDescription(item.description);
+  if (validation.ok) return null;
+
+  const itemLabel = getInvoiceItemLabel(item);
+  if (validation.forbiddenCharacters.length > 0) {
+    return `El concepto ${itemLabel} contiene caracteres no permitidos: ${validation.forbiddenCharacters.join(
+      " "
+    )}`;
+  }
+  if (validation.isEmpty) {
+    return `El concepto ${itemLabel} no tiene descripcion CFDI.`;
+  }
+  if (validation.isTooLong) {
+    return `El concepto ${itemLabel} supera 1000 caracteres en descripcion CFDI.`;
+  }
+
+  return `El concepto ${itemLabel} contiene caracteres de control no permitidos.`;
 }
 
 function getCorporateRegimeNameError(name: string, rfcDiagnostic: RfcDiagnostic) {
@@ -505,6 +536,14 @@ export async function stampProjectInvoice(
       throw new Error("La factura no tiene conceptos fiscales.");
     }
 
+    const cfdiDescriptionErrors = invoiceItems
+      .map(getCfdiDescriptionError)
+      .filter(Boolean);
+
+    if (cfdiDescriptionErrors.length > 0) {
+      throw new Error(cfdiDescriptionErrors.join(" | "));
+    }
+
     const itemGrossTotal = invoiceItems.reduce(
       (sum, item) => sum + Number(item.gross_amount_mxn ?? item.subtotal_mxn ?? 0),
       0
@@ -598,7 +637,7 @@ export async function stampProjectInvoice(
       );
 
       return missing.length > 0
-        ? [`${item.description || `Concepto #${item.id}`}: ${missing.join(", ")}`]
+        ? [`${getInvoiceItemLabel(item)}: ${missing.join(", ")}`]
         : [];
     });
 
@@ -626,7 +665,7 @@ export async function stampProjectInvoice(
         productCode: item.sat_product_service_code!,
         unitCode: item.sat_unit_code!,
         unit: item.sat_unit_name!,
-        description: item.description || "Concepto ALFA",
+        description: sanitizeCfdiDescription(item.description),
         quantity: Number(item.quantity || 1),
         unitPriceMxn: Number(item.unit_price_mxn || 0),
         subtotalMxn: Number(item.gross_amount_mxn ?? item.subtotal_mxn ?? 0),

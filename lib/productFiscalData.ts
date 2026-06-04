@@ -27,6 +27,7 @@ export type ProductFiscalData = {
   sat_product_key?: string | null;
   sat_unit_key?: string | null;
   unit_name?: string | null;
+  fiscal_description?: string | null;
 };
 
 export type ProductFiscalCatalogs = {

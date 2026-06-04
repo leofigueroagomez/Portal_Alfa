@@ -31,6 +31,11 @@ import {
   type PaymentFormCatalogItem,
   type PaymentMethodCode,
 } from "@/lib/paymentTerms";
+import {
+  CFDI_DESCRIPTION_MAX_LENGTH,
+  sanitizeCfdiDescription,
+  validateCfdiDescription,
+} from "@/lib/cfdiDescription";
 import { supabase } from "@/services/supabase";
 
 type Project = {
@@ -84,6 +89,7 @@ type QuoteItem = {
 type InvoiceConcept = {
   source_quote_item_id: number | null;
   product_id: number | null;
+  commercial_description: string;
   description: string;
   quantity: number;
   unit_price_mxn: number;
@@ -161,6 +167,10 @@ function getProductDescription(item: QuoteItem) {
     .trim() || `Partida de cotizacion #${item.id}`;
 }
 
+function getConceptKey(concept: Pick<InvoiceConcept, "source_quote_item_id" | "sort_order">) {
+  return String(concept.source_quote_item_id ?? `manual-${concept.sort_order}`);
+}
+
 const sourceOptions: { value: InvoiceSourceType; label: string; enabled: boolean }[] = [
   { value: "quote", label: "Cotizacion aprobada completa", enabled: true },
   { value: "advance", label: "Anticipo", enabled: false },
@@ -199,6 +209,10 @@ export default function InvoiceForm({
   const [fiscalModalOpen, setFiscalModalOpen] = useState(false);
   const [fiscalModalIntro, setFiscalModalIntro] = useState<string | null>(null);
   const [productModalOpen, setProductModalOpen] = useState(false);
+  const [cfdiDescriptionModalOpen, setCfdiDescriptionModalOpen] = useState(false);
+  const [descriptionOverrides, setDescriptionOverrides] = useState<Record<string, string>>(
+    {}
+  );
 
   const availableProjects = useMemo(() => {
     if (!clientId) return projects;
@@ -239,11 +253,18 @@ export default function InvoiceForm({
       distributedDiscount = roundMoney(distributedDiscount + discount);
       const netAmount = roundMoney(Math.max(grossAmount - discount, 0));
       const iva = roundMoney(netAmount * 0.16);
+      const commercialDescription = getProductDescription(item);
+      const conceptKey = String(item.id);
+      const fiscalDescription =
+        descriptionOverrides[conceptKey] ??
+        product?.fiscal_description?.trim() ??
+        commercialDescription;
 
       return {
         source_quote_item_id: item.id,
         product_id: item.product_id,
-        description: getProductDescription(item),
+        commercial_description: commercialDescription,
+        description: fiscalDescription,
         quantity,
         unit_price_mxn: roundMoney(grossAmount / quantity),
         subtotal_mxn: grossAmount,
@@ -259,7 +280,18 @@ export default function InvoiceForm({
         sort_order: Number(item.sort_order ?? index),
       };
     });
-  }, [quoteItems, selectedQuote, sourceType]);
+  }, [descriptionOverrides, quoteItems, selectedQuote, sourceType]);
+
+  const invalidCfdiDescriptions = useMemo(
+    () =>
+      concepts
+        .map((concept) => ({
+          concept,
+          validation: validateCfdiDescription(concept.description),
+        }))
+        .filter((item) => !item.validation.ok),
+    [concepts]
+  );
 
   const quoteMissingProducts = useMemo(() => {
     const byId = new Map<number, ProductFiscalData & { missing: string[] }>();
@@ -365,6 +397,7 @@ export default function InvoiceForm({
       setApprovedQuotes([]);
       setQuoteItems([]);
       setQuoteId("");
+      setDescriptionOverrides({});
 
       if (!projectId) return;
 
@@ -391,12 +424,13 @@ export default function InvoiceForm({
   useEffect(() => {
     async function loadQuoteItems() {
       setQuoteItems([]);
+      setDescriptionOverrides({});
       if (!quoteId || sourceType !== "quote") return;
 
       const { data, error } = await supabase
         .from("quote_items")
         .select(
-          "id, product_id, quantity, unit_equipment_price_usd, unit_equipment_price, unit_labor_price, equipment_total_usd, equipment_total, labor_total, line_total, product_brand, product_model, product_name, sort_order, products(id, name, sat_product_service_code, sat_unit_code, sat_unit_name, fiscal_object, sat_product_key, sat_unit_key, unit_name)"
+          "id, product_id, quantity, unit_equipment_price_usd, unit_equipment_price, unit_labor_price, equipment_total_usd, equipment_total, labor_total, line_total, product_brand, product_model, product_name, sort_order, products(id, name, sat_product_service_code, sat_unit_code, sat_unit_name, fiscal_object, sat_product_key, sat_unit_key, unit_name, fiscal_description)"
         )
         .eq("quote_id", quoteId)
         .order("sort_order", { ascending: true });
@@ -445,6 +479,57 @@ export default function InvoiceForm({
       })
     );
     setErrorMessage(null);
+  }
+
+  function updateCfdiDescription(concept: InvoiceConcept, description: string) {
+    setDescriptionOverrides((current) => ({
+      ...current,
+      [getConceptKey(concept)]: description,
+    }));
+    setErrorMessage(null);
+  }
+
+  function sanitizeConceptDescription(concept: InvoiceConcept) {
+    updateCfdiDescription(concept, sanitizeCfdiDescription(concept.description));
+  }
+
+  async function saveProductFiscalDescriptions() {
+    const byProduct = new Map<number, string>();
+    const byQuoteItem = new Map<number, string>();
+
+    for (const concept of concepts) {
+      const fiscalDescription = sanitizeCfdiDescription(concept.description);
+      if (concept.product_id) byProduct.set(concept.product_id, fiscalDescription);
+      if (concept.source_quote_item_id) {
+        byQuoteItem.set(concept.source_quote_item_id, fiscalDescription);
+      }
+    }
+
+    for (const [productId, fiscalDescription] of byProduct) {
+      const { error } = await supabase
+        .from("products")
+        .update({ fiscal_description: fiscalDescription })
+        .eq("id", productId);
+
+      if (error) {
+        throw new Error(
+          `Error guardando descripcion CFDI del producto #${productId}: ${error.message}`
+        );
+      }
+    }
+
+    for (const [quoteItemId, fiscalDescription] of byQuoteItem) {
+      const { error } = await supabase
+        .from("quote_items")
+        .update({ invoice_description_snapshot: fiscalDescription })
+        .eq("id", quoteItemId);
+
+      if (error) {
+        throw new Error(
+          `Error guardando snapshot CFDI de partida #${quoteItemId}: ${error.message}`
+        );
+      }
+    }
   }
 
   async function isActiveCatalogCode(endpoint: string, code: string) {
@@ -545,6 +630,12 @@ export default function InvoiceForm({
       return;
     }
 
+    if (sourceType === "quote" && invalidCfdiDescriptions.length > 0) {
+      setErrorMessage("Estos conceptos requieren correccion para facturar.");
+      setCfdiDescriptionModalOpen(true);
+      return;
+    }
+
     if (sourceType === "quote" && quoteMissingProducts.length > 0) {
       setErrorMessage("Faltan datos fiscales en productos de la cotizacion.");
       setProductModalOpen(true);
@@ -596,6 +687,16 @@ export default function InvoiceForm({
     }
 
     setSaving(true);
+
+    if (sourceType === "quote") {
+      try {
+        await saveProductFiscalDescriptions();
+      } catch (error) {
+        setSaving(false);
+        setErrorMessage(error instanceof Error ? error.message : "No se pudo guardar la descripcion CFDI.");
+        return;
+      }
+    }
 
     let invoice: CreatedInvoice | null = null;
     let insertError: unknown = null;
@@ -672,7 +773,22 @@ export default function InvoiceForm({
       sourceType === "quote"
         ? concepts.map((item) => ({
             project_invoice_id: invoice.id,
-            ...item,
+            source_quote_item_id: item.source_quote_item_id,
+            product_id: item.product_id,
+            description: sanitizeCfdiDescription(item.description),
+            quantity: item.quantity,
+            unit_price_mxn: item.unit_price_mxn,
+            subtotal_mxn: item.subtotal_mxn,
+            gross_amount_mxn: item.gross_amount_mxn,
+            discount_mxn: item.discount_mxn,
+            net_amount_mxn: item.net_amount_mxn,
+            iva_mxn: item.iva_mxn,
+            total_mxn: item.total_mxn,
+            sat_product_service_code: item.sat_product_service_code,
+            sat_unit_code: item.sat_unit_code,
+            sat_unit_name: item.sat_unit_name,
+            fiscal_object: item.fiscal_object,
+            sort_order: item.sort_order,
           }))
         : [
             {
@@ -993,10 +1109,11 @@ export default function InvoiceForm({
                   <p className="text-sm text-[#77777D]">Sin partidas para facturar.</p>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="w-full min-w-[820px] text-sm">
+                    <table className="w-full min-w-[1040px] text-sm">
                       <thead>
                         <tr className="border-b border-[#2A2A30] text-left text-[#B3B3B8]">
                           <th className="px-3 py-3">Concepto</th>
+                          <th className="px-3 py-3">Descripcion CFDI</th>
                           <th className="px-3 py-3 text-right">Cantidad</th>
                           <th className="px-3 py-3 text-right">Bruto</th>
                           <th className="px-3 py-3 text-right">Descuento</th>
@@ -1007,32 +1124,55 @@ export default function InvoiceForm({
                         </tr>
                       </thead>
                       <tbody>
-                        {concepts.map((concept) => (
-                          <tr key={concept.source_quote_item_id} className="border-b border-[#222228]">
-                            <td className="px-3 py-3">{concept.description}</td>
-                            <td className="px-3 py-3 text-right">{concept.quantity}</td>
-                            <td className="px-3 py-3 text-right">
-                              {formatCurrency(concept.gross_amount_mxn, "MXN")}
-                            </td>
-                            <td className="px-3 py-3 text-right">
-                              {formatCurrency(concept.discount_mxn, "MXN")}
-                            </td>
-                            <td className="px-3 py-3 text-right">
-                              {formatCurrency(concept.net_amount_mxn, "MXN")}
-                            </td>
-                            <td className="px-3 py-3 text-right">
-                              {formatCurrency(concept.iva_mxn, "MXN")}
-                            </td>
-                            <td className="px-3 py-3 text-right">
-                              {formatCurrency(concept.total_mxn, "MXN")}
-                            </td>
-                            <td className="px-3 py-3 text-[#B3B3B8]">
-                              {concept.sat_product_service_code && concept.sat_unit_code
-                                ? `${concept.sat_product_service_code} / ${concept.sat_unit_code}`
-                                : "Incompleto"}
-                            </td>
-                          </tr>
-                        ))}
+                        {concepts.map((concept) => {
+                          const validation = validateCfdiDescription(concept.description);
+
+                          return (
+                            <tr key={getConceptKey(concept)} className="border-b border-[#222228]">
+                              <td className="px-3 py-3">{concept.commercial_description}</td>
+                              <td className="px-3 py-3">
+                                <div className="max-w-[280px] space-y-2">
+                                  <p className="line-clamp-2 text-white">
+                                    {concept.description || "Sin descripcion"}
+                                  </p>
+                                  {!validation.ok ? (
+                                    <p className="text-xs text-[#F4C66A]">
+                                      {validation.errors.join(" ")}
+                                    </p>
+                                  ) : null}
+                                  <button
+                                    type="button"
+                                    onClick={() => setCfdiDescriptionModalOpen(true)}
+                                    className="rounded-lg border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-white hover:bg-white/15"
+                                  >
+                                    Editar
+                                  </button>
+                                </div>
+                              </td>
+                              <td className="px-3 py-3 text-right">{concept.quantity}</td>
+                              <td className="px-3 py-3 text-right">
+                                {formatCurrency(concept.gross_amount_mxn, "MXN")}
+                              </td>
+                              <td className="px-3 py-3 text-right">
+                                {formatCurrency(concept.discount_mxn, "MXN")}
+                              </td>
+                              <td className="px-3 py-3 text-right">
+                                {formatCurrency(concept.net_amount_mxn, "MXN")}
+                              </td>
+                              <td className="px-3 py-3 text-right">
+                                {formatCurrency(concept.iva_mxn, "MXN")}
+                              </td>
+                              <td className="px-3 py-3 text-right">
+                                {formatCurrency(concept.total_mxn, "MXN")}
+                              </td>
+                              <td className="px-3 py-3 text-[#B3B3B8]">
+                                {concept.sat_product_service_code && concept.sat_unit_code
+                                  ? `${concept.sat_product_service_code} / ${concept.sat_unit_code}`
+                                  : "Incompleto"}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -1082,6 +1222,89 @@ export default function InvoiceForm({
         onClose={() => setProductModalOpen(false)}
         onSaved={handleProductsSaved}
       />
+
+      {cfdiDescriptionModalOpen ? (
+        <div className="fixed inset-0 z-[60] flex items-end bg-black/75 p-4 sm:items-center sm:justify-center">
+          <div className="max-h-[88vh] w-full max-w-4xl overflow-y-auto rounded-2xl border border-[#2A2A30] bg-[#151518] p-5 text-white shadow-2xl">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-2xl font-semibold">Descripcion CFDI</h3>
+                <p className="mt-1 text-sm text-[#B3B3B8]">
+                  Estos conceptos requieren correccion para facturar cuando contienen caracteres no permitidos.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCfdiDescriptionModalOpen(false)}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#2A2A30] bg-[#222228] text-[#B3B3B8] hover:text-white"
+                aria-label="Cerrar"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {concepts.map((concept) => {
+                const validation = validateCfdiDescription(concept.description);
+
+                return (
+                  <div
+                    key={getConceptKey(concept)}
+                    className={`rounded-xl border p-4 ${
+                      validation.ok
+                        ? "border-[#2A2A30] bg-[#101114]"
+                        : "border-[#614620] bg-[#322514]"
+                    }`}
+                  >
+                    <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                      <div>
+                        <p className="font-semibold">{concept.commercial_description}</p>
+                        <p className="mt-1 text-xs text-[#B3B3B8]">
+                          Se guardara como descripcion fiscal del producto y snapshot de factura.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => sanitizeConceptDescription(concept)}
+                        className="w-fit rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-xs font-semibold text-white hover:bg-white/15"
+                      >
+                        Limpiar texto
+                      </button>
+                    </div>
+                    <textarea
+                      className="min-h-24 w-full rounded-xl border border-[#2A2A30] bg-[#151518] px-4 py-3 text-sm outline-none"
+                      value={concept.description}
+                      maxLength={CFDI_DESCRIPTION_MAX_LENGTH}
+                      onChange={(event) =>
+                        updateCfdiDescription(concept, event.target.value)
+                      }
+                    />
+                    <div className="mt-2 flex flex-col gap-2 text-xs sm:flex-row sm:items-center sm:justify-between">
+                      <p className={validation.ok ? "text-[#8CE0B6]" : "text-[#F4C66A]"}>
+                        {validation.ok ? "Lista para CFDI." : validation.errors.join(" ")}
+                      </p>
+                      <p className="text-[#77777D]">
+                        {concept.description.trim().length}/{CFDI_DESCRIPTION_MAX_LENGTH}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-5 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setCfdiDescriptionModalOpen(false)}
+                disabled={invalidCfdiDescriptions.length > 0}
+                className="rounded-xl bg-[#9E1B32] px-5 py-3 font-semibold text-white hover:bg-[#B91C3C] disabled:bg-[#222228] disabled:text-[#77777D]"
+              >
+                Guardar correcciones
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }
