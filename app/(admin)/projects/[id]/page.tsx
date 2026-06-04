@@ -16,8 +16,11 @@ import {
   ClipboardCheck,
   ReceiptText,
   ShieldCheck,
+  TrendingUp,
 } from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
+import { getCurrentUserProfile } from "@/services/profile";
+import { canViewFinancials } from "@/lib/permissions";
 import { formatCurrency } from "@/lib/format";
 import UploadAuthorizedPlanButton from "@/components/UploadAuthorizedPlanButton";
 import OperationalBaseSyncButton from "./OperationalBaseSyncButton";
@@ -114,6 +117,7 @@ export default async function ProjectDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const supabase = await createSupabaseServerClient();
+  const profile = await getCurrentUserProfile();
   const { id } = await params;
 
   let { data: project, error } = (await supabase
@@ -248,6 +252,10 @@ export default async function ProjectDetailPage({
   const hasCrew =
     !isPendingValue(projectData.crew_lead_name) ||
     !isPendingValue(projectData.crew_lead_phone);
+  const canSeeProfitability = profile?.is_active && canViewFinancials(profile.role);
+  const shouldSuggestProfitability = ["delivered", "warranty"].includes(
+    projectData.sales_stage || ""
+  );
 
   return (
     <main className="min-h-screen bg-[#0B0D0F] p-4 text-white md:p-8 xl:p-10">
@@ -480,6 +488,34 @@ export default async function ProjectDetailPage({
               </Link>
             </div>
           </section>
+
+          {canSeeProfitability ? (
+            <section className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5 sm:p-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="flex items-center gap-2 text-2xl font-semibold">
+                    <TrendingUp size={22} />
+                    Rentabilidad
+                  </h2>
+                  <p className="mt-2 text-sm text-[#B3B3B8]">
+                    Reporte interno para direccion: utilidad operativa y margen real del proyecto.
+                  </p>
+                  {shouldSuggestProfitability ? (
+                    <p className="mt-3 w-fit rounded-full border border-[#614620] bg-[#322514] px-3 py-1 text-xs font-semibold text-[#F4C66A]">
+                      Generar reporte de rentabilidad
+                    </p>
+                  ) : null}
+                </div>
+                <Link
+                  href={`/projects/${projectData.id}/profitability`}
+                  className="inline-flex w-fit items-center gap-2 rounded-xl border border-[#2A2A30] bg-[#222228] px-5 py-3 font-semibold text-[#B3B3B8] hover:bg-[#2A2A30] hover:text-white"
+                >
+                  <TrendingUp size={18} />
+                  Ver reporte
+                </Link>
+              </div>
+            </section>
+          ) : null}
 
           <section className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5 sm:p-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
