@@ -29,6 +29,8 @@ export type FacturamaInvoiceItem = {
   quantity: number;
   unitPriceMxn: number;
   subtotalMxn: number;
+  discountMxn?: number;
+  netAmountMxn?: number;
   ivaMxn: number;
   totalMxn: number;
   fiscalObject: string;
@@ -290,30 +292,38 @@ function buildInvoicePayload(draft: FacturamaInvoiceDraft) {
       FiscalRegime: draft.receiver.fiscalRegime,
       TaxZipCode: draft.receiver.taxZipCode,
     },
-    Items: draft.items.map((item) => ({
-      Quantity: amount(item.quantity),
-      ProductCode: item.productCode,
-      UnitCode: item.unitCode,
-      Unit: item.unit,
-      Description: item.description.slice(0, 1000),
-      UnitPrice: amount(item.unitPriceMxn),
-      Subtotal: amount(item.subtotalMxn),
-      TaxObject: item.fiscalObject,
-      Taxes:
-        item.fiscalObject === "02"
-          ? [
-              {
-                Name: "IVA",
-                Rate: 0.16,
-                Total: amount(item.ivaMxn),
-                Base: amount(item.subtotalMxn),
-                IsRetention: false,
-                IsFederalTax: true,
-              },
-            ]
-          : [],
-      Total: amount(item.totalMxn),
-    })),
+    Items: draft.items.map((item) => {
+      const discount = amount(item.discountMxn || 0);
+      const netAmount = amount(
+        item.netAmountMxn ?? Math.max(item.subtotalMxn - discount, 0)
+      );
+
+      return {
+        Quantity: amount(item.quantity),
+        ProductCode: item.productCode,
+        UnitCode: item.unitCode,
+        Unit: item.unit,
+        Description: item.description.slice(0, 1000),
+        UnitPrice: amount(item.unitPriceMxn),
+        Subtotal: amount(item.subtotalMxn),
+        ...(discount > 0 ? { Discount: discount } : {}),
+        TaxObject: item.fiscalObject,
+        Taxes:
+          item.fiscalObject === "02"
+            ? [
+                {
+                  Name: "IVA",
+                  Rate: 0.16,
+                  Total: amount(item.ivaMxn),
+                  Base: netAmount,
+                  IsRetention: false,
+                  IsFederalTax: true,
+                },
+              ]
+            : [],
+        Total: amount(item.totalMxn),
+      };
+    }),
   };
 }
 

@@ -51,6 +51,8 @@ type InvoiceForStamping = {
   iva?: number | null;
   total?: number | null;
   subtotal_mxn: number | null;
+  discount_mxn?: number | null;
+  taxable_subtotal_mxn?: number | null;
   iva_mxn: number | null;
   total_mxn: number | null;
   status: string | null;
@@ -67,6 +69,9 @@ type InvoiceItemForStamping = {
   quantity: number | null;
   unit_price_mxn: number | null;
   subtotal_mxn: number | null;
+  gross_amount_mxn?: number | null;
+  discount_mxn?: number | null;
+  net_amount_mxn?: number | null;
   iva_mxn: number | null;
   total_mxn: number | null;
   sat_product_service_code: string | null;
@@ -342,7 +347,7 @@ export async function stampProjectInvoice(
     const { data, error } = await supabase
       .from("project_invoices")
       .select(
-        "id, client_project_id, client_id, invoice_date, subtotal_mxn, iva_mxn, total_mxn, subtotal, iva, total, status, facturama_id, payment_method_code, payment_form_code, clients(id, name, tax_rfc, tax_business_name, tax_regime, default_cfdi_use, fiscal_regime, cfdi_use, tax_zip_code, billing_email), client_projects(name)"
+        "id, client_project_id, client_id, invoice_date, subtotal_mxn, discount_mxn, taxable_subtotal_mxn, iva_mxn, total_mxn, subtotal, iva, total, status, facturama_id, payment_method_code, payment_form_code, clients(id, name, tax_rfc, tax_business_name, tax_regime, default_cfdi_use, fiscal_regime, cfdi_use, tax_zip_code, billing_email), client_projects(name)"
       )
       .eq("id", invoiceId)
       .maybeSingle();
@@ -389,11 +394,23 @@ export async function stampProjectInvoice(
     }
 
     const subtotalMxn = Number(invoice.subtotal_mxn ?? invoice.subtotal ?? 0);
+    const discountMxn = Number(invoice.discount_mxn || 0);
+    const taxableSubtotalMxn = Number(
+      invoice.taxable_subtotal_mxn ?? subtotalMxn - discountMxn
+    );
     const ivaMxn = Number(invoice.iva_mxn ?? invoice.iva ?? 0);
     const totalMxn = Number(invoice.total_mxn ?? invoice.total ?? 0);
 
     if (subtotalMxn <= 0 || totalMxn <= 0) {
       throw new Error("La factura debe tener importes mayores a cero.");
+    }
+
+    if (discountMxn > subtotalMxn) {
+      throw new Error("El descuento no puede ser mayor que el subtotal de la factura.");
+    }
+
+    if (Math.abs(subtotalMxn - discountMxn - taxableSubtotalMxn) > 0.05) {
+      throw new Error("El subtotal neto no cuadra con el descuento de la factura.");
     }
 
     if (!client) {
@@ -473,7 +490,7 @@ export async function stampProjectInvoice(
     const { data: itemData, error: itemsError } = await supabase
       .from("project_invoice_items")
       .select(
-        "id, description, quantity, unit_price_mxn, subtotal_mxn, iva_mxn, total_mxn, sat_product_service_code, sat_unit_code, sat_unit_name, fiscal_object, product_id"
+        "id, description, quantity, unit_price_mxn, subtotal_mxn, gross_amount_mxn, discount_mxn, net_amount_mxn, iva_mxn, total_mxn, sat_product_service_code, sat_unit_code, sat_unit_name, fiscal_object, product_id"
       )
       .eq("project_invoice_id", invoice.id)
       .order("sort_order", { ascending: true });
@@ -486,6 +503,52 @@ export async function stampProjectInvoice(
 
     if (invoiceItems.length === 0) {
       throw new Error("La factura no tiene conceptos fiscales.");
+    }
+
+    const itemGrossTotal = invoiceItems.reduce(
+      (sum, item) => sum + Number(item.gross_amount_mxn ?? item.subtotal_mxn ?? 0),
+      0
+    );
+    const itemDiscountTotal = invoiceItems.reduce(
+      (sum, item) => sum + Number(item.discount_mxn || 0),
+      0
+    );
+    const itemNetTotal = invoiceItems.reduce(
+      (sum, item) =>
+        sum +
+        Number(
+          item.net_amount_mxn ??
+            Math.max(
+              Number(item.gross_amount_mxn ?? item.subtotal_mxn ?? 0) -
+                Number(item.discount_mxn || 0),
+              0
+            )
+        ),
+      0
+    );
+    const itemIvaTotal = invoiceItems.reduce(
+      (sum, item) => sum + Number(item.iva_mxn || 0),
+      0
+    );
+    const itemTotal = invoiceItems.reduce(
+      (sum, item) => sum + Number(item.total_mxn || 0),
+      0
+    );
+
+    if (Math.abs(itemGrossTotal - subtotalMxn) > 0.05) {
+      throw new Error("La suma bruta de conceptos no cuadra con la factura.");
+    }
+
+    if (Math.abs(itemDiscountTotal - discountMxn) > 0.05) {
+      throw new Error("La suma de descuentos por concepto no cuadra con la factura.");
+    }
+
+    if (Math.abs(itemNetTotal - taxableSubtotalMxn) > 0.05) {
+      throw new Error("La suma neta de conceptos no cuadra con la factura.");
+    }
+
+    if (Math.abs(itemIvaTotal - ivaMxn) > 0.05 || Math.abs(itemTotal - totalMxn) > 0.05) {
+      throw new Error("La suma de IVA o total de conceptos no cuadra con la factura.");
     }
 
     const productCodes = [
@@ -566,7 +629,16 @@ export async function stampProjectInvoice(
         description: item.description || "Concepto ALFA",
         quantity: Number(item.quantity || 1),
         unitPriceMxn: Number(item.unit_price_mxn || 0),
-        subtotalMxn: Number(item.subtotal_mxn || 0),
+        subtotalMxn: Number(item.gross_amount_mxn ?? item.subtotal_mxn ?? 0),
+        discountMxn: Number(item.discount_mxn || 0),
+        netAmountMxn: Number(
+          item.net_amount_mxn ??
+            Math.max(
+              Number(item.gross_amount_mxn ?? item.subtotal_mxn ?? 0) -
+                Number(item.discount_mxn || 0),
+              0
+            )
+        ),
         ivaMxn: Number(item.iva_mxn || 0),
         totalMxn: Number(item.total_mxn || 0),
         fiscalObject: item.fiscal_object || "02",

@@ -52,7 +52,11 @@ type InvoiceSourceType = "quote" | "advance" | "partial" | "balance" | "service"
 type ApprovedQuote = {
   id: number;
   quote_number: string | null;
+  discount_total?: number | null;
+  discount_amount_mxn?: number | null;
+  partner_total_discount_mxn?: number | null;
   subtotal_mxn: number | null;
+  taxable_base_mxn?: number | null;
   iva_mxn: number | null;
   total_mxn: number | null;
   grand_total: number | null;
@@ -84,6 +88,9 @@ type InvoiceConcept = {
   quantity: number;
   unit_price_mxn: number;
   subtotal_mxn: number;
+  gross_amount_mxn: number;
+  discount_mxn: number;
+  net_amount_mxn: number;
   iva_mxn: number;
   total_mxn: number;
   sat_product_service_code: string;
@@ -134,6 +141,17 @@ function getQuoteItemSubtotalMxn(item: QuoteItem, quote: ApprovedQuote | null) {
   const laborTotal = Number(item.labor_total || 0);
 
   return equipmentTotalUsd * exchangeRate + laborTotal;
+}
+
+function getQuoteDiscountMxn(quote: ApprovedQuote | null) {
+  if (!quote) return 0;
+
+  const explicitDiscount = Number(
+    quote.discount_amount_mxn ?? quote.discount_total ?? 0
+  );
+  const partnerDiscount = Number(quote.partner_total_discount_mxn || 0);
+
+  return roundMoney(Math.max(explicitDiscount + partnerDiscount, 0));
 }
 
 function getProductDescription(item: QuoteItem) {
@@ -197,21 +215,43 @@ export default function InvoiceForm({
   const concepts = useMemo(() => {
     if (sourceType !== "quote" || !selectedQuote) return [] as InvoiceConcept[];
 
+    const grossAmounts = quoteItems.map((item) =>
+      roundMoney(getQuoteItemSubtotalMxn(item, selectedQuote))
+    );
+    const grossSubtotal = roundMoney(
+      grossAmounts.reduce((sum, amount) => sum + amount, 0)
+    );
+    const quoteDiscount = Math.min(getQuoteDiscountMxn(selectedQuote), grossSubtotal);
+    let distributedDiscount = 0;
+
     return quoteItems.map((item, index) => {
       const product = getRelation(item.products);
       const quantity = Number(item.quantity || 1) || 1;
-      const subtotal = roundMoney(getQuoteItemSubtotalMxn(item, selectedQuote));
-      const iva = roundMoney(subtotal * 0.16);
+      const grossAmount = grossAmounts[index] || 0;
+      const discount =
+        index === quoteItems.length - 1
+          ? roundMoney(quoteDiscount - distributedDiscount)
+          : roundMoney(
+              grossSubtotal > 0
+                ? (grossAmount / grossSubtotal) * quoteDiscount
+                : 0
+            );
+      distributedDiscount = roundMoney(distributedDiscount + discount);
+      const netAmount = roundMoney(Math.max(grossAmount - discount, 0));
+      const iva = roundMoney(netAmount * 0.16);
 
       return {
         source_quote_item_id: item.id,
         product_id: item.product_id,
         description: getProductDescription(item),
         quantity,
-        unit_price_mxn: roundMoney(subtotal / quantity),
-        subtotal_mxn: subtotal,
+        unit_price_mxn: roundMoney(grossAmount / quantity),
+        subtotal_mxn: grossAmount,
+        gross_amount_mxn: grossAmount,
+        discount_mxn: discount,
+        net_amount_mxn: netAmount,
         iva_mxn: iva,
-        total_mxn: roundMoney(subtotal + iva),
+        total_mxn: roundMoney(netAmount + iva),
         sat_product_service_code: getProductSatProductCode(product),
         sat_unit_code: getProductSatUnitCode(product),
         sat_unit_name: getProductSatUnitName(product),
@@ -244,10 +284,16 @@ export default function InvoiceForm({
   const subtotal = sourceType === "manual"
     ? Number(manualSubtotal || 0)
     : concepts.reduce((sum, item) => sum + item.subtotal_mxn, 0);
+  const discount = sourceType === "manual"
+    ? 0
+    : concepts.reduce((sum, item) => sum + item.discount_mxn, 0);
+  const taxableSubtotal = sourceType === "manual"
+    ? Number(manualSubtotal || 0)
+    : concepts.reduce((sum, item) => sum + item.net_amount_mxn, 0);
   const iva = sourceType === "manual"
     ? Number(manualIva || 0)
     : concepts.reduce((sum, item) => sum + item.iva_mxn, 0);
-  const total = subtotal + iva;
+  const total = taxableSubtotal + iva;
   const sortedPaymentForms = useMemo(
     () => sortPaymentForms(paymentForms.filter((item) => item.is_active)),
     [paymentForms]
@@ -324,7 +370,7 @@ export default function InvoiceForm({
 
       const { data, error } = await supabase
         .from("quotes")
-        .select("id, quote_number, subtotal_mxn, iva_mxn, total_mxn, grand_total, exchange_rate")
+        .select("id, quote_number, discount_total, discount_amount_mxn, partner_total_discount_mxn, subtotal_mxn, taxable_base_mxn, iva_mxn, total_mxn, grand_total, exchange_rate")
         .eq("client_project_id", projectId)
         .eq("status", "approved")
         .order("created_at", { ascending: false });
@@ -524,11 +570,38 @@ export default function InvoiceForm({
       return;
     }
 
+    if (sourceType === "quote") {
+      const subtotalValue = roundMoney(subtotal);
+      const discountValue = roundMoney(discount);
+      const taxableSubtotalValue = roundMoney(taxableSubtotal);
+      const selectedQuoteTotal = roundMoney(
+        Number(selectedQuote?.total_mxn || selectedQuote?.grand_total || 0)
+      );
+      const calculatedTotal = roundMoney(taxableSubtotalValue + roundMoney(iva));
+
+      if (discountValue > subtotalValue) {
+        setErrorMessage("El descuento no puede ser mayor que el subtotal bruto.");
+        return;
+      }
+
+      if (Math.abs(roundMoney(subtotalValue - discountValue) - taxableSubtotalValue) > 0.01) {
+        setErrorMessage("El descuento prorrateado no cuadra con el subtotal neto.");
+        return;
+      }
+
+      if (selectedQuoteTotal > 0 && Math.abs(calculatedTotal - selectedQuoteTotal) > 0.05) {
+        setErrorMessage("El total de la factura no cuadra con la cotizacion aprobada.");
+        return;
+      }
+    }
+
     setSaving(true);
 
     let invoice: CreatedInvoice | null = null;
     let insertError: unknown = null;
     const subtotalValue = roundMoney(subtotal);
+    const discountValue = roundMoney(discount);
+    const taxableSubtotalValue = roundMoney(taxableSubtotal);
     const ivaValue = roundMoney(iva);
     const totalValue = roundMoney(total);
     const paymentComplement = getPaymentComplementStatus(paymentMethodCode);
@@ -543,6 +616,8 @@ export default function InvoiceForm({
         source_quote_id: sourceType === "quote" ? Number(quoteId) : null,
         invoice_date: invoiceDate,
         subtotal_mxn: subtotalValue,
+        discount_mxn: discountValue,
+        taxable_subtotal_mxn: taxableSubtotalValue,
         iva_mxn: ivaValue,
         total_mxn: totalValue,
         payment_method_code: paymentMethodCode,
@@ -608,6 +683,9 @@ export default function InvoiceForm({
               quantity: 1,
               unit_price_mxn: subtotalValue,
               subtotal_mxn: subtotalValue,
+              gross_amount_mxn: subtotalValue,
+              discount_mxn: 0,
+              net_amount_mxn: subtotalValue,
               iva_mxn: ivaValue,
               total_mxn: totalValue,
               sat_product_service_code: "81161700",
@@ -920,7 +998,9 @@ export default function InvoiceForm({
                         <tr className="border-b border-[#2A2A30] text-left text-[#B3B3B8]">
                           <th className="px-3 py-3">Concepto</th>
                           <th className="px-3 py-3 text-right">Cantidad</th>
-                          <th className="px-3 py-3 text-right">Subtotal</th>
+                          <th className="px-3 py-3 text-right">Bruto</th>
+                          <th className="px-3 py-3 text-right">Descuento</th>
+                          <th className="px-3 py-3 text-right">Neto</th>
                           <th className="px-3 py-3 text-right">IVA</th>
                           <th className="px-3 py-3 text-right">Total</th>
                           <th className="px-3 py-3">SAT</th>
@@ -932,7 +1012,13 @@ export default function InvoiceForm({
                             <td className="px-3 py-3">{concept.description}</td>
                             <td className="px-3 py-3 text-right">{concept.quantity}</td>
                             <td className="px-3 py-3 text-right">
-                              {formatCurrency(concept.subtotal_mxn, "MXN")}
+                              {formatCurrency(concept.gross_amount_mxn, "MXN")}
+                            </td>
+                            <td className="px-3 py-3 text-right">
+                              {formatCurrency(concept.discount_mxn, "MXN")}
+                            </td>
+                            <td className="px-3 py-3 text-right">
+                              {formatCurrency(concept.net_amount_mxn, "MXN")}
                             </td>
                             <td className="px-3 py-3 text-right">
                               {formatCurrency(concept.iva_mxn, "MXN")}
@@ -955,7 +1041,9 @@ export default function InvoiceForm({
             ) : null}
 
             <section className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-              <Metric label="Subtotal" value={formatCurrency(subtotal, "MXN")} />
+              <Metric label="Subtotal bruto" value={formatCurrency(subtotal, "MXN")} />
+              <Metric label="Descuento" value={formatCurrency(discount, "MXN")} />
+              <Metric label="Subtotal neto" value={formatCurrency(taxableSubtotal, "MXN")} />
               <Metric label="IVA" value={formatCurrency(iva, "MXN")} />
               <Metric label="Total" value={formatCurrency(total, "MXN")} />
             </section>
