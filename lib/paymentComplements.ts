@@ -225,6 +225,7 @@ export function buildFacturamaPaymentComplementPayload({
               Folio: invoice.internal_folio || String(invoice.id),
               Currency: "MXN",
               PaymentMethod: invoice.payment_method_code || "PPD",
+              TaxObject: "01",
               PartialityNumber: calculation.partialityNumber,
               PreviousBalanceAmount: calculation.previousBalanceMxn,
               AmountPaid: calculation.paidAmountMxn,

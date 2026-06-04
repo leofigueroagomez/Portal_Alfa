@@ -412,6 +412,7 @@ function buildPaymentComplementRequestLog(
     RelatedDocuments: [
       {
         Uuid: relatedDocument.Uuid,
+        TaxObject: relatedDocument.TaxObject,
         PartialityNumber: relatedDocument.PartialityNumber,
         PreviousBalanceAmount: relatedDocument.PreviousBalanceAmount,
         AmountPaid: relatedDocument.AmountPaid,
