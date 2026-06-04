@@ -20,6 +20,8 @@ create table if not exists public.project_payment_complements (
   exchange_rate numeric(14,6),
   payment_reference text,
   payload_preview jsonb not null,
+  pdf_url text,
+  xml_url text,
   facturama_id text,
   sat_uuid text,
   facturama_response jsonb,
@@ -28,7 +30,7 @@ create table if not exists public.project_payment_complements (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint project_payment_complements_status_check
-    check (status in ('draft', 'validated', 'stamped', 'cancelled', 'failed')),
+    check (status in ('draft', 'validated', 'issued', 'stamped', 'cancelled', 'failed')),
   constraint project_payment_complements_env_check
     check (complement_env in ('sandbox', 'production')),
   constraint project_payment_complements_balance_check
@@ -58,6 +60,8 @@ alter table public.project_payment_complements
   add column if not exists exchange_rate numeric(14,6),
   add column if not exists payment_reference text,
   add column if not exists payload_preview jsonb,
+  add column if not exists pdf_url text,
+  add column if not exists xml_url text,
   add column if not exists facturama_id text,
   add column if not exists sat_uuid text,
   add column if not exists facturama_response jsonb,
@@ -81,9 +85,12 @@ alter table public.project_payment_complements
 
 alter table public.project_payment_complements
   drop constraint if exists project_payment_complements_balance_check,
-  drop constraint if exists project_payment_complements_override_reason_check;
+  drop constraint if exists project_payment_complements_override_reason_check,
+  drop constraint if exists project_payment_complements_status_check;
 
 alter table public.project_payment_complements
+  add constraint project_payment_complements_status_check
+    check (status in ('draft', 'validated', 'issued', 'stamped', 'cancelled', 'failed')),
   add constraint project_payment_complements_balance_check
     check (round((previous_balance_mxn - paid_amount_mxn)::numeric, 2) = outstanding_balance_mxn),
   add constraint project_payment_complements_override_reason_check
@@ -106,7 +113,7 @@ drop index if exists public.project_payment_complements_payment_active_uidx;
 create unique index if not exists project_payment_complements_payment_stamped_uidx
   on public.project_payment_complements(project_payment_id)
   where project_payment_id is not null
-    and status = 'stamped';
+    and status in ('issued', 'stamped');
 
 alter table public.project_payment_complements enable row level security;
 

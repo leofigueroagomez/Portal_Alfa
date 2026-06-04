@@ -44,6 +44,16 @@ export type FacturamaStampResult = {
   facturamaResponse: FacturamaResponseLog;
 };
 
+export type FacturamaPaymentComplementPayload = {
+  NameId: number | string;
+  CfdiType: "P";
+  ExpeditionPlace: string;
+  Receiver: Record<string, unknown>;
+  Complemento: {
+    Payments: Array<Record<string, unknown>>;
+  };
+};
+
 export type FacturamaResponseLog = {
   provider: "facturama";
   path: string;
@@ -174,12 +184,33 @@ function getFacturamaConfig() {
   };
 }
 
+function getFacturamaConfigForExplicitEnv(env: FacturamaEnv) {
+  const username = process.env.FACTURAMA_USERNAME;
+  const password = process.env.FACTURAMA_PASSWORD;
+
+  if (!username || !password) {
+    throw new Error("Configura FACTURAMA_USERNAME y FACTURAMA_PASSWORD.");
+  }
+
+  if (env === "production") {
+    throw new Error("Fase 2 de complementos solo permite Facturama sandbox.");
+  }
+
+  return {
+    baseUrl: FACTURAMA_URLS[env],
+    authorization: `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`,
+  };
+}
+
 async function facturamaRequest<T>(
   path: string,
   init?: RequestInit,
-  requestLog?: unknown
+  requestLog?: unknown,
+  envOverride?: FacturamaEnv
 ): Promise<FacturamaResponse<T>> {
-  const config = getFacturamaConfig();
+  const config = envOverride
+    ? getFacturamaConfigForExplicitEnv(envOverride)
+    : getFacturamaConfig();
   const cleanPath = path.replace(/^\//, "");
   const url = new URL(cleanPath, config.baseUrl);
   const response = await fetch(url, {
@@ -346,6 +377,21 @@ function buildFacturamaRequestLog(payload: FacturamaInvoicePayload) {
   };
 }
 
+function buildPaymentComplementRequestLog(payload: FacturamaPaymentComplementPayload) {
+  const payment = payload.Complemento.Payments[0] || {};
+  const relatedDocuments = Array.isArray(payment.RelatedDocuments)
+    ? payment.RelatedDocuments
+    : [];
+
+  return {
+    Receiver: payload.Receiver,
+    CfdiType: payload.CfdiType,
+    PaymentAmount: payment.Amount,
+    PaymentForm: payment.PaymentForm,
+    RelatedDocumentsCount: relatedDocuments.length,
+  };
+}
+
 function assertReceiverAllowedForFacturamaEnv(payload: FacturamaInvoicePayload) {
   if (
     getFacturamaEnv() === "production" &&
@@ -393,6 +439,46 @@ export async function stampFacturamaInvoice(
   };
 }
 
+export async function stampPaymentComplement(
+  payload: FacturamaPaymentComplementPayload,
+  env: FacturamaEnv = "sandbox"
+): Promise<FacturamaStampResult> {
+  if (env !== "sandbox") {
+    throw new Error("Fase 2 solo permite timbrar complementos en sandbox.");
+  }
+
+  const response = await facturamaRequest<FacturamaCreateCfdiResponse>(
+    "3/cfdis",
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+    buildPaymentComplementRequestLog(payload),
+    env
+  );
+  const facturamaId = response.data.Id;
+
+  if (!facturamaId) {
+    throw new Error("Facturama no regreso ID de complemento de pago.");
+  }
+
+  return {
+    facturamaId,
+    satUuid:
+      response.data.Complement?.TaxStamp?.Uuid ||
+      response.data.Complement?.TaxStamp?.UUID ||
+      null,
+    facturamaResponse: {
+      provider: "facturama",
+      path: response.path,
+      status: response.status,
+      statusText: response.statusText,
+      request: response.request,
+      body: response.body,
+    },
+  };
+}
+
 export async function downloadFacturamaInvoiceFile(
   facturamaId: string,
   format: "pdf" | "xml"
@@ -404,6 +490,45 @@ export async function downloadFacturamaInvoiceFile(
 
   if (!response.data.Content) {
     throw new Error(`Facturama no regreso archivo ${format.toUpperCase()}.`);
+  }
+
+  const bytes = Buffer.from(response.data.Content, "base64");
+  const actualFormat = detectFacturamaFileFormat(bytes);
+
+  if (actualFormat && actualFormat !== format) {
+    throw new Error(
+      `Facturama regreso ${actualFormat.toUpperCase()} al solicitar ${format.toUpperCase()}.`
+    );
+  }
+
+  return {
+    bytes,
+    contentType:
+      format === "pdf"
+        ? "application/pdf"
+        : "application/xml; charset=utf-8",
+    providerContentType: response.data.ContentType || null,
+  };
+}
+
+export async function downloadPaymentComplementFile(
+  facturamaId: string,
+  format: "pdf" | "xml",
+  env: FacturamaEnv = "sandbox"
+) {
+  if (env !== "sandbox") {
+    throw new Error("Fase 2 solo permite descargar complementos desde sandbox.");
+  }
+
+  const response = await facturamaRequest<FacturamaFileResponse>(
+    `cfdi/${format}/issued/${facturamaId}`,
+    { method: "GET" },
+    undefined,
+    env
+  );
+
+  if (!response.data.Content) {
+    throw new Error(`Facturama no regreso complemento ${format.toUpperCase()}.`);
   }
 
   const bytes = Buffer.from(response.data.Content, "base64");

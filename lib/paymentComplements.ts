@@ -12,6 +12,7 @@ export type PaymentComplementsConfig = {
 export type PaymentComplementStatus =
   | "draft"
   | "validated"
+  | "issued"
   | "stamped"
   | "cancelled"
   | "failed";
@@ -38,6 +39,8 @@ export type PaymentComplementRecord = {
   exchange_rate: number | null;
   payment_reference: string | null;
   payload_preview: unknown;
+  pdf_url?: string | null;
+  xml_url?: string | null;
   facturama_id: string | null;
   sat_uuid: string | null;
   last_error: string | null;
@@ -68,7 +71,7 @@ export type PaymentComplementPayloadInput = {
   paymentReference?: string | null;
 };
 
-const stampedComplementStatuses = new Set(["stamped"]);
+const stampedComplementStatuses = new Set(["issued", "stamped"]);
 
 export function getPaymentComplementsConfig(): PaymentComplementsConfig {
   const envValue = process.env.PAYMENT_COMPLEMENTS_ENV || "sandbox";

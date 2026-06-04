@@ -84,7 +84,7 @@ export async function editProjectPayment(
       .from("project_payment_complements")
       .select("id")
       .eq("project_payment_id", payment.id)
-      .eq("status", "stamped");
+      .in("status", ["issued", "stamped"]);
 
     if (complementsError) {
       throw new Error(`Error validando complementos: ${complementsError.message}`);

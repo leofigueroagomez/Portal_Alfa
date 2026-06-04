@@ -6,7 +6,9 @@ import { formatCurrency } from "@/lib/format";
 import type { PaymentFormCatalogItem } from "@/lib/paymentTerms";
 import {
   createPaymentComplementDraft,
+  stampPaymentComplementDraft,
   type CreatePaymentComplementDraftResult,
+  type StampPaymentComplementResult,
 } from "./paymentComplementActions";
 
 type InvoiceForComplement = {
@@ -42,6 +44,11 @@ type PaymentComplementForPanel = {
   payment_date: string | null;
   payment_form_code: string | null;
   payload_preview: unknown;
+  facturama_id?: string | null;
+  sat_uuid?: string | null;
+  pdf_url?: string | null;
+  xml_url?: string | null;
+  last_error?: string | null;
 };
 
 type Props = {
@@ -58,7 +65,7 @@ function today() {
 }
 
 function isStampedComplement(status: string | null | undefined) {
-  return status === "stamped";
+  return status === "issued" || status === "stamped";
 }
 
 function getInvoiceTotal(invoice: InvoiceForComplement) {
@@ -80,6 +87,10 @@ export default function PaymentComplementPanel({
   const [paymentFormCode, setPaymentFormCode] = useState("03");
   const [paymentReference, setPaymentReference] = useState("");
   const [result, setResult] = useState<CreatePaymentComplementDraftResult | null>(null);
+  const [stampResultById, setStampResultById] = useState<
+    Record<number, StampPaymentComplementResult>
+  >({});
+  const [payloadOpenId, setPayloadOpenId] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
 
   const stampedComplements = complements.filter((complement) =>
@@ -127,6 +138,21 @@ export default function PaymentComplementPanel({
     startTransition(async () => {
       const nextResult = await createPaymentComplementDraft(formData);
       setResult(nextResult);
+    });
+  }
+
+  function stampDraft(complementId: number) {
+    setStampResultById((current) => {
+      const next = { ...current };
+      delete next[complementId];
+      return next;
+    });
+    startTransition(async () => {
+      const stampResult = await stampPaymentComplementDraft(complementId);
+      setStampResultById((current) => ({
+        ...current,
+        [complementId]: stampResult,
+      }));
     });
   }
 
@@ -209,6 +235,65 @@ export default function PaymentComplementPanel({
                       )}
                     </p>
                   </div>
+                ) : null}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPayloadOpenId((current) =>
+                        current === complement.id ? null : complement.id
+                      )
+                    }
+                    className="rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-xs font-semibold text-white hover:bg-white/15"
+                  >
+                    Ver payload
+                  </button>
+                  {complement.status === "draft" && stampingEnabled ? (
+                    <button
+                      type="button"
+                      onClick={() => stampDraft(complement.id)}
+                      disabled={pending || complementEnv !== "sandbox"}
+                      className="rounded-lg bg-[#9E1B32] px-3 py-2 text-xs font-semibold text-white hover:bg-[#B91C3C] disabled:bg-[#222228] disabled:text-[#77777D]"
+                    >
+                      {pending ? "Timbrando..." : "Timbrar sandbox"}
+                    </button>
+                  ) : null}
+                  {complement.status === "issued" ? (
+                    <>
+                      <a
+                        href={`/api/payment-complements/${complement.id}/pdf`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-xs font-semibold text-white hover:bg-white/15"
+                      >
+                        PDF
+                      </a>
+                      <a
+                        href={`/api/payment-complements/${complement.id}/xml`}
+                        className="rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-xs font-semibold text-white hover:bg-white/15"
+                      >
+                        XML
+                      </a>
+                    </>
+                  ) : null}
+                </div>
+                {complement.status === "issued" ? (
+                  <p className="mt-2 text-[#8CE0B6]">
+                    UUID: {complement.sat_uuid || "Pendiente en respuesta"}
+                  </p>
+                ) : null}
+                {stampResultById[complement.id] ? (
+                  <StampResultMessage result={stampResultById[complement.id]} />
+                ) : null}
+                {complement.last_error ? (
+                  <div className="mt-3 rounded-lg border border-[#6A2A2A] bg-[#351818] p-3 text-[#FFB4B4]">
+                    {complement.last_error}
+                  </div>
+                ) : null}
+                {payloadOpenId === complement.id ? (
+                  <pre className="mt-3 max-h-80 overflow-auto rounded-xl bg-black/30 p-3 text-xs text-white">
+                    {JSON.stringify(complement.payload_preview, null, 2)}
+                  </pre>
                 ) : null}
               </div>
             ))}
@@ -436,6 +521,20 @@ function Metric({ label, value }: { label: string; value: string }) {
     <div className="rounded-xl border border-[#2A2A30] bg-[#101114] p-4">
       <p className="mb-1 text-xs text-[#B3B3B8]">{label}</p>
       <p className="text-lg font-semibold">{value}</p>
+    </div>
+  );
+}
+
+function StampResultMessage({ result }: { result: StampPaymentComplementResult }) {
+  return (
+    <div
+      className={`mt-3 rounded-lg border p-3 ${
+        result.ok
+          ? "border-[#1F7A4D] bg-[#143D2A] text-[#8CE0B6]"
+          : "border-[#6A2A2A] bg-[#351818] text-[#FFB4B4]"
+      }`}
+    >
+      {result.ok ? `Complemento timbrado: ${result.facturamaId}` : result.error}
     </div>
   );
 }

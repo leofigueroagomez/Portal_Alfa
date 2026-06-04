@@ -177,7 +177,7 @@ export default async function ProjectAccountStatementPage({
       .from("project_payment_complements")
       .select("id, project_payment_id, status")
       .eq("client_project_id", projectData.id)
-      .eq("status", "stamped"),
+      .in("status", ["issued", "stamped"]),
   ]);
 
   const invoicesResult = await supabase
