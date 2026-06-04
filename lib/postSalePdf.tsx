@@ -256,12 +256,172 @@ const styles = StyleSheet.create({
     color: "#77777D",
     fontSize: 8,
   },
+  warrantyPage: {
+    paddingTop: 26,
+    paddingHorizontal: 34,
+    paddingBottom: 34,
+    fontFamily: "Helvetica",
+    fontSize: 8.6,
+    color: "#111318",
+    lineHeight: 1.24,
+  },
+  warrantyHeader: {
+    borderBottomWidth: 1,
+    borderBottomColor: "#D6D1C8",
+    paddingBottom: 8,
+    marginBottom: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  warrantyLogo: {
+    width: 98,
+    maxHeight: 30,
+    objectFit: "contain",
+    marginBottom: 4,
+  },
+  warrantyEyebrow: {
+    marginTop: 4,
+    fontSize: 7,
+    color: "#9E1B32",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  warrantyRightHeader: {
+    textAlign: "right",
+    color: "#555963",
+    fontSize: 8,
+  },
+  warrantyFolio: {
+    marginTop: 4,
+    fontSize: 12,
+    color: "#111318",
+    fontWeight: 700,
+  },
+  warrantyGrid: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 8,
+  },
+  warrantyCard: {
+    flexGrow: 1,
+    flexBasis: 0,
+    borderWidth: 1,
+    borderColor: "#E1DDD5",
+    padding: 8,
+  },
+  warrantyLabel: {
+    fontSize: 7,
+    color: "#9E1B32",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: 3,
+    fontWeight: 700,
+  },
+  warrantyValue: {
+    fontSize: 10.2,
+    fontWeight: 700,
+  },
+  warrantyMuted: {
+    color: "#555963",
+    fontSize: 8,
+  },
+  warrantyIntro: {
+    marginTop: 2,
+    marginBottom: 7,
+  },
+  warrantyParagraph: {
+    fontSize: 8.6,
+    lineHeight: 1.24,
+  },
+  warrantySystemsBox: {
+    borderLeftWidth: 2,
+    borderLeftColor: "#9E1B32",
+    backgroundColor: "#FAF9F6",
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    marginTop: 6,
+    marginBottom: 2,
+  },
+  warrantySystemsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 5,
+    marginTop: 5,
+  },
+  warrantySystemItem: {
+    width: "48%",
+    fontSize: 8.2,
+    color: "#111318",
+  },
+  warrantySection: {
+    marginTop: 7,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: "#D6D1C8",
+  },
+  warrantySectionTitle: {
+    fontSize: 10.8,
+    fontWeight: 700,
+    marginBottom: 4,
+  },
+  warrantyClause: {
+    borderWidth: 1,
+    borderColor: "#E1DDD5",
+    backgroundColor: "#FBFAF8",
+    padding: 7,
+    marginTop: 5,
+  },
+  warrantyClauseTitle: {
+    fontSize: 9.2,
+    fontWeight: 700,
+    marginBottom: 3,
+  },
+  warrantyClosingBlock: {
+    marginTop: 7,
+  },
+  warrantySignatureGrid: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 12,
+  },
+  warrantySignatureCard: {
+    flexGrow: 1,
+    flexBasis: 0,
+    paddingTop: 12,
+  },
+  warrantySignatureLine: {
+    borderTopWidth: 1,
+    borderTopColor: "#111318",
+    paddingTop: 5,
+  },
+  warrantyFooter: {
+    position: "absolute",
+    left: 34,
+    right: 34,
+    bottom: 14,
+    borderTopWidth: 1,
+    borderTopColor: "#E1DDD5",
+    paddingTop: 5,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    color: "#77777D",
+    fontSize: 7,
+  },
 });
 
 function PdfFooter() {
   return (
     <View style={styles.footer} fixed>
       <Text>ALFA IT - Documento de postventa</Text>
+      <Text render={({ pageNumber, totalPages }) => `Pagina ${pageNumber} de ${totalPages}`} />
+    </View>
+  );
+}
+
+function WarrantyPdfFooter() {
+  return (
+    <View style={styles.warrantyFooter} fixed>
+      <Text>ALFA IT - Carta de garantia</Text>
       <Text render={({ pageNumber, totalPages }) => `Pagina ${pageNumber} de ${totalPages}`} />
     </View>
   );
@@ -424,52 +584,59 @@ export function WarrantyLetterPdfDocument({
     warranty.installation_warranty_start_date || warranty.warranty_date,
     warranty.preventive_maintenance_frequency_months
   );
+  const maintenanceFrequency = warranty.preventive_maintenance_frequency_months || 6;
 
   return (
     <Document>
-      <Page size="LETTER" style={styles.page}>
-        <View style={styles.header}>
+      <Page size="LETTER" style={styles.warrantyPage}>
+        <View style={styles.warrantyHeader}>
           <View>
-            {logoSrc ? <Image src={logoSrc} style={styles.logo} /> : <Text style={styles.brand}>ALFA IT</Text>}
-            <Text style={styles.eyebrow}>Carta de garantia</Text>
+            {logoSrc ? <Image src={logoSrc} style={styles.warrantyLogo} /> : <Text style={styles.brand}>ALFA IT</Text>}
+            <Text style={styles.warrantyEyebrow}>Carta de garantia</Text>
           </View>
-          <View style={styles.rightHeader}>
+          <View style={styles.warrantyRightHeader}>
             <Text>Fecha: {formatDate(warranty.warranty_date)}</Text>
-            <Text style={styles.folio}>Folio GAR-{String(warranty.id).padStart(4, "0")}</Text>
+            <Text style={styles.warrantyFolio}>Folio GAR-{String(warranty.id).padStart(4, "0")}</Text>
           </View>
         </View>
 
-        <View style={styles.grid}>
-          <View style={styles.card}>
-            <Text style={styles.label}>Cliente</Text>
-            <Text style={styles.value}>{clientName}</Text>
+        <View style={styles.warrantyGrid}>
+          <View style={styles.warrantyCard}>
+            <Text style={styles.warrantyLabel}>Cliente</Text>
+            <Text style={styles.warrantyValue}>{clientName}</Text>
           </View>
-          <View style={styles.card}>
-            <Text style={styles.label}>Proyecto</Text>
-            <Text style={styles.value}>{projectName}</Text>
-            <Text style={styles.muted}>{project?.site_address || ""}</Text>
+          <View style={styles.warrantyCard}>
+            <Text style={styles.warrantyLabel}>Proyecto</Text>
+            <Text style={styles.warrantyValue}>{projectName}</Text>
+            <Text style={styles.warrantyMuted}>{project?.site_address || ""}</Text>
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text>
+        <View style={styles.warrantyIntro}>
+          <Text style={styles.warrantyParagraph}>
             Por medio de la presente, ALFA IT hace constar las condiciones de garantia
             aplicables al proyecto indicado, conforme a los sistemas instalados,
             alcances ejecutados y fecha de entrega registrada.
           </Text>
-          <View style={styles.clauseBox}>
-            <Text style={styles.value}>Sistemas instalados</Text>
+          <View style={styles.warrantySystemsBox}>
+            <Text style={styles.warrantyClauseTitle}>Sistemas instalados</Text>
             {installedSystems.length === 0 ? (
-              <Text style={styles.muted}>Sin sistemas registrados.</Text>
+              <Text style={styles.warrantyMuted}>Sin sistemas registrados.</Text>
             ) : (
-              installedSystems.map((system) => <Text key={system}>- {system}</Text>)
+              <View style={styles.warrantySystemsGrid}>
+                {installedSystems.map((system) => (
+                  <Text key={system} style={styles.warrantySystemItem}>
+                    - {system}
+                  </Text>
+                ))}
+              </View>
             )}
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>1. Garantia de Equipos</Text>
-          <Text>
+        <View style={styles.warrantySection}>
+          <Text style={styles.warrantySectionTitle}>1. Garantia de Equipos</Text>
+          <Text style={styles.warrantyParagraph}>
             Los equipos suministrados por ALFA IT cuentan con una garantia de{" "}
             {warranty.equipment_warranty_months || 0} meses, vigente del{" "}
             {formatDate(warranty.equipment_warranty_start_date)} al{" "}
@@ -477,14 +644,14 @@ export function WarrantyLetterPdfDocument({
             limita a fallas atribuibles a defectos de fabricacion o funcionamiento
             del equipo, conforme a las condiciones del fabricante.
           </Text>
-          <View style={styles.clauseBox}>
-            <Text style={styles.value}>Clausula de Gestion de Garantia en Equipos</Text>
-            <Text>
+          <View style={styles.warrantyClause}>
+            <Text style={styles.warrantyClauseTitle}>Clausula de Gestion de Garantia en Equipos</Text>
+            <Text style={styles.warrantyParagraph}>
               La gestion de garantia por parte de ALFA IT estara incluida unicamente
-              durante el primer año contado a partir de la fecha de entrega.
+              durante el primer ano contado a partir de la fecha de entrega.
             </Text>
             {warranty.maintenance_policy_active ? (
-              <Text>
+              <Text style={styles.warrantyParagraph}>
                 Al existir una poliza de mantenimiento vigente
                 {warranty.maintenance_policy_reference
                   ? ` (${warranty.maintenance_policy_reference})`
@@ -492,7 +659,7 @@ export function WarrantyLetterPdfDocument({
                 , la gestion continuara incluida mientras dicha poliza se mantenga activa.
               </Text>
             ) : (
-              <Text>
+              <Text style={styles.warrantyParagraph}>
                 Si no existe poliza de mantenimiento vigente, las visitas y mano de obra
                 seran cobradas conforme a las tarifas vigentes de ALFA IT.
               </Text>
@@ -500,9 +667,9 @@ export function WarrantyLetterPdfDocument({
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>2. Garantia de Instalacion</Text>
-          <Text>
+        <View style={styles.warrantySection}>
+          <Text style={styles.warrantySectionTitle}>2. Garantia de Instalacion</Text>
+          <Text style={styles.warrantyParagraph}>
             La instalacion realizada por ALFA IT cuenta con una garantia de{" "}
             {warranty.installation_warranty_months || 0} meses, vigente del{" "}
             {formatDate(warranty.installation_warranty_start_date)} al{" "}
@@ -512,41 +679,45 @@ export function WarrantyLetterPdfDocument({
             o manipulados por terceros.
           </Text>
           {warranty.preventive_maintenance_required ? (
-            <Text>
+            <Text style={styles.warrantyParagraph}>
               Para conservar el funcionamiento correcto de los sistemas, se requiere
-              mantenimiento preventivo cada {warranty.preventive_maintenance_frequency_months || 0} meses.
+              mantenimiento preventivo cada {maintenanceFrequency} meses.
               El costo registrado de mantenimiento es {formatMoney(warranty.preventive_maintenance_cost_mxn)}.
               El proximo mantenimiento sugerido es {formatDate(nextMaintenanceDate)}.
             </Text>
           ) : (
-            <Text>No se registraron requisitos obligatorios de mantenimiento preventivo para esta carta.</Text>
+            <Text style={styles.warrantyParagraph}>
+              No se registraron requisitos obligatorios de mantenimiento preventivo para esta carta.
+            </Text>
           )}
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>3. Procedimiento de Reclamo</Text>
-          <Text>
-            Cualquier solicitud de garantia debera reportarse al correo {supportEmail},
-            indicando cliente, proyecto, descripcion de la falla, evidencia fotografica
-            o en video y datos de contacto para coordinacion de revision tecnica.
-          </Text>
-        </View>
+        <View style={styles.warrantyClosingBlock} wrap={false}>
+          <View style={styles.warrantySection}>
+            <Text style={styles.warrantySectionTitle}>3. Procedimiento de Reclamo</Text>
+            <Text style={styles.warrantyParagraph}>
+              Cualquier solicitud de garantia debera reportarse al correo {supportEmail},
+              indicando cliente, proyecto, descripcion de la falla, evidencia fotografica
+              o en video y datos de contacto para coordinacion de revision tecnica.
+            </Text>
+          </View>
 
-        <View style={styles.grid}>
-          <View style={styles.card}>
-            <View style={styles.signatureLine}>
-              <Text>{representativeName}</Text>
-              <Text style={styles.muted}>Representante ALFA IT</Text>
+          <View style={styles.warrantySignatureGrid} wrap={false}>
+            <View style={styles.warrantySignatureCard}>
+              <View style={styles.warrantySignatureLine}>
+                <Text style={styles.warrantyValue}>{representativeName}</Text>
+                <Text style={styles.warrantyMuted}>Representante ALFA IT</Text>
+              </View>
             </View>
-          </View>
-          <View style={styles.card}>
-            <View style={styles.signatureLine}>
-              <Text>{clientName}</Text>
-              <Text style={styles.muted}>Cliente</Text>
+            <View style={styles.warrantySignatureCard}>
+              <View style={styles.warrantySignatureLine}>
+                <Text style={styles.warrantyValue}>{clientName}</Text>
+                <Text style={styles.warrantyMuted}>Cliente</Text>
+              </View>
             </View>
           </View>
         </View>
-        <PdfFooter />
+        <WarrantyPdfFooter />
       </Page>
     </Document>
   );
