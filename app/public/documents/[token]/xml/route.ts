@@ -24,9 +24,10 @@ export async function GET(
 
   const { data: invoice, error } = await supabase
     .from("project_invoices")
-    .select("id, client_project_id, facturama_id")
+    .select("id, client_project_id, facturama_id, status")
     .eq("id", link.project_invoice_id)
     .eq("client_project_id", link.client_project_id)
+    .in("status", ["issued", "paid"])
     .maybeSingle();
 
   if (error) {

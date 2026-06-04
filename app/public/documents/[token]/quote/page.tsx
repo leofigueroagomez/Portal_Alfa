@@ -88,6 +88,16 @@ export default async function PublicQuotePage({
   }
 
   const { supabase, link } = result;
+  const { data: approvedGroup } = await supabase
+    .from("quote_groups")
+    .select("id")
+    .eq("approved_quote_id", link.quote_id)
+    .maybeSingle();
+
+  if (!approvedGroup) {
+    notFound();
+  }
+
   const { data: quote } = await supabase
     .from("quotes")
     .select(

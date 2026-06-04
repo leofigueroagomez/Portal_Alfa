@@ -23,9 +23,10 @@ export async function GET(
     if (link.document_type === "project_invoice_pdf" && link.project_invoice_id) {
       const { data: invoice, error } = await supabase
         .from("project_invoices")
-        .select("id, client_project_id, facturama_id")
+        .select("id, client_project_id, facturama_id, status")
         .eq("id", link.project_invoice_id)
         .eq("client_project_id", link.client_project_id)
+        .in("status", ["issued", "paid"])
         .maybeSingle();
 
       if (error) {
@@ -45,6 +46,42 @@ export async function GET(
           "X-Content-Type-Options": "nosniff",
         },
       });
+    }
+
+    if (link.document_type === "project_delivery" && link.project_delivery_id) {
+      const { data: delivery, error } = await supabase
+        .from("project_deliveries")
+        .select("id")
+        .eq("id", link.project_delivery_id)
+        .eq("client_project_id", link.client_project_id)
+        .in("status", ["delivered", "accepted"])
+        .maybeSingle();
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+
+      if (!delivery) {
+        return NextResponse.json({ error: "Documento no disponible." }, { status: 404 });
+      }
+    }
+
+    if (link.document_type === "project_warranty" && link.project_warranty_id) {
+      const { data: warranty, error } = await supabase
+        .from("project_warranties")
+        .select("id")
+        .eq("id", link.project_warranty_id)
+        .eq("client_project_id", link.client_project_id)
+        .eq("status", "issued")
+        .maybeSingle();
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+
+      if (!warranty) {
+        return NextResponse.json({ error: "Documento no disponible." }, { status: 404 });
+      }
     }
 
     const pdf =

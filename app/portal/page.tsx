@@ -99,6 +99,7 @@ export default async function ClientPortalPage() {
       .from("project_deliveries")
       .select("client_project_id, delivery_date")
       .in("client_project_id", projectIds)
+      .in("status", ["delivered", "accepted"])
       .order("delivery_date", { ascending: false })
       .order("created_at", { ascending: false }),
     supabase
@@ -107,12 +108,14 @@ export default async function ClientPortalPage() {
         "client_project_id, installation_warranty_end_date, equipment_warranty_end_date, preventive_maintenance_frequency_months"
       )
       .in("client_project_id", projectIds)
+      .eq("status", "issued")
       .order("warranty_date", { ascending: false })
       .order("created_at", { ascending: false }),
     supabase
       .from("project_invoices")
       .select("id, internal_folio, invoice_date, total_mxn, total, status, sat_uuid, client_project_id")
-      .in("client_project_id", projectIds),
+      .in("client_project_id", projectIds)
+      .in("status", ["issued", "paid"]),
     supabase
       .from("project_payments")
       .select(

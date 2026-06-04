@@ -79,6 +79,10 @@ type ApprovedQuote = {
   grand_total?: number | null;
 };
 
+type QuoteGroupApproval = {
+  approved_quote_id: number | null;
+};
+
 type ClientVisibleDocument = {
   id: number;
   name: string | null;
@@ -167,7 +171,7 @@ export default async function ClientPortalProjectPage({
     { data: deliveries },
     { data: warranties },
     { data: documents },
-    { data: approvedQuotes },
+    { data: quoteGroupApprovals },
     { data: authorizedPlans },
   ] = await Promise.all([
     supabase
@@ -179,6 +183,7 @@ export default async function ClientPortalProjectPage({
       .from("project_invoices")
       .select("id, internal_folio, invoice_date, total_mxn, total, status, sat_uuid, facturama_id")
       .eq("client_project_id", project.id)
+      .in("status", ["issued", "paid"])
       .order("invoice_date", { ascending: false })
       .order("created_at", { ascending: false }),
     supabase
@@ -193,6 +198,7 @@ export default async function ClientPortalProjectPage({
       .from("project_deliveries")
       .select("id, delivery_date, status, delivered_to_name, observations")
       .eq("client_project_id", project.id)
+      .in("status", ["delivered", "accepted"])
       .order("delivery_date", { ascending: false })
       .order("created_at", { ascending: false }),
     supabase
@@ -201,20 +207,18 @@ export default async function ClientPortalProjectPage({
         "id, warranty_date, status, equipment_warranty_end_date, installation_warranty_end_date, preventive_maintenance_frequency_months, support_email"
       )
       .eq("client_project_id", project.id)
+      .eq("status", "issued")
       .order("warranty_date", { ascending: false })
       .order("created_at", { ascending: false }),
-    supabase
+    adminSupabase
       .from("public_document_links")
       .select("token, document_type, project_delivery_id, project_warranty_id, quote_id, document_id, project_invoice_id, file_format")
       .eq("client_project_id", project.id)
       .is("expires_at", null),
     adminSupabase
-      .from("quotes")
-      .select("id, quote_number, created_at, total_mxn, grand_total")
-      .eq("client_project_id", project.id)
-      .eq("status", "approved")
-      .order("created_at", { ascending: false })
-      .limit(1),
+      .from("quote_groups")
+      .select("approved_quote_id")
+      .not("approved_quote_id", "is", null),
     adminSupabase
       .from("documents")
       .select("id, name, file_url, created_at, type, document_type, is_client_visible")
@@ -230,6 +234,19 @@ export default async function ClientPortalProjectPage({
   const deliveryList = (deliveries || []) as Delivery[];
   const warrantyList = (warranties || []) as Warranty[];
   const documentList = (documents || []) as PublicDocument[];
+  const approvedQuoteIds = ((quoteGroupApprovals || []) as QuoteGroupApproval[])
+    .map((group) => group.approved_quote_id)
+    .filter((quoteId): quoteId is number => typeof quoteId === "number");
+  const { data: approvedQuotes } = approvedQuoteIds.length
+    ? await adminSupabase
+        .from("quotes")
+        .select("id, quote_number, created_at, total_mxn, grand_total")
+        .in("id", approvedQuoteIds)
+        .eq("client_project_id", project.id)
+        .eq("status", "approved")
+        .order("created_at", { ascending: false })
+        .limit(1)
+    : { data: [] };
   const approvedQuote = ((approvedQuotes || []) as ApprovedQuote[])[0] || null;
   const authorizedPlanList = (authorizedPlans || []) as ClientVisibleDocument[];
   const generatedDocuments: PublicDocument[] = [];

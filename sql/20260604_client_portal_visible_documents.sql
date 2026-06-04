@@ -6,10 +6,6 @@ update public.documents
 set document_type = coalesce(document_type, type)
 where document_type is null;
 
-update public.documents
-set is_client_visible = true
-where coalesce(document_type, type) = 'authorized_plan';
-
 alter table public.public_document_links
   add column if not exists quote_id bigint references public.quotes(id) on delete cascade,
   add column if not exists document_id bigint references public.documents(id) on delete cascade,
