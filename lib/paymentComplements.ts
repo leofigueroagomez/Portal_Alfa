@@ -27,6 +27,10 @@ export type PaymentComplementRecord = {
   partiality_number: number;
   previous_balance_mxn: number;
   amount_paid_mxn: number;
+  paid_amount_mxn?: number | null;
+  source_payment_amount_mxn?: number | null;
+  manual_amount_override?: boolean | null;
+  manual_override_reason?: string | null;
   outstanding_balance_mxn: number;
   payment_date: string;
   payment_form_code: string;
@@ -43,7 +47,7 @@ export type PaymentComplementRecord = {
 export type PaymentComplementCalculation = {
   partialityNumber: number;
   previousBalanceMxn: number;
-  amountPaidMxn: number;
+  paidAmountMxn: number;
   outstandingBalanceMxn: number;
 };
 
@@ -85,24 +89,32 @@ export function roundPaymentAmount(value: number) {
 }
 
 export function getInvoicePaymentComplementPaidAmount(
-  complements: Array<Pick<PaymentComplementRecord, "status" | "amount_paid_mxn">>
+  complements: Array<
+    Pick<PaymentComplementRecord, "status" | "amount_paid_mxn" | "paid_amount_mxn">
+  >
 ) {
   return roundPaymentAmount(
     complements
       .filter((complement) => isActivePaymentComplementStatus(complement.status))
-      .reduce((sum, complement) => sum + Number(complement.amount_paid_mxn || 0), 0)
+      .reduce(
+        (sum, complement) =>
+          sum + Number(complement.paid_amount_mxn ?? complement.amount_paid_mxn ?? 0),
+        0
+      )
   );
 }
 
 export function calculatePaymentComplement(input: {
   invoiceTotalMxn: number;
-  existingComplements: Array<Pick<PaymentComplementRecord, "status" | "amount_paid_mxn">>;
-  amountPaidMxn: number;
+  existingComplements: Array<
+    Pick<PaymentComplementRecord, "status" | "amount_paid_mxn" | "paid_amount_mxn">
+  >;
+  paidAmountMxn: number;
 }): PaymentComplementCalculation {
   const invoiceTotalMxn = roundPaymentAmount(input.invoiceTotalMxn);
   const paidAmount = getInvoicePaymentComplementPaidAmount(input.existingComplements);
   const previousBalanceMxn = roundPaymentAmount(invoiceTotalMxn - paidAmount);
-  const amountPaidMxn = roundPaymentAmount(input.amountPaidMxn);
+  const paidAmountMxn = roundPaymentAmount(input.paidAmountMxn);
   const activeComplements = input.existingComplements.filter((complement) =>
     isActivePaymentComplementStatus(complement.status)
   );
@@ -110,8 +122,8 @@ export function calculatePaymentComplement(input: {
   return {
     partialityNumber: activeComplements.length + 1,
     previousBalanceMxn,
-    amountPaidMxn,
-    outstandingBalanceMxn: roundPaymentAmount(previousBalanceMxn - amountPaidMxn),
+    paidAmountMxn,
+    outstandingBalanceMxn: roundPaymentAmount(previousBalanceMxn - paidAmountMxn),
   };
 }
 
@@ -135,10 +147,10 @@ export function getPaymentComplementValidationErrors(input: {
   if (!Number.isFinite(invoiceTotalMxn) || invoiceTotalMxn <= 0) {
     errors.push("La factura debe tener total mayor a cero.");
   }
-  if (input.calculation.amountPaidMxn <= 0) {
+  if (input.calculation.paidAmountMxn <= 0) {
     errors.push("El pago debe ser mayor a cero.");
   }
-  if (input.calculation.amountPaidMxn > input.calculation.previousBalanceMxn) {
+  if (input.calculation.paidAmountMxn > input.calculation.previousBalanceMxn) {
     errors.push("El pago no puede ser mayor que el saldo pendiente.");
   }
   if (input.paymentAlreadyHasComplement) {
@@ -178,7 +190,7 @@ export function buildFacturamaPaymentComplementPayload({
           Date: `${paymentDate}T12:00:00.000Z`,
           PaymentForm: paymentFormCode,
           Currency: "MXN",
-          Amount: calculation.amountPaidMxn,
+          Amount: calculation.paidAmountMxn,
           ...(paymentReference ? { OperationNumber: paymentReference } : {}),
           RelatedDocuments: [
             {
@@ -188,7 +200,7 @@ export function buildFacturamaPaymentComplementPayload({
               PaymentMethod: invoice.payment_method_code || "PPD",
               PartialityNumber: calculation.partialityNumber,
               PreviousBalanceAmount: calculation.previousBalanceMxn,
-              AmountPaid: calculation.amountPaidMxn,
+              AmountPaid: calculation.paidAmountMxn,
               OutstandingBalanceAmount: calculation.outstandingBalanceMxn,
             },
           ],

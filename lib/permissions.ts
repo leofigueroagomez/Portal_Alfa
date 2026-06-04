@@ -76,6 +76,11 @@ export function canManageAccountStatements(role: string | null | undefined) {
   return ["admin", "direccion", "finanzas"].includes(normalized);
 }
 
+export function canManageFiscalPayments(role: string | null | undefined) {
+  const normalized = normalizeRole(role);
+  return ["admin", "finanzas"].includes(normalized);
+}
+
 export function canManageWorkOrders(role: string | null | undefined) {
   const normalized = normalizeRole(role);
   return [

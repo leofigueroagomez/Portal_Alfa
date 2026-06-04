@@ -23,6 +23,7 @@ type ProjectPaymentForComplement = {
   id: number;
   payment_date: string | null;
   payment_method: string | null;
+  payment_form_code?: string | null;
   payment_reference: string | null;
   amount_mxn: number | null;
 };
@@ -33,6 +34,10 @@ type PaymentComplementForPanel = {
   partiality_number: number | null;
   previous_balance_mxn: number | null;
   amount_paid_mxn: number | null;
+  paid_amount_mxn?: number | null;
+  source_payment_amount_mxn?: number | null;
+  manual_amount_override?: boolean | null;
+  manual_override_reason?: string | null;
   outstanding_balance_mxn: number | null;
   payment_date: string | null;
   payment_form_code: string | null;
@@ -81,12 +86,20 @@ export default function PaymentComplementPanel({
     isActiveComplement(complement.status)
   );
   const paidAmount = activeComplements.reduce(
-    (sum, complement) => sum + Number(complement.amount_paid_mxn || 0),
+    (sum, complement) =>
+      sum + Number(complement.paid_amount_mxn ?? complement.amount_paid_mxn ?? 0),
     0
   );
   const pendingBalance = Math.max(getInvoiceTotal(invoice) - paidAmount, 0);
   const nextPartiality = activeComplements.length + 1;
   const selectedPayment = payments.find((payment) => String(payment.id) === selectedPaymentId);
+  const sourcePaymentAmountMxn = selectedPayment
+    ? Number(selectedPayment.amount_mxn || 0)
+    : null;
+  const fiscalPaidAmountMxn = Number(amountPaidMxn || 0);
+  const manualAmountOverride =
+    sourcePaymentAmountMxn != null &&
+    Math.abs(fiscalPaidAmountMxn - sourcePaymentAmountMxn) > 0.01;
   const availablePaymentForms = useMemo(
     () => paymentForms.filter((form) => form.is_active && form.code !== "99"),
     [paymentForms]
@@ -105,6 +118,7 @@ export default function PaymentComplementPanel({
       setAmountPaidMxn(String(Number(payment.amount_mxn || 0).toFixed(2)));
       setPaymentDate(payment.payment_date || today());
       setPaymentReference(payment.payment_reference || "");
+      if (payment.payment_form_code) setPaymentFormCode(payment.payment_form_code);
     }
   }
 
@@ -153,16 +167,49 @@ export default function PaymentComplementPanel({
                 className="rounded-lg border border-[#2A2A30] bg-[#151518] p-3 text-xs text-[#B3B3B8]"
               >
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="font-semibold text-white">
-                    Parcialidad {complement.partiality_number} / {complement.status}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-semibold text-white">
+                      Parcialidad {complement.partiality_number} / {complement.status}
+                    </p>
+                    {complement.manual_amount_override ? (
+                      <span className="rounded-full border border-[#614620] bg-[#322514] px-2 py-1 text-[#F4C66A]">
+                        Ajuste manual
+                      </span>
+                    ) : null}
+                  </div>
+                  <p>
+                    {formatCurrency(
+                      Number(complement.paid_amount_mxn ?? complement.amount_paid_mxn ?? 0),
+                      "MXN"
+                    )}
                   </p>
-                  <p>{formatCurrency(Number(complement.amount_paid_mxn || 0), "MXN")}</p>
                 </div>
                 <p className="mt-1">
                   Saldo anterior{" "}
                   {formatCurrency(Number(complement.previous_balance_mxn || 0), "MXN")} / insoluto{" "}
                   {formatCurrency(Number(complement.outstanding_balance_mxn || 0), "MXN")}
                 </p>
+                {complement.manual_amount_override ? (
+                  <div className="mt-2 rounded-lg border border-[#614620] bg-[#322514] p-2 text-[#F4C66A]">
+                    <p className="font-semibold">Ajuste manual</p>
+                    <p>
+                      Pago registrado:{" "}
+                      {formatCurrency(Number(complement.source_payment_amount_mxn || 0), "MXN")} / Importe fiscal complemento:{" "}
+                      {formatCurrency(
+                        Number(complement.paid_amount_mxn ?? complement.amount_paid_mxn ?? 0),
+                        "MXN"
+                      )}
+                    </p>
+                    <p>
+                      Diferencia:{" "}
+                      {formatCurrency(
+                        Number(complement.paid_amount_mxn ?? complement.amount_paid_mxn ?? 0) -
+                          Number(complement.source_payment_amount_mxn || 0),
+                        "MXN"
+                      )}
+                    </p>
+                  </div>
+                ) : null}
               </div>
             ))}
           </div>
@@ -197,7 +244,15 @@ export default function PaymentComplementPanel({
               <Metric label="Parcialidad" value={String(nextPartiality)} />
               <Metric label="Saldo anterior" value={formatCurrency(pendingBalance, "MXN")} />
               <Metric
-                label="Pago"
+                label="Pago registrado"
+                value={
+                  sourcePaymentAmountMxn == null
+                    ? "Manual"
+                    : formatCurrency(sourcePaymentAmountMxn, "MXN")
+                }
+              />
+              <Metric
+                label="Importe fiscal"
                 value={formatCurrency(Number(amountPaidMxn || 0), "MXN")}
               />
               <Metric
@@ -256,13 +311,12 @@ export default function PaymentComplementPanel({
               </label>
 
               <label className="space-y-2">
-                <span className="text-sm text-[#B3B3B8]">Importe pagado MXN</span>
+                <span className="text-sm text-[#B3B3B8]">Monto a complementar MXN</span>
                 <input
                   type="number"
                   step="0.01"
                   min="0"
-                  name="amountPaidMxn"
-                  disabled={Boolean(selectedPayment)}
+                  name="paidAmountMxn"
                   className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none disabled:text-[#77777D]"
                   value={amountPaidMxn}
                   onChange={(event) => setAmountPaidMxn(event.target.value)}
@@ -280,6 +334,45 @@ export default function PaymentComplementPanel({
                 />
               </label>
             </div>
+
+            {manualAmountOverride ? (
+              <div className="mt-5 rounded-xl border border-[#6A2A2A] bg-[#351818] p-4 text-sm text-[#FFB4B4]">
+                <p className="font-semibold">
+                  El importe fiscal del complemento es distinto al pago registrado en el estado de cuenta.
+                </p>
+                <p className="mt-1">
+                  Esto puede generar diferencias entre control interno y CFDI. ¿Deseas continuar?
+                </p>
+                <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <Metric
+                    label="Pago registrado"
+                    value={formatCurrency(Number(sourcePaymentAmountMxn || 0), "MXN")}
+                  />
+                  <Metric
+                    label="Importe fiscal"
+                    value={formatCurrency(fiscalPaidAmountMxn, "MXN")}
+                  />
+                  <Metric
+                    label="Diferencia"
+                    value={formatCurrency(
+                      fiscalPaidAmountMxn - Number(sourcePaymentAmountMxn || 0),
+                      "MXN"
+                    )}
+                  />
+                </div>
+                <label className="mt-4 block space-y-2">
+                  <span className="text-sm text-[#FFB4B4]">Motivo obligatorio</span>
+                  <textarea
+                    name="manualOverrideReason"
+                    required
+                    className="min-h-20 w-full rounded-xl border border-[#6A2A2A] bg-[#151518] px-4 py-3 text-white outline-none"
+                    placeholder="Explica por que el CFDI requiere un importe distinto al pago registrado."
+                  />
+                </label>
+              </div>
+            ) : (
+              <input type="hidden" name="manualOverrideReason" value="" />
+            )}
 
             {result ? (
               <div

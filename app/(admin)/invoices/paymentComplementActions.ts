@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { canViewFinancials } from "@/lib/permissions";
+import { canManageFiscalPayments, canViewFinancials } from "@/lib/permissions";
 import {
   buildFacturamaPaymentComplementPayload,
   calculatePaymentComplement,
@@ -21,6 +21,7 @@ type ProjectPayment = {
   payment_method: string | null;
   payment_reference: string | null;
   amount_mxn: number | null;
+  payment_form_code?: string | null;
 };
 
 export type CreatePaymentComplementDraftResult =
@@ -66,8 +67,9 @@ export async function createPaymentComplementDraft(
     const projectPaymentId = projectPaymentIdValue ? Number(projectPaymentIdValue) : null;
     const paymentDate = getFormString(formData, "paymentDate");
     const paymentFormCode = getFormString(formData, "paymentFormCode");
-    const manualAmountMxn = Number(getFormString(formData, "amountPaidMxn"));
+    const paidAmountMxn = Number(getFormString(formData, "paidAmountMxn"));
     const paymentReference = getFormString(formData, "paymentReference") || null;
+    const manualOverrideReason = getFormString(formData, "manualOverrideReason");
 
     if (!invoiceId) throw new Error("Factura requerida.");
     if (!paymentDate) throw new Error("Fecha de pago requerida.");
@@ -92,24 +94,11 @@ export async function createPaymentComplementDraft(
       : clientRelation || null;
     if (!client) throw new Error("La factura no tiene cliente fiscal.");
 
-    const { data: paymentForm, error: paymentFormError } = await supabase
-      .from("sat_payment_form_catalog")
-      .select("code, name, is_active")
-      .eq("code", paymentFormCode)
-      .maybeSingle();
-
-    if (paymentFormError) {
-      throw new Error(`Error validando forma de pago: ${paymentFormError.message}`);
-    }
-    if (!paymentForm?.is_active || paymentFormCode === "99") {
-      throw new Error("Seleccione una forma de pago real para el complemento.");
-    }
-
     let projectPayment: ProjectPayment | null = null;
     if (projectPaymentId) {
       const { data: paymentData, error: paymentError } = await supabase
         .from("project_payments")
-        .select("id, client_project_id, payment_date, payment_method, payment_reference, amount_mxn")
+        .select("id, client_project_id, payment_date, payment_method, payment_reference, amount_mxn, payment_form_code")
         .eq("id", projectPaymentId)
         .maybeSingle();
 
@@ -122,9 +111,24 @@ export async function createPaymentComplementDraft(
       }
     }
 
+    const effectivePaymentFormCode = projectPayment?.payment_form_code || paymentFormCode;
+
+    const { data: paymentForm, error: paymentFormError } = await supabase
+      .from("sat_payment_form_catalog")
+      .select("code, name, is_active")
+      .eq("code", effectivePaymentFormCode)
+      .maybeSingle();
+
+    if (paymentFormError) {
+      throw new Error(`Error validando forma de pago: ${paymentFormError.message}`);
+    }
+    if (!paymentForm?.is_active || effectivePaymentFormCode === "99") {
+      throw new Error("Seleccione una forma de pago real para el complemento.");
+    }
+
     const { data: complementData, error: complementError } = await supabase
       .from("project_payment_complements")
-      .select("id, status, amount_paid_mxn, project_payment_id")
+      .select("id, status, amount_paid_mxn, paid_amount_mxn, project_payment_id, manual_amount_override")
       .eq("project_invoice_id", invoice.id);
 
     if (complementError) {
@@ -132,26 +136,61 @@ export async function createPaymentComplementDraft(
     }
 
     const existingComplements = (complementData || []) as PaymentComplementRecord[];
-    const paymentAlreadyHasComplement = projectPaymentId
-      ? existingComplements.some(
+    const { data: paymentComplementData, error: paymentComplementError } =
+      projectPaymentId
+        ? await supabase
+            .from("project_payment_complements")
+            .select("id, status, amount_paid_mxn, paid_amount_mxn, project_payment_id")
+            .eq("project_payment_id", projectPaymentId)
+        : { data: [], error: null };
+
+    if (paymentComplementError) {
+      throw new Error(
+        `Error leyendo complementos del pago: ${paymentComplementError.message}`
+      );
+    }
+
+    const existingComplementsForPayment =
+      (paymentComplementData || []) as PaymentComplementRecord[];
+    const activeComplementsForPayment = projectPaymentId
+      ? existingComplementsForPayment.filter(
           (complement) =>
             Number(complement.project_payment_id) === projectPaymentId &&
             ["draft", "validated", "stamped"].includes(complement.status)
         )
-      : false;
-    const amountPaidMxn = projectPayment
+      : [];
+    const sourcePaymentAmountMxn = projectPayment
       ? Number(projectPayment.amount_mxn || 0)
-      : manualAmountMxn;
+      : null;
+    const fiscalPaidAmountMxn = paidAmountMxn;
+    const manualAmountOverride =
+      sourcePaymentAmountMxn != null &&
+      Math.abs(fiscalPaidAmountMxn - sourcePaymentAmountMxn) > 0.01;
+
+    if (manualAmountOverride && !canManageFiscalPayments(profile.role)) {
+      throw new Error("Solo admin o finanzas pueden autorizar ajuste manual del importe fiscal.");
+    }
+
+    if (manualAmountOverride && !manualOverrideReason) {
+      throw new Error("Captura el motivo del ajuste manual del importe fiscal.");
+    }
+
+    const paymentAlreadyHasComplement =
+      activeComplementsForPayment.length > 0 && !manualAmountOverride;
     const calculation = calculatePaymentComplement({
       invoiceTotalMxn: Number(invoice.total_mxn ?? invoice.total ?? 0),
       existingComplements,
-      amountPaidMxn,
+      paidAmountMxn: fiscalPaidAmountMxn,
     });
     const validationErrors = getPaymentComplementValidationErrors({
       invoice,
       calculation,
       paymentAlreadyHasComplement,
     });
+
+    if (activeComplementsForPayment.some((complement) => complement.status === "stamped")) {
+      throw new Error("Este pago ya tiene un complemento timbrado.");
+    }
 
     if (validationErrors.length > 0) {
       throw new Error(validationErrors.join(" | "));
@@ -161,7 +200,7 @@ export async function createPaymentComplementDraft(
       invoice,
       client: client as FiscalClientData,
       paymentDate: projectPayment?.payment_date || paymentDate,
-      paymentFormCode,
+      paymentFormCode: effectivePaymentFormCode,
       paymentReference: projectPayment?.payment_reference || paymentReference,
       calculation,
     });
@@ -177,10 +216,14 @@ export async function createPaymentComplementDraft(
         complement_env: config.env,
         partiality_number: calculation.partialityNumber,
         previous_balance_mxn: calculation.previousBalanceMxn,
-        amount_paid_mxn: calculation.amountPaidMxn,
+        amount_paid_mxn: calculation.paidAmountMxn,
+        paid_amount_mxn: calculation.paidAmountMxn,
+        source_payment_amount_mxn: sourcePaymentAmountMxn,
+        manual_amount_override: manualAmountOverride,
+        manual_override_reason: manualAmountOverride ? manualOverrideReason : null,
         outstanding_balance_mxn: calculation.outstandingBalanceMxn,
         payment_date: projectPayment?.payment_date || paymentDate,
-        payment_form_code: paymentFormCode,
+        payment_form_code: effectivePaymentFormCode,
         currency: "MXN",
         exchange_rate: null,
         payment_reference: projectPayment?.payment_reference || paymentReference,

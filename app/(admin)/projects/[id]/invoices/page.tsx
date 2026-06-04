@@ -51,6 +51,7 @@ type ProjectPaymentForComplement = {
   id: number;
   payment_date: string | null;
   payment_method: string | null;
+  payment_form_code?: string | null;
   payment_reference: string | null;
   amount_mxn: number | null;
 };
@@ -144,7 +145,7 @@ export default async function ProjectInvoicesPage({
     paymentComplementsConfig.enabled
       ? supabase
           .from("project_payments")
-          .select("id, payment_date, payment_method, payment_reference, amount_mxn")
+          .select("id, payment_date, payment_method, payment_form_code, payment_reference, amount_mxn")
           .eq("client_project_id", projectData.id)
           .order("payment_date", { ascending: false })
       : Promise.resolve({ data: [], error: null }),
@@ -152,7 +153,7 @@ export default async function ProjectInvoicesPage({
       ? supabase
           .from("project_payment_complements")
           .select(
-            "id, project_invoice_id, project_payment_id, client_project_id, client_id, status, complement_env, partiality_number, previous_balance_mxn, amount_paid_mxn, outstanding_balance_mxn, payment_date, payment_form_code, currency, exchange_rate, payment_reference, payload_preview, facturama_id, sat_uuid, last_error, created_at"
+            "id, project_invoice_id, project_payment_id, client_project_id, client_id, status, complement_env, partiality_number, previous_balance_mxn, amount_paid_mxn, paid_amount_mxn, source_payment_amount_mxn, manual_amount_override, manual_override_reason, outstanding_balance_mxn, payment_date, payment_form_code, currency, exchange_rate, payment_reference, payload_preview, facturama_id, sat_uuid, last_error, created_at"
           )
           .eq("client_project_id", projectData.id)
           .order("created_at", { ascending: false })

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, FileText } from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { getCurrentUserProfile } from "@/services/profile";
-import { canManageUsers } from "@/lib/permissions";
+import { canManageFiscalPayments, canManageUsers } from "@/lib/permissions";
 import { formatCurrency, formatNumber } from "@/lib/format";
 import {
   getFacturamaEnv,
@@ -26,6 +26,8 @@ import InvoiceFileLinks from "@/app/(admin)/invoices/InvoiceFileLinks";
 import InvoiceForm from "@/app/(admin)/invoices/InvoiceForm";
 import StampInvoiceButton from "@/app/(admin)/invoices/StampInvoiceButton";
 import ProjectPaymentForm from "./ProjectPaymentForm";
+import EditProjectPaymentButton from "./EditProjectPaymentButton";
+import type { PaymentFormCatalogItem } from "@/lib/paymentTerms";
 
 type ClientProject = {
   id: number;
@@ -47,6 +49,7 @@ type ProjectPayment = {
   id: number;
   payment_date: string | null;
   payment_method: string | null;
+  payment_form_code?: string | null;
   payment_reference: string | null;
   payment_category: string | null;
   currency: string | null;
@@ -94,6 +97,7 @@ export default async function ProjectAccountStatementPage({
   const supabase = await createSupabaseServerClient();
   const profile = await getCurrentUserProfile();
   const allowManualInvoices = canManageUsers(profile?.role);
+  const allowPaymentEdits = canManageFiscalPayments(profile?.role);
   const facturamaEnv = getFacturamaEnv();
   const facturamaProductionEnabled = getFacturamaProductionEnabled();
   const sandboxReceiverNotice = getFacturamaSandboxReceiverNotice();
@@ -137,7 +141,13 @@ export default async function ProjectAccountStatementPage({
   }
 
   const projectData = project as ClientProject;
-  const [{ data: client }, { data: approvedQuotes }, paymentsResult] = await Promise.all([
+  const [
+    { data: client },
+    { data: approvedQuotes },
+    paymentsResult,
+    paymentFormsResult,
+    stampedComplementsResult,
+  ] = await Promise.all([
     projectData.client_id
       ? supabase
           .from("clients")
@@ -154,11 +164,20 @@ export default async function ProjectAccountStatementPage({
     supabase
       .from("project_payments")
       .select(
-        "id, payment_date, payment_method, payment_reference, payment_category, currency, amount, exchange_rate, amount_mxn, notes"
+        "id, payment_date, payment_method, payment_form_code, payment_reference, payment_category, currency, amount, exchange_rate, amount_mxn, notes"
       )
       .eq("client_project_id", projectData.id)
       .order("payment_date", { ascending: false })
       .order("created_at", { ascending: false }),
+    supabase
+      .from("sat_payment_form_catalog")
+      .select("code, name, is_active")
+      .order("code"),
+    supabase
+      .from("project_payment_complements")
+      .select("id, project_payment_id, status")
+      .eq("client_project_id", projectData.id)
+      .eq("status", "stamped"),
   ]);
 
   const invoicesResult = await supabase
@@ -173,6 +192,14 @@ export default async function ProjectAccountStatementPage({
   const clientData = client as FiscalClientData | null;
   const quotes = (approvedQuotes || []) as Quote[];
   const payments = paymentsResult.error ? [] : ((paymentsResult.data || []) as ProjectPayment[]);
+  const paymentForms = paymentFormsResult.error
+    ? []
+    : ((paymentFormsResult.data || []) as PaymentFormCatalogItem[]);
+  const stampedPaymentIds = new Set(
+    (stampedComplementsResult.error ? [] : stampedComplementsResult.data || [])
+      .map((complement) => Number(complement.project_payment_id || 0))
+      .filter(Boolean)
+  );
   const invoices = invoicesResult.error
     ? []
     : ((invoicesResult.data || []) as ProjectInvoice[]);
@@ -347,7 +374,7 @@ export default async function ProjectAccountStatementPage({
           <p className="text-[#77777D]">Aun no hay pagos registrados.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[960px] border-collapse text-sm">
+            <table className="w-full min-w-[1080px] border-collapse text-sm">
               <thead>
                 <tr className="border-b border-[#2A2A30] text-left text-[#B3B3B8]">
                   <th className="px-3 py-3">Fecha</th>
@@ -359,30 +386,56 @@ export default async function ProjectAccountStatementPage({
                   <th className="px-3 py-3 text-right">TC</th>
                   <th className="px-3 py-3 text-right">Monto MXN</th>
                   <th className="px-3 py-3">Notas</th>
+                  {allowPaymentEdits ? <th className="px-3 py-3">Accion</th> : null}
                 </tr>
               </thead>
               <tbody>
-                {payments.map((payment) => (
-                  <tr key={payment.id} className="border-b border-[#222228]">
-                    <td className="px-3 py-3">{formatDate(payment.payment_date)}</td>
-                    <td className="px-3 py-3">{payment.payment_method || "-"}</td>
-                    <td className="px-3 py-3">{payment.payment_reference || "-"}</td>
-                    <td className="px-3 py-3">{getCategoryLabel(payment.payment_category)}</td>
-                    <td className="px-3 py-3">{payment.currency || "MXN"}</td>
-                    <td className="px-3 py-3 text-right">
-                      {formatCurrency(payment.amount, payment.currency)}
-                    </td>
-                    <td className="px-3 py-3 text-right">
-                      {payment.exchange_rate ? formatNumber(payment.exchange_rate) : "-"}
-                    </td>
-                    <td className="px-3 py-3 text-right">
-                      {formatCurrency(getPaymentAmountMxn(payment), "MXN")}
-                    </td>
-                    <td className="max-w-[240px] px-3 py-3 text-[#B3B3B8]">
-                      {payment.notes || "-"}
-                    </td>
-                  </tr>
-                ))}
+                {payments.map((payment) => {
+                  const paymentForm = paymentForms.find(
+                    (form) => form.code === payment.payment_form_code
+                  );
+                  const hasStampedComplement = stampedPaymentIds.has(Number(payment.id));
+
+                  return (
+                    <tr key={payment.id} className="border-b border-[#222228]">
+                      <td className="px-3 py-3">{formatDate(payment.payment_date)}</td>
+                      <td className="px-3 py-3">
+                        {payment.payment_form_code
+                          ? `${payment.payment_form_code}${paymentForm?.name ? ` - ${paymentForm.name}` : ""}`
+                          : payment.payment_method || "-"}
+                        {hasStampedComplement ? (
+                          <span className="mt-2 block w-fit rounded-full border border-[#1F7A4D] bg-[#143D2A] px-2 py-1 text-xs text-[#8CE0B6]">
+                            Complemento timbrado
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="px-3 py-3">{payment.payment_reference || "-"}</td>
+                      <td className="px-3 py-3">{getCategoryLabel(payment.payment_category)}</td>
+                      <td className="px-3 py-3">{payment.currency || "MXN"}</td>
+                      <td className="px-3 py-3 text-right">
+                        {formatCurrency(payment.amount, payment.currency)}
+                      </td>
+                      <td className="px-3 py-3 text-right">
+                        {payment.exchange_rate ? formatNumber(payment.exchange_rate) : "-"}
+                      </td>
+                      <td className="px-3 py-3 text-right">
+                        {formatCurrency(getPaymentAmountMxn(payment), "MXN")}
+                      </td>
+                      <td className="max-w-[240px] px-3 py-3 text-[#B3B3B8]">
+                        {payment.notes || "-"}
+                      </td>
+                      {allowPaymentEdits ? (
+                        <td className="px-3 py-3">
+                          <EditProjectPaymentButton
+                            payment={payment}
+                            paymentForms={paymentForms}
+                            hasStampedComplement={hasStampedComplement}
+                          />
+                        </td>
+                      ) : null}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
