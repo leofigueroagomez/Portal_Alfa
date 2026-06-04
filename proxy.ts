@@ -4,6 +4,7 @@ import { getConfiguredPortalHost, getCurrentHost } from "@/lib/hosts";
 
 const protectedRoutes = [
   "/dashboard",
+  "/portal",
   "/leads",
   "/customers",
   "/clients",
@@ -93,6 +94,7 @@ export const config = {
   matcher: [
     "/",
     "/dashboard/:path*",
+    "/portal/:path*",
     "/leads/:path*",
     "/customers/:path*",
     "/clients/:path*",

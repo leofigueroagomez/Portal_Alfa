@@ -168,6 +168,12 @@ export default async function ClientDetailPage({
           >
             Editar cliente
           </Link>
+          <Link
+            href={`/clients/${clientData.id}/portal-users`}
+            className="bg-[#222228] hover:bg-[#2A2A30] border border-[#2A2A30] rounded-xl px-5 py-3 font-semibold"
+          >
+            Usuarios portal
+          </Link>
         </div>
       </div>
 
