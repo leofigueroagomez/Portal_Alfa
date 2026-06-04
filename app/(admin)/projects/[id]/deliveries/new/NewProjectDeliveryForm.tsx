@@ -21,6 +21,8 @@ function getExtension(file: File) {
   return "jpg";
 }
 
+const maxEvidenceImageSize = 50 * 1024 * 1024;
+
 function dataUrlToBlob(dataUrl: string) {
   const [header, base64] = dataUrl.split(",");
   const mime = header.match(/:(.*?);/)?.[1] || "image/png";
@@ -69,18 +71,46 @@ export default function NewProjectDeliveryForm({ projectId, systemOptions }: Pro
   const [systemNotes, setSystemNotes] = useState<Record<string, string>>({});
 
   function setEvidences(files: FileList | null) {
-    const selected = Array.from(files || []).filter((file) =>
-      file.type.startsWith("image/")
-    );
+    const rejected: string[] = [];
+    const selected = Array.from(files || []).filter((file) => {
+      if (!file.type.startsWith("image/")) {
+        rejected.push(`${file.name}: no es imagen`);
+        return false;
+      }
+      if (file.size > maxEvidenceImageSize) {
+        rejected.push(`${file.name}: supera 50 MB`);
+        return false;
+      }
+      return true;
+    });
 
     if (selected.length === 0) {
-      alert("Selecciona imagenes validas para las evidencias.");
+      alert(
+        rejected.length > 0
+          ? `No se agregaron fotos:\n${rejected.join("\n")}`
+          : "Selecciona imagenes validas para las evidencias."
+      );
       return;
     }
 
-    for (const url of evidencePreviewUrls) URL.revokeObjectURL(url);
-    setEvidenceFiles(selected);
-    setEvidencePreviewUrls(selected.map((file) => URL.createObjectURL(file)));
+    if (rejected.length > 0) {
+      alert(`Algunas fotos no se agregaron:\n${rejected.join("\n")}`);
+    }
+
+    setEvidenceFiles((current) => [...current, ...selected]);
+    setEvidencePreviewUrls((current) => [
+      ...current,
+      ...selected.map((file) => URL.createObjectURL(file)),
+    ]);
+  }
+
+  function removeEvidence(index: number) {
+    setEvidenceFiles((current) => current.filter((_, currentIndex) => currentIndex !== index));
+    setEvidencePreviewUrls((current) => {
+      const url = current[index];
+      if (url) URL.revokeObjectURL(url);
+      return current.filter((_, currentIndex) => currentIndex !== index);
+    });
   }
 
   function getCanvasPoint(event: React.PointerEvent<HTMLCanvasElement>) {
@@ -237,27 +267,59 @@ export default function NewProjectDeliveryForm({ projectId, systemOptions }: Pro
 
     try {
       const evidenceRows = [];
+      const evidenceUploadErrors = [];
       for (let index = 0; index < evidenceFiles.length; index += 1) {
         const file = evidenceFiles[index];
-        const path = `project-deliveries/${projectId}/${deliveryId}/evidence-${timestamp}-${index}.${getExtension(file)}`;
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
+        const path = `project-deliveries/${projectId}/${deliveryId}/${timestamp}-${index}-${safeName || `evidence.${getExtension(file)}`}`;
         const { error } = await supabase.storage
           .from("project-photos")
-          .upload(path, file, { cacheControl: "3600", upsert: false });
+          .upload(path, file, {
+            cacheControl: "3600",
+            contentType: file.type || "image/jpeg",
+            upsert: false,
+          });
 
-        if (error) throw error;
+        if (error) {
+          evidenceUploadErrors.push(`${file.name}: ${error.message}`);
+          continue;
+        }
         evidenceRows.push({
           project_delivery_id: deliveryId,
           file_url: path,
+          file_path: path,
+          file_name: file.name,
+          file_type: file.type || null,
+          file_size: file.size,
+          uploaded_by: user?.id || null,
           caption: `Evidencia ${index + 1}`,
           sort_order: index,
         });
       }
 
+      if (evidenceUploadErrors.length > 0) {
+        alert(`Algunas evidencias no se subieron:\n${evidenceUploadErrors.join("\n")}`);
+      }
+
+      if (evidenceRows.length === 0) {
+        throw new Error("No se pudo subir ninguna evidencia.");
+      }
+
       if (evidenceRows.length > 0) {
-        const { error } = await supabase
+        let evidenceInsertResult = await supabase
           .from("project_delivery_evidences")
           .insert(evidenceRows);
-        if (error) throw error;
+        if (evidenceInsertResult.error) {
+          evidenceInsertResult = await supabase.from("project_delivery_evidences").insert(
+            evidenceRows.map((row) => ({
+              project_delivery_id: row.project_delivery_id,
+              file_url: row.file_url,
+              caption: row.caption,
+              sort_order: row.sort_order,
+            }))
+          );
+        }
+        if (evidenceInsertResult.error) throw evidenceInsertResult.error;
       }
 
       const pendingItems = pendingText
@@ -447,17 +509,22 @@ export default function NewProjectDeliveryForm({ projectId, systemOptions }: Pro
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-2xl font-semibold">Evidencias</h2>
-            <p className="mt-1 text-sm text-[#B3B3B8]">Fotos del proyecto entregado.</p>
+            <p className="mt-1 text-sm text-[#B3B3B8]">
+              Agrega una o varias fotos de evidencia de entrega.
+            </p>
           </div>
           <label className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 text-sm font-semibold text-[#B3B3B8] hover:bg-[#2A2A30] hover:text-white">
             <Camera size={16} />
-            Seleccionar fotos
+            {evidencePreviewUrls.length > 0 ? "Agregar mas fotos" : "Seleccionar fotos"}
             <input
               type="file"
               accept="image/*"
               multiple
               className="sr-only"
-              onChange={(event) => setEvidences(event.target.files)}
+              onChange={(event) => {
+                setEvidences(event.target.files);
+                event.currentTarget.value = "";
+              }}
             />
           </label>
         </div>
@@ -468,12 +535,30 @@ export default function NewProjectDeliveryForm({ projectId, systemOptions }: Pro
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             {evidencePreviewUrls.map((url, index) => (
-              <img
+              <figure
                 key={url}
-                src={url}
-                alt={`Evidencia ${index + 1}`}
-                className="h-56 w-full rounded-xl border border-[#2A2A30] object-cover"
-              />
+                className="overflow-hidden rounded-xl border border-[#2A2A30] bg-[#101114]"
+              >
+                <a href={url} target="_blank" rel="noreferrer">
+                  <img
+                    src={url}
+                    alt={`Evidencia ${index + 1}`}
+                    className="h-56 w-full object-cover"
+                  />
+                </a>
+                <figcaption className="flex items-center justify-between gap-3 p-3 text-xs text-[#B3B3B8]">
+                  <span className="truncate">
+                    {evidenceFiles[index]?.name || `Evidencia ${index + 1}`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeEvidence(index)}
+                    className="rounded-lg border border-[#6A2A2A] px-2 py-1 text-[#FFB4B4] hover:bg-[#351818]"
+                  >
+                    Eliminar
+                  </button>
+                </figcaption>
+              </figure>
             ))}
           </div>
         )}

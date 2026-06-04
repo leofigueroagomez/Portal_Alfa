@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { getAppBaseUrl } from "@/lib/appUrl";
 import { getProjectDeliverySystemsForDisplay } from "@/lib/projectDeliverySystems";
 import { getProjectFinancialSummary } from "@/lib/projectFinancials";
+import DeliveryPhotoManager from "./DeliveryPhotoManager";
 import SendDeliveryEmailButton from "./SendDeliveryEmailButton";
 
 type ServerSupabaseStorage = Awaited<ReturnType<typeof createSupabaseServerClient>>["storage"];
@@ -40,6 +41,10 @@ type ProjectDelivery = {
 type Evidence = {
   id: number;
   file_url: string | null;
+  file_path?: string | null;
+  file_name?: string | null;
+  file_type?: string | null;
+  file_size?: number | null;
   caption: string | null;
   displayUrl: string;
 };
@@ -181,10 +186,18 @@ export default async function ProjectDeliveryDetailPage({
       safeLoad("load evidences", async () => {
         const result = await supabase
           .from("project_delivery_evidences")
-          .select("id, file_url, caption")
+          .select("id, file_url, file_path, file_name, file_type, file_size, caption")
           .eq("project_delivery_id", deliveryId)
           .order("sort_order", { ascending: true });
-        if (result.error) throw result.error;
+        if (result.error) {
+          const fallbackResult = await supabase
+            .from("project_delivery_evidences")
+            .select("id, file_url, caption")
+            .eq("project_delivery_id", deliveryId)
+            .order("sort_order", { ascending: true });
+          if (fallbackResult.error) throw fallbackResult.error;
+          return fallbackResult.data || [];
+        }
         return result.data || [];
       }, []),
       safeLoad("load pending items", async () => {
@@ -231,7 +244,7 @@ export default async function ProjectDeliveryDetailPage({
   const evidenceList = await Promise.all(
     ((evidences || []) as Omit<Evidence, "displayUrl">[]).map(async (evidence) => ({
       ...evidence,
-      displayUrl: await resolvePhotoUrl(supabase.storage, evidence.file_url),
+      displayUrl: await resolvePhotoUrl(supabase.storage, evidence.file_path || evidence.file_url),
     }))
   );
   const pendingList = (pendingItems || []) as PendingItem[];
@@ -387,27 +400,11 @@ export default async function ProjectDeliveryDetailPage({
         )}
       </section>
 
-      <section className="mb-8 rounded-2xl border border-[#1F1F24] bg-[#151518] p-5 sm:p-6">
-        <h2 className="mb-5 text-2xl font-semibold">Evidencias</h2>
-        {evidenceList.length === 0 ? (
-          <p className="text-[#77777D]">Sin evidencias disponibles.</p>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            {evidenceList.map((evidence, index) => (
-              <figure key={evidence.id} className="space-y-2">
-                <img
-                  src={evidence.displayUrl}
-                  alt={evidence.caption || `Evidencia ${index + 1}`}
-                  className="h-72 w-full rounded-xl border border-[#2A2A30] object-cover"
-                />
-                <figcaption className="text-sm text-[#B3B3B8]">
-                  {evidence.caption || `Evidencia ${index + 1}`}
-                </figcaption>
-              </figure>
-            ))}
-          </div>
-        )}
-      </section>
+      <DeliveryPhotoManager
+        projectId={Number(id)}
+        deliveryId={Number(deliveryId)}
+        initialPhotos={evidenceList}
+      />
 
       <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <SignaturePanel title="Firma cliente" imageUrl={clientSignatureUrl} fallback="Sin firma del cliente." />
