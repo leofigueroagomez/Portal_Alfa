@@ -221,7 +221,6 @@ export async function syncProjectOperationalItems(
 
   const existingQuoteItemIds = new Set(
     ((existingItems || []) as ExistingOperationalItem[])
-      .filter((item) => item.status !== "deleted")
       .map((item) => item.source_quote_item_id)
       .filter(Boolean) as number[]
   );
@@ -273,7 +272,7 @@ export async function syncProjectOperationalItems(
   const rowsToUpdate = items
     .map((item) => {
       const existing = existingItemsByQuoteItemId.get(item.id);
-      if (!existing || existing.status === "deleted") return null;
+      if (!existing) return null;
 
       const product = item.product_id ? productById.get(item.product_id) : null;
       const quote = quoteById.get(item.quote_id);
@@ -295,6 +294,7 @@ export async function syncProjectOperationalItems(
         operational_unit_cost: unitCost,
         cost_currency: normalizeCostCurrency(product?.cost_currency),
         exchange_rate: quote?.exchange_rate || null,
+        status: "active",
         updated_by_user_id: userId || null,
         updated_at: new Date().toISOString(),
       };
@@ -313,6 +313,7 @@ export async function syncProjectOperationalItems(
       operational_unit_cost: number;
       cost_currency: string;
       exchange_rate: number | null;
+      status: string;
       updated_by_user_id: string | null;
       updated_at: string;
     }[];
@@ -330,9 +331,10 @@ export async function syncProjectOperationalItems(
   const { data: operationalItems, error: operationalItemsError } =
     await supabase
       .from("project_operational_items")
-      .select("id, source_quote_item_id")
+      .select("id, source_quote_item_id, status")
       .eq("client_project_id", projectId)
-      .in("source_quote_item_id", items.map((item) => item.id));
+      .in("source_quote_item_id", items.map((item) => item.id))
+      .neq("status", "deleted");
 
   if (operationalItemsError) throw operationalItemsError;
 
