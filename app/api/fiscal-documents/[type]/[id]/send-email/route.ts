@@ -47,7 +47,7 @@ async function sendResendEmail(input: {
     body: JSON.stringify({
       from:
         process.env.INVOICE_EMAIL_FROM ||
-        "ALFA IT <facturacion@portal.alfait.com.mx>",
+        "ALFA IT <facturacion@alfait.com.mx>",
       to: [input.to],
       cc: input.cc ? [input.cc] : undefined,
       subject: input.subject,
@@ -138,7 +138,7 @@ export async function POST(
     const result = await sendResendEmail({
       from:
         process.env.INVOICE_EMAIL_FROM ||
-        "ALFA IT <facturacion@portal.alfait.com.mx>",
+        "ALFA IT <facturacion@alfait.com.mx>",
       to: effectiveTo,
       cc: ccEmail || undefined,
       subject,

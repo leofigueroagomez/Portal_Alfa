@@ -212,7 +212,7 @@ export async function POST(
     const result = await sendResendEmail({
       from:
         process.env.INVOICE_EMAIL_FROM ||
-        "ALFA IT <facturacion@portal.alfait.com.mx>",
+        "ALFA IT <facturacion@alfait.com.mx>",
       to: toEmail,
       cc: ccEmail || undefined,
       subject,
