@@ -11,6 +11,7 @@ import {
 import { formatWorkOrderDate, getWorkOrderStatusLabel } from "@/lib/workOrders";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import ContractorMovementForm from "../ContractorMovementForm";
+import DeleteContractorMovementButton from "./DeleteContractorMovementButton";
 
 type Contractor = {
   id: number;
@@ -168,6 +169,7 @@ export default async function ContractorDetailPage({
                 <th className="px-3 py-2">Descripcion</th>
                 <th className="px-3 py-2">Proyecto / OT</th>
                 <th className="px-3 py-2 text-right">Monto</th>
+                <th className="px-3 py-2 text-right">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -176,10 +178,15 @@ export default async function ContractorDetailPage({
                   movement.movement_type,
                   movement.amount_mxn
                 );
+                const canDeleteMovement = ["advance_payment", "adjustment", "refund"].includes(
+                  movement.movement_type || ""
+                );
+                const movementLabel = getContractorMovementLabel(movement.movement_type);
+                const amountLabel = formatCurrency(signedAmount, "MXN");
                 return (
                   <tr key={movement.id} className="border-b border-[#222228]">
                     <td className="px-3 py-2">{formatWorkOrderDate(movement.movement_date)}</td>
-                    <td className="px-3 py-2">{getContractorMovementLabel(movement.movement_type)}</td>
+                    <td className="px-3 py-2">{movementLabel}</td>
                     <td className="px-3 py-2">
                       <p>{movement.description || "-"}</p>
                       <p className="text-xs text-[#77777D]">
@@ -191,14 +198,26 @@ export default async function ContractorDetailPage({
                       {movement.work_orders?.work_order_number ? `· ${movement.work_orders.work_order_number}` : ""}
                     </td>
                     <td className={signedAmount < 0 ? "px-3 py-2 text-right font-semibold text-[#F28B82]" : "px-3 py-2 text-right font-semibold text-[#8CE0B6]"}>
-                      {formatCurrency(signedAmount, "MXN")}
+                      {amountLabel}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      {canDeleteMovement ? (
+                        <DeleteContractorMovementButton
+                          contractorId={Number(id)}
+                          movementId={movement.id}
+                          movementLabel={movementLabel}
+                          amountLabel={amountLabel}
+                        />
+                      ) : (
+                        <span className="text-xs text-[#77777D]">Desde OT</span>
+                      )}
                     </td>
                   </tr>
                 );
               })}
               {movementList.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-3 py-8 text-center text-[#77777D]">
+                  <td colSpan={6} className="px-3 py-8 text-center text-[#77777D]">
                     Sin movimientos registrados.
                   </td>
                 </tr>
