@@ -7,8 +7,7 @@ const seoTitle =
 const seoDescription =
   "ALFA diseña, implementa y respalda soluciones tecnológicas para residencias, empresas e industria: audio y video profesional, redes, CCTV, control de acceso, automatización y soporte especializado.";
 
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://www.alfa-high-end-services.com";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "");
 
 export const metadata: Metadata = {
   title: seoTitle,

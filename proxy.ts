@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { getConfiguredPortalHost, getCurrentHost } from "@/lib/hosts";
 
 const protectedRoutes = [
   "/dashboard",
@@ -22,7 +23,27 @@ function isProtectedPath(pathname: string) {
   );
 }
 
-export async function middleware(request: NextRequest) {
+function isPortalHomeRequest(request: NextRequest) {
+  const portalHost = getConfiguredPortalHost();
+
+  return (
+    Boolean(portalHost) &&
+    getCurrentHost(request) === portalHost &&
+    request.nextUrl.pathname === "/"
+  );
+}
+
+export async function proxy(request: NextRequest) {
+  if (isPortalHomeRequest(request)) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  if (!isProtectedPath(request.nextUrl.pathname)) {
+    return NextResponse.next({
+      request,
+    });
+  }
+
   let response = NextResponse.next({
     request,
   });
@@ -54,7 +75,7 @@ export async function middleware(request: NextRequest) {
 
   const { data, error } = await supabase.auth.getClaims();
 
-  if (isProtectedPath(request.nextUrl.pathname) && (error || !data?.claims)) {
+  if (error || !data?.claims) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
     redirectUrl.searchParams.set(
@@ -70,6 +91,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/",
     "/dashboard/:path*",
     "/leads/:path*",
     "/customers/:path*",

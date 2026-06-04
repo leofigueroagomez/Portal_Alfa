@@ -7,6 +7,7 @@ import {
   getLatestProfitabilityReport,
 } from "@/lib/projectProfitability";
 import { formatCurrency, formatNumber } from "@/lib/format";
+import { getAppBaseUrl } from "@/lib/appUrl";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { getCurrentUserProfile } from "@/services/profile";
 
@@ -24,14 +25,6 @@ function parseEmails(value: string | null | undefined) {
     .split(",")
     .map((email) => email.trim())
     .filter(Boolean);
-}
-
-function getAppBaseUrl() {
-  return (
-    process.env.APP_URL ||
-    process.env.NEXT_PUBLIC_APP_URL ||
-    "https://portal-alfa-theta.vercel.app"
-  ).replace(/\/+$/, "");
 }
 
 async function assertFinancialAccess() {
