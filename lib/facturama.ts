@@ -139,6 +139,10 @@ export function getFacturamaProductionEnabled() {
 export function getFacturamaSandboxReceiverOverride() {
   if (getFacturamaEnv() !== "sandbox") return null;
 
+  return getFacturamaSandboxReceiver();
+}
+
+export function getFacturamaSandboxReceiver() {
   return {
     rfc:
       process.env.FACTURAMA_SANDBOX_RECEIVER_RFC?.trim().toUpperCase() ||

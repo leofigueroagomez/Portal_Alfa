@@ -172,6 +172,11 @@ export default function PaymentComplementPanel({
               Ambiente {complementEnv}
               {stampingEnabled ? " / timbrado preparado por flag" : " / preview sin timbrado"}
             </p>
+            {complementEnv === "sandbox" ? (
+              <p className="mt-1 text-[#F4C66A]">
+                Ambiente sandbox: usando receptor fiscal de prueba.
+              </p>
+            ) : null}
           </div>
           {canCreate ? (
             <button
@@ -314,6 +319,11 @@ export default function PaymentComplementPanel({
                 <p className="mt-1 text-sm text-[#B3B3B8]">
                   Fase 1 valida calculo y genera preview de payload. No timbra.
                 </p>
+                {complementEnv === "sandbox" ? (
+                  <p className="mt-2 rounded-xl border border-[#614620] bg-[#322514] px-3 py-2 text-sm text-[#F4C66A]">
+                    Ambiente sandbox: usando receptor fiscal de prueba.
+                  </p>
+                ) : null}
               </div>
               <button
                 type="button"

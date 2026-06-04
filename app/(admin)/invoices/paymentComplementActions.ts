@@ -245,6 +245,7 @@ export async function createPaymentComplementDraft(
       paymentFormCode: effectivePaymentFormCode,
       paymentReference: projectPayment?.payment_reference || paymentReference,
       calculation,
+      env: config.env,
     });
 
     const { data: inserted, error: insertError } = await supabase
@@ -406,6 +407,7 @@ export async function stampPaymentComplementDraft(
       paymentFormCode: complement.payment_form_code,
       paymentReference: complement.payment_reference,
       calculation,
+      env: config.env,
     }) as FacturamaPaymentComplementPayload;
 
     const stampResult = await stampPaymentComplement(payload, config.env);

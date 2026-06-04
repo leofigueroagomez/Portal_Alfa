@@ -1,4 +1,5 @@
 import { getFiscalRegimeCode, type FiscalClientData } from "@/lib/fiscalData";
+import { getFacturamaSandboxReceiver } from "@/lib/facturama";
 import type { ProjectInvoice } from "@/lib/invoices";
 
 export type PaymentComplementsEnv = "sandbox" | "production";
@@ -69,6 +70,7 @@ export type PaymentComplementPayloadInput = {
   paymentFormCode: string;
   calculation: PaymentComplementCalculation;
   paymentReference?: string | null;
+  env?: PaymentComplementsEnv;
 };
 
 const stampedComplementStatuses = new Set(["issued", "stamped"]);
@@ -174,20 +176,41 @@ export function buildFacturamaPaymentComplementPayload({
   paymentFormCode,
   calculation,
   paymentReference,
+  env = "production",
 }: PaymentComplementPayloadInput) {
   const expeditionPlace = process.env.FACTURAMA_EXPEDITION_PLACE?.trim() || "";
+  const sandboxReceiver = env === "sandbox" ? getFacturamaSandboxReceiver() : null;
+  const receiver = sandboxReceiver
+    ? {
+        rfc: sandboxReceiver.rfc,
+        name: sandboxReceiver.name,
+        fiscalRegime: sandboxReceiver.fiscalRegime,
+        taxZipCode: sandboxReceiver.taxZipCode,
+      }
+    : {
+        rfc: (client.tax_rfc || "").trim().toUpperCase(),
+        name: (client.tax_business_name || client.name || "").trim().toUpperCase(),
+        fiscalRegime: getFiscalRegimeCode(client),
+        taxZipCode: (client.tax_zip_code || "").trim(),
+      };
 
   return {
     NameId: 14,
     CfdiType: "P",
     ExpeditionPlace: expeditionPlace,
     Receiver: {
-      Rfc: (client.tax_rfc || "").trim().toUpperCase(),
-      Name: (client.tax_business_name || client.name || "").trim().toUpperCase(),
-      FiscalRegime: getFiscalRegimeCode(client),
-      CfdiUse: "P01",
-      TaxZipCode: (client.tax_zip_code || "").trim(),
+      Rfc: receiver.rfc,
+      Name: receiver.name,
+      FiscalRegime: receiver.fiscalRegime,
+      CfdiUse: "CP01",
+      TaxZipCode: receiver.taxZipCode,
     },
+    ...(sandboxReceiver
+      ? {
+          PreviewNotice:
+            "Ambiente sandbox: usando receptor fiscal de prueba.",
+        }
+      : {}),
     Complemento: {
       Payments: [
         {
