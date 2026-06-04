@@ -26,7 +26,7 @@ import {
 import type { FiscalClientData } from "@/lib/fiscalData";
 import { satBillingProviders } from "@/lib/satBillingProviders";
 import InvoiceForm from "./InvoiceForm";
-import InvoiceFileLinks from "./InvoiceFileLinks";
+import InvoiceFileLinks, { type InvoiceEmailLog } from "./InvoiceFileLinks";
 import InvoiceStatusSelect from "./InvoiceStatusSelect";
 import StampInvoiceButton from "./StampInvoiceButton";
 
@@ -78,7 +78,13 @@ export default async function InvoicesPage() {
     ? "border-[#1F7A4D] bg-[#143D2A] text-[#8CE0B6]"
     : "border-[#6A2A2A] bg-[#351818] text-[#FFB4B4]";
 
-  const [invoicesResult, clientsResult, projectsResult, quotesResult] = await Promise.all([
+  const [
+    invoicesResult,
+    clientsResult,
+    projectsResult,
+    quotesResult,
+    invoiceEmailLogsResult,
+  ] = await Promise.all([
     supabase
       .from("project_invoices")
       .select(
@@ -95,6 +101,10 @@ export default async function InvoicesPage() {
       .from("quotes")
       .select("id, client_project_id, total_mxn, grand_total")
       .eq("status", "approved"),
+    supabase
+      .from("invoice_email_logs")
+      .select("id, invoice_id, to_email, cc_email, subject, message, status, resend_email_id, error_message, sent_at, created_at")
+      .order("created_at", { ascending: false }),
   ]);
 
   if (invoicesResult.error) {
@@ -111,6 +121,15 @@ export default async function InvoicesPage() {
   const clients = clientsResult.error ? [] : ((clientsResult.data || []) as FiscalClientData[]);
   const projects = projectsResult.error ? [] : ((projectsResult.data || []) as Project[]);
   const quotes = quotesResult.error ? [] : ((quotesResult.data || []) as Quote[]);
+  const invoiceEmailLogs = invoiceEmailLogsResult.error
+    ? []
+    : ((invoiceEmailLogsResult.data || []) as InvoiceEmailLog[]);
+  const emailLogsByInvoice = new Map<number, InvoiceEmailLog[]>();
+  for (const log of invoiceEmailLogs) {
+    const current = emailLogsByInvoice.get(Number(log.invoice_id)) || [];
+    current.push(log);
+    emailLogsByInvoice.set(Number(log.invoice_id), current);
+  }
   const { start, end } = getCurrentMonthRange();
 
   const approvedTotalsByProject = new Map<number, number>();
@@ -317,10 +336,16 @@ export default async function InvoicesPage() {
                       facturamaProductionEnabled={facturamaProductionEnabled}
                     />
                     <InvoiceFileLinks
+                      invoiceId={invoice.id}
+                      folio={invoice.internal_folio}
+                      clientName={client?.name || client?.tax_business_name || null}
+                      billingEmail={client?.billing_email || null}
                       xmlUrl={invoice.xml_url}
                       pdfUrl={invoice.pdf_url}
                       satUuid={invoice.sat_uuid}
                       facturamaId={invoice.facturama_id}
+                      status={invoice.status}
+                      emailLogs={emailLogsByInvoice.get(invoice.id) || []}
                     />
                   </div>
                 );

@@ -35,7 +35,9 @@ import {
   type PaymentComplementRecord,
 } from "@/lib/paymentComplements";
 import InvoiceForm from "@/app/(admin)/invoices/InvoiceForm";
-import InvoiceFileLinks from "@/app/(admin)/invoices/InvoiceFileLinks";
+import InvoiceFileLinks, {
+  type InvoiceEmailLog,
+} from "@/app/(admin)/invoices/InvoiceFileLinks";
 import InvoiceStatusSelect from "@/app/(admin)/invoices/InvoiceStatusSelect";
 import StampInvoiceButton from "@/app/(admin)/invoices/StampInvoiceButton";
 import PaymentComplementPanel from "@/app/(admin)/invoices/PaymentComplementPanel";
@@ -124,6 +126,7 @@ export default async function ProjectInvoicesPage({
     projectPaymentsResult,
     paymentComplementsResult,
     paymentFormsResult,
+    invoiceEmailLogsResult,
   ] = await Promise.all([
     projectData.client_id
       ? supabase
@@ -170,6 +173,10 @@ export default async function ProjectInvoicesPage({
           .select("code, name, is_active")
           .order("code")
       : Promise.resolve({ data: [], error: null }),
+    supabase
+      .from("invoice_email_logs")
+      .select("id, invoice_id, to_email, cc_email, subject, message, status, resend_email_id, error_message, sent_at, created_at")
+      .order("created_at", { ascending: false }),
   ]);
 
   const client = clientResult.error ? null : (clientResult.data as FiscalClientData | null);
@@ -218,6 +225,15 @@ export default async function ProjectInvoicesPage({
   const paymentForms = paymentFormsResult.error
     ? []
     : ((paymentFormsResult.data || []) as PaymentFormCatalogItem[]);
+  const invoiceEmailLogs = invoiceEmailLogsResult.error
+    ? []
+    : ((invoiceEmailLogsResult.data || []) as InvoiceEmailLog[]);
+  const emailLogsByInvoice = new Map<number, InvoiceEmailLog[]>();
+  for (const log of invoiceEmailLogs) {
+    const current = emailLogsByInvoice.get(Number(log.invoice_id)) || [];
+    current.push(log);
+    emailLogsByInvoice.set(Number(log.invoice_id), current);
+  }
   const billed = invoices
     .filter((invoice) => isInvoicedStatus(invoice.status))
     .reduce((sum, invoice) => sum + getInvoiceTotal(invoice), 0);
@@ -380,9 +396,16 @@ export default async function ProjectInvoicesPage({
                         facturamaProductionEnabled={facturamaProductionEnabled}
                       />
                       <InvoiceFileLinks
+                        invoiceId={invoice.id}
+                        folio={invoice.internal_folio}
+                        clientName={client?.name || client?.tax_business_name || null}
+                        billingEmail={client?.billing_email || null}
                         xmlUrl={invoice.xml_url}
                         pdfUrl={invoice.pdf_url}
                         satUuid={invoice.sat_uuid}
+                        facturamaId={invoice.facturama_id}
+                        status={invoice.status}
+                        emailLogs={emailLogsByInvoice.get(invoice.id) || []}
                       />
                     </div>
                     {paymentComplementsConfig.enabled ? (
