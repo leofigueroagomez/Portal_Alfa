@@ -49,6 +49,7 @@ type Product = {
 type ExistingOperationalItem = {
   id: number;
   source_quote_item_id: number | null;
+  status?: string | null;
 };
 
 type ManualOperationalItem = {
@@ -171,9 +172,48 @@ export async function syncProjectOperationalItems(
   const productById = new Map(
     ((products || []) as Product[]).map((product) => [product.id, product])
   );
+
+  const { data: projectItemsForApprovedQuotes, error: projectItemsError } =
+    await supabase
+      .from("project_operational_items")
+      .select("id, source_quote_id, source_quote_item_id, status, change_origin")
+      .eq("client_project_id", projectId)
+      .in("source_quote_id", quoteIds)
+      .not("source_quote_item_id", "is", null);
+
+  if (projectItemsError) throw projectItemsError;
+
+  const currentQuoteItemIds = new Set(items.map((item) => item.id));
+  const staleOperationalItemIds = (
+    (projectItemsForApprovedQuotes || []) as {
+      id: number;
+      source_quote_item_id: number | null;
+      status: string | null;
+      change_origin: string | null;
+    }[]
+  )
+    .filter((item) => item.source_quote_item_id)
+    .filter((item) => !currentQuoteItemIds.has(item.source_quote_item_id as number))
+    .filter((item) => item.change_origin === "quote_seed")
+    .filter((item) => !["purchased", "partially_purchased", "delivered"].includes(item.status || ""))
+    .map((item) => item.id);
+
+  if (staleOperationalItemIds.length > 0) {
+    const { error: staleUpdateError } = await supabase
+      .from("project_operational_items")
+      .update({
+        status: "deleted",
+        updated_by_user_id: userId || null,
+        updated_at: new Date().toISOString(),
+      })
+      .in("id", staleOperationalItemIds);
+
+    if (staleUpdateError) throw staleUpdateError;
+  }
+
   const { data: existingItems, error: existingError } = await supabase
     .from("project_operational_items")
-    .select("id, source_quote_item_id")
+    .select("id, source_quote_item_id, status")
     .eq("client_project_id", projectId)
     .in("source_quote_item_id", items.map((item) => item.id));
 
@@ -181,6 +221,7 @@ export async function syncProjectOperationalItems(
 
   const existingQuoteItemIds = new Set(
     ((existingItems || []) as ExistingOperationalItem[])
+      .filter((item) => item.status !== "deleted")
       .map((item) => item.source_quote_item_id)
       .filter(Boolean) as number[]
   );
@@ -222,6 +263,68 @@ export async function syncProjectOperationalItems(
       .insert(rowsToInsert);
 
     if (insertError) throw insertError;
+  }
+
+  const existingItemsByQuoteItemId = new Map(
+    ((existingItems || []) as ExistingOperationalItem[])
+      .filter((item) => item.source_quote_item_id)
+      .map((item) => [item.source_quote_item_id as number, item])
+  );
+  const rowsToUpdate = items
+    .map((item) => {
+      const existing = existingItemsByQuoteItemId.get(item.id);
+      if (!existing || existing.status === "deleted") return null;
+
+      const product = item.product_id ? productById.get(item.product_id) : null;
+      const quote = quoteById.get(item.quote_id);
+      const unitCost = Number(product?.cost_price || 0);
+
+      return {
+        id: existing.id,
+        system_name: item.quote_section_id
+          ? sectionById.get(item.quote_section_id)?.name || null
+          : null,
+        product_id: item.product_id,
+        product_brand: item.product_brand,
+        product_model: item.product_model,
+        product_name: item.product_name,
+        product_image_url: item.product_image_url || product?.image_url || null,
+        quantity: Number(item.quantity || 0),
+        original_quantity: Number(item.quantity || 0),
+        original_unit_cost: unitCost,
+        operational_unit_cost: unitCost,
+        cost_currency: normalizeCostCurrency(product?.cost_currency),
+        exchange_rate: quote?.exchange_rate || null,
+        updated_by_user_id: userId || null,
+        updated_at: new Date().toISOString(),
+      };
+    })
+    .filter(Boolean) as {
+      id: number;
+      system_name: string | null;
+      product_id: number | null;
+      product_brand: string | null;
+      product_model: string | null;
+      product_name: string | null;
+      product_image_url: string | null;
+      quantity: number;
+      original_quantity: number;
+      original_unit_cost: number;
+      operational_unit_cost: number;
+      cost_currency: string;
+      exchange_rate: number | null;
+      updated_by_user_id: string | null;
+      updated_at: string;
+    }[];
+
+  for (const row of rowsToUpdate) {
+    const { id: operationalItemId, ...payload } = row;
+    const { error: updateError } = await supabase
+      .from("project_operational_items")
+      .update(payload)
+      .eq("id", operationalItemId);
+
+    if (updateError) throw updateError;
   }
 
   const { data: operationalItems, error: operationalItemsError } =
