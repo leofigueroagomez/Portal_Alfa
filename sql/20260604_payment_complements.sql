@@ -27,6 +27,8 @@ create table if not exists public.project_payment_complements (
   facturama_response jsonb,
   last_error text,
   created_by_user_id uuid references auth.users(id),
+  issued_by_user_id uuid references auth.users(id),
+  issued_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint project_payment_complements_status_check
@@ -67,8 +69,16 @@ alter table public.project_payment_complements
   add column if not exists facturama_response jsonb,
   add column if not exists last_error text,
   add column if not exists created_by_user_id uuid references auth.users(id),
+  add column if not exists issued_by_user_id uuid references auth.users(id),
+  add column if not exists issued_at timestamptz,
   add column if not exists created_at timestamptz default now(),
   add column if not exists updated_at timestamptz default now();
+
+update public.project_payment_complements
+set issued_at = coalesce(issued_at, updated_at, created_at),
+    issued_by_user_id = coalesce(issued_by_user_id, created_by_user_id)
+where status in ('issued', 'stamped')
+  and (issued_at is null or issued_by_user_id is null);
 
 update public.project_payment_complements
 set paid_amount_mxn = coalesce(paid_amount_mxn, amount_paid_mxn),
@@ -107,6 +117,10 @@ create index if not exists project_payment_complements_project_idx
 
 create index if not exists project_payment_complements_status_idx
   on public.project_payment_complements(status);
+
+create index if not exists project_payment_complements_issued_at_idx
+  on public.project_payment_complements(project_invoice_id, issued_at)
+  where status in ('issued', 'stamped');
 
 drop index if exists public.project_payment_complements_payment_active_uidx;
 

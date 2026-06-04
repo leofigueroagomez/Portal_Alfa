@@ -56,6 +56,12 @@ type ProjectPaymentForComplement = {
   amount_mxn: number | null;
 };
 
+type ComplementIssuerProfile = {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+};
+
 function formatDate(value: string | null | undefined) {
   if (!value) return "Sin fecha";
   return new Date(value).toLocaleDateString("es-MX");
@@ -153,7 +159,7 @@ export default async function ProjectInvoicesPage({
       ? supabase
           .from("project_payment_complements")
           .select(
-            "id, project_invoice_id, project_payment_id, client_project_id, client_id, status, complement_env, partiality_number, previous_balance_mxn, amount_paid_mxn, paid_amount_mxn, source_payment_amount_mxn, manual_amount_override, manual_override_reason, outstanding_balance_mxn, payment_date, payment_form_code, currency, exchange_rate, payment_reference, payload_preview, facturama_id, sat_uuid, pdf_url, xml_url, last_error, facturama_response, created_at"
+            "id, project_invoice_id, project_payment_id, client_project_id, client_id, status, complement_env, partiality_number, previous_balance_mxn, amount_paid_mxn, paid_amount_mxn, source_payment_amount_mxn, manual_amount_override, manual_override_reason, outstanding_balance_mxn, payment_date, payment_form_code, currency, exchange_rate, payment_reference, payload_preview, facturama_id, sat_uuid, pdf_url, xml_url, last_error, facturama_response, issued_by_user_id, issued_at, created_at"
           )
           .eq("client_project_id", projectData.id)
           .order("created_at", { ascending: false })
@@ -180,6 +186,35 @@ export default async function ProjectInvoicesPage({
   const paymentComplements = paymentComplementsResult.error
     ? []
     : ((paymentComplementsResult.data || []) as PaymentComplementRecord[]);
+  const complementIssuerIds = Array.from(
+    new Set(
+      paymentComplements
+        .map((complement) => complement.issued_by_user_id)
+        .filter((userId): userId is string => Boolean(userId))
+    )
+  );
+  const issuerProfilesResult =
+    complementIssuerIds.length > 0
+      ? await supabase
+          .from("profiles")
+          .select("id, email, full_name")
+          .in("id", complementIssuerIds)
+      : { data: [], error: null };
+  const issuerProfiles = issuerProfilesResult.error
+    ? []
+    : ((issuerProfilesResult.data || []) as ComplementIssuerProfile[]);
+  const issuerNameById = new Map(
+    issuerProfiles.map((issuer) => [
+      issuer.id,
+      issuer.full_name || issuer.email || "Usuario ALFA",
+    ])
+  );
+  const paymentComplementsWithIssuers = paymentComplements.map((complement) => ({
+    ...complement,
+    issued_by_name: complement.issued_by_user_id
+      ? issuerNameById.get(complement.issued_by_user_id) || "Usuario ALFA"
+      : null,
+  }));
   const paymentForms = paymentFormsResult.error
     ? []
     : ((paymentFormsResult.data || []) as PaymentFormCatalogItem[]);
@@ -291,7 +326,7 @@ export default async function ProjectInvoicesPage({
             <div className="min-w-[1320px] divide-y divide-[#2A2A30]">
               {invoices.map((invoice) => {
                 const status = normalizeInvoiceStatus(invoice.status);
-                const invoiceComplements = paymentComplements.filter(
+                const invoiceComplements = paymentComplementsWithIssuers.filter(
                   (complement) => Number(complement.project_invoice_id) === Number(invoice.id)
                 );
                 return (

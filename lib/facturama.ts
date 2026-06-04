@@ -197,10 +197,6 @@ function getFacturamaConfigForExplicitEnv(env: FacturamaEnv) {
     throw new Error("Configura FACTURAMA_USERNAME y FACTURAMA_PASSWORD.");
   }
 
-  if (env === "production") {
-    throw new Error("Fase 2 de complementos solo permite Facturama sandbox.");
-  }
-
   return {
     baseUrl: FACTURAMA_URLS[env],
     authorization: `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`,
@@ -474,10 +470,6 @@ export async function stampPaymentComplement(
   payload: FacturamaPaymentComplementPayload,
   env: FacturamaEnv = "sandbox"
 ): Promise<FacturamaStampResult> {
-  if (env !== "sandbox") {
-    throw new Error("Fase 2 solo permite timbrar complementos en sandbox.");
-  }
-
   const response = await facturamaRequest<FacturamaCreateCfdiResponse>(
     "3/cfdis",
     {
@@ -547,10 +539,6 @@ export async function downloadPaymentComplementFile(
   format: "pdf" | "xml",
   env: FacturamaEnv = "sandbox"
 ) {
-  if (env !== "sandbox") {
-    throw new Error("Fase 2 solo permite descargar complementos desde sandbox.");
-  }
-
   const response = await facturamaRequest<FacturamaFileResponse>(
     `cfdi/${format}/issued/${facturamaId}`,
     { method: "GET" },

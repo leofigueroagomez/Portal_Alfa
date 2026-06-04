@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { downloadPaymentComplementFile } from "@/lib/facturama";
-import { getPaymentComplementsConfig } from "@/lib/paymentComplements";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 
 export async function GET(
@@ -8,7 +7,6 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const config = getPaymentComplementsConfig();
     const { id } = await params;
     const supabase = createSupabaseAdminClient();
     const { data, error } = await supabase
@@ -30,7 +28,7 @@ export async function GET(
     const file = await downloadPaymentComplementFile(
       data.facturama_id,
       "pdf",
-      config.env
+      data.complement_env === "production" ? "production" : "sandbox"
     );
 
     return new NextResponse(file.bytes, {

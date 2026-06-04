@@ -318,10 +318,6 @@ export async function stampPaymentComplementDraft(
     if (!config.stampingEnabled) {
       throw new Error("El timbrado de complementos esta deshabilitado.");
     }
-    if (config.env !== "sandbox") {
-      throw new Error("Fase 2 solo permite timbrar complementos en sandbox.");
-    }
-
     const profile = await getCurrentUserProfile();
     if (!profile?.is_active || !canViewFinancials(profile.role)) {
       throw new Error("No tienes permisos para timbrar complementos de pago.");
@@ -434,6 +430,8 @@ export async function stampPaymentComplementDraft(
         xml_url: xmlUrl,
         facturama_response: stampResult.facturamaResponse,
         last_error: null,
+        issued_by_user_id: profile.id,
+        issued_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
       .eq("id", complement.id)

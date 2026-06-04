@@ -50,6 +50,10 @@ type PaymentComplementForPanel = {
   xml_url?: string | null;
   last_error?: string | null;
   facturama_response?: unknown;
+  issued_by_user_id?: string | null;
+  issued_by_name?: string | null;
+  issued_at?: string | null;
+  created_at?: string | null;
 };
 
 type Props = {
@@ -71,6 +75,14 @@ function isStampedComplement(status: string | null | undefined) {
 
 function getInvoiceTotal(invoice: InvoiceForComplement) {
   return Number(invoice.total_mxn ?? invoice.total ?? 0);
+}
+
+function formatDateTime(value: string | null | undefined) {
+  if (!value) return "Sin fecha";
+  return new Date(value).toLocaleString("es-MX", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
 }
 
 export default function PaymentComplementPanel({
@@ -97,6 +109,13 @@ export default function PaymentComplementPanel({
   const stampedComplements = complements.filter((complement) =>
     isStampedComplement(complement.status)
   );
+  const historicalComplements = stampedComplements
+    .slice()
+    .sort((a, b) => {
+      const first = new Date(a.issued_at || a.created_at || a.payment_date || 0).getTime();
+      const second = new Date(b.issued_at || b.created_at || b.payment_date || 0).getTime();
+      return second - first;
+    });
   const paidAmount = stampedComplements.reduce(
     (sum, complement) =>
       sum + Number(complement.paid_amount_mxn ?? complement.amount_paid_mxn ?? 0),
@@ -177,7 +196,11 @@ export default function PaymentComplementPanel({
               <p className="mt-1 text-[#F4C66A]">
                 Ambiente sandbox: usando receptor fiscal de prueba.
               </p>
-            ) : null}
+            ) : (
+              <p className="mt-1 text-[#8CE0B6]">
+                Ambiente produccion: usando receptor fiscal real.
+              </p>
+            )}
           </div>
           {canCreate ? (
             <button
@@ -193,6 +216,65 @@ export default function PaymentComplementPanel({
 
         {complements.length > 0 ? (
           <div className="mt-3 space-y-2">
+            {historicalComplements.length > 0 ? (
+              <div className="overflow-hidden rounded-lg border border-[#2A2A30] bg-[#151518]">
+                <div className="border-b border-[#2A2A30] px-3 py-2">
+                  <p className="font-semibold text-white">Historial de complementos</p>
+                </div>
+                <div className="overflow-x-auto">
+                  <div className="grid min-w-[860px] grid-cols-[130px_150px_210px_100px_120px_70px_70px] gap-3 border-b border-[#2A2A30] px-3 py-2 text-xs font-semibold text-[#B3B3B8]">
+                    <p>Fecha</p>
+                    <p>Usuario</p>
+                    <p>UUID</p>
+                    <p>Parcialidad</p>
+                    <p>Importe</p>
+                    <p>PDF</p>
+                    <p>XML</p>
+                  </div>
+                  <div className="divide-y divide-[#2A2A30]">
+                    {historicalComplements.map((complement) => (
+                      <div
+                        key={`history-${complement.id}`}
+                        className="grid min-w-[860px] grid-cols-[130px_150px_210px_100px_120px_70px_70px] gap-3 px-3 py-3 text-xs text-[#B3B3B8]"
+                      >
+                        <p>{formatDateTime(complement.issued_at || complement.created_at)}</p>
+                        <p className="truncate text-white">
+                          {complement.issued_by_name || "Usuario ALFA"}
+                        </p>
+                        <p className="truncate font-mono text-[#8CE0B6]">
+                          {complement.sat_uuid || "Pendiente"}
+                        </p>
+                        <p>{complement.partiality_number || "-"}</p>
+                        <p className="font-semibold text-white">
+                          {formatCurrency(
+                            Number(complement.paid_amount_mxn ?? complement.amount_paid_mxn ?? 0),
+                            "MXN"
+                          )}
+                        </p>
+                        <p>
+                          <a
+                            href={`/api/payment-complements/${complement.id}/pdf`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-white underline underline-offset-4 hover:text-[#F4C66A]"
+                          >
+                            PDF
+                          </a>
+                        </p>
+                        <p>
+                          <a
+                            href={`/api/payment-complements/${complement.id}/xml`}
+                            className="text-white underline underline-offset-4 hover:text-[#F4C66A]"
+                          >
+                            XML
+                          </a>
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : null}
             {complements.map((complement) => (
               <div
                 key={complement.id}
@@ -258,10 +340,14 @@ export default function PaymentComplementPanel({
                     <button
                       type="button"
                       onClick={() => stampDraft(complement.id)}
-                      disabled={pending || complementEnv !== "sandbox"}
+                      disabled={pending}
                       className="rounded-lg bg-[#9E1B32] px-3 py-2 text-xs font-semibold text-white hover:bg-[#B91C3C] disabled:bg-[#222228] disabled:text-[#77777D]"
                     >
-                      {pending ? "Timbrando..." : "Timbrar sandbox"}
+                      {pending
+                        ? "Timbrando..."
+                        : complementEnv === "production"
+                          ? "Timbrar produccion"
+                          : "Timbrar sandbox"}
                     </button>
                   ) : null}
                   {complement.status === "issued" ? (

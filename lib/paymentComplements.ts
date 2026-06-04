@@ -45,6 +45,9 @@ export type PaymentComplementRecord = {
   facturama_id: string | null;
   sat_uuid: string | null;
   last_error: string | null;
+  issued_by_user_id?: string | null;
+  issued_at?: string | null;
+  issued_by_name?: string | null;
   created_at: string | null;
 };
 
