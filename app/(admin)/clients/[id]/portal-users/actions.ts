@@ -44,13 +44,21 @@ async function findAuthUserByEmail(email: string) {
 
 async function invitePortalUser(email: string, fullName: string) {
   const admin = createSupabaseAdminClient();
-  const redirectTo = getAppBaseUrl() ? `${getAppBaseUrl()}/portal` : undefined;
+  const appBaseUrl = getAppBaseUrl();
+
+  if (!appBaseUrl) {
+    throw new Error(
+      "APP_URL o NEXT_PUBLIC_APP_URL debe estar configurado para enviar invitaciones del portal."
+    );
+  }
+
+  const redirectTo = `${appBaseUrl}/auth/accept-invite`;
   const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
     data: {
       full_name: fullName || email,
       portal: "client",
     },
-    ...(redirectTo ? { redirectTo } : {}),
+    redirectTo,
   });
 
   if (error) throw error;
