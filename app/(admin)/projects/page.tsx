@@ -1,8 +1,7 @@
-import Link from "next/link";
-import { ArrowRight, ClipboardList } from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { formatCurrency } from "@/lib/format";
 import { normalizeSalesStage } from "@/lib/salesStages";
+import ProjectsListClient from "./ProjectsListClient";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -153,6 +152,27 @@ export default async function ProjectsPage() {
     );
   }, 0);
 
+  const projectRows = operationalProjects.map((project) => {
+    const approvedQuote = approvedQuotesByProject.get(project.id);
+    const total = getApprovedTotal(approvedQuote);
+    const displayTotal =
+      total > 0 ? total : Number(project.estimated_value_mxn || 0);
+    const referenceDate =
+      project.expected_close_date ||
+      approvedQuote?.created_at ||
+      project.created_at;
+
+    return {
+      id: project.id,
+      name: project.name,
+      clientName: getClientName(project.client_id),
+      approvedQuoteId: approvedQuote?.id || null,
+      approvedQuoteNumber: approvedQuote?.quote_number || null,
+      displayTotal,
+      referenceDateLabel: formatDate(referenceDate),
+    };
+  });
+
   return (
     <main className="min-h-screen bg-[#0B0D0F] p-4 text-white md:p-8 xl:p-10">
       <section className="mb-10 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
@@ -196,101 +216,7 @@ export default async function ProjectsPage() {
           No hay proyectos ganados o cotizaciones aprobadas listas para operacion.
         </section>
       ) : (
-        <section className="overflow-hidden rounded-2xl border border-[#1F1F24] bg-[#151518]">
-          <div className="hidden grid-cols-[1.2fr_1.4fr_1fr_1fr_1fr_1fr_130px] gap-4 border-b border-[#1F1F24] bg-[#101114] px-5 py-4 text-xs font-semibold uppercase tracking-[0.12em] text-[#77777D] xl:grid">
-            <span>Cliente</span>
-            <span>Proyecto/Oportunidad</span>
-            <span>Cotizacion aprobada</span>
-            <span>Total aprobado</span>
-            <span>Fecha</span>
-            <span>Estado operativo</span>
-            <span>Acciones</span>
-          </div>
-
-          <div className="divide-y divide-[#1F1F24]">
-            {operationalProjects.map((project) => {
-              const approvedQuote = approvedQuotesByProject.get(project.id);
-              const total = getApprovedTotal(approvedQuote);
-              const displayTotal =
-                total > 0 ? total : Number(project.estimated_value_mxn || 0);
-              const referenceDate =
-                project.expected_close_date ||
-                approvedQuote?.created_at ||
-                project.created_at;
-
-              return (
-                <div
-                  key={project.id}
-                  className="grid grid-cols-1 gap-4 px-5 py-5 text-sm transition hover:bg-[#19191F] xl:grid-cols-[1.2fr_1.4fr_1fr_1fr_1fr_1fr_130px] xl:items-center"
-                >
-                  <div>
-                    <p className="mb-1 text-xs text-[#77777D] xl:hidden">Cliente</p>
-                    <p className="font-semibold">{getClientName(project.client_id)}</p>
-                  </div>
-
-                  <div>
-                    <p className="mb-1 text-xs text-[#77777D] xl:hidden">
-                      Proyecto/Oportunidad
-                    </p>
-                    <p>{project.name || "Sin proyecto"}</p>
-                  </div>
-
-                  <div>
-                    <p className="mb-1 text-xs text-[#77777D] xl:hidden">
-                      Cotizacion aprobada
-                    </p>
-                    {approvedQuote ? (
-                      <Link
-                        href={`/quotes/${approvedQuote.id}`}
-                        className="text-[#D7A8FF] hover:text-white"
-                      >
-                        {approvedQuote.quote_number || `#${approvedQuote.id}`}
-                      </Link>
-                    ) : (
-                      <span className="text-[#77777D]">Sin cotizacion</span>
-                    )}
-                  </div>
-
-                  <div>
-                    <p className="mb-1 text-xs text-[#77777D] xl:hidden">
-                      Total aprobado
-                    </p>
-                    <p className="font-semibold">
-                      {displayTotal > 0
-                        ? formatCurrency(displayTotal, "MXN")
-                        : "Sin monto"}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="mb-1 text-xs text-[#77777D] xl:hidden">Fecha</p>
-                    <p>{formatDate(referenceDate)}</p>
-                  </div>
-
-                  <div>
-                    <p className="mb-1 text-xs text-[#77777D] xl:hidden">
-                      Estado operativo
-                    </p>
-                    <span className="inline-flex w-fit rounded-full border border-[#614620] bg-[#322514] px-3 py-1 text-xs text-[#F4C66A]">
-                      Pendiente de asignar
-                    </span>
-                  </div>
-
-                  <div>
-                    <Link
-                      href={`/projects/${project.id}`}
-                      className="inline-flex items-center gap-2 rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-2 font-semibold text-[#B3B3B8] hover:bg-[#2A2A30] hover:text-white"
-                    >
-                      <ClipboardList size={16} />
-                      Ver proyecto
-                      <ArrowRight size={14} />
-                    </Link>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
+        <ProjectsListClient projects={projectRows} />
       )}
     </main>
   );
