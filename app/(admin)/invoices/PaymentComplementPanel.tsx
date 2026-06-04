@@ -57,8 +57,8 @@ function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function isActiveComplement(status: string | null | undefined) {
-  return status === "draft" || status === "validated" || status === "stamped";
+function isStampedComplement(status: string | null | undefined) {
+  return status === "stamped";
 }
 
 function getInvoiceTotal(invoice: InvoiceForComplement) {
@@ -82,16 +82,16 @@ export default function PaymentComplementPanel({
   const [result, setResult] = useState<CreatePaymentComplementDraftResult | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const activeComplements = complements.filter((complement) =>
-    isActiveComplement(complement.status)
+  const stampedComplements = complements.filter((complement) =>
+    isStampedComplement(complement.status)
   );
-  const paidAmount = activeComplements.reduce(
+  const paidAmount = stampedComplements.reduce(
     (sum, complement) =>
       sum + Number(complement.paid_amount_mxn ?? complement.amount_paid_mxn ?? 0),
     0
   );
   const pendingBalance = Math.max(getInvoiceTotal(invoice) - paidAmount, 0);
-  const nextPartiality = activeComplements.length + 1;
+  const nextPartiality = stampedComplements.length + 1;
   const selectedPayment = payments.find((payment) => String(payment.id) === selectedPaymentId);
   const sourcePaymentAmountMxn = selectedPayment
     ? Number(selectedPayment.amount_mxn || 0)

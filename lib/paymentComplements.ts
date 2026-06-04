@@ -68,7 +68,7 @@ export type PaymentComplementPayloadInput = {
   paymentReference?: string | null;
 };
 
-const activeComplementStatuses = new Set(["draft", "validated", "stamped"]);
+const stampedComplementStatuses = new Set(["stamped"]);
 
 export function getPaymentComplementsConfig(): PaymentComplementsConfig {
   const envValue = process.env.PAYMENT_COMPLEMENTS_ENV || "sandbox";
@@ -81,7 +81,7 @@ export function getPaymentComplementsConfig(): PaymentComplementsConfig {
 }
 
 export function isActivePaymentComplementStatus(status: string | null | undefined) {
-  return activeComplementStatuses.has(status || "");
+  return stampedComplementStatuses.has(status || "");
 }
 
 export function roundPaymentAmount(value: number) {
@@ -93,6 +93,7 @@ export function getInvoicePaymentComplementPaidAmount(
     Pick<PaymentComplementRecord, "status" | "amount_paid_mxn" | "paid_amount_mxn">
   >
 ) {
+  // Fiscal balances and partiality numbers only consider complements already stamped.
   return roundPaymentAmount(
     complements
       .filter((complement) => isActivePaymentComplementStatus(complement.status))
