@@ -7,6 +7,17 @@ type Props = {
   projectId: number;
 };
 
+const PROJECT_DOCUMENTS_BUCKET = "project-documents";
+
+function sanitizeFileName(fileName: string) {
+  return fileName
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]/g, "-")
+    .replace(/-+/g, "-")
+    .toLowerCase();
+}
+
 export default function UploadDocument({
   projectId,
 }: Props) {
@@ -23,11 +34,13 @@ export default function UploadDocument({
 
     setUploading(true);
 
-    const fileName = `${Date.now()}-${file.name}`;
+    const storagePath = `documents/${projectId}/${Date.now()}-${sanitizeFileName(file.name)}`;
 
     const { error: uploadError } = await supabase.storage
-      .from("project-documents")
-      .upload(fileName, file);
+      .from(PROJECT_DOCUMENTS_BUCKET)
+      .upload(storagePath, file, {
+        contentType: file.type || undefined,
+      });
 
     if (uploadError) {
       console.error(uploadError);
@@ -35,19 +48,18 @@ export default function UploadDocument({
       return;
     }
 
-    const {
-      data: { publicUrl },
-    } = supabase.storage
-      .from("project-documents")
-      .getPublicUrl(fileName);
-
     const { error: dbError } = await supabase
       .from("documents")
       .insert({
         project_id: projectId,
         name: file.name,
         type: "general",
-        file_url: publicUrl,
+        document_type: "general",
+        is_client_visible: false,
+        bucket_id: PROJECT_DOCUMENTS_BUCKET,
+        storage_path: storagePath,
+        file_name: file.name,
+        mime_type: file.type || null,
       });
 
     if (dbError) {

@@ -1,6 +1,10 @@
 alter table if exists public.documents
   add column if not exists is_client_visible boolean not null default false,
-  add column if not exists document_type text;
+  add column if not exists document_type text,
+  add column if not exists bucket_id text,
+  add column if not exists storage_path text,
+  add column if not exists file_name text,
+  add column if not exists mime_type text;
 
 update public.documents
 set document_type = coalesce(document_type, type)
@@ -56,3 +60,6 @@ create index if not exists public_document_links_invoice_idx
 
 create index if not exists documents_client_visible_idx
   on public.documents(project_id, is_client_visible, document_type);
+
+create index if not exists documents_storage_idx
+  on public.documents(bucket_id, storage_path);

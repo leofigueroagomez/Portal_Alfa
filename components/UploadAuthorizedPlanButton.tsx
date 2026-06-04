@@ -9,6 +9,8 @@ type Props = {
   projectId: number;
 };
 
+const PROJECT_DOCUMENTS_BUCKET = "project-documents";
+
 function sanitizeFileName(fileName: string) {
   return fileName
     .normalize("NFD")
@@ -30,24 +32,25 @@ export default function UploadAuthorizedPlanButton({ projectId }: Props) {
 
     setUploading(true);
 
-    const fileName = `authorized-plans/${projectId}/${Date.now()}-${sanitizeFileName(file.name)}`;
+    const storagePath = `authorized-plans/${projectId}/${Date.now()}-${sanitizeFileName(file.name)}`;
     const { error: uploadError } = await supabase.storage
-      .from("project-documents")
-      .upload(fileName, file, {
+      .from(PROJECT_DOCUMENTS_BUCKET)
+      .upload(storagePath, file, {
         cacheControl: "3600",
         upsert: false,
+        contentType: file.type || undefined,
       });
 
     if (uploadError) {
       console.error("Error subiendo plano autorizado:", uploadError);
-      alert("Error subiendo plano autorizado");
+      alert(
+        uploadError.message?.includes("Bucket not found")
+          ? "El bucket project-documents no existe en Supabase Storage."
+          : "Error subiendo plano autorizado"
+      );
       setUploading(false);
       return;
     }
-
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from("project-documents").getPublicUrl(fileName);
 
     const { data: document, error: dbError } = await supabase
       .from("documents")
@@ -55,7 +58,12 @@ export default function UploadAuthorizedPlanButton({ projectId }: Props) {
         project_id: projectId,
         name: file.name,
         type: "authorized_plan",
-        file_url: publicUrl,
+        document_type: "authorized_plan",
+        is_client_visible: false,
+        bucket_id: PROJECT_DOCUMENTS_BUCKET,
+        storage_path: storagePath,
+        file_name: file.name,
+        mime_type: file.type || null,
       })
       .select("id")
       .single();

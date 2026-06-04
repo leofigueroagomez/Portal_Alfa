@@ -78,7 +78,16 @@ type ProjectDocument = {
   id: number;
   name: string | null;
   file_url: string | null;
+  bucket_id?: string | null;
+  storage_path?: string | null;
+  file_name?: string | null;
+  mime_type?: string | null;
   created_at: string | null;
+};
+
+type ResolvedProjectDocument = ProjectDocument & {
+  signedUrl: string | null;
+  storageError: string | null;
 };
 
 function formatDate(value: string | null | undefined) {
@@ -204,9 +213,9 @@ export default async function ProjectDetailPage({
       .limit(3),
     supabase
       .from("documents")
-      .select("id, name, file_url, created_at")
+      .select("id, name, file_url, bucket_id, storage_path, file_name, mime_type, created_at")
       .eq("project_id", projectData.id)
-      .eq("type", "authorized_plan")
+      .or("document_type.eq.authorized_plan,type.eq.authorized_plan")
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
@@ -231,6 +240,34 @@ export default async function ProjectDetailPage({
   const authorizedPlan = authorizedPlanResult.error
     ? null
     : (authorizedPlanResult.data as ProjectDocument | null);
+  let resolvedAuthorizedPlan: ResolvedProjectDocument | null = authorizedPlan
+    ? {
+        ...authorizedPlan,
+        signedUrl: null,
+        storageError: null,
+      }
+    : null;
+
+  if (resolvedAuthorizedPlan) {
+    if (resolvedAuthorizedPlan.bucket_id && resolvedAuthorizedPlan.storage_path) {
+      const { data: signedData, error: signedError } = await supabase.storage
+        .from(resolvedAuthorizedPlan.bucket_id)
+        .createSignedUrl(resolvedAuthorizedPlan.storage_path, 600);
+
+      resolvedAuthorizedPlan = {
+        ...resolvedAuthorizedPlan,
+        signedUrl: signedData?.signedUrl || null,
+        storageError: signedError
+          ? "El archivo no está disponible. Verifica el almacenamiento del documento."
+          : null,
+      };
+    } else {
+      resolvedAuthorizedPlan = {
+        ...resolvedAuthorizedPlan,
+        storageError: "El archivo no está disponible. Verifica el almacenamiento del documento.",
+      };
+    }
+  }
   const operationalItemsCount = operationalItemsResult.error
     ? null
     : Number(operationalItemsResult.count || 0);
@@ -694,25 +731,32 @@ export default async function ProjectDetailPage({
               </div>
               <span
                 className={`inline-flex w-fit rounded-full border px-3 py-1 text-xs ${
-                  authorizedPlan
+                  resolvedAuthorizedPlan
                     ? "border-[#1F7A4D] bg-[#143D2A] text-[#8CE0B6]"
                     : "border-[#3A3A42] bg-[#222228] text-[#B3B3B8]"
                 }`}
               >
-                {authorizedPlan ? "Cargado" : "No cargado"}
+                {resolvedAuthorizedPlan ? "Cargado" : "No cargado"}
               </span>
             </div>
 
-            {authorizedPlan ? (
-              <a
-                href={authorizedPlan.file_url || "#"}
-                target="_blank"
-                rel="noreferrer"
-                className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-[#B3B3B8] hover:text-white"
-              >
-                <FileText size={16} />
-                {authorizedPlan.name || "Plano autorizado"}
-              </a>
+            {resolvedAuthorizedPlan ? (
+              resolvedAuthorizedPlan.signedUrl ? (
+                <a
+                  href={resolvedAuthorizedPlan.signedUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-[#B3B3B8] hover:text-white"
+                >
+                  <FileText size={16} />
+                  {resolvedAuthorizedPlan.name || "Plano autorizado"}
+                </a>
+              ) : (
+                <p className="mb-4 rounded-xl border border-[#7A2E1F] bg-[#2A1412] p-4 text-sm text-[#FFB19C]">
+                  {resolvedAuthorizedPlan.storageError ||
+                    "El archivo no está disponible. Verifica el almacenamiento del documento."}
+                </p>
+              )
             ) : null}
 
             <UploadAuthorizedPlanButton projectId={projectData.id} />

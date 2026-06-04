@@ -22,7 +22,7 @@ export async function GET(
 
   const { data: document, error } = await supabase
     .from("documents")
-    .select("id, project_id, name, file_url, type, document_type, is_client_visible")
+    .select("id, project_id, name, file_url, type, document_type, is_client_visible, bucket_id, storage_path")
     .eq("id", link.document_id)
     .eq("project_id", link.client_project_id)
     .eq("is_client_visible", true)
@@ -33,9 +33,33 @@ export async function GET(
   }
 
   const documentType = document?.document_type || document?.type;
-  if (!document?.file_url || documentType !== "authorized_plan") {
-    return NextResponse.json({ error: "Archivo no disponible." }, { status: 404 });
+  if (
+    !document?.bucket_id ||
+    !document.storage_path ||
+    documentType !== "authorized_plan"
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          "El archivo no está disponible. Verifica el almacenamiento del documento.",
+      },
+      { status: 404 }
+    );
   }
 
-  return NextResponse.redirect(document.file_url);
+  const { data: signedData, error: signedError } = await supabase.storage
+    .from(document.bucket_id)
+    .createSignedUrl(document.storage_path, 300);
+
+  if (signedError || !signedData?.signedUrl) {
+    return NextResponse.json(
+      {
+        error:
+          "El archivo no está disponible. Verifica el almacenamiento del documento.",
+      },
+      { status: 404 }
+    );
+  }
+
+  return NextResponse.redirect(signedData.signedUrl);
 }
