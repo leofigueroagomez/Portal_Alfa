@@ -2,7 +2,6 @@ import Link from "next/link";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { formatCurrency, formatNumber } from "@/lib/format";
 import {
-  getPurchaseLineVariation,
   getPurchaseProgressPercent,
   summarizePurchaseVariationMxn,
 } from "@/lib/projectPurchases";
@@ -90,11 +89,65 @@ type QuoteItem = {
   quote_id: number | null;
 };
 
+type MonthlyProfitabilityReport = {
+  id: number;
+  client_project_id: number | null;
+  report_number: string | null;
+  generated_at: string | null;
+  total_sold_mxn: number | null;
+  equipment_purchase_total_mxn: number | null;
+  work_orders_total_mxn: number | null;
+  other_costs_mxn: number | null;
+  operating_profit_mxn: number | null;
+  operating_margin_percent: number | null;
+  status: string | null;
+  client_projects?: ProfitabilityProjectRelation | ProfitabilityProjectRelation[] | null;
+};
+
+type ProfitabilityProjectRelation = {
+  id: number;
+  name: string | null;
+  client_id: number | null;
+  clients?: ProfitabilityClientRelation | ProfitabilityClientRelation[] | null;
+};
+
+type ProfitabilityClientRelation = {
+  name: string | null;
+};
+
+function firstRelation<T>(value: T | T[] | null | undefined) {
+  return Array.isArray(value) ? value[0] || null : value || null;
+}
+
 function isThisMonth(value: string | null | undefined) {
   if (!value) return false;
   const date = new Date(value);
   const now = new Date();
   return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+}
+
+function getCurrentMonthRange() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+  return {
+    startIso: start.toISOString(),
+    nextIso: next.toISOString(),
+    label: start.toLocaleDateString("es-MX", {
+      month: "long",
+      year: "numeric",
+    }),
+  };
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return "Sin fecha";
+  return new Date(value).toLocaleDateString("es-MX", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 function quoteTotalMxn(quote: Quote) {
@@ -158,16 +211,9 @@ function KpiCard({
 
 export default async function DirectorDashboardPage() {
   const supabase = await createSupabaseServerClient();
+  const currentMonth = getCurrentMonthRange();
 
-  let [
-    projectsResult,
-    clientsResult,
-    quotesResult,
-    paymentsResult,
-    purchaseLinesResult,
-    purchaseEventsResult,
-    quoteItemsResult,
-  ] = await Promise.all([
+  const dashboardResults = await Promise.all([
     supabase
       .from("client_projects")
       .select(
@@ -196,7 +242,24 @@ export default async function DirectorDashboardPage() {
         "id, project_purchase_line_id, quantity, unit_cost, cost_currency, exchange_rate, warehouse_status"
       ),
     supabase.from("quote_items").select("id, quote_id"),
+    supabase
+      .from("project_profitability_reports")
+      .select(
+        "id, client_project_id, report_number, generated_at, total_sold_mxn, equipment_purchase_total_mxn, work_orders_total_mxn, other_costs_mxn, operating_profit_mxn, operating_margin_percent, status, client_projects(id, name, client_id, clients(name))"
+      )
+      .gte("generated_at", currentMonth.startIso)
+      .lt("generated_at", currentMonth.nextIso)
+      .in("status", ["generated", "sent"])
+      .order("generated_at", { ascending: false }),
   ]);
+  let projectsResult = dashboardResults[0];
+  const clientsResult = dashboardResults[1];
+  let quotesResult = dashboardResults[2];
+  const paymentsResult = dashboardResults[3];
+  const purchaseLinesResult = dashboardResults[4];
+  const purchaseEventsResult = dashboardResults[5];
+  const quoteItemsResult = dashboardResults[6];
+  const profitabilityReportsResult = dashboardResults[7];
 
   if (projectsResult.error) {
     console.warn("[director-dashboard] client_projects query fallback", {
@@ -230,6 +293,9 @@ export default async function DirectorDashboardPage() {
     ? []
     : ((purchaseEventsResult.data || []) as PurchaseEvent[]);
   const quoteItems = (quoteItemsResult.data || []) as QuoteItem[];
+  const monthlyProfitabilityReports = profitabilityReportsResult.error
+    ? []
+    : ((profitabilityReportsResult.data || []) as unknown as MonthlyProfitabilityReport[]);
 
   const clientNames = new Map(clients.map((client) => [client.id, client.name || "Sin cliente"]));
   const projectNames = new Map(
@@ -260,49 +326,71 @@ export default async function DirectorDashboardPage() {
     paymentsByProject.set(payment.client_project_id, [...current, payment]);
   });
 
-  let pendingEquipmentUsd = 0;
-  let pendingLaborMxn = 0;
-  let pendingCollectionMxn = 0;
-  const projectCollectionRows = activeProjects.map((project) => {
-    const projectQuotes = approvedByProject.get(project.id) || [];
-    const totalEquipmentUsd = projectQuotes.reduce(
-      (sum, quote) => sum + Number(quote.equipment_total || 0),
-      0
-    );
-    const totalLaborMxn = projectQuotes.reduce(
-      (sum, quote) => sum + Number(quote.labor_total || 0),
-      0
-    );
-    const equipmentMxn = projectQuotes.reduce(
-      (sum, quote) => sum + Number(quote.equipment_total || 0) * quoteExchangeRate(quote),
-      0
-    );
-    const projectRate = totalEquipmentUsd > 0 ? equipmentMxn / totalEquipmentUsd : 1;
-    const projectPayments = paymentsByProject.get(project.id) || [];
-    const paidEquipmentMxn = projectPayments
-      .filter((payment) => payment.payment_category === "equipment")
-      .reduce((sum, payment) => sum + getPaymentMxn(payment), 0);
-    const paidLaborMxn = projectPayments
-      .filter((payment) => payment.payment_category === "labor")
-      .reduce((sum, payment) => sum + getPaymentMxn(payment), 0);
-    const paidEquipmentUsd = projectRate > 0 ? paidEquipmentMxn / projectRate : 0;
-    const equipmentPendingUsd = Math.max(totalEquipmentUsd - paidEquipmentUsd, 0);
-    const laborPendingMxn = Math.max(totalLaborMxn - paidLaborMxn, 0);
-    const estimatedPendingMxn = equipmentPendingUsd * projectRate + laborPendingMxn;
+  const projectCollectionSummary = activeProjects.reduce(
+    (summary, project) => {
+      const projectQuotes = approvedByProject.get(project.id) || [];
+      const totalEquipmentUsd = projectQuotes.reduce(
+        (sum, quote) => sum + Number(quote.equipment_total || 0),
+        0
+      );
+      const totalLaborMxn = projectQuotes.reduce(
+        (sum, quote) => sum + Number(quote.labor_total || 0),
+        0
+      );
+      const equipmentMxn = projectQuotes.reduce(
+        (sum, quote) => sum + Number(quote.equipment_total || 0) * quoteExchangeRate(quote),
+        0
+      );
+      const projectRate = totalEquipmentUsd > 0 ? equipmentMxn / totalEquipmentUsd : 1;
+      const projectPayments = paymentsByProject.get(project.id) || [];
+      const paidEquipmentMxn = projectPayments
+        .filter((payment) => payment.payment_category === "equipment")
+        .reduce((sum, payment) => sum + getPaymentMxn(payment), 0);
+      const paidLaborMxn = projectPayments
+        .filter((payment) => payment.payment_category === "labor")
+        .reduce((sum, payment) => sum + getPaymentMxn(payment), 0);
+      const paidEquipmentUsd = projectRate > 0 ? paidEquipmentMxn / projectRate : 0;
+      const equipmentPendingUsd = Math.max(totalEquipmentUsd - paidEquipmentUsd, 0);
+      const laborPendingMxn = Math.max(totalLaborMxn - paidLaborMxn, 0);
+      const estimatedPendingMxn = equipmentPendingUsd * projectRate + laborPendingMxn;
 
-    pendingEquipmentUsd += equipmentPendingUsd;
-    pendingLaborMxn += laborPendingMxn;
-    pendingCollectionMxn += estimatedPendingMxn;
-
-    return {
-      projectId: project.id,
-      projectName: project.name || `Proyecto #${project.id}`,
-      clientName: project.client_id ? clientNames.get(project.client_id) || "Sin cliente" : "Sin cliente",
-      pendingMxn: estimatedPendingMxn,
-      pendingEquipmentUsd: equipmentPendingUsd,
-      pendingLaborMxn: laborPendingMxn,
-    };
-  });
+      return {
+        rows: [
+          ...summary.rows,
+          {
+            projectId: project.id,
+            projectName: project.name || `Proyecto #${project.id}`,
+            clientName: project.client_id
+              ? clientNames.get(project.client_id) || "Sin cliente"
+              : "Sin cliente",
+            pendingMxn: estimatedPendingMxn,
+            pendingEquipmentUsd: equipmentPendingUsd,
+            pendingLaborMxn: laborPendingMxn,
+          },
+        ],
+        pendingEquipmentUsd: summary.pendingEquipmentUsd + equipmentPendingUsd,
+        pendingLaborMxn: summary.pendingLaborMxn + laborPendingMxn,
+        pendingCollectionMxn: summary.pendingCollectionMxn + estimatedPendingMxn,
+      };
+    },
+    {
+      rows: [] as Array<{
+        projectId: number;
+        projectName: string;
+        clientName: string;
+        pendingMxn: number;
+        pendingEquipmentUsd: number;
+        pendingLaborMxn: number;
+      }>,
+      pendingEquipmentUsd: 0,
+      pendingLaborMxn: 0,
+      pendingCollectionMxn: 0,
+    }
+  );
+  const projectCollectionRows = projectCollectionSummary.rows;
+  const pendingEquipmentUsd = projectCollectionSummary.pendingEquipmentUsd;
+  const pendingLaborMxn = projectCollectionSummary.pendingLaborMxn;
+  const pendingCollectionMxn = projectCollectionSummary.pendingCollectionMxn;
 
   const quoteIdByItemId = new Map(quoteItems.map((item) => [item.id, item.quote_id]));
   const quoteById = new Map(approvedQuotes.map((quote) => [quote.id, quote]));
@@ -456,6 +544,50 @@ export default async function DirectorDashboardPage() {
     .filter((item) => item.value > 0 || item.usdWithoutTc > 0)
     .sort((a, b) => b.value - a.value)
     .slice(0, 6);
+  const monthlyProfitabilityRows = monthlyProfitabilityReports.map((report) => {
+    const project = firstRelation(report.client_projects);
+    const client = firstRelation(project?.clients);
+    const projectName =
+      project?.name || `Proyecto #${report.client_project_id || report.id}`;
+    const clientName = client?.name || "Sin cliente";
+    const incomeMxn = Number(report.total_sold_mxn || 0);
+    const costsMxn =
+      Number(report.equipment_purchase_total_mxn || 0) +
+      Number(report.work_orders_total_mxn || 0) +
+      Number(report.other_costs_mxn || 0);
+
+    return {
+      id: report.id,
+      projectId: report.client_project_id,
+      projectName,
+      clientName,
+      generatedAt: report.generated_at,
+      incomeMxn,
+      costsMxn,
+      profitMxn: Number(report.operating_profit_mxn || 0),
+      marginPercent: Number(report.operating_margin_percent || 0),
+    };
+  });
+  const monthlyProfitabilitySummary = monthlyProfitabilityRows.reduce(
+    (summary, row) => ({
+      totalIncomeMxn: summary.totalIncomeMxn + row.incomeMxn,
+      totalCostsMxn: summary.totalCostsMxn + row.costsMxn,
+      totalProfitMxn: summary.totalProfitMxn + row.profitMxn,
+      marginSum: summary.marginSum + row.marginPercent,
+      reportCount: summary.reportCount + 1,
+    }),
+    {
+      totalIncomeMxn: 0,
+      totalCostsMxn: 0,
+      totalProfitMxn: 0,
+      marginSum: 0,
+      reportCount: 0,
+    }
+  );
+  const averageProfitabilityMargin =
+    monthlyProfitabilitySummary.reportCount > 0
+      ? monthlyProfitabilitySummary.marginSum / monthlyProfitabilitySummary.reportCount
+      : 0;
 
   console.info("[director-dashboard] counts", {
     approvedQuotes: approvedQuotes.length,
@@ -463,6 +595,7 @@ export default async function DirectorDashboardPage() {
     payments: payments.length,
     purchaseLines: purchaseLines.length,
     purchaseEvents: purchaseEvents.length,
+    profitabilityReports: monthlyProfitabilityReports.length,
   });
 
   const queryWarnings = [
@@ -473,6 +606,9 @@ export default async function DirectorDashboardPage() {
     purchaseLinesResult.error ? `Compras: ${purchaseLinesResult.error.message}` : null,
     purchaseEventsResult.error ? `Eventos compra: ${purchaseEventsResult.error.message}` : null,
     quoteItemsResult.error ? `Partidas: ${quoteItemsResult.error.message}` : null,
+    profitabilityReportsResult.error
+      ? `Reportes rentabilidad: ${profitabilityReportsResult.error.message}`
+      : null,
   ].filter(Boolean) as string[];
 
   return (
@@ -562,6 +698,103 @@ export default async function DirectorDashboardPage() {
           value={formatCurrency(totalCollected, "MXN")}
           tone="green"
         />
+      </section>
+
+      <section className="mb-8 rounded-xl border border-[#1F1F24] bg-[#151518] p-5 sm:p-6">
+        <div className="mb-5 flex flex-col gap-2 xl:flex-row xl:items-end xl:justify-between">
+          <div>
+            <p className="mb-2 text-xs tracking-[0.3em] text-[#9E1B32]">
+              {currentMonth.label.toUpperCase()}
+            </p>
+            <h2 className="text-2xl font-semibold">Rentabilidad de proyectos del mes</h2>
+          </div>
+          <p className="text-sm text-[#77777D]">
+            Fuente: reportes guardados en project_profitability_reports.
+          </p>
+        </div>
+
+        <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <KpiCard
+            label="Utilidad total del mes"
+            value={formatCurrency(monthlyProfitabilitySummary.totalProfitMxn, "MXN")}
+            tone={monthlyProfitabilitySummary.totalProfitMxn >= 0 ? "green" : "red"}
+          />
+          <KpiCard
+            label="Ingresos totales"
+            value={formatCurrency(monthlyProfitabilitySummary.totalIncomeMxn, "MXN")}
+            tone="green"
+          />
+          <KpiCard
+            label="Costos totales"
+            value={formatCurrency(monthlyProfitabilitySummary.totalCostsMxn, "MXN")}
+            tone="yellow"
+          />
+          <KpiCard
+            label="Margen promedio"
+            value={`${formatNumber(averageProfitabilityMargin)}%`}
+          />
+          <KpiCard
+            label="Reportes incluidos"
+            value={String(monthlyProfitabilitySummary.reportCount)}
+            detail="Proyectos con reporte generado"
+          />
+        </div>
+
+        {monthlyProfitabilityRows.length === 0 ? (
+          <EmptyRow label="Sin reportes de rentabilidad generados durante el mes actual." />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[880px] text-sm">
+              <thead className="text-left text-xs text-[#77777D]">
+                <tr>
+                  <th className="pb-3">Proyecto</th>
+                  <th className="pb-3">Cliente</th>
+                  <th className="pb-3">Fecha reporte</th>
+                  <th className="pb-3 text-right">Ingresos</th>
+                  <th className="pb-3 text-right">Costos</th>
+                  <th className="pb-3 text-right">Utilidad</th>
+                  <th className="pb-3 text-right">Margen</th>
+                </tr>
+              </thead>
+              <tbody>
+                {monthlyProfitabilityRows.map((row) => (
+                  <tr key={row.id} className="border-t border-[#222228]">
+                    <td className="py-3 pr-4 font-semibold">
+                      {row.projectId ? (
+                        <Link
+                          href={`/projects/${row.projectId}/profitability`}
+                          className="hover:text-[#B3B3B8]"
+                        >
+                          {row.projectName}
+                        </Link>
+                      ) : (
+                        row.projectName
+                      )}
+                    </td>
+                    <td className="py-3 pr-4 text-[#B3B3B8]">{row.clientName}</td>
+                    <td className="py-3 pr-4 text-[#B3B3B8]">{formatDate(row.generatedAt)}</td>
+                    <td className="py-3 text-right text-[#8CE0B6]">
+                      {formatCurrency(row.incomeMxn, "MXN")}
+                    </td>
+                    <td className="py-3 text-right text-[#F4C66A]">
+                      {formatCurrency(row.costsMxn, "MXN")}
+                    </td>
+                    <td
+                      className={`py-3 text-right font-semibold ${
+                        row.profitMxn >= 0 ? "text-[#8CE0B6]" : "text-[#FFB19C]"
+                      }`}
+                    >
+                      {formatCurrency(row.profitMxn, "MXN")}
+                    </td>
+                    <td className="py-3 text-right font-semibold">
+                      {formatNumber(row.marginPercent)}%
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       <section className="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-3">
