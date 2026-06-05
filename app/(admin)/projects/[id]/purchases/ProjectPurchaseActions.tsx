@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { PackageCheck, Plus, Truck, X } from "lucide-react";
+import { PackageCheck, Pencil, Plus, Truck, X } from "lucide-react";
 import { supabase } from "@/services/supabase";
 
 export type PurchaseLineAction = {
@@ -25,7 +25,15 @@ export type PurchaseLineAction = {
 export type PurchaseEventAction = {
   id: number;
   project_purchase_line_id: number;
+  purchase_date?: string | null;
+  quantity?: number | null;
+  unit_cost?: number | null;
+  cost_currency?: string | null;
+  exchange_rate?: number | null;
+  supplier?: string | null;
+  invoice_reference?: string | null;
   warehouse_status: string | null;
+  notes?: string | null;
 };
 
 type PurchaseLineAllocation = {
@@ -261,45 +269,6 @@ export default function ProjectPurchaseActions({
     router.refresh();
   }
 
-  async function updateWarehouseStatus(
-    eventId: number,
-    lineId: number,
-    warehouseStatus: "received" | "delivered_to_site"
-  ) {
-    const { error } = await supabase
-      .from("project_purchase_events")
-      .update({ warehouse_status: warehouseStatus })
-      .eq("id", eventId);
-
-    if (error) {
-      reportError("actualizar estado de bodega", error);
-      return;
-    }
-
-    if (warehouseStatus === "delivered_to_site") {
-      const lineEvents = events.filter(
-        (eventItem) => eventItem.project_purchase_line_id === lineId
-      );
-      const allDelivered = lineEvents.every((eventItem) =>
-        eventItem.id === eventId
-          ? true
-          : eventItem.warehouse_status === "delivered_to_site"
-      );
-
-      if (allDelivered) {
-        await supabase
-          .from("project_purchase_lines")
-          .update({
-            purchase_status: "in_warehouse",
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", lineId);
-      }
-    }
-
-    router.refresh();
-  }
-
   return (
     <>
       <button
@@ -470,6 +439,248 @@ export default function ProjectPurchaseActions({
       ) : null}
 
       {events.length > 0 ? null : null}
+    </>
+  );
+}
+
+export function EditPurchaseEventAction({
+  projectId,
+  event,
+  line,
+}: {
+  projectId: number;
+  event: PurchaseEventAction;
+  line: PurchaseLineAction;
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [purchaseDate, setPurchaseDate] = useState(event.purchase_date || today());
+  const [quantity, setQuantity] = useState(String(Number(event.quantity || 0)));
+  const [unitCost, setUnitCost] = useState(String(Number(event.unit_cost || 0)));
+  const [costCurrency, setCostCurrency] = useState<Currency>(
+    ((event.cost_currency || line.cost_currency || "USD").toUpperCase() === "MXN"
+      ? "MXN"
+      : "USD") as Currency
+  );
+  const [exchangeRate, setExchangeRate] = useState(
+    event.exchange_rate ? String(Number(event.exchange_rate).toFixed(4)) : ""
+  );
+  const [supplier, setSupplier] = useState(event.supplier || line.supplier || "");
+  const [invoiceReference, setInvoiceReference] = useState(event.invoice_reference || "");
+  const [notes, setNotes] = useState(event.notes || "");
+
+  async function handleSubmit(submitEvent: React.FormEvent<HTMLFormElement>) {
+    submitEvent.preventDefault();
+
+    const numericQuantity = Number(quantity);
+    const numericUnitCost = Number(unitCost);
+    const numericExchangeRate = costCurrency === "USD" ? Number(exchangeRate) : null;
+
+    if (!purchaseDate) {
+      alert("Selecciona la fecha de compra.");
+      return;
+    }
+
+    if (!Number.isFinite(numericQuantity) || numericQuantity <= 0) {
+      alert("Captura una cantidad valida.");
+      return;
+    }
+
+    if (!Number.isFinite(numericUnitCost) || numericUnitCost < 0) {
+      alert("Captura un costo unitario valido.");
+      return;
+    }
+
+    if (costCurrency === "USD" && (!numericExchangeRate || numericExchangeRate <= 0)) {
+      alert("Captura el tipo de cambio para compras en USD.");
+      return;
+    }
+
+    setSaving(true);
+
+    const response = await fetch(
+      `/api/projects/${projectId}/purchases/events/${event.id}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+        purchase_date: purchaseDate,
+        quantity: numericQuantity,
+        unit_cost: numericUnitCost,
+        cost_currency: costCurrency,
+        exchange_rate: numericExchangeRate,
+        supplier: supplier.trim() || line.supplier || null,
+        invoice_reference: invoiceReference.trim() || null,
+        notes: notes.trim() || null,
+        }),
+      }
+    );
+    const responseBody = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      setSaving(false);
+      reportError(
+        "editar compra",
+        new Error(responseBody?.error || "No se pudo editar la compra.")
+      );
+      return;
+    }
+
+    setSaving(false);
+    setOpen(false);
+    router.refresh();
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-2 rounded-lg border border-[#2A2A30] px-3 py-2 text-xs text-[#B3B3B8] hover:text-white"
+      >
+        <Pencil size={14} />
+        Editar
+      </button>
+
+      {open ? (
+        <div className="fixed inset-0 z-50 flex items-end bg-black/70 p-4 sm:items-center sm:justify-center">
+          <form
+            onSubmit={handleSubmit}
+            className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-[#2A2A30] bg-[#151518] p-5 text-white shadow-2xl sm:p-6"
+          >
+            <div className="mb-5 flex items-center justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-semibold">Editar compra</h2>
+                <p className="mt-1 text-sm text-[#B3B3B8]">
+                  Correccion administrativa de costo, cantidad y referencia.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#2A2A30] bg-[#222228] text-[#B3B3B8] hover:text-white"
+                aria-label="Cerrar"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mb-4 rounded-xl border border-[#2A2A30] bg-[#101114] p-4 text-sm text-[#B3B3B8]">
+              <p className="font-semibold text-white">
+                {line.product_brand || "Sin marca"} {line.product_model || ""}
+              </p>
+              <p>{line.product_name || "Sin descripcion"}</p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <label className="space-y-2">
+                <span className="text-sm text-[#B3B3B8]">Fecha</span>
+                <input
+                  type="date"
+                  className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none"
+                  value={purchaseDate}
+                  onChange={(inputEvent) => setPurchaseDate(inputEvent.target.value)}
+                />
+              </label>
+
+              <label className="space-y-2">
+                <span className="text-sm text-[#B3B3B8]">Cantidad comprada</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none"
+                  value={quantity}
+                  onChange={(inputEvent) => setQuantity(inputEvent.target.value)}
+                />
+              </label>
+
+              <label className="space-y-2">
+                <span className="text-sm text-[#B3B3B8]">Costo unitario real</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none"
+                  value={unitCost}
+                  onChange={(inputEvent) => setUnitCost(inputEvent.target.value)}
+                />
+              </label>
+
+              <label className="space-y-2">
+                <span className="text-sm text-[#B3B3B8]">Moneda</span>
+                <select
+                  className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none"
+                  value={costCurrency}
+                  onChange={(inputEvent) => setCostCurrency(inputEvent.target.value as Currency)}
+                >
+                  <option value="USD">USD</option>
+                  <option value="MXN">MXN</option>
+                </select>
+              </label>
+
+              <label className="space-y-2">
+                <span className="text-sm text-[#B3B3B8]">Tipo de cambio</span>
+                <input
+                  type="number"
+                  step="0.0001"
+                  min="0"
+                  disabled={costCurrency === "MXN"}
+                  className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none disabled:text-[#77777D]"
+                  value={exchangeRate}
+                  onChange={(inputEvent) => setExchangeRate(inputEvent.target.value)}
+                  placeholder="Requerido si es USD"
+                />
+              </label>
+
+              <label className="space-y-2">
+                <span className="text-sm text-[#B3B3B8]">Proveedor</span>
+                <input
+                  className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none"
+                  value={supplier}
+                  onChange={(inputEvent) => setSupplier(inputEvent.target.value)}
+                />
+              </label>
+
+              <label className="space-y-2 md:col-span-2">
+                <span className="text-sm text-[#B3B3B8]">Factura / orden</span>
+                <input
+                  className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none"
+                  value={invoiceReference}
+                  onChange={(inputEvent) => setInvoiceReference(inputEvent.target.value)}
+                />
+              </label>
+
+              <label className="space-y-2 md:col-span-2">
+                <span className="text-sm text-[#B3B3B8]">Notas</span>
+                <textarea
+                  className="min-h-24 w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none"
+                  value={notes}
+                  onChange={(inputEvent) => setNotes(inputEvent.target.value)}
+                />
+              </label>
+            </div>
+
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="rounded-xl border border-[#2A2A30] bg-[#222228] px-5 py-3 font-semibold text-[#B3B3B8] hover:bg-[#2A2A30] hover:text-white"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="rounded-xl bg-[#9E1B32] px-5 py-3 font-semibold hover:bg-[#B91C3C] disabled:bg-[#222228] disabled:text-[#77777D]"
+              >
+                {saving ? "Guardando..." : "Guardar cambios"}
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
     </>
   );
 }

@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
+import { getCurrentInternalUserProfile } from "@/services/profile";
 import { formatCurrency, formatNumber } from "@/lib/format";
+import { normalizeRole } from "@/lib/permissions";
 import { syncProjectOperationalItems } from "@/lib/projectOperationalItems";
 import {
   getPurchaseProgressPercent,
@@ -11,6 +13,7 @@ import {
   summarizePurchaseVariationMxn,
 } from "@/lib/projectPurchases";
 import ProjectPurchaseActions, {
+  EditPurchaseEventAction,
   PurchaseEventAction,
   PurchaseLineAction,
   WarehouseEventActions,
@@ -25,12 +28,6 @@ type ClientProject = {
 
 type Client = {
   name: string | null;
-};
-
-type Quote = {
-  id: number;
-  quote_number: string | null;
-  exchange_rate: number | null;
 };
 
 type OperationalItem = {
@@ -210,6 +207,9 @@ export default async function ProjectPurchasesPage({
 }) {
   const supabase = await createSupabaseServerClient();
   const { id } = await params;
+  const profile = await getCurrentInternalUserProfile();
+  const currentRole = normalizeRole(profile?.role);
+  const canEditPurchaseEvents = currentRole === "admin";
 
   const { data: project, error } = await supabase
     .from("client_projects")
@@ -235,24 +235,14 @@ export default async function ProjectPurchasesPage({
   }
 
   const projectData = project as ClientProject;
-  const [{ data: client }, { data: approvedQuotes }] = await Promise.all([
-    projectData.client_id
-      ? supabase
-          .from("clients")
-          .select("name")
-          .eq("id", projectData.client_id)
-          .maybeSingle()
-      : Promise.resolve({ data: null }),
-    supabase
-      .from("quotes")
-      .select("id, quote_number, exchange_rate")
-      .eq("client_project_id", projectData.id)
-      .eq("status", "approved")
-      .order("created_at", { ascending: true }),
-  ]);
-
+  const { data: client } = projectData.client_id
+    ? await supabase
+        .from("clients")
+        .select("name")
+        .eq("id", projectData.client_id)
+        .maybeSingle()
+    : { data: null };
   const clientData = client as Client | null;
-  const quotes = (approvedQuotes || []) as Quote[];
 
   let purchaseSqlError: string | null = null;
 
@@ -904,11 +894,26 @@ export default async function ProjectPurchasesPage({
                                       {getWarehouseLabel(eventItem.warehouse_status)}
                                     </p>
                                     <div className="mt-2">
-                                      <WarehouseEventActions
-                                        eventId={eventItem.id}
-                                        lineId={eventItem.project_purchase_line_id}
-                                        currentStatus={eventItem.warehouse_status}
-                                      />
+                                      <div className="flex flex-wrap gap-2">
+                                        <WarehouseEventActions
+                                          eventId={eventItem.id}
+                                          lineId={eventItem.project_purchase_line_id}
+                                          currentStatus={eventItem.warehouse_status}
+                                        />
+                                        {canEditPurchaseEvents ? (
+                                          <EditPurchaseEventAction
+                                            projectId={projectData.id}
+                                            event={eventItem}
+                                            line={
+                                              line.childLines.find(
+                                                (childLine) =>
+                                                  childLine.id ===
+                                                  eventItem.project_purchase_line_id
+                                              ) || representative
+                                            }
+                                          />
+                                        ) : null}
+                                      </div>
                                     </div>
                                   </div>
                                 ))}
