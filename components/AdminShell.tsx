@@ -71,6 +71,8 @@ const roleLabels: Record<string, string> = {
   client: "Cliente",
 };
 
+const directorDashboardHref = "/director-dashboard";
+
 export default function AdminShell({
   children,
   profile,
@@ -164,7 +166,11 @@ export default function AdminShell({
   return (
     <div className="admin-shell min-h-screen bg-[#F7F6F3] text-[#111111] lg:flex">
       <header className="mobile-admin-header no-print sticky top-0 z-40 flex items-center justify-between border-b border-black/10 bg-white/90 px-4 py-3 backdrop-blur lg:hidden">
-        <Link href="/dashboard" className="flex items-center gap-3" onClick={() => setIsOpen(false)}>
+        <Link
+          href={directorDashboardHref}
+          className="flex items-center gap-3"
+          onClick={() => setIsOpen(false)}
+        >
           <Image
             src="/logo-alfa-os.png"
             alt="ALFA OS"
@@ -202,7 +208,7 @@ export default function AdminShell({
       >
         <div className="mb-8">
           <Link
-            href="/dashboard"
+            href={directorDashboardHref}
             onClick={() => setIsOpen(false)}
             className="block"
             aria-label="Ir a Dashboard Dirección"
@@ -227,7 +233,7 @@ export default function AdminShell({
 
         <nav className="admin-nav no-print space-y-2">
           <NavEntry
-            href="/dashboard"
+            href={directorDashboardHref}
             label="Dashboard Dirección"
             icon={Gauge}
             pathname={pathname}
