@@ -3,6 +3,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 type Quote = {
   id: number;
   exchange_rate: number | null;
+  equipment_total?: number | null;
+  labor_total?: number | null;
+  total_mxn?: number | null;
+  grand_total?: number | null;
 };
 
 type QuoteSection = {
@@ -58,6 +62,8 @@ type ManualOperationalItem = {
   quantity: number | null;
   product_id: number | null;
   status: string | null;
+  exchange_rate?: number | null;
+  change_origin?: string | null;
 };
 
 type OperationalLaborActivityInsert = {
@@ -98,6 +104,24 @@ function normalizeCostCurrency(value: string | null | undefined) {
   return value?.toUpperCase() === "MXN" ? "MXN" : "USD";
 }
 
+function getQuoteTotalMxn(quote: Quote) {
+  const exchangeRate = Number(quote.exchange_rate || 1);
+
+  return (
+    Number(quote.total_mxn) ||
+    Number(quote.grand_total) ||
+    Number(quote.equipment_total || 0) * exchangeRate + Number(quote.labor_total || 0)
+  );
+}
+
+function getHighestApprovedQuoteExchangeRate(quotes: Quote[]) {
+  const quote = quotes
+    .filter((item) => Number(item.exchange_rate || 0) > 0)
+    .sort((a, b) => getQuoteTotalMxn(b) - getQuoteTotalMxn(a))[0];
+
+  return quote ? Number(quote.exchange_rate || 0) : null;
+}
+
 export async function syncProjectOperationalItems(
   supabase: SupabaseClient,
   projectId: number,
@@ -105,7 +129,7 @@ export async function syncProjectOperationalItems(
 ): Promise<SyncProjectOperationalItemsResult> {
   const { data: quotes, error: quotesError } = await supabase
     .from("quotes")
-    .select("id, exchange_rate")
+    .select("id, exchange_rate, equipment_total, labor_total, total_mxn, grand_total")
     .eq("client_project_id", projectId)
     .eq("status", "approved")
     .order("created_at", { ascending: true });
@@ -114,6 +138,8 @@ export async function syncProjectOperationalItems(
 
   const approvedQuotes = (quotes || []) as Quote[];
   const quoteIds = approvedQuotes.map((quote) => quote.id);
+  const translationFallbackExchangeRate =
+    getHighestApprovedQuoteExchangeRate(approvedQuotes);
 
   if (quoteIds.length === 0) {
     return {
@@ -471,7 +497,7 @@ export async function syncProjectOperationalItems(
   const { data: manualOperationalItems, error: manualItemsError } =
     await supabase
       .from("project_operational_items")
-      .select("id, quantity, product_id, status")
+      .select("id, quantity, product_id, status, exchange_rate, change_origin")
       .eq("client_project_id", projectId)
       .is("source_quote_item_id", null)
       .neq("status", "deleted");
@@ -479,6 +505,27 @@ export async function syncProjectOperationalItems(
   if (manualItemsError) throw manualItemsError;
 
   const manualItems = (manualOperationalItems || []) as ManualOperationalItem[];
+  const manualTranslationItemIdsMissingExchangeRate = manualItems
+    .filter((item) => item.change_origin === "translation")
+    .filter((item) => Number(item.exchange_rate || 0) <= 0)
+    .map((item) => item.id);
+
+  if (
+    translationFallbackExchangeRate &&
+    manualTranslationItemIdsMissingExchangeRate.length > 0
+  ) {
+    const { error: exchangeRateUpdateError } = await supabase
+      .from("project_operational_items")
+      .update({
+        exchange_rate: translationFallbackExchangeRate,
+        updated_by_user_id: userId || null,
+        updated_at: new Date().toISOString(),
+      })
+      .in("id", manualTranslationItemIdsMissingExchangeRate);
+
+    if (exchangeRateUpdateError) throw exchangeRateUpdateError;
+  }
+
   const manualItemIds = manualItems.map((item) => item.id);
   const { data: existingManualActivities, error: existingManualActivitiesError } =
     manualItemIds.length
