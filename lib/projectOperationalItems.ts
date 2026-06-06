@@ -50,6 +50,7 @@ type ExistingOperationalItem = {
   id: number;
   source_quote_item_id: number | null;
   status?: string | null;
+  change_origin?: string | null;
 };
 
 type ManualOperationalItem = {
@@ -213,7 +214,7 @@ export async function syncProjectOperationalItems(
 
   const { data: existingItems, error: existingError } = await supabase
     .from("project_operational_items")
-    .select("id, source_quote_item_id, status")
+    .select("id, source_quote_item_id, status, change_origin")
     .eq("client_project_id", projectId)
     .in("source_quote_item_id", items.map((item) => item.id));
 
@@ -273,6 +274,8 @@ export async function syncProjectOperationalItems(
     .map((item) => {
       const existing = existingItemsByQuoteItemId.get(item.id);
       if (!existing) return null;
+      if (existing.status === "deleted") return null;
+      if (existing.change_origin && existing.change_origin !== "quote_seed") return null;
 
       const product = item.product_id ? productById.get(item.product_id) : null;
       const quote = quoteById.get(item.quote_id);
