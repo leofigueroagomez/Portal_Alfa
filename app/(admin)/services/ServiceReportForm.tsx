@@ -40,6 +40,7 @@ export type ServiceReportInitial = {
   diagnosis: string | null;
   solution_status: string | null;
   solution_description: string | null;
+  recommendations?: string | null;
   requires_parts: boolean | null;
   required_parts_notes: string | null;
   technician_cost_mxn: number | null;
@@ -112,6 +113,7 @@ export default function ServiceReportForm({
   const [diagnosis, setDiagnosis] = useState(initialReport?.diagnosis || "");
   const [solutionStatus, setSolutionStatus] = useState(initialReport?.solution_status || "pending");
   const [solutionDescription, setSolutionDescription] = useState(initialReport?.solution_description || "");
+  const [recommendations, setRecommendations] = useState(initialReport?.recommendations || "");
   const [requiresParts, setRequiresParts] = useState(Boolean(initialReport?.requires_parts));
   const [requiredPartsNotes, setRequiredPartsNotes] = useState(initialReport?.required_parts_notes || "");
   const [technicianCostMxn, setTechnicianCostMxn] = useState(String(initialReport?.technician_cost_mxn || 0));
@@ -246,6 +248,7 @@ export default function ServiceReportForm({
       diagnosis: diagnosis.trim() || null,
       solution_status: solutionStatus,
       solution_description: solutionDescription.trim() || null,
+      recommendations: recommendations.trim() || null,
       requires_parts: requiresParts,
       required_parts_notes: requiresParts ? requiredPartsNotes.trim() || null : null,
       technician_cost_mxn: Number(technicianCostMxn) || 0,
@@ -256,6 +259,12 @@ export default function ServiceReportForm({
         discountType === "percent" ? Number(discountPercent) || 0 : 0,
       service_discount_reason: discountReason.trim() || null,
       status,
+      completed_at:
+        status === "completed"
+          ? initialReport?.status === "completed"
+            ? undefined
+            : new Date().toISOString()
+          : null,
       updated_at: new Date().toISOString(),
     };
 
@@ -295,6 +304,22 @@ export default function ServiceReportForm({
       if (!reportId) throw { message: "Reporte no disponible" };
 
       await uploadPhotos(reportId);
+
+      if (status === "completed") {
+        const response = await fetch(`/api/services/${reportId}/completed-email`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ force: false }),
+        });
+        const result = await response.json().catch(() => null);
+        if (!response.ok || result?.ok === false) {
+          alert(
+            result?.message ||
+              "El servicio se guardo como completado, pero no se pudo enviar el correo."
+          );
+        }
+      }
+
       router.push(`/services/${reportId}`);
       router.refresh();
     } catch (error) {
@@ -397,6 +422,7 @@ export default function ServiceReportForm({
             >
               <option value="draft">Borrador</option>
               <option value="pending">Pendiente</option>
+              <option value="in_progress">En proceso</option>
               <option value="completed">Completado</option>
               <option value="cancelled">Cancelado</option>
             </select>
@@ -406,6 +432,12 @@ export default function ServiceReportForm({
             value={solutionDescription}
             onChange={(event) => setSolutionDescription(event.target.value)}
             placeholder="Descripcion de solucion"
+          />
+          <textarea
+            className="min-h-24 rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none"
+            value={recommendations}
+            onChange={(event) => setRecommendations(event.target.value)}
+            placeholder="Recomendaciones para el cliente"
           />
           <label className="flex items-center gap-3 rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3">
             <input

@@ -52,7 +52,7 @@ export default async function EditServicePage({
         <p className="mb-3 text-sm tracking-[0.3em] text-[#9E1B32]">ALFA OS</p>
         <h1 className="text-3xl font-bold sm:text-4xl">Editar servicio</h1>
       </section>
-      {reportData && ["draft", "pending"].includes(reportData.status || "draft") ? (
+      {reportData && ["draft", "pending", "in_progress"].includes(reportData.status || "draft") ? (
         <ServiceReportForm
           mode="edit"
           clients={(clients || []) as ServiceClient[]}

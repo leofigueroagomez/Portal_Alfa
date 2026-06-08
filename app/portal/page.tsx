@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, ShieldCheck } from "lucide-react";
+import { ArrowRight, ShieldCheck, Wrench } from "lucide-react";
 import {
   addMonths,
   formatPortalDate,
@@ -37,11 +37,39 @@ type Warranty = {
   preventive_maintenance_frequency_months: number | null;
 };
 
+type ServiceReport = {
+  id: number;
+  service_number: string | null;
+  client_project_id: number | null;
+  service_date: string | null;
+  solution_description: string | null;
+  status: string | null;
+  labor_sale_mxn: number | null;
+};
+
+type ServiceInvoice = {
+  source_service_report_id: number | null;
+  total_mxn: number | null;
+  total?: number | null;
+  status: string | null;
+};
+
 function getLatestByProject<T extends { client_project_id: number }>(
   rows: T[],
   projectId: number
 ) {
   return rows.find((row) => row.client_project_id === projectId) || null;
+}
+
+function serviceStatusLabel(status: string | null | undefined) {
+  if (status === "completed") return "Finalizado";
+  if (status === "in_progress") return "En proceso";
+  if (status === "pending") return "Pendiente";
+  return "Borrador";
+}
+
+function invoiceTotal(invoice: ServiceInvoice) {
+  return Number(invoice.total_mxn ?? invoice.total ?? 0);
 }
 
 export default async function ClientPortalPage() {
@@ -66,16 +94,16 @@ export default async function ClientPortalPage() {
     (row) => row.client_project_id
   );
 
-  if (accessError || projectIds.length === 0) {
+  if (accessError) {
     return (
       <main className="min-h-screen bg-[#F7F6F3] text-[#111111]">
         <section className="mx-auto flex min-h-screen max-w-5xl flex-col justify-center px-5 py-12">
           <p className="mb-3 text-sm font-semibold tracking-[0.28em] text-[#9E1B32]">
             PORTAL ALFA
           </p>
-          <h1 className="text-4xl font-semibold">Sin proyectos asignados</h1>
+          <h1 className="text-4xl font-semibold">Acceso no disponible</h1>
           <p className="mt-4 max-w-2xl text-[#5F626A]">
-            Tu usuario no tiene proyectos activos en el portal cliente.
+            No se pudo validar tu acceso al portal cliente.
           </p>
         </section>
       </main>
@@ -88,40 +116,58 @@ export default async function ClientPortalPage() {
     { data: warranties },
     { data: invoices },
     { data: payments },
+    { data: services },
   ] = await Promise.all([
+    projectIds.length
+      ? supabase
+          .from("client_projects")
+          .select("id, client_id, name, sales_stage, estimated_value_mxn, expected_close_date")
+          .eq("client_id", portalUser.client_id)
+          .in("id", projectIds)
+          .order("updated_at", { ascending: false })
+      : Promise.resolve({ data: [] }),
+    projectIds.length
+      ? supabase
+          .from("project_deliveries")
+          .select("client_project_id, delivery_date")
+          .in("client_project_id", projectIds)
+          .in("status", ["delivered", "accepted"])
+          .order("delivery_date", { ascending: false })
+          .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [] }),
+    projectIds.length
+      ? supabase
+          .from("project_warranties")
+          .select(
+            "client_project_id, installation_warranty_end_date, equipment_warranty_end_date, preventive_maintenance_frequency_months"
+          )
+          .in("client_project_id", projectIds)
+          .eq("status", "issued")
+          .order("warranty_date", { ascending: false })
+          .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [] }),
+    projectIds.length
+      ? supabase
+          .from("project_invoices")
+          .select("id, internal_folio, invoice_date, total_mxn, total, status, sat_uuid, client_project_id")
+          .in("client_project_id", projectIds)
+          .in("status", ["issued", "paid"])
+      : Promise.resolve({ data: [] }),
+    projectIds.length
+      ? supabase
+          .from("project_payments")
+          .select(
+            "id, payment_date, payment_method, payment_reference, currency, amount, amount_mxn, exchange_rate, notes, client_project_id"
+          )
+          .in("client_project_id", projectIds)
+      : Promise.resolve({ data: [] }),
     supabase
-      .from("client_projects")
-      .select("id, client_id, name, sales_stage, estimated_value_mxn, expected_close_date")
+      .from("service_reports")
+      .select("id, service_number, client_project_id, service_date, solution_description, status, labor_sale_mxn")
       .eq("client_id", portalUser.client_id)
-      .in("id", projectIds)
-      .order("updated_at", { ascending: false }),
-    supabase
-      .from("project_deliveries")
-      .select("client_project_id, delivery_date")
-      .in("client_project_id", projectIds)
-      .in("status", ["delivered", "accepted"])
-      .order("delivery_date", { ascending: false })
+      .in("status", ["pending", "in_progress", "completed"])
+      .order("service_date", { ascending: false })
       .order("created_at", { ascending: false }),
-    supabase
-      .from("project_warranties")
-      .select(
-        "client_project_id, installation_warranty_end_date, equipment_warranty_end_date, preventive_maintenance_frequency_months"
-      )
-      .in("client_project_id", projectIds)
-      .eq("status", "issued")
-      .order("warranty_date", { ascending: false })
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("project_invoices")
-      .select("id, internal_folio, invoice_date, total_mxn, total, status, sat_uuid, client_project_id")
-      .in("client_project_id", projectIds)
-      .in("status", ["issued", "paid"]),
-    supabase
-      .from("project_payments")
-      .select(
-        "id, payment_date, payment_method, payment_reference, currency, amount, amount_mxn, exchange_rate, notes, client_project_id"
-      )
-      .in("client_project_id", projectIds),
   ]);
 
   const projectList = (projects || []) as ClientPortalProject[];
@@ -133,6 +179,29 @@ export default async function ClientPortalPage() {
   const paymentList = (payments || []) as (ClientPortalPayment & {
     client_project_id: number;
   })[];
+  const serviceList = ((services || []) as ServiceReport[]).filter(
+    (service) => !service.client_project_id || projectIds.includes(service.client_project_id)
+  );
+  const { data: serviceInvoices } = serviceList.length
+    ? await supabase
+        .from("project_invoices")
+        .select("source_service_report_id, total_mxn, total, status")
+        .in(
+          "source_service_report_id",
+          serviceList.map((service) => service.id)
+        )
+        .in("status", ["issued", "paid"])
+    : { data: [] };
+  const serviceInvoiceList = (serviceInvoices || []) as ServiceInvoice[];
+
+  function getServiceBalance(serviceId: number) {
+    return serviceInvoiceList
+      .filter(
+        (invoice) =>
+          invoice.source_service_report_id === serviceId && invoice.status === "issued"
+      )
+      .reduce((sum, invoice) => sum + invoiceTotal(invoice), 0);
+  }
 
   return (
     <main className="min-h-screen bg-[#F7F6F3] text-[#111111]">
@@ -150,6 +219,11 @@ export default async function ClientPortalPage() {
         </div>
 
         <section className="grid gap-4">
+          {projectList.length === 0 ? (
+            <div className="rounded border border-black/10 bg-white p-6 text-sm text-[#5F626A]">
+              Aun no hay proyectos activos asignados a tu usuario.
+            </div>
+          ) : null}
           {projectList.map((project) => {
             const projectInvoices = invoiceList.filter(
               (invoice) => invoice.client_project_id === project.id
@@ -214,6 +288,47 @@ export default async function ClientPortalPage() {
               </Link>
             );
           })}
+        </section>
+
+        <section className="mt-12">
+          <div className="mb-5 flex items-center gap-3">
+            <Wrench size={20} className="text-[#9E1B32]" />
+            <h2 className="text-2xl font-semibold">Servicios Realizados</h2>
+          </div>
+          {serviceList.length === 0 ? (
+            <div className="rounded border border-black/10 bg-white p-6 text-sm text-[#5F626A]">
+              Aun no hay servicios registrados para tu cuenta.
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              {serviceList.map((service) => {
+                const balance = getServiceBalance(service.id);
+
+                return (
+                  <Link
+                    key={service.id}
+                    href={`/portal/services/${service.id}`}
+                    className="grid gap-4 rounded border border-black/10 bg-white p-4 shadow-sm transition hover:border-[#9E1B32]/35 md:grid-cols-[0.7fr_0.8fr_1.5fr_0.7fr_0.8fr_44px] md:items-center"
+                  >
+                    <p className="font-semibold">{formatPortalDate(service.service_date)}</p>
+                    <p>{service.service_number || `SERV-${String(service.id).padStart(4, "0")}`}</p>
+                    <p className="line-clamp-2 text-sm text-[#5F626A]">
+                      {service.solution_description || "Servicio ALFA"}
+                    </p>
+                    <span className="text-sm font-semibold">
+                      {serviceStatusLabel(service.status)}
+                    </span>
+                    <p className="font-semibold text-[#9E1B32]">
+                      {formatCurrency(balance, "MXN")}
+                    </p>
+                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#111111] text-white">
+                      <ArrowRight size={18} />
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
         </section>
 
         <div className="mt-8 inline-flex items-center gap-2 text-sm text-[#5F626A]">

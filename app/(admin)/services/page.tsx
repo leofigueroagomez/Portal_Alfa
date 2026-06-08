@@ -26,6 +26,14 @@ function solutionLabel(status: string | null | undefined) {
   return "Pendiente";
 }
 
+function statusLabel(status: string | null | undefined) {
+  if (status === "completed") return "Finalizado";
+  if (status === "in_progress") return "En proceso";
+  if (status === "pending") return "Pendiente";
+  if (status === "cancelled") return "Cancelado";
+  return "Borrador";
+}
+
 export default async function ServicesPage() {
   const supabase = await createSupabaseServerClient();
   const { data: reports, error } = await supabase
@@ -95,7 +103,12 @@ export default async function ServicesPage() {
                     </td>
                     <td className="px-3 py-2">{report.performed_by_name || "-"}</td>
                     <td className="px-3 py-2">{formatDate(report.service_date)}</td>
-                    <td className="px-3 py-2">{solutionLabel(report.solution_status)}</td>
+                    <td className="px-3 py-2">
+                      <div className="font-semibold">{statusLabel(report.status)}</div>
+                      <div className="text-xs text-[#77777D]">
+                        {solutionLabel(report.solution_status)}
+                      </div>
+                    </td>
                     <td className="px-3 py-2">{report.requires_parts ? "Si" : "No"}</td>
                     <td className="px-3 py-2">
                       <Link

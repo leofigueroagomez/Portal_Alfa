@@ -7,6 +7,7 @@ import {
   resolveServicePhotoUrl,
 } from "@/lib/serviceReports";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
+import SendServiceCompletedEmailButton from "./SendServiceCompletedEmailButton";
 
 type ServiceReport = {
   id: number;
@@ -21,11 +22,17 @@ type ServiceReport = {
   diagnosis: string | null;
   solution_status: string | null;
   solution_description: string | null;
+  recommendations: string | null;
   requires_parts: boolean | null;
   required_parts_notes: string | null;
   technician_cost_mxn: number | null;
   labor_sale_mxn: number | null;
   status: string | null;
+  completed_at: string | null;
+  service_email_sent_at: string | null;
+  service_email_sent_to: string | null;
+  service_email_status: string | null;
+  service_email_error: string | null;
   related_quote_id: number | null;
   clients: { name: string | null } | null;
   client_projects: { name: string | null } | null;
@@ -84,6 +91,7 @@ export default async function ServiceDetailPage({
   const quoteUrl = `/quotes/new?clientId=${reportData.client_id || ""}&projectId=${
     reportData.client_project_id || ""
   }&serviceReportId=${reportData.id}`;
+  const isCompleted = reportData.status === "completed";
 
   return (
     <main className="min-h-screen bg-[#0B0D0F] p-4 text-white md:p-8 xl:p-10">
@@ -118,6 +126,12 @@ export default async function ServiceDetailPage({
             <FileText size={18} />
             Ver propuesta de reparacion
           </Link>
+          {isCompleted ? (
+            <SendServiceCompletedEmailButton
+              serviceId={reportData.id}
+              alreadySentAt={reportData.service_email_sent_at}
+            />
+          ) : null}
           {reportData.requires_parts && reportData.related_quote_id ? (
             <Link
               href={`/quotes/${reportData.related_quote_id}/edit`}
@@ -158,6 +172,24 @@ export default async function ServiceDetailPage({
         </div>
       </section>
 
+      {isCompleted ? (
+        <section className="mb-8 rounded-2xl border border-[#1F1F24] bg-[#151518] p-5 sm:p-6">
+          <h2 className="mb-3 text-2xl font-semibold">Correo al cliente</h2>
+          {reportData.service_email_status === "sent" ? (
+            <p className="text-[#8CE0B6]">
+              Enviado a {reportData.service_email_sent_to || "cliente"} el{" "}
+              {formatServiceDate(reportData.service_email_sent_at)}.
+            </p>
+          ) : reportData.service_email_status === "error" ? (
+            <p className="text-[#F28B82]">
+              Error al enviar: {reportData.service_email_error || "Sin detalle"}
+            </p>
+          ) : (
+            <p className="text-[#B3B3B8]">Aun no se ha enviado el correo de servicio.</p>
+          )}
+        </section>
+      ) : null}
+
       <section className="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-2">
         <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5 sm:p-6">
           <h2 className="mb-4 text-2xl font-semibold">Diagnostico</h2>
@@ -168,6 +200,10 @@ export default async function ServiceDetailPage({
           <h2 className="mb-4 text-2xl font-semibold">Solucion</h2>
           <p className="whitespace-pre-line text-[#B3B3B8]">
             {reportData.solution_description || "Sin descripcion"}
+          </p>
+          <h3 className="mb-3 mt-6 text-xl font-semibold">Recomendaciones</h3>
+          <p className="whitespace-pre-line text-[#B3B3B8]">
+            {reportData.recommendations || "Sin recomendaciones"}
           </p>
         </div>
       </section>
