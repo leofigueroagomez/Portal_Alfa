@@ -11,6 +11,7 @@ import {
   type CreatePaymentComplementDraftResult,
   type StampPaymentComplementResult,
 } from "./paymentComplementActions";
+import { getMexicoDate } from "@/lib/mexicoDate";
 
 type InvoiceForComplement = {
   id: number;
@@ -70,7 +71,7 @@ type Props = {
 };
 
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  return getMexicoDate();
 }
 
 function isStampedComplement(status: string | null | undefined) {

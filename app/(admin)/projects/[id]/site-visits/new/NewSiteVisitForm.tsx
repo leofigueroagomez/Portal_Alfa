@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
+import { getMexicoDate } from "@/lib/mexicoDate";
 import { supabase } from "@/services/supabase";
 
 type EvidencePhotoForm = {
@@ -46,7 +47,7 @@ export default function NewSiteVisitForm({ projectId }: Props) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [title, setTitle] = useState("");
-  const [visitDate, setVisitDate] = useState(new Date().toISOString().slice(0, 10));
+  const [visitDate, setVisitDate] = useState(getMexicoDate());
   const [generalNotes, setGeneralNotes] = useState("");
   const [notes, setNotes] = useState<VisitNoteForm[]>([createEmptyNote()]);
 

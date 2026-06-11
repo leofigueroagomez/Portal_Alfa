@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PackageCheck, Pencil, Plus, Truck, X } from "lucide-react";
+import { getMexicoDate } from "@/lib/mexicoDate";
 import { supabase } from "@/services/supabase";
 
 export type PurchaseLineAction = {
@@ -56,7 +57,7 @@ type Props = {
 type Currency = "USD" | "MXN";
 
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  return getMexicoDate();
 }
 
 function reportError(step: string, error: unknown) {

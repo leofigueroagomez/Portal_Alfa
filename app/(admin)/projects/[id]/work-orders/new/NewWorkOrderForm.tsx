@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Save } from "lucide-react";
 import { formatNumber } from "@/lib/format";
+import { getMexicoDate } from "@/lib/mexicoDate";
 import { supabase } from "@/services/supabase";
 
 export type AvailableWorkActivity = {
@@ -39,7 +40,7 @@ type SelectedActivity = {
 };
 
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  return getMexicoDate();
 }
 
 function quantityInputValue(value: number) {

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, Trash2 } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
+import { getMexicoDate } from "@/lib/mexicoDate";
 import { supabase } from "@/services/supabase";
 
 export type ServiceClient = {
@@ -66,7 +67,7 @@ type Props = {
 };
 
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  return getMexicoDate();
 }
 
 function serviceNumber(id: number) {

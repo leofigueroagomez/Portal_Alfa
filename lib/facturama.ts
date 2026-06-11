@@ -1,4 +1,9 @@
 import { sanitizeCfdiDescription } from "@/lib/cfdiDescription";
+import {
+  MEXICO_TIME_ZONE,
+  getMexicoDate,
+  getMexicoFacturamaDateTime,
+} from "@/lib/mexicoDate";
 
 type FacturamaEnv = "sandbox" | "production";
 
@@ -309,9 +314,12 @@ function getExpeditionPlace() {
 }
 
 function buildInvoicePayload(draft: FacturamaInvoiceDraft) {
+  const serverNow = new Date();
+  const facturamaDate = getMexicoFacturamaDateTime(serverNow);
+
   return {
     NameId: 1,
-    Date: `${draft.invoiceDate}T12:00:00`,
+    Date: facturamaDate,
     Currency: "MXN",
     ExpeditionPlace: getExpeditionPlace(),
     Exportation: "01",
@@ -363,7 +371,10 @@ function buildInvoicePayload(draft: FacturamaInvoiceDraft) {
 
 type FacturamaInvoicePayload = ReturnType<typeof buildInvoicePayload>;
 
-function buildFacturamaRequestLog(payload: FacturamaInvoicePayload) {
+function buildFacturamaRequestLog(
+  payload: FacturamaInvoicePayload,
+  draft: FacturamaInvoiceDraft
+) {
   return {
     Receiver: {
       Rfc: payload.Receiver.Rfc,
@@ -374,6 +385,11 @@ function buildFacturamaRequestLog(payload: FacturamaInvoicePayload) {
     Currency: payload.Currency,
     PaymentForm: payload.PaymentForm,
     PaymentMethod: payload.PaymentMethod,
+    OriginalInvoiceDate: draft.invoiceDate,
+    Date: payload.Date,
+    ServerNowIso: new Date().toISOString(),
+    MexicoDate: getMexicoDate(),
+    MexicoTimeZone: MEXICO_TIME_ZONE,
     ItemsCount: payload.Items.length,
   };
 }
@@ -405,6 +421,9 @@ function buildPaymentComplementRequestLog(
       Amount: payment.Amount,
       PaymentForm: payment.PaymentForm,
     },
+    ServerNowIso: new Date().toISOString(),
+    MexicoDate: getMexicoDate(),
+    MexicoTimeZone: MEXICO_TIME_ZONE,
     RelatedDocuments: [
       {
         Uuid: relatedDocument.Uuid,
@@ -435,13 +454,20 @@ export async function stampFacturamaInvoice(
 ): Promise<FacturamaStampResult> {
   const payload = buildInvoicePayload(draft);
   assertReceiverAllowedForFacturamaEnv(payload);
+  console.info("[Facturama CFDI I date]", {
+    originalInvoiceDate: draft.invoiceDate,
+    facturamaDate: payload.Date,
+    serverNowIso: new Date().toISOString(),
+    mexicoDate: getMexicoDate(),
+    mexicoTimeZone: MEXICO_TIME_ZONE,
+  });
   const response = await facturamaRequest<FacturamaCreateCfdiResponse>(
     "3/cfdis",
     {
       method: "POST",
       body: JSON.stringify(payload),
     },
-    buildFacturamaRequestLog(payload)
+    buildFacturamaRequestLog(payload, draft)
   );
   const facturamaId = response.data.Id;
 
@@ -470,6 +496,13 @@ export async function stampPaymentComplement(
   payload: FacturamaPaymentComplementPayload,
   env: FacturamaEnv = "sandbox"
 ): Promise<FacturamaStampResult> {
+  const payment = payload.Complemento.Payments[0] || {};
+  console.info("[Facturama payment complement date]", {
+    paymentDateSent: payment.Date,
+    serverNowIso: new Date().toISOString(),
+    mexicoDate: getMexicoDate(),
+    mexicoTimeZone: MEXICO_TIME_ZONE,
+  });
   const response = await facturamaRequest<FacturamaCreateCfdiResponse>(
     "3/cfdis",
     {

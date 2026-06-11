@@ -36,6 +36,7 @@ import {
   sanitizeCfdiDescription,
   validateCfdiDescription,
 } from "@/lib/cfdiDescription";
+import { getMexicoDate } from "@/lib/mexicoDate";
 import { supabase } from "@/services/supabase";
 
 type Project = {
@@ -112,7 +113,7 @@ type CreatedInvoice = {
 };
 
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  return getMexicoDate();
 }
 
 function getRelation<T>(relation: T | T[] | null | undefined) {

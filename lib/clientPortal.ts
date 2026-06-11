@@ -2,6 +2,7 @@ import "server-only";
 
 import { notFound, redirect } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { addMonthsToMexicoDate } from "@/lib/mexicoDate";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 
 export type ClientPortalUser = {
@@ -87,9 +88,7 @@ export function formatPortalDate(value: string | null | undefined) {
 
 export function addMonths(value: string | null | undefined, months: number | null | undefined) {
   if (!value || !months) return null;
-  const date = new Date(`${value}T00:00:00`);
-  date.setMonth(date.getMonth() + Number(months || 0));
-  return date.toISOString().slice(0, 10);
+  return addMonthsToMexicoDate(value, months);
 }
 
 export function getPortalProjectStatusLabel(status: string | null | undefined) {

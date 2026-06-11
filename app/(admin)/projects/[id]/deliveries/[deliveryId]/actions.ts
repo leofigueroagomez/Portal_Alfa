@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { formatCurrency } from "@/lib/format";
 import { getProjectFinancialSummary } from "@/lib/projectFinancials";
 import { getProjectDeliverySystemsForDisplay } from "@/lib/projectDeliverySystems";
+import { addMonthsToMexicoDate, getMexicoDate } from "@/lib/mexicoDate";
 import { generateProjectDeliveryPdf, generateWarrantyLetterPdf } from "@/lib/postSalePdf";
 
 type Delivery = {
@@ -63,13 +64,11 @@ type EmailDraft = {
 
 function addMonths(value: string | null | undefined, months: number | null | undefined) {
   if (!value || !months) return null;
-  const date = new Date(`${value}T00:00:00`);
-  date.setMonth(date.getMonth() + Number(months || 0));
-  return date.toISOString().slice(0, 10);
+  return addMonthsToMexicoDate(value, months);
 }
 
 function getDateOrToday(value: string | null | undefined) {
-  return value || new Date().toISOString().slice(0, 10);
+  return value || getMexicoDate();
 }
 
 function formatDate(value: string | null | undefined) {

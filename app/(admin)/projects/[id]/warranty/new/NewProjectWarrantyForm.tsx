@@ -4,6 +4,7 @@ import type React from "react";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Save } from "lucide-react";
+import { addMonthsToMexicoDate, getMexicoDate } from "@/lib/mexicoDate";
 import { supabase } from "@/services/supabase";
 
 type Props = {
@@ -14,14 +15,11 @@ type Props = {
 };
 
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  return getMexicoDate();
 }
 
 function addMonths(value: string, months: number) {
-  if (!value) return "";
-  const date = new Date(`${value}T00:00:00`);
-  date.setMonth(date.getMonth() + Number(months || 0));
-  return date.toISOString().slice(0, 10);
+  return addMonthsToMexicoDate(value, months);
 }
 
 function moneyToNumber(value: string) {

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Camera, Check, Eraser, PenLine, Save } from "lucide-react";
 import { getPurchaseDeliveryStatus } from "@/lib/materialDeliveries";
 import { formatNumber } from "@/lib/format";
+import { getMexicoDate } from "@/lib/mexicoDate";
 import { supabase } from "@/services/supabase";
 
 export type AvailableDeliveryLine = {
@@ -32,7 +33,7 @@ type Props = {
 };
 
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  return getMexicoDate();
 }
 
 function reportError(step: string, error: unknown) {

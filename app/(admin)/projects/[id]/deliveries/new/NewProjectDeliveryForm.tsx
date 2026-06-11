@@ -4,6 +4,7 @@ import type React from "react";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, Eraser, PenLine, Save } from "lucide-react";
+import { getMexicoDate } from "@/lib/mexicoDate";
 import { supabase } from "@/services/supabase";
 
 type Props = {
@@ -12,7 +13,7 @@ type Props = {
 };
 
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  return getMexicoDate();
 }
 
 function getExtension(file: File) {

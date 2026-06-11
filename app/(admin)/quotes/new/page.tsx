@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { arrayMove } from "@dnd-kit/sortable";
 import { supabase } from "@/services/supabase";
 import { formatCurrency, formatNumber } from "@/lib/format";
+import { getMexicoDate } from "@/lib/mexicoDate";
 import {
   createLegacyLaborActivity,
   getItemLaborCostTotal,
@@ -149,7 +150,7 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
   const [exchangeRate, setExchangeRate] = useState("17");
   const [exchangeRateSource, setExchangeRateSource] = useState("manual");
   const [exchangeRateDate, setExchangeRateDate] = useState(
-    new Date().toISOString().slice(0, 10)
+    getMexicoDate()
   );
   const [discountType, setDiscountType] = useState("none");
   const [discountPercent, setDiscountPercent] = useState("");
@@ -281,7 +282,7 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
           setExchangeRate(String(data.rate));
           setExchangeRateSource(data.source || "fallback-manual");
           setExchangeRateDate(
-            data.date || new Date().toISOString().slice(0, 10)
+            data.date || getMexicoDate()
           );
           return;
         }
@@ -289,12 +290,12 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
         console.error("No se pudo cargar tipo de cambio:", data);
         alert("No se pudo cargar tipo de cambio. Captúralo manualmente.");
         setExchangeRateSource("manual");
-        setExchangeRateDate(new Date().toISOString().slice(0, 10));
+        setExchangeRateDate(getMexicoDate());
       } catch (error) {
         console.error("Error cargando tipo de cambio:", error);
         alert("No se pudo cargar tipo de cambio. Captúralo manualmente.");
         setExchangeRateSource("manual");
-        setExchangeRateDate(new Date().toISOString().slice(0, 10));
+        setExchangeRateDate(getMexicoDate());
       }
     }
 

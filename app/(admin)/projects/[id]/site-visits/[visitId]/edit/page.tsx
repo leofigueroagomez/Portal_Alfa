@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { getMexicoDate } from "@/lib/mexicoDate";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import EditSiteVisitForm from "./EditSiteVisitForm";
 
@@ -128,7 +129,7 @@ export default async function EditSiteVisitPage({
   const initialVisit = {
     title: visitData.title || "",
     visit_date:
-      visitData.visit_date || new Date().toISOString().slice(0, 10),
+      visitData.visit_date || getMexicoDate(),
     general_notes: visitData.general_notes || "",
     notes: noteList.map((note) => ({
       id: note.id,

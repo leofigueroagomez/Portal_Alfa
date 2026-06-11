@@ -26,6 +26,7 @@ import { getMissingProductFiscalFields, type ProductFiscalCatalogs } from "@/lib
 import { canViewFinancials } from "@/lib/permissions";
 import { formatRfcDiagnostic, getRfcDiagnostic, type RfcDiagnostic } from "@/lib/rfc";
 import { isPaymentMethodCode } from "@/lib/paymentTerms";
+import { getMexicoDate } from "@/lib/mexicoDate";
 import { getCurrentUserProfile } from "@/services/profile";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 
@@ -647,7 +648,7 @@ export async function stampProjectInvoice(
 
     const result = await stampFacturamaInvoice({
       invoiceId: invoice.id,
-      invoiceDate: invoice.invoice_date || new Date().toISOString().slice(0, 10),
+      invoiceDate: invoice.invoice_date || getMexicoDate(),
       subtotalMxn,
       ivaMxn,
       totalMxn,

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getMexicoDate } from "@/lib/mexicoDate";
 
 type ExchangeRateSuccess = {
   rate: number;
@@ -25,7 +26,7 @@ type BanxicoResponse = {
   };
 };
 
-const today = new Date().toISOString().slice(0, 10);
+const today = getMexicoDate();
 
 function normalizeBanxicoDate(value?: string) {
   if (!value) return today;
@@ -102,7 +103,7 @@ async function fetchPublicFallbackRate(): Promise<ExchangeRateSuccess | null> {
     rate,
     source: "open.er-api.com USD/MXN",
     date: json?.time_last_update_utc
-      ? new Date(json.time_last_update_utc).toISOString().slice(0, 10)
+      ? getMexicoDate(new Date(json.time_last_update_utc))
       : today,
     error: null,
   };

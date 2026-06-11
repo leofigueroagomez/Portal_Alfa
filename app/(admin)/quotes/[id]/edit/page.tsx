@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { arrayMove } from "@dnd-kit/sortable";
 import { supabase } from "@/services/supabase";
 import { formatCurrency, formatNumber } from "@/lib/format";
+import { getMexicoDate } from "@/lib/mexicoDate";
 import { syncProjectOperationalItems } from "@/lib/projectOperationalItems";
 import {
   createLegacyLaborActivity,
@@ -214,7 +215,7 @@ export default function EditQuotePage() {
   const [exchangeRate, setExchangeRate] = useState("17");
   const [exchangeRateSource, setExchangeRateSource] = useState("manual");
   const [exchangeRateDate, setExchangeRateDate] = useState(
-    new Date().toISOString().slice(0, 10)
+    getMexicoDate()
   );
   const [discountType, setDiscountType] = useState("none");
   const [discountPercent, setDiscountPercent] = useState("");
@@ -325,7 +326,7 @@ export default function EditQuotePage() {
       setExchangeRate(String(quoteData.exchange_rate || 1));
       setExchangeRateSource(quoteData.exchange_rate_source || "manual");
       setExchangeRateDate(
-        quoteData.exchange_rate_date || new Date().toISOString().slice(0, 10)
+        quoteData.exchange_rate_date || getMexicoDate()
       );
       setDiscountType(quoteData.discount_type || "none");
       setDiscountPercent(String(quoteData.discount_percent || ""));
@@ -589,7 +590,7 @@ export default function EditQuotePage() {
           setExchangeRate(String(data.rate));
           setExchangeRateSource(data.source || "fallback-manual");
           setExchangeRateDate(
-            data.date || new Date().toISOString().slice(0, 10)
+            data.date || getMexicoDate()
           );
           return;
         }
@@ -597,12 +598,12 @@ export default function EditQuotePage() {
         console.error("No se pudo cargar tipo de cambio:", data);
         alert("No se pudo cargar tipo de cambio. Captúralo manualmente.");
         setExchangeRateSource("manual");
-        setExchangeRateDate(new Date().toISOString().slice(0, 10));
+        setExchangeRateDate(getMexicoDate());
       } catch (error) {
         console.error("Error cargando tipo de cambio:", error);
         alert("No se pudo cargar tipo de cambio. Captúralo manualmente.");
         setExchangeRateSource("manual");
-        setExchangeRateDate(new Date().toISOString().slice(0, 10));
+        setExchangeRateDate(getMexicoDate());
       }
     }
 

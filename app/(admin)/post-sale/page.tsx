@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { formatCurrency } from "@/lib/format";
+import { addMonthsToMexicoDate } from "@/lib/mexicoDate";
 import { getProjectFinancialSummary } from "@/lib/projectFinancials";
 import { canManageUsers } from "@/lib/permissions";
 import { getCurrentUserProfile } from "@/services/profile";
@@ -41,9 +42,7 @@ function formatDate(value: string | null | undefined) {
 
 function addMonths(value: string | null | undefined, months: number | null | undefined) {
   if (!value || !months) return null;
-  const date = new Date(`${value}T00:00:00`);
-  date.setMonth(date.getMonth() + Number(months || 0));
-  return date.toISOString().slice(0, 10);
+  return addMonthsToMexicoDate(value, months);
 }
 
 export default async function PostSalePage() {

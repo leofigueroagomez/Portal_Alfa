@@ -21,7 +21,12 @@ const OUTPUT_FILE = path.join("sql", "generated", "sat_catalog_seed.sql");
 const APPLY = process.argv.includes("--apply");
 const DRY_RUN = process.argv.includes("--dry-run");
 const WRITE_SQL = !DRY_RUN && (process.argv.includes("--write-sql") || !APPLY);
-const today = new Date().toISOString().slice(0, 10);
+const today = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Mexico_City",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+}).format(new Date());
 
 function loadEnvFile(filePath) {
   if (!existsSync(filePath)) return;

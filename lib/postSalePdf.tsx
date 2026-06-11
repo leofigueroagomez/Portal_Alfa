@@ -11,6 +11,7 @@ import {
   renderToBuffer,
 } from "@react-pdf/renderer";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { addMonthsToMexicoDate } from "@/lib/mexicoDate";
 import { getProjectDeliverySystemsForDisplay } from "@/lib/projectDeliverySystems";
 
 const logoPath = path.join(process.cwd(), "public", "logo-print.png");
@@ -97,9 +98,7 @@ function splitSystems(value: string | null | undefined) {
 
 function addMonths(value: string | null | undefined, months: number | null | undefined) {
   if (!value || !months) return null;
-  const date = new Date(`${value}T00:00:00`);
-  date.setMonth(date.getMonth() + Number(months || 0));
-  return date.toISOString().slice(0, 10);
+  return addMonthsToMexicoDate(value, months);
 }
 
 async function resolveStorageUrl(

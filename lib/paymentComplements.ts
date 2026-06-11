@@ -1,6 +1,7 @@
 import { getFiscalRegimeCode, type FiscalClientData } from "@/lib/fiscalData";
 import { getFacturamaSandboxReceiver } from "@/lib/facturama";
 import type { ProjectInvoice } from "@/lib/invoices";
+import { getMexicoDateAtNoon } from "@/lib/mexicoDate";
 
 export type PaymentComplementsEnv = "sandbox" | "production";
 
@@ -217,7 +218,7 @@ export function buildFacturamaPaymentComplementPayload({
     Complemento: {
       Payments: [
         {
-          Date: `${paymentDate}T12:00:00.000Z`,
+          Date: getMexicoDateAtNoon(paymentDate),
           PaymentForm: paymentFormCode,
           Currency: "MXN",
           Amount: calculation.paidAmountMxn,
