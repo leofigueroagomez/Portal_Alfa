@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
 import {
-  getAdminUsersDiagnostics,
-  getSafeErrorCode,
-  getSafeErrorMessage,
   requireAdminProfile,
 } from "@/lib/adminUsers";
 import { alfaRoles, normalizeRole } from "@/lib/permissions";
@@ -51,13 +48,8 @@ export async function PATCH(
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("admin users update failed:", error);
-    const diagnostics = await getAdminUsersDiagnostics();
     return NextResponse.json(
-      {
-        error: getSafeErrorMessage(error),
-        code: getSafeErrorCode(error),
-        ...diagnostics,
-      },
+      { error: "Unable to process request" },
       { status: 500 }
     );
   }
@@ -94,13 +86,8 @@ export async function DELETE(
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("admin users deactivate failed:", error);
-    const diagnostics = await getAdminUsersDiagnostics();
     return NextResponse.json(
-      {
-        error: getSafeErrorMessage(error),
-        code: getSafeErrorCode(error),
-        ...diagnostics,
-      },
+      { error: "Unable to process request" },
       { status: 500 }
     );
   }

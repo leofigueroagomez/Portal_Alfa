@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
 import {
-  getAdminUsersDiagnostics,
-  getSafeErrorCode,
-  getSafeErrorMessage,
   listAdminUsers,
   requireAdminProfile,
 } from "@/lib/adminUsers";
@@ -20,13 +17,8 @@ export async function GET() {
     return NextResponse.json({ users });
   } catch (error) {
     console.error("admin users list failed:", error);
-    const diagnostics = await getAdminUsersDiagnostics();
     return NextResponse.json(
-      {
-        error: getSafeErrorMessage(error),
-        code: getSafeErrorCode(error),
-        ...diagnostics,
-      },
+      { error: "Unable to process request" },
       { status: 500 }
     );
   }
@@ -85,13 +77,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ id: data.user.id });
   } catch (error) {
     console.error("admin users create failed:", error);
-    const diagnostics = await getAdminUsersDiagnostics();
     return NextResponse.json(
-      {
-        error: getSafeErrorMessage(error),
-        code: getSafeErrorCode(error),
-        ...diagnostics,
-      },
+      { error: "Unable to process request" },
       { status: 500 }
     );
   }

@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { canManageUsers, isInternalRole, normalizeRole } from "@/lib/permissions";
 import { getCurrentUserProfile } from "@/services/profile";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
-import { createSupabaseServerClient } from "@/services/supabaseServer";
 
 export type AdminUserPayload = {
   id: string;
@@ -18,18 +17,18 @@ export async function requireAdminProfile() {
   const profile = await getCurrentUserProfile();
 
   if (!profile?.is_active || !profile.is_internal || !canManageUsers(profile.role)) {
+    console.error("admin profile authorization failed", {
+      userId: profile?.id || null,
+      isActive: Boolean(profile?.is_active),
+      isInternal: Boolean(profile?.is_internal),
+      role: profile?.role || null,
+    });
+
     return {
       profile,
       response: NextResponse.json(
-        {
-          error: "Forbidden",
-          code: "NOT_ADMIN",
-          currentUserEmail: profile?.email || null,
-          hasServiceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
-          isAdmin: false,
-          isInternal: Boolean(profile?.is_internal),
-        },
-        { status: 403 }
+        { error: profile ? "Forbidden" : "Unauthorized" },
+        { status: profile ? 403 : 401 }
       ),
     };
   }
@@ -49,45 +48,6 @@ export function getSafeErrorMessage(error: unknown) {
   }
 
   return "Unknown error";
-}
-
-export function getSafeErrorCode(error: unknown) {
-  if (
-    error &&
-    typeof error === "object" &&
-    "code" in error &&
-    typeof error.code === "string"
-  ) {
-    return error.code;
-  }
-
-  if (
-    error &&
-    typeof error === "object" &&
-    "status" in error &&
-    (typeof error.status === "string" || typeof error.status === "number")
-  ) {
-    return String(error.status);
-  }
-
-  return "UNKNOWN";
-}
-
-export async function getAdminUsersDiagnostics() {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const profile = await getCurrentUserProfile().catch(() => null);
-
-  return {
-    currentUserEmail: profile?.email || user?.email || null,
-    hasServiceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
-    hasSupabaseUrl: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
-    isAdmin: profile ? canManageUsers(profile.role) : false,
-    isInternal: Boolean(profile?.is_internal),
-    currentRole: profile?.role || null,
-  };
 }
 
 export async function listAdminUsers(): Promise<AdminUserPayload[]> {

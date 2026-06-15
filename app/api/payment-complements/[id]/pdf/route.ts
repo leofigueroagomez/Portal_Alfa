@@ -1,34 +1,70 @@
 import { NextResponse } from "next/server";
+import {
+  createRequestId,
+  jsonError,
+  logApiError,
+  parsePositiveInteger,
+  requirePortalProjectAccess,
+} from "@/lib/apiAuth";
 import { downloadPaymentComplementFile } from "@/lib/facturama";
+import { canViewFinancials } from "@/lib/permissions";
+import { getCurrentUserProfile } from "@/services/profile";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
+import { createSupabaseServerClient } from "@/services/supabaseServer";
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const requestId = createRequestId();
+
   try {
-    const { id } = await params;
-    const supabase = createSupabaseAdminClient();
+    const id = parsePositiveInteger((await params).id);
+    if (!id) return jsonError("Bad Request", 400);
+
+    const profile = await getCurrentUserProfile();
+    if (!profile) return jsonError("Unauthorized", 401);
+
+    const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase
+      .from("project_payment_complements")
+      .select("id, facturama_id, status, complement_env, client_project_id")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (error) {
+      logApiError(requestId, "payment complement lookup failed", error);
+      return NextResponse.json({ error: "Unable to process request", requestId }, { status: 500 });
+    }
+    if (!data?.facturama_id || data.status !== "issued") {
+      return jsonError("Not Found", 404);
+    }
+
+    if (profile.is_internal) {
+      if (!canViewFinancials(profile.role)) return jsonError("Forbidden", 403);
+    } else {
+      const { response } = await requirePortalProjectAccess(Number(data.client_project_id));
+      if (response) return response;
+    }
+
+    const admin = createSupabaseAdminClient();
+    const { data: complement, error: complementError } = await admin
       .from("project_payment_complements")
       .select("id, facturama_id, status, complement_env")
       .eq("id", id)
       .maybeSingle();
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-    if (!data?.facturama_id || data.status !== "issued") {
-      return NextResponse.json(
-        { error: "Complemento de pago no timbrado." },
-        { status: 404 }
-      );
+    if (complementError || !complement?.facturama_id || complement.status !== "issued") {
+      if (complementError) {
+        logApiError(requestId, "payment complement admin lookup failed", complementError);
+      }
+      return jsonError("Not Found", 404);
     }
 
     const file = await downloadPaymentComplementFile(
-      data.facturama_id,
+      complement.facturama_id,
       "pdf",
-      data.complement_env === "production" ? "production" : "sandbox"
+      complement.complement_env === "production" ? "production" : "sandbox"
     );
 
     return new NextResponse(file.bytes, {
@@ -38,13 +74,9 @@ export async function GET(
       },
     });
   } catch (error) {
+    logApiError(requestId, "payment complement PDF download failed", error);
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "No se pudo descargar el PDF del complemento.",
-      },
+      { error: "Unable to process request", requestId },
       { status: 500 }
     );
   }
