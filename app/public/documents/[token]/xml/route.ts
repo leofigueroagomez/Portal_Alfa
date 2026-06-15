@@ -1,18 +1,23 @@
 import { NextResponse } from "next/server";
-import { createRequestId, logApiError } from "@/lib/apiAuth";
+import { checkBasicRateLimit, createRequestId, getClientIp, logApiError } from "@/lib/apiAuth";
 import { downloadFacturamaInvoiceFile } from "@/lib/facturama";
-import { getPublicDocumentLink } from "@/lib/publicDocuments";
+import { getPublicDocumentLink, recordPublicDocumentAccess } from "@/lib/publicDocuments";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ token: string }> }
 ) {
   const requestId = createRequestId();
   const { token } = await params;
-  const result = await getPublicDocumentLink(token).catch((error) => {
+  const rateLimitKey = `public-doc:xml:${token}:${getClientIp(request)}`;
+  if (!checkBasicRateLimit(rateLimitKey, 30, 60_000)) {
+    return NextResponse.json({ error: "Too Many Requests", requestId }, { status: 429 });
+  }
+
+  const result = await getPublicDocumentLink(token, { request, requestId }).catch((error) => {
     logApiError(requestId, "public document link lookup failed", error);
     return null;
   });
@@ -24,6 +29,10 @@ export async function GET(
   const { supabase, link } = result;
 
   if (link.document_type !== "project_invoice_xml" || !link.project_invoice_id) {
+    await recordPublicDocumentAccess(supabase, link, "unsupported_xml", {
+      request,
+      requestId,
+    });
     return NextResponse.json({ error: "XML no disponible." }, { status: 404 });
   }
 
@@ -41,11 +50,16 @@ export async function GET(
   }
 
   if (!invoice?.facturama_id) {
+    await recordPublicDocumentAccess(supabase, link, "missing_invoice_xml", {
+      request,
+      requestId,
+    });
     return NextResponse.json({ error: "Factura sin XML disponible." }, { status: 404 });
   }
 
   try {
     const file = await downloadFacturamaInvoiceFile(invoice.facturama_id, "xml");
+    await recordPublicDocumentAccess(supabase, link, "success", { request, requestId });
     return new Response(file.bytes, {
       headers: {
         "Content-Type": file.contentType,

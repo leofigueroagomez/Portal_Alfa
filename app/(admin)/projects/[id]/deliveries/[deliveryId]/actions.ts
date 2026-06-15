@@ -134,18 +134,52 @@ async function getOrCreatePublicDocumentLink({
   deliveryId?: number;
   warrantyId?: number;
 }) {
+  const now = new Date().toISOString();
+  const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
   const query = supabase
     .from("public_document_links")
-    .select("token")
+    .select("token, revoked_at")
     .eq("document_type", documentType)
     .eq("client_project_id", projectId)
-    .is("expires_at", null)
+    .gt("expires_at", now)
+    .is("revoked_at", null)
     .limit(1);
 
   const existingResult =
     documentType === "project_delivery"
       ? await query.eq("project_delivery_id", deliveryId)
       : await query.eq("project_warranty_id", warrantyId);
+
+  if (existingResult.error && existingResult.error.code === "42703") {
+    const fallbackQuery = supabase
+      .from("public_document_links")
+      .select("token")
+      .eq("document_type", documentType)
+      .eq("client_project_id", projectId)
+      .gt("expires_at", now)
+      .limit(1);
+
+    const fallbackResult =
+      documentType === "project_delivery"
+        ? await fallbackQuery.eq("project_delivery_id", deliveryId)
+        : await fallbackQuery.eq("project_warranty_id", warrantyId);
+
+    if (fallbackResult.error) throw fallbackResult.error;
+    const fallbackExisting = fallbackResult.data?.[0] as { token: string } | undefined;
+    if (fallbackExisting?.token) return fallbackExisting.token;
+    const token = crypto.randomBytes(32).toString("base64url");
+    const { error } = await supabase.from("public_document_links").insert({
+      token,
+      document_type: documentType,
+      client_project_id: projectId,
+      project_delivery_id: deliveryId || null,
+      project_warranty_id: warrantyId || null,
+      expires_at: expiresAt,
+    });
+
+    if (error) throw error;
+    return token;
+  }
 
   if (existingResult.error) throw existingResult.error;
   const existing = existingResult.data?.[0] as { token: string } | undefined;
@@ -158,7 +192,7 @@ async function getOrCreatePublicDocumentLink({
     client_project_id: projectId,
     project_delivery_id: deliveryId || null,
     project_warranty_id: warrantyId || null,
-    expires_at: null,
+    expires_at: expiresAt,
   });
 
   if (error) throw error;

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import {
+  checkBasicRateLimit,
   createRequestId,
+  getClientIp,
   jsonError,
   logApiError,
   parsePositiveInteger,
@@ -100,6 +102,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const requestId = createRequestId();
+  const rateLimitKey = `invoice-send-email:${getClientIp(request)}`;
+  if (!checkBasicRateLimit(rateLimitKey, 10, 60_000)) {
+    return NextResponse.json({ error: "Too Many Requests", requestId }, { status: 429 });
+  }
+
   const { profile, response } = await requireFinancialRole();
   if (response) return response;
 

@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
-import { canManageWorkOrders } from "@/lib/permissions";
-import { getCurrentInternalUserProfile } from "@/services/profile";
+import {
+  createRequestId,
+  jsonError,
+  logApiError,
+  parsePositiveInteger,
+  requireWorkOrderRole,
+} from "@/lib/apiAuth";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
@@ -14,11 +19,7 @@ function getExtension(file: File) {
 }
 
 async function assertAccess() {
-  const profile = await getCurrentInternalUserProfile();
-  if (!profile || !canManageWorkOrders(profile.role)) {
-    return null;
-  }
-  return profile;
+  return requireWorkOrderRole();
 }
 
 type DeliveryPhotoRow = {
@@ -69,19 +70,26 @@ async function assertDeliveryBelongsToProject(
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const profile = await assertAccess();
-  if (!profile) return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  const requestId = createRequestId();
+  const { response } = await assertAccess();
+  if (response) return response;
 
   const { id } = await params;
-  const projectId = Number(id);
-  const deliveryId = Number(new URL(request.url).searchParams.get("deliveryId") || 0);
+  const projectId = parsePositiveInteger(id);
+  const deliveryId = parsePositiveInteger(new URL(request.url).searchParams.get("deliveryId"));
 
   if (!projectId || !deliveryId) {
-    return NextResponse.json({ error: "Proyecto y entrega requeridos." }, { status: 400 });
+    return jsonError("Bad Request", 400);
   }
 
   const supabase = createSupabaseAdminClient();
-  const belongs = await assertDeliveryBelongsToProject(supabase, projectId, deliveryId);
+  const belongs = await assertDeliveryBelongsToProject(supabase, projectId, deliveryId).catch((error) => {
+    logApiError(requestId, "delivery photo project access check failed", error);
+    return null;
+  });
+  if (belongs === null) {
+    return NextResponse.json({ error: "Unable to process request", requestId }, { status: 500 });
+  }
   if (!belongs) return NextResponse.json({ error: "Entrega no encontrada." }, { status: 404 });
 
   const result = await supabase
@@ -97,7 +105,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       .eq("project_delivery_id", deliveryId)
       .order("sort_order", { ascending: true });
     if (fallbackResult.error) {
-      return NextResponse.json({ error: fallbackResult.error.message }, { status: 500 });
+      logApiError(requestId, "delivery photo fallback lookup failed", fallbackResult.error);
+      return NextResponse.json({ error: "Unable to process request", requestId }, { status: 500 });
     }
     const photos = await withDisplayUrls(supabase, (fallbackResult.data || []) as DeliveryPhotoRow[]);
     return NextResponse.json({ photos });
@@ -109,26 +118,34 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const profile = await assertAccess();
-  if (!profile) return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  const requestId = createRequestId();
+  const { profile, response } = await assertAccess();
+  if (response) return response;
+  if (!profile) return jsonError("Unauthorized", 401);
 
   const { id } = await params;
-  const projectId = Number(id);
+  const projectId = parsePositiveInteger(id);
   const formData = await request.formData();
-  const deliveryId = Number(formData.get("deliveryId"));
+  const deliveryId = parsePositiveInteger(formData.get("deliveryId"));
   const files = formData
     .getAll("photos")
     .filter((value): value is File => value instanceof File);
 
   if (!projectId || !deliveryId) {
-    return NextResponse.json({ error: "Proyecto y entrega requeridos." }, { status: 400 });
+    return jsonError("Bad Request", 400);
   }
   if (files.length === 0) {
     return NextResponse.json({ error: "Agrega al menos una foto." }, { status: 400 });
   }
 
   const supabase = createSupabaseAdminClient();
-  const belongs = await assertDeliveryBelongsToProject(supabase, projectId, deliveryId);
+  const belongs = await assertDeliveryBelongsToProject(supabase, projectId, deliveryId).catch((error) => {
+    logApiError(requestId, "delivery photo upload project access check failed", error);
+    return null;
+  });
+  if (belongs === null) {
+    return NextResponse.json({ error: "Unable to process request", requestId }, { status: 500 });
+  }
   if (!belongs) return NextResponse.json({ error: "Entrega no encontrada." }, { status: 404 });
 
   const { count } = await supabase
@@ -162,7 +179,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       });
 
     if (uploadError) {
-      errors.push({ fileName: file.name, error: uploadError.message });
+      logApiError(requestId, "delivery photo upload failed", uploadError);
+      errors.push({ fileName: file.name, error: "No se pudo subir la imagen." });
       continue;
     }
 
@@ -199,7 +217,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         .select("id, file_url, caption, sort_order, created_at");
     }
     if (insertResult.error) {
-      return NextResponse.json({ error: insertResult.error.message, errors }, { status: 500 });
+      logApiError(requestId, "delivery photo insert failed", insertResult.error);
+      return NextResponse.json(
+        { error: "Unable to process request", requestId, errors },
+        { status: 500 }
+      );
     }
     inserted = (insertResult.data || []) as DeliveryPhotoRow[];
   }

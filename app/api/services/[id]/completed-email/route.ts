@@ -1,10 +1,17 @@
 import { NextResponse } from "next/server";
 import {
+  checkBasicRateLimit,
+  createRequestId,
+  getClientIp,
+  logApiError,
+  parsePositiveInteger,
+  requireServicesRole,
+} from "@/lib/apiAuth";
+import {
   buildServiceCompletedEmailDraft,
   sendResendHtmlEmail,
 } from "@/lib/serviceCompletedEmail";
 import { generateServiceReportPdf } from "@/lib/serviceReportPdf";
-import { getCurrentInternalUserProfile } from "@/services/profile";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 
 type RequestBody = {
@@ -20,25 +27,36 @@ function getErrorMessage(error: unknown) {
     : "No se pudo enviar el correo de servicio.";
 }
 
+function safeDraftErrorMessage(message: string) {
+  if (message.startsWith("No se pudo cargar")) {
+    return "No se pudo preparar el correo de servicio.";
+  }
+
+  return message;
+}
+
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const profile = await getCurrentInternalUserProfile();
-  if (!profile) {
-    return NextResponse.json({ ok: false, message: "No autorizado." }, { status: 401 });
-  }
+  const requestId = createRequestId();
+  const { response } = await requireServicesRole();
+  if (response) return response;
 
   const { id } = await params;
-  const serviceReportId = Number(id);
-  if (!Number.isFinite(serviceReportId) || serviceReportId <= 0) {
+  const serviceReportId = parsePositiveInteger(id);
+  if (!serviceReportId) {
     return NextResponse.json({ ok: false, message: "Servicio invalido." }, { status: 400 });
   }
 
   const supabase = await createSupabaseServerClient();
   const draft = await buildServiceCompletedEmailDraft(supabase, serviceReportId);
   if ("error" in draft) {
-    return NextResponse.json({ ok: false, message: draft.error }, { status: 400 });
+    logApiError(requestId, "service completed email draft failed", draft.error);
+    return NextResponse.json(
+      { ok: false, message: safeDraftErrorMessage(draft.error), requestId },
+      { status: 400 }
+    );
   }
 
   return NextResponse.json({
@@ -60,15 +78,20 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const profile = await getCurrentInternalUserProfile();
-  if (!profile) {
-    return NextResponse.json({ ok: false, message: "No autorizado." }, { status: 401 });
+  const requestId = createRequestId();
+  const rateLimitKey = `service-completed-email:${getClientIp(request)}`;
+  if (!checkBasicRateLimit(rateLimitKey, 10, 60_000)) {
+    return NextResponse.json({ ok: false, message: "Too Many Requests", requestId }, { status: 429 });
   }
+
+  const { profile, response } = await requireServicesRole();
+  if (response) return response;
+  if (!profile) return NextResponse.json({ ok: false, message: "Unauthorized" }, { status: 401 });
   const profileId = profile.id;
 
   const { id } = await params;
-  const serviceReportId = Number(id);
-  if (!Number.isFinite(serviceReportId) || serviceReportId <= 0) {
+  const serviceReportId = parsePositiveInteger(id);
+  if (!serviceReportId) {
     return NextResponse.json({ ok: false, message: "Servicio invalido." }, { status: 400 });
   }
 
@@ -83,8 +106,9 @@ export async function POST(
     .maybeSingle();
 
   if (serviceError) {
+    logApiError(requestId, "service completed email service lookup failed", serviceError);
     return NextResponse.json(
-      { ok: false, message: `No se pudo leer el servicio: ${serviceError.message}` },
+      { ok: false, message: "Unable to process request", requestId },
       { status: 500 }
     );
   }
@@ -117,6 +141,7 @@ export async function POST(
 
   const draft = await buildServiceCompletedEmailDraft(supabase, serviceReportId);
   if ("error" in draft) {
+    logApiError(requestId, "service completed email draft failed", draft.error);
     await supabase
       .from("service_reports")
       .update({
@@ -125,7 +150,10 @@ export async function POST(
       })
       .eq("id", serviceReportId);
 
-    return NextResponse.json({ ok: false, message: draft.error }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, message: safeDraftErrorMessage(draft.error), requestId },
+      { status: 400 }
+    );
   }
   const emailDraft = draft;
 
@@ -176,6 +204,7 @@ export async function POST(
     });
   } catch (error) {
     const message = getErrorMessage(error);
+    logApiError(requestId, "service completed email send failed", error);
     await supabase
       .from("service_reports")
       .update({
@@ -183,8 +212,13 @@ export async function POST(
         service_email_error: message,
       })
       .eq("id", serviceReportId);
-    await insertHistory("error", message, null);
+    await insertHistory("error", message, null).catch((historyError) => {
+      logApiError(requestId, "service completed email history insert failed", historyError);
+    });
 
-    return NextResponse.json({ ok: false, message }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, message: "Unable to process request", requestId },
+      { status: 500 }
+    );
   }
 }

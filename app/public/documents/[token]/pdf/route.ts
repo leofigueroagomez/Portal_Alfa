@@ -1,19 +1,24 @@
 import { NextResponse } from "next/server";
-import { createRequestId, logApiError } from "@/lib/apiAuth";
+import { checkBasicRateLimit, createRequestId, getClientIp, logApiError } from "@/lib/apiAuth";
 import { downloadFacturamaInvoiceFile } from "@/lib/facturama";
-import { getPublicDocumentLink } from "@/lib/publicDocuments";
+import { getPublicDocumentLink, recordPublicDocumentAccess } from "@/lib/publicDocuments";
 import { generateProjectDeliveryPdf, generateWarrantyLetterPdf } from "@/lib/postSalePdf";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ token: string }> }
 ) {
   const requestId = createRequestId();
   const { token } = await params;
-  const result = await getPublicDocumentLink(token).catch((error) => {
+  const rateLimitKey = `public-doc:pdf:${token}:${getClientIp(request)}`;
+  if (!checkBasicRateLimit(rateLimitKey, 30, 60_000)) {
+    return NextResponse.json({ error: "Too Many Requests", requestId }, { status: 429 });
+  }
+
+  const result = await getPublicDocumentLink(token, { request, requestId }).catch((error) => {
     logApiError(requestId, "public document link lookup failed", error);
     return null;
   });
@@ -40,10 +45,15 @@ export async function GET(
       }
 
       if (!invoice?.facturama_id) {
+        await recordPublicDocumentAccess(supabase, link, "missing_invoice_pdf", {
+          request,
+          requestId,
+        });
         return NextResponse.json({ error: "Factura sin PDF disponible." }, { status: 404 });
       }
 
       const file = await downloadFacturamaInvoiceFile(invoice.facturama_id, "pdf");
+      await recordPublicDocumentAccess(supabase, link, "success", { request, requestId });
       return new Response(file.bytes, {
         headers: {
           "Content-Type": file.contentType,
@@ -69,6 +79,10 @@ export async function GET(
       }
 
       if (!delivery) {
+        await recordPublicDocumentAccess(supabase, link, "missing_delivery", {
+          request,
+          requestId,
+        });
         return NextResponse.json({ error: "Documento no disponible." }, { status: 404 });
       }
     }
@@ -88,6 +102,10 @@ export async function GET(
       }
 
       if (!warranty) {
+        await recordPublicDocumentAccess(supabase, link, "missing_warranty", {
+          request,
+          requestId,
+        });
         return NextResponse.json({ error: "Documento no disponible." }, { status: 404 });
       }
     }
@@ -108,6 +126,10 @@ export async function GET(
           : null;
 
     if (!pdf) {
+      await recordPublicDocumentAccess(supabase, link, "unsupported_pdf", {
+        request,
+        requestId,
+      });
       return NextResponse.json({ error: "Documento no disponible." }, { status: 404 });
     }
 
@@ -116,6 +138,7 @@ export async function GET(
         ? `acta-entrega-${link.client_project_id}-${link.project_delivery_id}.pdf`
         : `carta-garantia-${link.client_project_id}-${link.project_warranty_id}.pdf`;
 
+    await recordPublicDocumentAccess(supabase, link, "success", { request, requestId });
     return new Response(new Uint8Array(pdf), {
       headers: {
         "Content-Type": "application/pdf",

@@ -1,7 +1,14 @@
 import "server-only";
 
 import { NextResponse } from "next/server";
-import { canApproveQuotes, canViewFinancials, normalizeRole } from "@/lib/permissions";
+import {
+  canApproveQuotes,
+  canManagePurchases,
+  canManageServices,
+  canManageWorkOrders,
+  canViewFinancials,
+  normalizeRole,
+} from "@/lib/permissions";
 import { getCurrentInternalUserProfile, getCurrentUserProfile } from "@/services/profile";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 
@@ -73,6 +80,48 @@ export async function requireQuoteNotificationPermission() {
   if (response) return { profile: null, response };
 
   if (!profile || !canApproveQuotes(profile.role)) {
+    return {
+      profile,
+      response: jsonError("Forbidden", 403),
+    };
+  }
+
+  return { profile, response: null };
+}
+
+export async function requireWorkOrderRole() {
+  const { profile, response } = await requireInternalUser();
+  if (response) return { profile: null, response };
+
+  if (!profile || !canManageWorkOrders(profile.role)) {
+    return {
+      profile,
+      response: jsonError("Forbidden", 403),
+    };
+  }
+
+  return { profile, response: null };
+}
+
+export async function requireServicesRole() {
+  const { profile, response } = await requireInternalUser();
+  if (response) return { profile: null, response };
+
+  if (!profile || !canManageServices(profile.role)) {
+    return {
+      profile,
+      response: jsonError("Forbidden", 403),
+    };
+  }
+
+  return { profile, response: null };
+}
+
+export async function requirePurchasesRole() {
+  const { profile, response } = await requireInternalUser();
+  if (response) return { profile: null, response };
+
+  if (!profile || !canManagePurchases(profile.role)) {
     return {
       profile,
       response: jsonError("Forbidden", 403),

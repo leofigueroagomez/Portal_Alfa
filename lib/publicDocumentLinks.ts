@@ -17,7 +17,24 @@ type PublicDocumentLinkInput = {
   fileFormat?: "pdf" | "xml" | null;
 };
 
-function applyIdentityFilter(query: any, input: PublicDocumentLinkInput) {
+type IdentityFilterQuery<T> = {
+  eq(column: string, value: unknown): T;
+};
+
+const fiscalDocumentTypes = new Set<PublicDocumentType>([
+  "project_invoice_pdf",
+  "project_invoice_xml",
+]);
+
+function getDefaultExpiresAt(documentType: PublicDocumentType) {
+  const days = fiscalDocumentTypes.has(documentType) ? 30 : 90;
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+}
+
+function applyIdentityFilter<T extends IdentityFilterQuery<T>>(
+  query: T,
+  input: PublicDocumentLinkInput
+) {
   if (input.projectDeliveryId) {
     return query.eq("project_delivery_id", input.projectDeliveryId);
   }
@@ -46,19 +63,37 @@ function applyIdentityFilter(query: any, input: PublicDocumentLinkInput) {
 export async function getOrCreatePublicDocumentLink(input: PublicDocumentLinkInput) {
   const supabase = createSupabaseAdminClient();
   const selectFields =
-    "id, token, document_type, client_project_id, project_delivery_id, project_warranty_id, quote_id, document_id, project_invoice_id, file_format, expires_at";
+    "id, token, document_type, client_project_id, project_delivery_id, project_warranty_id, quote_id, document_id, project_invoice_id, file_format, expires_at, revoked_at, access_count, last_accessed_at";
 
   const existingQuery = supabase
     .from("public_document_links")
     .select(selectFields)
     .eq("client_project_id", input.clientProjectId)
     .eq("document_type", input.documentType)
-    .is("expires_at", null);
+    .gt("expires_at", new Date().toISOString())
+    .is("revoked_at", null);
 
-  const { data: existing, error: existingError } = await applyIdentityFilter(
+  const existingResult = await applyIdentityFilter(
     existingQuery,
     input
   ).maybeSingle();
+  let existing = existingResult.data as PublicDocumentLink | null;
+  let existingError = existingResult.error;
+
+  if (existingError && existingError.code === "42703") {
+    const fallbackQuery = supabase
+      .from("public_document_links")
+      .select(
+        "id, token, document_type, client_project_id, project_delivery_id, project_warranty_id, quote_id, document_id, project_invoice_id, file_format, expires_at"
+      )
+      .eq("client_project_id", input.clientProjectId)
+      .eq("document_type", input.documentType)
+      .gt("expires_at", new Date().toISOString());
+
+    const fallback = await applyIdentityFilter(fallbackQuery, input).maybeSingle();
+    existing = fallback.data as PublicDocumentLink | null;
+    existingError = fallback.error;
+  }
 
   if (existingError) {
     throw existingError;
@@ -69,7 +104,7 @@ export async function getOrCreatePublicDocumentLink(input: PublicDocumentLinkInp
   }
 
   const token = crypto.randomBytes(32).toString("base64url");
-  const { data, error } = await supabase
+  const insertResult = await supabase
     .from("public_document_links")
     .insert({
       token,
@@ -81,9 +116,24 @@ export async function getOrCreatePublicDocumentLink(input: PublicDocumentLinkInp
       document_id: input.documentId || null,
       project_invoice_id: input.projectInvoiceId || null,
       file_format: input.fileFormat || null,
+      expires_at: getDefaultExpiresAt(input.documentType),
     })
     .select(selectFields)
     .single();
+  let data = insertResult.data as PublicDocumentLink | null;
+  let error = insertResult.error;
+
+  if (error && error.code === "42703") {
+    const fallback = await supabase
+      .from("public_document_links")
+      .select(
+        "id, token, document_type, client_project_id, project_delivery_id, project_warranty_id, quote_id, document_id, project_invoice_id, file_format, expires_at"
+      )
+      .eq("token", token)
+      .single();
+    data = fallback.data as PublicDocumentLink | null;
+    error = fallback.error;
+  }
 
   if (error) {
     throw error;

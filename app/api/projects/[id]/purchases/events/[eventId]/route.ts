@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
+import {
+  createRequestId,
+  jsonError,
+  logApiError,
+  parsePositiveInteger,
+  requireInternalUser,
+} from "@/lib/apiAuth";
 import { normalizeRole } from "@/lib/permissions";
-import { getCurrentInternalUserProfile } from "@/services/profile";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
@@ -34,15 +40,14 @@ function getEstimatedUnitCost(line: PurchaseLineForRecalculation) {
     : Number(line.unit_cost || 0);
 }
 
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "No se pudo editar la compra.";
-}
-
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string; eventId: string }> }
 ) {
-  const profile = await getCurrentInternalUserProfile();
+  const requestId = createRequestId();
+  const { profile, response } = await requireInternalUser();
+  if (response) return response;
+
   if (!profile || normalizeRole(profile.role) !== "admin") {
     return NextResponse.json(
       { error: "Solo administradores pueden editar compras registradas." },
@@ -51,8 +56,8 @@ export async function PATCH(
   }
 
   const { id, eventId } = await params;
-  const projectId = Number(id);
-  const purchaseEventId = Number(eventId);
+  const projectId = parsePositiveInteger(id);
+  const purchaseEventId = parsePositiveInteger(eventId);
   const body = await request.json().catch(() => null);
   const purchaseDate = String(body?.purchase_date || "").trim();
   const quantity = Number(body?.quantity);
@@ -64,10 +69,7 @@ export async function PATCH(
   const notes = String(body?.notes || "").trim();
 
   if (!projectId || !purchaseEventId) {
-    return NextResponse.json(
-      { error: "Proyecto y compra requeridos." },
-      { status: 400 }
-    );
+    return jsonError("Bad Request", 400);
   }
 
   if (!purchaseDate) {
@@ -181,7 +183,7 @@ export async function PATCH(
 
     return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error("purchase event edit failed:", error);
-    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+    logApiError(requestId, "purchase event edit failed", error);
+    return NextResponse.json({ error: "Unable to process request", requestId }, { status: 500 });
   }
 }

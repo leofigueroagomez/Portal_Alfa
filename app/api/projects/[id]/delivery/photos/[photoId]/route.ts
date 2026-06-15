@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
-import { canManageWorkOrders } from "@/lib/permissions";
-import { getCurrentInternalUserProfile } from "@/services/profile";
+import {
+  createRequestId,
+  jsonError,
+  logApiError,
+  parsePositiveInteger,
+  requireWorkOrderRole,
+} from "@/lib/apiAuth";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
@@ -9,17 +14,16 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string; photoId: string }> }
 ) {
-  const profile = await getCurrentInternalUserProfile();
-  if (!profile || !canManageWorkOrders(profile.role)) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
-  }
+  const requestId = createRequestId();
+  const { response } = await requireWorkOrderRole();
+  if (response) return response;
 
   const { id, photoId } = await params;
-  const projectId = Number(id);
-  const evidenceId = Number(photoId);
+  const projectId = parsePositiveInteger(id);
+  const evidenceId = parsePositiveInteger(photoId);
 
   if (!projectId || !evidenceId) {
-    return NextResponse.json({ error: "Proyecto y foto requeridos." }, { status: 400 });
+    return jsonError("Bad Request", 400);
   }
 
   const supabase = createSupabaseAdminClient();
@@ -40,7 +44,8 @@ export async function DELETE(
   }
 
   if (evidenceResult.error) {
-    return NextResponse.json({ error: evidenceResult.error.message }, { status: 500 });
+    logApiError(requestId, "delivery photo delete lookup failed", evidenceResult.error);
+    return NextResponse.json({ error: "Unable to process request", requestId }, { status: 500 });
   }
   const evidence = evidenceResult.data;
   if (!evidence) {
@@ -54,7 +59,10 @@ export async function DELETE(
   };
   const storagePath = row.file_path || row.file_url;
   if (storagePath) {
-    await supabase.storage.from("project-photos").remove([storagePath]);
+    const { error: storageError } = await supabase.storage.from("project-photos").remove([storagePath]);
+    if (storageError) {
+      logApiError(requestId, "delivery photo storage remove failed", storageError);
+    }
   }
 
   const { error: deleteError } = await supabase
@@ -63,7 +71,8 @@ export async function DELETE(
     .eq("id", evidenceId);
 
   if (deleteError) {
-    return NextResponse.json({ error: deleteError.message }, { status: 500 });
+    logApiError(requestId, "delivery photo delete failed", deleteError);
+    return NextResponse.json({ error: "Unable to process request", requestId }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true });
