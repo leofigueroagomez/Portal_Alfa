@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 import PublicLandingClient from "@/components/PublicLandingClient";
 
 const seoTitle =
-  "ALFA High End Services | Integración tecnológica, audio y video, redes y seguridad";
+  "Automatización, Redes y Seguridad para Residencias Premium | ALFA";
 
 const seoDescription =
-  "ALFA diseña, implementa y respalda soluciones tecnológicas para residencias, empresas e industria: audio y video profesional, redes, CCTV, control de acceso, automatización y soporte especializado.";
+  "ALFA diseña e implementa soluciones tecnológicas llave en mano para residencias y empresas. Redes estables, audio premium, videovigilancia y automatización con acompañamiento antes, durante y después del proyecto.";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "");
 
@@ -13,17 +13,18 @@ export const metadata: Metadata = {
   title: seoTitle,
   description: seoDescription,
   keywords: [
-    "audio y video profesional",
-    "salas de juntas",
-    "videoconferencia",
-    "video wall",
-    "redes empresariales",
-    "cableado estructurado",
-    "CCTV",
+    "redes residenciales",
+    "wifi residencial",
+    "internet estable",
+    "audio residencial",
+    "audio multiroom",
     "cámaras de seguridad",
-    "control de acceso",
+    "videovigilancia residencial",
     "automatización residencial",
+    "casa inteligente",
+    "control de acceso",
     "integración tecnológica",
+    "soluciones llave en mano",
   ],
   openGraph: {
     title: seoTitle,
@@ -40,7 +41,12 @@ const organizationJsonLd = {
     "Integración tecnológica premium para residencias, empresas e industria.",
   areaServed: "México",
   url: siteUrl,
-  telephone: "+52 1 000 000 0000",
+  address: {
+    "@type": "PostalAddress",
+    addressLocality: "Zapopan",
+    addressRegion: "Jalisco",
+    addressCountry: "MX",
+  },
   sameAs: [],
 };
 

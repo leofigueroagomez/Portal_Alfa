@@ -314,13 +314,13 @@ export default function PublicLanding() {
               ALFA High End Services
             </p>
             <h1 className="max-w-4xl text-4xl font-semibold leading-tight text-white sm:text-5xl lg:text-6xl">
-              Tecnología bien implementada. Experiencias bien ejecutadas.
+              Soluciones tecnológicas llave en mano para residencias y empresas
+              que exigen resultados.
             </h1>
             <p className="mt-6 max-w-3xl text-base leading-8 text-zinc-300 sm:text-lg">
-              Diseñamos, implementamos y respaldamos soluciones tecnológicas
-              para residencias, empresas e industria. Combinamos experiencia
-              técnica, visión de proyecto y atención personalizada para entregar
-              resultados en los que nuestros clientes pueden confiar.
+              Redes estables, audio premium, videovigilancia, automatización y
+              soporte especializado. Un solo proveedor, una sola
+              responsabilidad.
             </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <a
