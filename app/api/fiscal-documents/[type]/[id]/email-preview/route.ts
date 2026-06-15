@@ -1,12 +1,17 @@
 import { NextResponse } from "next/server";
 import {
+  createRequestId,
+  jsonError,
+  logApiError,
+  parsePositiveInteger,
+  requireFinancialRole,
+} from "@/lib/apiAuth";
+import {
   buildFiscalDocumentEmailTemplate,
   isFiscalDocumentType,
   resolveFiscalDocument,
   validateFiscalDocumentReady,
 } from "@/lib/fiscalDocumentsEmail";
-import { canViewFinancials } from "@/lib/permissions";
-import { getCurrentInternalUserProfile } from "@/services/profile";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
@@ -15,34 +20,32 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ type: string; id: string }> }
 ) {
-  const profile = await getCurrentInternalUserProfile();
-  if (!profile || !canViewFinancials(profile.role)) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
-  }
+  const requestId = createRequestId();
+  const { response } = await requireFinancialRole();
+  if (response) return response;
 
   const { type, id } = await params;
   if (!isFiscalDocumentType(type)) {
-    return NextResponse.json({ error: "Tipo de documento invalido." }, { status: 400 });
+    return jsonError("Bad Request", 400);
   }
 
-  const documentId = Number(id);
-  if (!Number.isFinite(documentId) || documentId <= 0) {
-    return NextResponse.json({ error: "Documento invalido." }, { status: 400 });
-  }
+  const documentId = parsePositiveInteger(id);
+  if (!documentId) return jsonError("Bad Request", 400);
 
   const supabase = createSupabaseAdminClient();
-  const document = await resolveFiscalDocument(supabase, type, documentId);
+  const document = await resolveFiscalDocument(supabase, type, documentId).catch((error) => {
+    logApiError(requestId, "fiscal document preview resolve failed", error);
+    return null;
+  });
   if (!document) {
-    return NextResponse.json({ error: "Documento no encontrado." }, { status: 404 });
+    return jsonError("Not Found", 404);
   }
 
   try {
     validateFiscalDocumentReady(document);
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Documento no listo." },
-      { status: 400 }
-    );
+    logApiError(requestId, "fiscal document preview validation failed", error);
+    return jsonError("Bad Request", 400);
   }
 
   const url = new URL(request.url);

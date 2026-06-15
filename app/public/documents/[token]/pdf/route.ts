@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createRequestId, logApiError } from "@/lib/apiAuth";
 import { downloadFacturamaInvoiceFile } from "@/lib/facturama";
 import { getPublicDocumentLink } from "@/lib/publicDocuments";
 import { generateProjectDeliveryPdf, generateWarrantyLetterPdf } from "@/lib/postSalePdf";
@@ -10,8 +11,12 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ token: string }> }
 ) {
+  const requestId = createRequestId();
   const { token } = await params;
-  const result = await getPublicDocumentLink(token);
+  const result = await getPublicDocumentLink(token).catch((error) => {
+    logApiError(requestId, "public document link lookup failed", error);
+    return null;
+  });
 
   if (!result) {
     return NextResponse.json({ error: "Documento no disponible." }, { status: 404 });
@@ -30,7 +35,8 @@ export async function GET(
         .maybeSingle();
 
       if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        logApiError(requestId, "public invoice PDF lookup failed", error);
+        return NextResponse.json({ error: "Unable to process request", requestId }, { status: 500 });
       }
 
       if (!invoice?.facturama_id) {
@@ -58,7 +64,8 @@ export async function GET(
         .maybeSingle();
 
       if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        logApiError(requestId, "public delivery PDF validation failed", error);
+        return NextResponse.json({ error: "Unable to process request", requestId }, { status: 500 });
       }
 
       if (!delivery) {
@@ -76,7 +83,8 @@ export async function GET(
         .maybeSingle();
 
       if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        logApiError(requestId, "public warranty PDF validation failed", error);
+        return NextResponse.json({ error: "Unable to process request", requestId }, { status: 500 });
       }
 
       if (!warranty) {
@@ -117,7 +125,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "No se pudo generar el PDF.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    logApiError(requestId, "public PDF generation failed", error);
+    return NextResponse.json({ error: "Unable to process request", requestId }, { status: 500 });
   }
 }

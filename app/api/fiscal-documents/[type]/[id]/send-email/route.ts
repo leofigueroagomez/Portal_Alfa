@@ -1,13 +1,18 @@
 import { NextResponse } from "next/server";
 import {
+  createRequestId,
+  jsonError,
+  logApiError,
+  parsePositiveInteger,
+  requireFinancialRole,
+} from "@/lib/apiAuth";
+import {
   buildFiscalDocumentEmailTemplate,
   downloadFiscalDocumentFiles,
   isFiscalDocumentType,
   resolveFiscalDocument,
   validateFiscalDocumentReady,
 } from "@/lib/fiscalDocumentsEmail";
-import { canViewFinancials } from "@/lib/permissions";
-import { getCurrentInternalUserProfile } from "@/services/profile";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
@@ -77,20 +82,17 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ type: string; id: string }> }
 ) {
-  const profile = await getCurrentInternalUserProfile();
-  if (!profile || !canViewFinancials(profile.role)) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
-  }
+  const requestId = createRequestId();
+  const { profile, response } = await requireFinancialRole();
+  if (response) return response;
 
   const { type, id } = await params;
   if (!isFiscalDocumentType(type)) {
-    return NextResponse.json({ error: "Tipo de documento invalido." }, { status: 400 });
+    return jsonError("Bad Request", 400);
   }
 
-  const documentId = Number(id);
-  if (!Number.isFinite(documentId) || documentId <= 0) {
-    return NextResponse.json({ error: "Documento invalido." }, { status: 400 });
-  }
+  const documentId = parsePositiveInteger(id);
+  if (!documentId) return jsonError("Bad Request", 400);
 
   const body = (await request.json().catch(() => ({}))) as Body;
   const toEmail = clean(body.to);
@@ -98,9 +100,12 @@ export async function POST(
   const customMessage = clean(body.message).slice(0, 2000);
 
   const supabase = createSupabaseAdminClient();
-  const document = await resolveFiscalDocument(supabase, type, documentId);
+  const document = await resolveFiscalDocument(supabase, type, documentId).catch((error) => {
+    logApiError(requestId, "fiscal document send resolve failed", error);
+    return null;
+  });
   if (!document) {
-    return NextResponse.json({ error: "Documento no encontrado." }, { status: 404 });
+    return jsonError("Not Found", 404);
   }
 
   const effectiveTo = toEmail || document.billingEmail || "";
@@ -175,8 +180,9 @@ export async function POST(
     return NextResponse.json({ ok: true, resendEmailId: result.id || null });
   } catch (error) {
     const message = error instanceof Error ? error.message : "No se pudo enviar.";
+    logApiError(requestId, "fiscal document send failed", error);
 
-    await supabase.from("fiscal_document_email_logs").insert({
+    const { error: logError } = await supabase.from("fiscal_document_email_logs").insert({
       document_type: document.type,
       document_id: document.id,
       document_uuid: document.uuid,
@@ -191,6 +197,10 @@ export async function POST(
       sent_at: null,
     });
 
-    return NextResponse.json({ error: message }, { status: 500 });
+    if (logError) {
+      logApiError(requestId, "fiscal document failed email log insert failed", logError);
+    }
+
+    return NextResponse.json({ error: "Unable to process request", requestId }, { status: 500 });
   }
 }

@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
+import {
+  createRequestId,
+  jsonError,
+  logApiError,
+  parsePositiveInteger,
+  requireFinancialRole,
+} from "@/lib/apiAuth";
 import { downloadFacturamaInvoiceFile } from "@/lib/facturama";
-import { canViewFinancials } from "@/lib/permissions";
-import { getCurrentInternalUserProfile } from "@/services/profile";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
@@ -94,18 +99,12 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const profile = await getCurrentInternalUserProfile();
+  const requestId = createRequestId();
+  const { profile, response } = await requireFinancialRole();
+  if (response) return response;
 
-  if (!profile || !canViewFinancials(profile.role)) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
-  }
-
-  const { id } = await params;
-  const invoiceId = Number(id);
-
-  if (!Number.isFinite(invoiceId) || invoiceId <= 0) {
-    return NextResponse.json({ error: "Factura invalida." }, { status: 400 });
-  }
+  const invoiceId = parsePositiveInteger((await params).id);
+  if (!invoiceId) return jsonError("Bad Request", 400);
 
   const body = (await request.json().catch(() => ({}))) as SendInvoiceEmailBody;
   const requestedTo = cleanEmail(body.to);
@@ -123,10 +122,11 @@ export async function POST(
     .maybeSingle();
 
   if (invoiceError) {
-    return NextResponse.json({ error: invoiceError.message }, { status: 500 });
+    logApiError(requestId, "invoice email lookup failed", invoiceError);
+    return NextResponse.json({ error: "Unable to process request", requestId }, { status: 500 });
   }
   if (!invoiceData) {
-    return NextResponse.json({ error: "Factura no encontrada." }, { status: 404 });
+    return jsonError("Not Found", 404);
   }
 
   const invoice = invoiceData as unknown as {
@@ -245,10 +245,11 @@ export async function POST(
     });
 
     if (logError) {
+      logApiError(requestId, "invoice email history insert failed", logError);
       return NextResponse.json(
         {
           ok: true,
-          warning: `Correo enviado, pero no se pudo guardar historial: ${logError.message}`,
+          warning: "Correo enviado, pero no se pudo guardar historial.",
           resendEmailId: result.id || null,
         },
         { status: 200 }
@@ -262,8 +263,9 @@ export async function POST(
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "No se pudo enviar la factura.";
+    logApiError(requestId, "invoice email send failed", error);
 
-    await supabase.from("invoice_email_logs").insert({
+    const { error: failureLogError } = await supabase.from("invoice_email_logs").insert({
       invoice_id: invoice.id,
       to_email: toEmail,
       cc_email: ccEmail || null,
@@ -276,6 +278,10 @@ export async function POST(
       sent_at: null,
     });
 
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    if (failureLogError) {
+      logApiError(requestId, "invoice failed email log insert failed", failureLogError);
+    }
+
+    return NextResponse.json({ error: "Unable to process request", requestId }, { status: 500 });
   }
 }

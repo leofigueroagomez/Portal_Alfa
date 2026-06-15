@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createRequestId, logApiError } from "@/lib/apiAuth";
 import { getPublicDocumentLink } from "@/lib/publicDocuments";
 
 export const dynamic = "force-dynamic";
@@ -7,8 +8,12 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ token: string }> }
 ) {
+  const requestId = createRequestId();
   const { token } = await params;
-  const result = await getPublicDocumentLink(token);
+  const result = await getPublicDocumentLink(token).catch((error) => {
+    logApiError(requestId, "public document link lookup failed", error);
+    return null;
+  });
 
   if (!result) {
     return NextResponse.json({ error: "Documento no disponible." }, { status: 404 });
@@ -29,7 +34,8 @@ export async function GET(
     .maybeSingle();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    logApiError(requestId, "public authorized plan lookup failed", error);
+    return NextResponse.json({ error: "Unable to process request", requestId }, { status: 500 });
   }
 
   const documentType = document?.document_type || document?.type;

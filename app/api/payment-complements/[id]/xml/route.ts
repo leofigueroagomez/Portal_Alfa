@@ -4,11 +4,10 @@ import {
   jsonError,
   logApiError,
   parsePositiveInteger,
-  requirePortalProjectAccess,
+  requireAuthenticatedUser,
+  requireFiscalProjectAccessForProfile,
 } from "@/lib/apiAuth";
 import { downloadPaymentComplementFile } from "@/lib/facturama";
-import { canViewFinancials } from "@/lib/permissions";
-import { getCurrentUserProfile } from "@/services/profile";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 
@@ -22,8 +21,8 @@ export async function GET(
     const id = parsePositiveInteger((await params).id);
     if (!id) return jsonError("Bad Request", 400);
 
-    const profile = await getCurrentUserProfile();
-    if (!profile) return jsonError("Unauthorized", 401);
+    const { profile, response: authResponse } = await requireAuthenticatedUser();
+    if (authResponse) return authResponse;
 
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase
@@ -40,12 +39,11 @@ export async function GET(
       return jsonError("Not Found", 404);
     }
 
-    if (profile.is_internal) {
-      if (!canViewFinancials(profile.role)) return jsonError("Forbidden", 403);
-    } else {
-      const { response } = await requirePortalProjectAccess(Number(data.client_project_id));
-      if (response) return response;
-    }
+    const { response } = await requireFiscalProjectAccessForProfile(
+      profile,
+      Number(data.client_project_id)
+    );
+    if (response) return response;
 
     const admin = createSupabaseAdminClient();
     const { data: complement, error: complementError } = await admin

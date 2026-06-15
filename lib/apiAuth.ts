@@ -85,6 +85,26 @@ export async function requireQuoteNotificationPermission() {
 export async function requirePortalProjectAccess(projectId: number) {
   const profile = await getCurrentUserProfile();
 
+  return requirePortalProjectAccessForProfile(profile, projectId);
+}
+
+export async function requireAuthenticatedUser() {
+  const profile = await getCurrentUserProfile();
+
+  if (!profile) {
+    return {
+      profile: null,
+      response: jsonError("Unauthorized", 401),
+    };
+  }
+
+  return { profile, response: null };
+}
+
+export async function requirePortalProjectAccessForProfile(
+  profile: Awaited<ReturnType<typeof getCurrentUserProfile>>,
+  projectId: number
+) {
   if (!profile) {
     return {
       profile: null,
@@ -130,6 +150,34 @@ export async function requirePortalProjectAccess(projectId: number) {
     portalUser,
     response: null,
   };
+}
+
+export async function requireFiscalProjectAccess(projectId: number) {
+  const profile = await getCurrentUserProfile();
+
+  return requireFiscalProjectAccessForProfile(profile, projectId);
+}
+
+export async function requireFiscalProjectAccessForProfile(
+  profile: Awaited<ReturnType<typeof getCurrentUserProfile>>,
+  projectId: number
+) {
+  if (!profile) {
+    return {
+      profile: null,
+      response: jsonError("Unauthorized", 401),
+    };
+  }
+
+  if (profile.is_internal) {
+    if (!canViewFinancials(profile.role)) {
+      return { profile, response: jsonError("Forbidden", 403) };
+    }
+
+    return { profile, response: null };
+  }
+
+  return requirePortalProjectAccessForProfile(profile, projectId);
 }
 
 export function parsePositiveInteger(value: unknown) {
