@@ -116,12 +116,19 @@ export async function renderQuotePremiumPdf(html: string) {
     return Buffer.from(
       await page.pdf({
         format: "letter",
+        displayHeaderFooter: true,
+        headerTemplate: "<span></span>",
+        footerTemplate: `
+          <div style="width:100%; padding:0 15mm; color:#8a8d94; font-family:Arial, Helvetica, sans-serif; font-size:8px; text-align:right;">
+            P&aacute;gina <span class="pageNumber"></span> de <span class="totalPages"></span>
+          </div>
+        `,
         printBackground: true,
         preferCSSPageSize: true,
         margin: {
           top: "0",
           right: "0",
-          bottom: "0",
+          bottom: "9mm",
           left: "0",
         },
       })
