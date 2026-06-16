@@ -170,13 +170,15 @@ export default async function QuoteDetailPage({
     .eq("quote_id", id)
     .order("sort_order", { ascending: true });
 
-  let { data: items, error: itemsError } = await supabase
+  const itemsResult = await supabase
     .from("quote_items")
     .select(
       "id, quote_id, quote_section_id, product_id, quantity, sale_currency, unit_equipment_price, unit_equipment_price_usd, equipment_total_usd, unit_labor_price, line_total, product_brand, product_model, product_name, product_image_url, sort_order"
     )
     .eq("quote_id", id)
     .order("sort_order", { ascending: true });
+  let items = itemsResult.data;
+  const itemsError = itemsResult.error;
 
   if (itemsError) {
     const fallbackItems = await supabase
@@ -341,6 +343,15 @@ export default async function QuoteDetailPage({
             >
               Imprimir / PDF
             </Link>
+
+            <a
+              href={`/api/quotes/${quoteData.id}/premium-pdf`}
+              target="_blank"
+              rel="noreferrer"
+              className="bg-[#9E1B32] hover:bg-[#B91C3C] border border-[#9E1B32] text-white rounded-xl px-5 py-3 font-semibold"
+            >
+              PDF Premium V0
+            </a>
 
             <CreateQuoteVersionButton
               quoteId={quoteData.id}

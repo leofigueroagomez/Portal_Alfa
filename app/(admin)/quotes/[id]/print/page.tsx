@@ -187,13 +187,15 @@ export default async function QuotePrintPage({
     .eq("quote_id", id)
     .order("sort_order", { ascending: true });
 
-  let { data: items, error: itemsError } = await supabase
+  const itemsResult = await supabase
     .from("quote_items")
     .select(
       "id, quote_section_id, quantity, sale_currency, unit_equipment_price, unit_equipment_price_usd, equipment_total_usd, unit_labor_price, product_brand, product_model, product_name, product_image_url"
     )
     .eq("quote_id", id)
     .order("sort_order", { ascending: true });
+  let items = itemsResult.data;
+  const itemsError = itemsResult.error;
 
   if (itemsError) {
     const fallbackItems = await supabase
@@ -258,6 +260,14 @@ export default async function QuotePrintPage({
     termsSettings.includes_travel_expenses ||
     Boolean(quoteData.includes_travel_expenses_detail) ||
     travelTotalMXN > 0;
+  const clientName = clientData?.name || "Sin cliente";
+  const clientCompany = clientData?.company_name || "";
+  const projectName = projectData?.name || "Sin proyecto";
+  const sectionNames = quoteSections
+    .map((section) => section.name?.trim())
+    .filter(Boolean) as string[];
+  const exchangeRateSource = quoteData.exchange_rate_source || "manual";
+  const exchangeRateDate = quoteData.exchange_rate_date || "";
 
   const paymentTerms = termsSettings.payment_100_advance
     ? ["Anticipo: 100% del total de la propuesta."]
@@ -320,6 +330,7 @@ export default async function QuotePrintPage({
           font-family: Arial, Helvetica, sans-serif;
         }
 
+        .print-page,
         .print-keep-together,
         .print-avoid-break,
         .totals-box,
@@ -345,7 +356,7 @@ export default async function QuotePrintPage({
 
           body > div > aside,
           body aside,
-          body header:not(.quote-print-header),
+          body header:not(.quote-print-header):not(.cover-print-header):not(.interior-print-header),
           nav,
           .admin-sidebar,
           .admin-nav,
@@ -378,7 +389,46 @@ export default async function QuotePrintPage({
             line-height: 1.35 !important;
           }
 
+          .print-page {
+            min-height: auto !important;
+          }
+
+          .cover-page {
+            min-height: 1036px !important;
+            padding: 42px 48px 34px !important;
+            break-after: page;
+            page-break-after: always;
+          }
+
+          .cover-logo {
+            max-height: 42px !important;
+            max-width: 150px !important;
+          }
+
+          .cover-total {
+            font-size: 26px !important;
+          }
+
+          .cover-scope-list {
+            column-count: 2;
+            column-gap: 24px;
+          }
+
+          .technical-page {
+            padding: 32px 40px 30px !important;
+          }
+
+          .interior-print-header,
+          .interior-print-footer {
+            display: flex !important;
+          }
+
+          .interior-print-footer .page-number::after {
+            content: counter(page);
+          }
+
           .print-avoid-break,
+          .section-block,
           .totals-box,
           .notes-box,
           .terms-box,
@@ -447,8 +497,8 @@ export default async function QuotePrintPage({
           }
 
           .section-block {
-            break-inside: auto;
-            page-break-inside: auto;
+            break-inside: avoid;
+            page-break-inside: avoid;
           }
 
           .section-heading {
@@ -568,62 +618,165 @@ export default async function QuotePrintPage({
         <PrintQuoteButton />
       </div>
 
-      <article className="document mx-auto w-[816px] min-h-[1056px] max-w-none bg-white px-10 py-8 shadow-xl">
-        <header className="quote-print-header mb-5 flex items-start justify-between border-b border-[#D6D1C8] pb-4">
-          <div>
-            <div className="quote-print-logo-wrap mb-3 flex h-11 items-center">
-              <img
-                src="/logo-print.png"
-                alt="ALFA OS"
-                className="quote-print-logo max-h-11 max-w-36"
-              />
-            </div>
-            <p className="quote-print-kicker text-[10px] font-semibold uppercase tracking-[0.28em] text-[#9E1B32]">
-              Propuesta comercial
-            </p>
-          </div>
-
-          <div className="quote-print-meta text-right text-[11px] leading-5 text-[#555963]">
-            <p className="quote-print-folio text-xl font-semibold text-[#111318]">
-              {quoteData.quote_number || "Sin folio"}
-            </p>
-            {quoteData.is_partner_quote ? (
-              <p className="font-semibold text-[#9E1B32]">
-                Cotizacion para aliado comercial
+      <article className="document mx-auto w-[816px] max-w-none bg-white shadow-xl">
+        <section className="cover-page print-page flex min-h-[1056px] flex-col px-12 py-11">
+          <header className="cover-print-header flex items-start justify-between">
+            <img
+              src="/logo-print.png"
+              alt="ALFA OS"
+              className="cover-logo max-h-12 max-w-40"
+            />
+            <div className="text-right text-[11px] leading-5 text-[#555963]">
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#9E1B32]">
+                {quoteData.status || "Sin estado"}
               </p>
-            ) : null}
-            <p>Status: {quoteData.status || "Sin estado"}</p>
-            <p>Fecha: {formatDate(quoteData.created_at)}</p>
-            <p>TC USD/MXN: {formatNumber(exchangeRate)}</p>
-            <p>
-              {quoteData.exchange_rate_source || "manual"}{" "}
-              {quoteData.exchange_rate_date || ""}
-            </p>
-          </div>
-        </header>
+              <p>{quoteData.quote_number || "Sin folio"}</p>
+              <p>{formatDate(quoteData.created_at)}</p>
+            </div>
+          </header>
 
-        <section className="client-project-grid mb-6 grid grid-cols-2 gap-4 text-xs">
-          <div className="client-project-card border border-[#E1DDD5] p-4">
-            <p className="client-project-label mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#9E1B32]">
-              Atencion a
-            </p>
-            <p className="client-project-title text-base font-semibold">
-              {clientData?.name || "Sin cliente"}
-            </p>
-            <p className="mt-1 text-[#555963]">
-              {clientData?.company_name || ""}
-            </p>
+          <div className="mt-12 grid grid-cols-[1fr_245px] gap-12">
+            <div>
+              <p className="mb-4 text-[10px] font-semibold uppercase tracking-[0.24em] text-[#9E1B32]">
+                Propuesta comercial
+              </p>
+              <div className="h-px w-28 bg-[#9E1B32]" />
+            </div>
+
+            <aside className="border-l border-[#D6D1C8] pl-7 text-[11px] leading-5 text-[#555963]">
+              <p className="font-semibold uppercase tracking-[0.16em] text-[#111318]">
+                Datos base
+              </p>
+              <div className="mt-5 space-y-3">
+                <div>
+                  <p className="text-[9px] uppercase tracking-[0.14em] text-[#8A8D94]">
+                    Folio
+                  </p>
+                  <p className="font-semibold text-[#111318]">
+                    {quoteData.quote_number || "Sin folio"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[9px] uppercase tracking-[0.14em] text-[#8A8D94]">
+                    Tipo de cambio
+                  </p>
+                  <p className="font-semibold text-[#111318]">
+                    USD/MXN {formatNumber(exchangeRate)}
+                  </p>
+                  <p>
+                    {exchangeRateSource} {exchangeRateDate}
+                  </p>
+                </div>
+                {quoteData.is_partner_quote ? (
+                  <p className="font-semibold text-[#9E1B32]">
+                    Cotizacion para aliado comercial
+                  </p>
+                ) : null}
+              </div>
+            </aside>
           </div>
 
-          <div className="client-project-card border border-[#E1DDD5] p-4">
-            <p className="client-project-label mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#9E1B32]">
-              Proyecto / oportunidad
+          <section className="mt-12 grid grid-cols-2 gap-5">
+            <div className="border-t border-[#D6D1C8] pt-5">
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#9E1B32]">
+                Atencion a
+              </p>
+              <p className="text-xl font-semibold text-[#111318]">{clientName}</p>
+              {clientCompany ? (
+                <p className="mt-1 text-xs text-[#555963]">{clientCompany}</p>
+              ) : null}
+            </div>
+
+            <div className="border-t border-[#D6D1C8] pt-5">
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#9E1B32]">
+                Proyecto / oportunidad
+              </p>
+              <p className="text-xl font-semibold text-[#111318]">{projectName}</p>
+            </div>
+          </section>
+
+          <section className="mt-10 grid flex-1 grid-cols-[1fr_310px] gap-8">
+            <div className="border border-[#E1DDD5] p-6">
+              <p className="mb-5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#9E1B32]">
+                Alcance incluido
+              </p>
+              {sectionNames.length > 0 ? (
+                <ul className="cover-scope-list text-[12px] leading-5 text-[#111318]">
+                  {sectionNames.map((sectionName) => (
+                    <li
+                      key={sectionName}
+                      className="mb-2 flex break-inside-avoid gap-2"
+                    >
+                      <span className="mt-2 h-px w-4 shrink-0 bg-[#9E1B32]" />
+                      <span>{sectionName}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-[#555963]">
+                  El alcance tecnico se detalla en las paginas siguientes.
+                </p>
+              )}
+            </div>
+
+            <div className="border border-[#D6D1C8] bg-[#F7F5F1] p-6 text-[#111318]">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#9E1B32]">
+                Inversion estimada
+              </p>
+              <p className="cover-total mt-4 text-[31px] font-semibold leading-none">
+                {formatCurrency(totalMXN, "MXN")}
+              </p>
+              <div className="mt-6 space-y-2 border-t border-[#D6D1C8] pt-5 text-[11px] leading-5">
+                <div className="flex justify-between gap-4">
+                  <span className="text-[#555963]">Equipos</span>
+                  <span>{formatCurrency(quoteData.equipment_total, "USD")}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-[#555963]">Mano de obra</span>
+                  <span>{formatCurrency(quoteData.labor_total, "MXN")}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-[#555963]">Subtotal</span>
+                  <span>{formatCurrency(subtotalMXN, "MXN")}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-[#555963]">IVA 16%</span>
+                  <span>{formatCurrency(ivaMXN, "MXN")}</span>
+                </div>
+              </div>
+              <p className="mt-6 border-t border-[#D6D1C8] pt-4 text-[9px] leading-4 text-[#555963]">
+                El total en MXN es estimado. Cuando aplique, el pago se
+                calculara con el Tipo de Cambio DOF del dia habil de pago.
+              </p>
+            </div>
+          </section>
+
+          <footer className="mt-10 flex items-end justify-between border-t border-[#D6D1C8] pt-5 text-[10px] leading-4 text-[#555963]">
+            <p className="max-w-[440px]">
+              Documento preparado para revisar alcance, inversion y condiciones
+              comerciales antes del desglose tecnico.
             </p>
-            <p className="client-project-title text-base font-semibold">
-              {projectData?.name || "Sin proyecto"}
+            <p className="font-semibold uppercase tracking-[0.16em] text-[#111318]">
+              ALFA High End Services
             </p>
-          </div>
+          </footer>
         </section>
+
+        <section className="technical-page print-page px-10 py-8">
+          <header className="interior-print-header mb-5 flex items-center justify-between border-b border-[#D6D1C8] pb-3 text-[10px] text-[#555963]">
+            <div>
+              <p className="font-semibold uppercase tracking-[0.16em] text-[#9E1B32]">
+                Desglose tecnico
+              </p>
+              <p className="mt-1 text-[#111318]">{projectName}</p>
+            </div>
+            <div className="text-right">
+              <p className="font-semibold text-[#111318]">
+                {quoteData.quote_number || "Sin folio"}
+              </p>
+              <p>TC USD/MXN {formatNumber(exchangeRate)}</p>
+            </div>
+          </header>
 
         <section className="quote-sections space-y-6">
           {quoteSections.map((section) => {
@@ -836,6 +989,14 @@ export default async function QuotePrintPage({
               <li key={term}>{term}</li>
             ))}
           </ol>
+        </section>
+        <footer className="interior-print-footer mt-8 flex items-center justify-between border-t border-[#D6D1C8] pt-3 text-[9px] uppercase tracking-[0.14em] text-[#8A8D94]">
+          <span>{projectName}</span>
+          <span>
+            {quoteData.quote_number || "Sin folio"} / Pagina{" "}
+            <span className="page-number" />
+          </span>
+        </footer>
         </section>
       </article>
     </main>
