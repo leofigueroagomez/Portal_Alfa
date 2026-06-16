@@ -68,7 +68,11 @@ export async function GET(
 
     if (message === "Not Found") return jsonError("Not Found", 404);
 
-    logApiError(requestId, "quote premium PDF generation failed", error);
+    logApiError(
+      requestId,
+      `quote premium PDF generation failed for quote ${quoteId}`,
+      error
+    );
     return NextResponse.json({ error: message, requestId }, { status: 500 });
   }
 }

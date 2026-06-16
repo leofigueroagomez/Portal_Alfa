@@ -337,20 +337,13 @@ export default async function QuoteDetailPage({
               </Link>
             )}
 
-            <Link
-              href={`/quotes/${quoteData.id}/print`}
-              className="bg-[#222228] hover:bg-[#2A2A30] border border-[#2A2A30] text-[#B3B3B8] rounded-xl px-5 py-3 font-semibold"
-            >
-              Imprimir / PDF
-            </Link>
-
             <a
               href={`/api/quotes/${quoteData.id}/premium-pdf`}
               target="_blank"
               rel="noreferrer"
-              className="bg-[#9E1B32] hover:bg-[#B91C3C] border border-[#9E1B32] text-white rounded-xl px-5 py-3 font-semibold"
+              className="bg-[#222228] hover:bg-[#2A2A30] border border-[#2A2A30] text-[#B3B3B8] rounded-xl px-5 py-3 font-semibold"
             >
-              PDF Premium V0
+              Imprimir / PDF
             </a>
 
             <CreateQuoteVersionButton

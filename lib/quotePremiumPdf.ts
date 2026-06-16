@@ -3,6 +3,7 @@ import "server-only";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import chromium from "@sparticuz/chromium";
 import puppeteer from "puppeteer-core";
 
 function getCandidateBrowserPaths() {
@@ -34,34 +35,32 @@ function getCandidateBrowserPaths() {
   return candidates;
 }
 
-function resolveBrowserExecutablePath() {
+async function resolveBrowserExecutablePath() {
   const executablePath = getCandidateBrowserPaths().find((candidate) =>
     fs.existsSync(candidate)
   );
 
-  if (!executablePath) {
-    throw new Error(
-      "No se encontro Chrome/Chromium para renderizar PDF. Configura PUPPETEER_EXECUTABLE_PATH o instala un runtime Chromium compatible."
-    );
-  }
+  if (executablePath) return executablePath;
 
-  return executablePath;
+  return chromium.executablePath();
 }
 
 export async function renderQuotePremiumPdf(html: string) {
-  const executablePath = resolveBrowserExecutablePath();
+  const executablePath = await resolveBrowserExecutablePath();
   const userDataDir = await fs.promises.mkdtemp(
     path.join(os.tmpdir(), "alfa-quote-pdf-")
   );
+  const usesServerlessChromium = executablePath.includes(os.tmpdir());
 
   let browser: Awaited<ReturnType<typeof puppeteer.launch>> | null = null;
 
   try {
     browser = await puppeteer.launch({
       executablePath,
-      headless: true,
+      headless: usesServerlessChromium ? "shell" : true,
       userDataDir,
       args: [
+        ...(usesServerlessChromium ? chromium.args : []),
         "--no-sandbox",
         "--disable-setuid-sandbox",
         "--disable-dev-shm-usage",
