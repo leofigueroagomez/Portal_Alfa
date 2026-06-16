@@ -5,7 +5,11 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/api/quotes/[id]/premium-pdf": [
       "./public/logo-print.png",
-      "./node_modules/@sparticuz/chromium/bin/**/*",
+      "./node_modules/@sparticuz/chromium/**/*",
+    ],
+    "/api/quotes/*/premium-pdf": [
+      "./public/logo-print.png",
+      "./node_modules/@sparticuz/chromium/**/*",
     ],
   },
 };
