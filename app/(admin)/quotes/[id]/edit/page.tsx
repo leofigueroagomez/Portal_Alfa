@@ -108,6 +108,7 @@ type Quote = {
   travel_food_mxn?: number | null;
   travel_total_mxn?: number | null;
   is_partner_quote?: boolean | null;
+  commercial_partner_id?: number | null;
   partner_equipment_discount_percent?: number | null;
   partner_labor_discount_percent?: number | null;
   partner_equipment_discount_mxn?: number | null;
@@ -128,6 +129,15 @@ type Client = {
   id: number;
   client_number: number | null;
   name: string | null;
+};
+
+type CommercialPartner = {
+  id: number;
+  commercial_name: string;
+  logo_url: string | null;
+  primary_color: string;
+  secondary_color: string | null;
+  is_active: boolean;
 };
 
 type QuoteTermsSettings = {
@@ -226,6 +236,11 @@ export default function EditQuotePage() {
   const [travelTollsMXN, setTravelTollsMXN] = useState("");
   const [travelFoodMXN, setTravelFoodMXN] = useState("");
   const [isPartnerQuote, setIsPartnerQuote] = useState(false);
+  const [commercialPartners, setCommercialPartners] = useState<
+    CommercialPartner[]
+  >([]);
+  const [selectedCommercialPartnerId, setSelectedCommercialPartnerId] =
+    useState("");
   const [partnerEquipmentDiscountPercent, setPartnerEquipmentDiscountPercent] =
     useState("15");
   const [partnerLaborDiscountPercent, setPartnerLaborDiscountPercent] =
@@ -277,7 +292,7 @@ export default function EditQuotePage() {
     async function loadQuote() {
       let { data: quoteData, error: quoteError } = (await supabase
         .from("quotes")
-        .select("id, quote_number, client_id, status, client_project_id, exchange_rate, exchange_rate_source, exchange_rate_date, discount_type, discount_percent, discount_amount_mxn, includes_travel_expenses_detail, travel_fuel_mxn, travel_tolls_mxn, travel_food_mxn, travel_total_mxn, is_partner_quote, partner_equipment_discount_percent, partner_labor_discount_percent, partner_equipment_discount_mxn, partner_labor_discount_mxn, partner_total_discount_mxn, notes")
+        .select("id, quote_number, client_id, status, client_project_id, exchange_rate, exchange_rate_source, exchange_rate_date, discount_type, discount_percent, discount_amount_mxn, includes_travel_expenses_detail, travel_fuel_mxn, travel_tolls_mxn, travel_food_mxn, travel_total_mxn, is_partner_quote, commercial_partner_id, partner_equipment_discount_percent, partner_labor_discount_percent, partner_equipment_discount_mxn, partner_labor_discount_mxn, partner_total_discount_mxn, notes")
         .eq("id", quoteId)
         .single()) as {
         data: Quote | null;
@@ -294,7 +309,8 @@ export default function EditQuotePage() {
           quoteError.message.includes("discount_amount_mxn") ||
           quoteError.message.includes("notes") ||
           quoteError.message.includes("includes_travel_expenses_detail") ||
-          quoteError.message.includes("is_partner_quote"))
+          quoteError.message.includes("is_partner_quote") ||
+          quoteError.message.includes("commercial_partner_id"))
       ) {
         const fallback = (await supabase
           .from("quotes")
@@ -338,6 +354,9 @@ export default function EditQuotePage() {
       setTravelTollsMXN(String(quoteData.travel_tolls_mxn || ""));
       setTravelFoodMXN(String(quoteData.travel_food_mxn || ""));
       setIsPartnerQuote(Boolean(quoteData.is_partner_quote));
+      setSelectedCommercialPartnerId(
+        quoteData.commercial_partner_id ? String(quoteData.commercial_partner_id) : ""
+      );
       setPartnerEquipmentDiscountPercent(
         String(quoteData.partner_equipment_discount_percent ?? 15)
       );
@@ -577,6 +596,25 @@ export default function EditQuotePage() {
 
     loadQuote();
   }, [quoteId]);
+
+  useEffect(() => {
+    async function loadCommercialPartners() {
+      const { data, error } = await supabase
+        .from("commercial_partners")
+        .select("id, commercial_name, logo_url, primary_color, secondary_color, is_active")
+        .eq("is_active", true)
+        .order("commercial_name", { ascending: true });
+
+      if (error) {
+        console.error("Error cargando aliados comerciales:", error);
+        return;
+      }
+
+      setCommercialPartners((data || []) as CommercialPartner[]);
+    }
+
+    loadCommercialPartners();
+  }, []);
 
   useEffect(() => {
     async function loadExchangeRate() {
@@ -975,6 +1013,10 @@ export default function EditQuotePage() {
   const operatingMarginColorClass = getMarginColorClass(
     operatingMarginPercent
   );
+  const selectedCommercialPartner =
+    commercialPartners.find(
+      (partner) => String(partner.id) === selectedCommercialPartnerId
+    ) || null;
   const isDraft = quote?.status === "draft";
   const canEditQuote =
     isDraft || (quote?.status === "approved" && canAdminEditApproved);
@@ -995,6 +1037,11 @@ export default function EditQuotePage() {
 
   async function handleSaveQuote() {
     if (!canEditQuote) return;
+
+    if (isPartnerQuote && !selectedCommercialPartnerId) {
+      alert("Selecciona el aliado comercial para esta cotizacion.");
+      return;
+    }
 
     setSavingQuote(true);
 
@@ -1020,6 +1067,9 @@ export default function EditQuotePage() {
       travel_food_mxn: Number(travelFoodMXN) || 0,
       travel_total_mxn: travelTotalMXN,
       is_partner_quote: isPartnerQuote,
+      commercial_partner_id: isPartnerQuote
+        ? Number(selectedCommercialPartnerId)
+        : null,
       partner_equipment_discount_percent:
         Number(partnerEquipmentDiscountPercent) || 0,
       partner_labor_discount_percent: Number(partnerLaborDiscountPercent) || 0,
@@ -1053,6 +1103,7 @@ export default function EditQuotePage() {
         updateResult.error.message.includes("includes_travel_expenses_detail") ||
         updateResult.error.message.includes("travel_fuel_mxn") ||
         updateResult.error.message.includes("is_partner_quote") ||
+        updateResult.error.message.includes("commercial_partner_id") ||
         updateResult.error.message.includes("partner_total_discount_mxn") ||
         updateResult.error.message.includes("notes"))
     ) {
@@ -1074,6 +1125,7 @@ export default function EditQuotePage() {
         travel_food_mxn,
         travel_total_mxn,
         is_partner_quote,
+        commercial_partner_id,
         partner_equipment_discount_percent,
         partner_labor_discount_percent,
         partner_equipment_discount_mxn,
@@ -1907,13 +1959,83 @@ export default function EditQuotePage() {
                   <input
                     type="checkbox"
                     checked={isPartnerQuote}
-                    onChange={(e) => setIsPartnerQuote(e.target.checked)}
+                    onChange={(e) => {
+                      setIsPartnerQuote(e.target.checked);
+                      if (!e.target.checked) setSelectedCommercialPartnerId("");
+                    }}
                   />
                   Cotizacion para aliado comercial
                 </label>
 
                 {isPartnerQuote ? (
                   <>
+                    <select
+                      className="w-full rounded-xl bg-[#151518] px-3 py-2 outline-none"
+                      value={selectedCommercialPartnerId}
+                      onChange={(e) =>
+                        setSelectedCommercialPartnerId(e.target.value)
+                      }
+                    >
+                      <option value="">Seleccionar aliado</option>
+                      {commercialPartners.map((partner) => (
+                        <option key={partner.id} value={partner.id}>
+                          {partner.commercial_name}
+                        </option>
+                      ))}
+                    </select>
+
+                    {commercialPartners.length === 0 ? (
+                      <Link
+                        href="/commercial-partners"
+                        className="inline-flex text-xs font-semibold text-[#F4C66A]"
+                      >
+                        Crear aliado comercial
+                      </Link>
+                    ) : null}
+
+                    {selectedCommercialPartner ? (
+                      <div className="flex items-center gap-3 rounded-xl bg-[#151518] p-3">
+                        <div
+                          className="flex h-12 w-12 items-center justify-center rounded-lg"
+                          style={{
+                            background: selectedCommercialPartner.primary_color,
+                          }}
+                        >
+                          {selectedCommercialPartner.logo_url ? (
+                            <img
+                              src={selectedCommercialPartner.logo_url}
+                              alt={selectedCommercialPartner.commercial_name}
+                              className="max-h-9 max-w-9 object-contain"
+                            />
+                          ) : (
+                            <span className="text-[10px] text-white">Logo</span>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold">
+                            {selectedCommercialPartner.commercial_name}
+                          </p>
+                          <div className="mt-2 flex gap-2">
+                            <span
+                              className="h-3 w-8 rounded-full"
+                              style={{
+                                background:
+                                  selectedCommercialPartner.primary_color,
+                              }}
+                            />
+                            <span
+                              className="h-3 w-8 rounded-full"
+                              style={{
+                                background:
+                                  selectedCommercialPartner.secondary_color ||
+                                  "#111111",
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+
                     <div className="grid grid-cols-2 gap-3">
                       <input
                         className="rounded-xl bg-[#151518] px-3 py-2 outline-none"

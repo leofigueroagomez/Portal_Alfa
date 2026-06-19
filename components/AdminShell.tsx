@@ -97,6 +97,12 @@ export default function AdminShell({
       icon: Package,
       visible: canManageProductTaxonomy(role),
     },
+    {
+      href: "/commercial-partners",
+      label: "Aliados",
+      icon: Handshake,
+      visible: canManageProductTaxonomy(role),
+    },
   ];
 
   const operationsItems: NavLink[] = [

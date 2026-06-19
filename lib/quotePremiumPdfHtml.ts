@@ -8,6 +8,14 @@ import type { QuotePdfSnapshot } from "@/lib/quotePdfSnapshot";
 type QuotePdfItem = QuotePdfSnapshot["sections"][number]["items"][number];
 type QuotePdfSection = QuotePdfSnapshot["sections"][number];
 
+type QuotePremiumPdfBranding = {
+  name: string;
+  logoUrl: string;
+  primaryColor: string;
+  secondaryColor: string;
+  hidePartnerDiscount?: boolean;
+};
+
 let logoDataUrl: string | null = null;
 
 function escapeHtml(value: string | number | null | undefined) {
@@ -100,18 +108,42 @@ function getProjectDisplay(snapshot: QuotePdfSnapshot) {
   return snapshot.project.name || "Sin proyecto";
 }
 
-function buildCover(snapshot: QuotePdfSnapshot) {
+function getDisplayTotals(
+  snapshot: QuotePdfSnapshot,
+  branding?: QuotePremiumPdfBranding
+) {
+  if (!branding?.hidePartnerDiscount) return snapshot.totals;
+
+  const taxableBaseMxn = snapshot.totals.subtotalMxn - snapshot.totals.discountMxn;
+  const ivaMxn = taxableBaseMxn * 0.16;
+  const totalMxn = taxableBaseMxn + ivaMxn;
+
+  return {
+    ...snapshot.totals,
+    partnerEquipmentDiscountMxn: 0,
+    partnerLaborDiscountMxn: 0,
+    partnerTotalDiscountMxn: 0,
+    taxableBaseMxn,
+    ivaMxn,
+    totalMxn,
+    grandTotalMxn: totalMxn,
+  };
+}
+
+function buildCover(snapshot: QuotePdfSnapshot, branding?: QuotePremiumPdfBranding) {
   const title = snapshot.quote.quoteNumber || `Cotizacion #${snapshot.quote.id}`;
   const contact = getContactDisplay(snapshot);
   const project = getProjectDisplay(snapshot);
-  const logoSrc = getLogoDataUrl();
+  const logoSrc = branding?.logoUrl || getLogoDataUrl();
+  const logoAlt = branding?.name || "ALFA";
+  const displayTotals = getDisplayTotals(snapshot, branding);
 
   return `
     <section class="page cover">
       <div>
         <div class="cover-logo-row">
           <div>
-            <img class="cover-logo" src="${logoSrc}" alt="ALFA" />
+            <img class="cover-logo" src="${escapeHtml(logoSrc)}" alt="${escapeHtml(logoAlt)}" />
             <div class="cover-kicker">Propuesta comercial</div>
           </div>
           <div class="cover-folio">
@@ -145,7 +177,7 @@ function buildCover(snapshot: QuotePdfSnapshot) {
 
         <div class="cover-total">
           <span>Total estimado</span>
-          <strong class="amount">${money(snapshot.totals.totalMxn, "MXN")}</strong>
+          <strong class="amount">${money(displayTotals.totalMxn, "MXN")}</strong>
           <small>TC USD/MXN ${number(snapshot.exchangeRate.value)}</small>
           <small>Fecha: ${escapeHtml(formatDate(snapshot.quote.createdAt))} - Vigencia: 15 d&iacute;as</small>
         </div>
@@ -154,27 +186,31 @@ function buildCover(snapshot: QuotePdfSnapshot) {
   `;
 }
 
-function buildFinancialRows(snapshot: QuotePdfSnapshot) {
+function buildFinancialRows(
+  snapshot: QuotePdfSnapshot,
+  branding?: QuotePremiumPdfBranding
+) {
+  const displayTotals = getDisplayTotals(snapshot, branding);
   const rows = [
-    ["Equipos", money(snapshot.totals.equipmentTotalUsd, "USD")],
-    ["Mano de Obra", money(snapshot.totals.laborTotalMxn, "MXN")],
-    ["Subtotal", money(snapshot.totals.subtotalMxn, "MXN")],
+    ["Equipos", money(displayTotals.equipmentTotalUsd, "USD")],
+    ["Mano de Obra", money(displayTotals.laborTotalMxn, "MXN")],
+    ["Subtotal", money(displayTotals.subtotalMxn, "MXN")],
   ];
 
-  if (snapshot.totals.partnerTotalDiscountMxn > 0) {
+  if (!branding?.hidePartnerDiscount && displayTotals.partnerTotalDiscountMxn > 0) {
     rows.push([
       "Descuento aliado",
-      `-${money(snapshot.totals.partnerTotalDiscountMxn, "MXN")}`,
+      `-${money(displayTotals.partnerTotalDiscountMxn, "MXN")}`,
     ]);
   }
 
-  if (snapshot.totals.discountMxn > 0) {
-    rows.push(["Descuento", `-${money(snapshot.totals.discountMxn, "MXN")}`]);
+  if (displayTotals.discountMxn > 0) {
+    rows.push(["Descuento", `-${money(displayTotals.discountMxn, "MXN")}`]);
   }
 
   rows.push(
-    ["IVA 16%", money(snapshot.totals.ivaMxn, "MXN")],
-    ["Total estimado", money(snapshot.totals.totalMxn, "MXN")]
+    ["IVA 16%", money(displayTotals.ivaMxn, "MXN")],
+    ["Total estimado", money(displayTotals.totalMxn, "MXN")]
   );
 
   return rows
@@ -189,7 +225,11 @@ function buildFinancialRows(snapshot: QuotePdfSnapshot) {
     .join("");
 }
 
-function buildExecutiveSummary(snapshot: QuotePdfSnapshot) {
+function buildExecutiveSummary(
+  snapshot: QuotePdfSnapshot,
+  branding?: QuotePremiumPdfBranding
+) {
+  const displayTotals = getDisplayTotals(snapshot, branding);
   const scope = snapshot.sections
     .map(
       (section) => `
@@ -219,13 +259,13 @@ function buildExecutiveSummary(snapshot: QuotePdfSnapshot) {
       <div class="summary-grid">
         <div class="total-card">
           <span>Inversion total estimada</span>
-          <strong class="amount">${money(snapshot.totals.totalMxn, "MXN")}</strong>
+          <strong class="amount">${money(displayTotals.totalMxn, "MXN")}</strong>
           <small>Importe con IVA incluido.</small>
         </div>
 
         <div class="summary-card financial-card">
           <h3>Resumen financiero</h3>
-          ${buildFinancialRows(snapshot)}
+          ${buildFinancialRows(snapshot, branding)}
         </div>
 
         <div class="summary-card">
@@ -344,9 +384,14 @@ function buildClosing(snapshot: QuotePdfSnapshot) {
   `;
 }
 
-export function buildQuotePremiumPdfHtml(snapshot: QuotePdfSnapshot) {
+export function buildQuotePremiumPdfHtml(
+  snapshot: QuotePdfSnapshot,
+  branding?: QuotePremiumPdfBranding
+) {
   const title = snapshot.quote.quoteNumber || `Cotizacion #${snapshot.quote.id}`;
   const sectionsHtml = snapshot.sections.map(buildSection).join("");
+  const primaryColor = branding?.primaryColor || "#9e1b32";
+  const secondaryColor = branding?.secondaryColor || "#15171c";
 
   return `<!doctype html>
 <html lang="es">
@@ -358,7 +403,7 @@ export function buildQuotePremiumPdfHtml(snapshot: QuotePdfSnapshot) {
       * { box-sizing: border-box; }
       body {
         margin: 0;
-        color: #15171c;
+        color: ${escapeHtml(secondaryColor)};
         background: #ffffff;
         font-family: Arial, Helvetica, sans-serif;
         font-weight: 400;
@@ -395,7 +440,7 @@ export function buildQuotePremiumPdfHtml(snapshot: QuotePdfSnapshot) {
       }
       .cover-kicker,
       .eyebrow {
-        color: #9e1b32;
+        color: ${escapeHtml(primaryColor)};
         font-size: 9.5px;
         font-weight: 600;
         letter-spacing: .08em;
@@ -510,7 +555,7 @@ export function buildQuotePremiumPdfHtml(snapshot: QuotePdfSnapshot) {
       .summary-card h3,
       .closing-section h3 {
         margin-bottom: 10px;
-        color: #9e1b32;
+        color: ${escapeHtml(primaryColor)};
         font-size: 10px;
         letter-spacing: .12em;
         text-transform: uppercase;
@@ -669,8 +714,8 @@ export function buildQuotePremiumPdfHtml(snapshot: QuotePdfSnapshot) {
     </style>
   </head>
   <body>
-    ${buildCover(snapshot)}
-    ${buildExecutiveSummary(snapshot)}
+    ${buildCover(snapshot, branding)}
+    ${buildExecutiveSummary(snapshot, branding)}
     ${sectionsHtml}
     ${buildClosing(snapshot)}
   </body>

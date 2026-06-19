@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bell, Boxes, SlidersHorizontal, Tags, UserCog, Wrench } from "lucide-react";
+import { Bell, Boxes, Handshake, SlidersHorizontal, Tags, UserCog, Wrench } from "lucide-react";
 
 const settingsLinks = [
   {
@@ -25,6 +25,12 @@ const settingsLinks = [
     title: "Etiquetas de producto",
     description: "Clasificación flexible para búsquedas y filtros.",
     icon: Tags,
+  },
+  {
+    href: "/commercial-partners",
+    title: "Aliados comerciales",
+    description: "Identidad visual para cotizaciones white label.",
+    icon: Handshake,
   },
   {
     href: "/admin/operations",

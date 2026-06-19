@@ -42,6 +42,15 @@ export function canApproveQuotes(role: string | null | undefined) {
   return ["admin", "direccion", "comercial"].includes(normalized);
 }
 
+export function canManageCommercialPartners(role: string | null | undefined) {
+  const normalized = normalizeRole(role);
+  return ["admin", "direccion", "comercial"].includes(normalized);
+}
+
+export function canGeneratePartnerQuotes(role: string | null | undefined) {
+  return canManageCommercialPartners(role);
+}
+
 export function canDeleteQuotes(role: string | null | undefined) {
   return isAdminLike(role);
 }

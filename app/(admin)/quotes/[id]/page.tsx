@@ -2,7 +2,11 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { formatCurrency, formatNumber } from "@/lib/format";
-import { canApproveQuotes } from "@/lib/permissions";
+import {
+  getPartnerBrandingMissingReason,
+  type CommercialPartner,
+} from "@/lib/commercialPartners";
+import { canApproveQuotes, canGeneratePartnerQuotes } from "@/lib/permissions";
 import { getCurrentUserProfile } from "@/services/profile";
 import ProjectStageSelect from "@/components/ProjectStageSelect";
 import CreateQuoteVersionButton from "./CreateQuoteVersionButton";
@@ -30,6 +34,7 @@ type Quote = {
   travel_food_mxn?: number | null;
   travel_total_mxn?: number | null;
   is_partner_quote?: boolean | null;
+  commercial_partner_id?: number | null;
   partner_equipment_discount_mxn?: number | null;
   partner_labor_discount_mxn?: number | null;
   partner_total_discount_mxn?: number | null;
@@ -113,7 +118,7 @@ export default async function QuoteDetailPage({
   let { data: quote, error } = (await supabase
     .from("quotes")
     .select(
-      "id, quote_number, quote_group_id, quote_base_number, version, client_id, client_project_id, status, currency, equipment_total, labor_total, grand_total, discount_type, discount_percent, discount_amount_mxn, includes_travel_expenses_detail, travel_fuel_mxn, travel_tolls_mxn, travel_food_mxn, travel_total_mxn, is_partner_quote, partner_equipment_discount_mxn, partner_labor_discount_mxn, partner_total_discount_mxn, subtotal_mxn, taxable_base_mxn, iva_mxn, total_mxn, exchange_rate, exchange_rate_source, exchange_rate_date, notes, created_at"
+      "id, quote_number, quote_group_id, quote_base_number, version, client_id, client_project_id, status, currency, equipment_total, labor_total, grand_total, discount_type, discount_percent, discount_amount_mxn, includes_travel_expenses_detail, travel_fuel_mxn, travel_tolls_mxn, travel_food_mxn, travel_total_mxn, is_partner_quote, commercial_partner_id, partner_equipment_discount_mxn, partner_labor_discount_mxn, partner_total_discount_mxn, subtotal_mxn, taxable_base_mxn, iva_mxn, total_mxn, exchange_rate, exchange_rate_source, exchange_rate_date, notes, created_at"
     )
     .eq("id", id)
     .single()) as {
@@ -129,6 +134,7 @@ export default async function QuoteDetailPage({
       error.message.includes("exchange_rate_date") ||
       error.message.includes("notes") ||
       error.message.includes("is_partner_quote") ||
+      error.message.includes("commercial_partner_id") ||
       error.message.includes("total_mxn"))
   ) {
     const fallback = (await supabase
@@ -216,6 +222,23 @@ export default async function QuoteDetailPage({
         .maybeSingle()
     : { data: null };
   const projectData = clientProject as ClientProject | null;
+  const { data: commercialPartner } = quoteData.commercial_partner_id
+    ? await supabase
+        .from("commercial_partners")
+        .select(
+          "id, commercial_name, logo_url, logo_storage_path, primary_color, secondary_color, contact_name, contact_email, contact_phone, is_active"
+        )
+        .eq("id", quoteData.commercial_partner_id)
+        .maybeSingle<CommercialPartner>()
+    : { data: null };
+  const partnerMissingReason = getPartnerBrandingMissingReason(
+    supabase,
+    commercialPartner || null
+  );
+  const canGeneratePartnerPrint =
+    quoteData.is_partner_quote &&
+    canGeneratePartnerQuotes(currentProfile?.role) &&
+    !partnerMissingReason;
 
   const quoteSections = (sections || []) as QuoteSection[];
   const quoteItems = (items || []) as QuoteItem[];
@@ -282,6 +305,14 @@ export default async function QuoteDetailPage({
             {quoteData.is_partner_quote ? (
               <p className="mt-2 text-sm font-semibold text-[#F4C66A]">
                 Cotizacion para aliado comercial
+                {commercialPartner?.commercial_name
+                  ? ` / ${commercialPartner.commercial_name}`
+                  : ""}
+              </p>
+            ) : null}
+            {quoteData.is_partner_quote && partnerMissingReason ? (
+              <p className="mt-2 max-w-xl text-sm text-[#F28B82]">
+                No se puede generar white label: {partnerMissingReason}
               </p>
             ) : null}
 
@@ -345,6 +376,37 @@ export default async function QuoteDetailPage({
             >
               Imprimir / PDF
             </a>
+
+            {quoteData.is_partner_quote ? (
+              <>
+                <a
+                  href={`/quotes/${quoteData.id}/print?branding=partner`}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-disabled={!canGeneratePartnerPrint}
+                  className={`rounded-xl border px-5 py-3 font-semibold ${
+                    canGeneratePartnerPrint
+                      ? "border-[#9E1B32] bg-[#9E1B32] text-white hover:bg-[#B91C3C]"
+                      : "pointer-events-none border-[#2A2A30] bg-[#222228] text-[#77777D]"
+                  }`}
+                >
+                  Imprimir cotizacion para aliado
+                </a>
+                <a
+                  href={`/api/quotes/${quoteData.id}/premium-pdf?branding=partner`}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-disabled={!canGeneratePartnerPrint}
+                  className={`rounded-xl border px-5 py-3 font-semibold ${
+                    canGeneratePartnerPrint
+                      ? "border-[#2A2A30] bg-[#222228] text-[#B3B3B8] hover:bg-[#2A2A30]"
+                      : "pointer-events-none border-[#2A2A30] bg-[#222228] text-[#77777D]"
+                  }`}
+                >
+                  PDF aliado
+                </a>
+              </>
+            ) : null}
 
             <CreateQuoteVersionButton
               quoteId={quoteData.id}

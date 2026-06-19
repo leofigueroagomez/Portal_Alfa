@@ -79,6 +79,7 @@ type SourceQuote = {
   travel_food_mxn?: number | null;
   travel_total_mxn?: number | null;
   is_partner_quote?: boolean | null;
+  commercial_partner_id?: number | null;
   partner_equipment_discount_percent?: number | null;
   partner_labor_discount_percent?: number | null;
   partner_equipment_discount_mxn?: number | null;
@@ -134,7 +135,7 @@ export default function CreateQuoteVersionButton({
     let { data: quote, error: quoteError } = (await supabase
       .from("quotes")
       .select(
-        "id, quote_group_id, quote_base_number, client_project_id, currency, equipment_total, labor_total, tax_total, discount_total, grand_total, discount_type, discount_percent, discount_amount_mxn, includes_travel_expenses_detail, travel_fuel_mxn, travel_tolls_mxn, travel_food_mxn, travel_total_mxn, is_partner_quote, partner_equipment_discount_percent, partner_labor_discount_percent, partner_equipment_discount_mxn, partner_labor_discount_mxn, partner_total_discount_mxn, subtotal_mxn, taxable_base_mxn, iva_mxn, total_mxn, exchange_rate, exchange_rate_source, exchange_rate_date, notes"
+        "id, quote_group_id, quote_base_number, client_project_id, currency, equipment_total, labor_total, tax_total, discount_total, grand_total, discount_type, discount_percent, discount_amount_mxn, includes_travel_expenses_detail, travel_fuel_mxn, travel_tolls_mxn, travel_food_mxn, travel_total_mxn, is_partner_quote, commercial_partner_id, partner_equipment_discount_percent, partner_labor_discount_percent, partner_equipment_discount_mxn, partner_labor_discount_mxn, partner_total_discount_mxn, subtotal_mxn, taxable_base_mxn, iva_mxn, total_mxn, exchange_rate, exchange_rate_source, exchange_rate_date, notes"
       )
       .eq("id", quoteId)
       .single()) as {
@@ -148,6 +149,7 @@ export default function CreateQuoteVersionButton({
         quoteError.message.includes("exchange_rate_date") ||
         quoteError.message.includes("notes") ||
         quoteError.message.includes("is_partner_quote") ||
+        quoteError.message.includes("commercial_partner_id") ||
         quoteError.message.includes("total_mxn"))
     ) {
       const fallback = (await supabase
@@ -284,6 +286,7 @@ export default function CreateQuoteVersionButton({
       travel_food_mxn: quote.travel_food_mxn,
       travel_total_mxn: quote.travel_total_mxn,
       is_partner_quote: quote.is_partner_quote,
+      commercial_partner_id: quote.commercial_partner_id,
       partner_equipment_discount_percent:
         quote.partner_equipment_discount_percent,
       partner_labor_discount_percent: quote.partner_labor_discount_percent,
@@ -328,6 +331,7 @@ export default function CreateQuoteVersionButton({
         travel_food_mxn,
         travel_total_mxn,
         is_partner_quote,
+        commercial_partner_id,
         partner_equipment_discount_percent,
         partner_labor_discount_percent,
         partner_equipment_discount_mxn,

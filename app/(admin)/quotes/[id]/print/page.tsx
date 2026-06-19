@@ -1,6 +1,12 @@
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { formatCurrency, formatNumber } from "@/lib/format";
+import {
+  getPartnerBranding,
+  getPartnerBrandingMissingReason,
+  type CommercialPartner,
+} from "@/lib/commercialPartners";
 import PrintQuoteButton from "./PrintQuoteButton";
 
 type Quote = {
@@ -21,6 +27,7 @@ type Quote = {
   travel_food_mxn?: number | null;
   travel_total_mxn?: number | null;
   is_partner_quote?: boolean | null;
+  commercial_partner_id?: number | null;
   partner_equipment_discount_percent?: number | null;
   partner_labor_discount_percent?: number | null;
   partner_equipment_discount_mxn?: number | null;
@@ -114,16 +121,20 @@ function getEquipmentUnitPriceUsd(item: QuoteItem, exchangeRate: number) {
 
 export default async function QuotePrintPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ branding?: string }>;
 }) {
   const supabase = await createSupabaseServerClient();
   const { id } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const isPartnerBranding = resolvedSearchParams.branding === "partner";
 
   let { data: quote, error } = (await supabase
     .from("quotes")
     .select(
-      "id, quote_number, status, client_id, client_project_id, equipment_total, labor_total, grand_total, discount_type, discount_percent, discount_amount_mxn, includes_travel_expenses_detail, travel_fuel_mxn, travel_tolls_mxn, travel_food_mxn, travel_total_mxn, is_partner_quote, partner_equipment_discount_percent, partner_labor_discount_percent, partner_equipment_discount_mxn, partner_labor_discount_mxn, partner_total_discount_mxn, subtotal_mxn, taxable_base_mxn, iva_mxn, total_mxn, exchange_rate, exchange_rate_source, exchange_rate_date, notes, created_at"
+      "id, quote_number, status, client_id, client_project_id, equipment_total, labor_total, grand_total, discount_type, discount_percent, discount_amount_mxn, includes_travel_expenses_detail, travel_fuel_mxn, travel_tolls_mxn, travel_food_mxn, travel_total_mxn, is_partner_quote, commercial_partner_id, partner_equipment_discount_percent, partner_labor_discount_percent, partner_equipment_discount_mxn, partner_labor_discount_mxn, partner_total_discount_mxn, subtotal_mxn, taxable_base_mxn, iva_mxn, total_mxn, exchange_rate, exchange_rate_source, exchange_rate_date, notes, created_at"
     )
     .eq("id", id)
     .single()) as {
@@ -140,6 +151,7 @@ export default async function QuotePrintPage({
       error.message.includes("notes") ||
       error.message.includes("includes_travel_expenses_detail") ||
       error.message.includes("is_partner_quote") ||
+      error.message.includes("commercial_partner_id") ||
       error.message.includes("total_mxn"))
   ) {
     const fallback = (await supabase
@@ -216,8 +228,42 @@ export default async function QuotePrintPage({
     )
     .eq("quote_id", id)
     .maybeSingle();
+  const { data: commercialPartner } = quote.commercial_partner_id
+    ? await supabase
+        .from("commercial_partners")
+        .select(
+          "id, commercial_name, logo_url, logo_storage_path, primary_color, secondary_color, contact_name, contact_email, contact_phone, is_active"
+        )
+        .eq("id", quote.commercial_partner_id)
+        .maybeSingle<CommercialPartner>()
+    : { data: null };
 
   const quoteData = quote as Quote;
+  const partnerBranding = isPartnerBranding
+    ? getPartnerBranding(supabase, commercialPartner || null)
+    : null;
+  const partnerMissingReason = isPartnerBranding
+    ? getPartnerBrandingMissingReason(supabase, commercialPartner || null)
+    : null;
+
+  if (isPartnerBranding && (!quoteData.is_partner_quote || partnerMissingReason || !partnerBranding)) {
+    return (
+      <main className="min-h-screen bg-white p-10 text-[#151518]">
+        <h1 className="text-2xl font-semibold">White label no disponible</h1>
+        <p className="mt-3 text-sm text-[#555963]">
+          {!quoteData.is_partner_quote
+            ? "La cotizacion no esta marcada para aliado comercial."
+            : partnerMissingReason}
+        </p>
+        <Link
+          href={`/quotes/${quoteData.id}`}
+          className="mt-6 inline-flex rounded-xl bg-[#151518] px-5 py-3 text-sm font-semibold text-white"
+        >
+          Volver a cotizacion
+        </Link>
+      </main>
+    );
+  }
   const clientData = client as Client | null;
   const projectData = clientProject as ClientProject | null;
   const quoteSections = (sections || []) as QuoteSection[];
@@ -250,6 +296,15 @@ export default async function QuotePrintPage({
     Number(quoteData.total_mxn) ||
     Number(quoteData.grand_total) ||
     taxableBaseMXN + ivaMXN;
+  const publicTaxableBaseMXN = partnerBranding
+    ? subtotalMXN - discountMXN
+    : taxableBaseMXN;
+  const displayIvaMXN = partnerBranding ? publicTaxableBaseMXN * 0.16 : ivaMXN;
+  const displayTotalMXN = partnerBranding
+    ? publicTaxableBaseMXN + displayIvaMXN
+    : totalMXN;
+  const showPartnerDiscountLines =
+    !partnerBranding && Boolean(quoteData.is_partner_quote);
   const travelFuelMXN = Number(quoteData.travel_fuel_mxn || 0);
   const travelTollsMXN = Number(quoteData.travel_tolls_mxn || 0);
   const travelFoodMXN = Number(quoteData.travel_food_mxn || 0);
@@ -268,6 +323,11 @@ export default async function QuotePrintPage({
     .filter(Boolean) as string[];
   const exchangeRateSource = quoteData.exchange_rate_source || "manual";
   const exchangeRateDate = quoteData.exchange_rate_date || "";
+  const brandName = partnerBranding?.name || "ALFA High End Services";
+  const brandLogoSrc = partnerBranding?.logoUrl || "/logo-print.png";
+  const brandLogoAlt = partnerBranding?.name || "ALFA OS";
+  const brandPrimary = partnerBranding?.primaryColor || "#9E1B32";
+  const brandSecondary = partnerBranding?.secondaryColor || "#111318";
 
   const paymentTerms = termsSettings.payment_100_advance
     ? ["Anticipo: 100% del total de la propuesta."]
@@ -319,7 +379,15 @@ export default async function QuotePrintPage({
   }
 
   return (
-    <main className="print-root min-h-screen bg-[#EDEBE6] text-[#111318] py-5">
+    <main
+      className="print-root min-h-screen bg-[#EDEBE6] text-[#111318] py-5"
+      style={
+        {
+          "--brand-primary": brandPrimary,
+          "--brand-secondary": brandSecondary,
+        } as CSSProperties
+      }
+    >
       <style>{`
         @page {
           size: letter;
@@ -328,6 +396,18 @@ export default async function QuotePrintPage({
 
         .print-root {
           font-family: Arial, Helvetica, sans-serif;
+        }
+
+        [class*="text-[#9E1B32]"] {
+          color: var(--brand-primary) !important;
+        }
+
+        [class*="bg-[#9E1B32]"] {
+          background-color: var(--brand-primary) !important;
+        }
+
+        [class*="border-[#9E1B32]"] {
+          border-color: var(--brand-primary) !important;
         }
 
         .print-page,
@@ -622,8 +702,8 @@ export default async function QuotePrintPage({
         <section className="cover-page print-page flex min-h-[1056px] flex-col px-12 py-11">
           <header className="cover-print-header flex items-start justify-between">
             <img
-              src="/logo-print.png"
-              alt="ALFA OS"
+              src={brandLogoSrc}
+              alt={brandLogoAlt}
               className="cover-logo max-h-12 max-w-40"
             />
             <div className="text-right text-[11px] leading-5 text-[#555963]">
@@ -724,7 +804,7 @@ export default async function QuotePrintPage({
                 Inversion estimada
               </p>
               <p className="cover-total mt-4 text-[31px] font-semibold leading-none">
-                {formatCurrency(totalMXN, "MXN")}
+                {formatCurrency(displayTotalMXN, "MXN")}
               </p>
               <div className="mt-6 space-y-2 border-t border-[#D6D1C8] pt-5 text-[11px] leading-5">
                 <div className="flex justify-between gap-4">
@@ -741,7 +821,7 @@ export default async function QuotePrintPage({
                 </div>
                 <div className="flex justify-between gap-4">
                   <span className="text-[#555963]">IVA 16%</span>
-                  <span>{formatCurrency(ivaMXN, "MXN")}</span>
+                  <span>{formatCurrency(displayIvaMXN, "MXN")}</span>
                 </div>
               </div>
               <p className="mt-6 border-t border-[#D6D1C8] pt-4 text-[9px] leading-4 text-[#555963]">
@@ -757,7 +837,7 @@ export default async function QuotePrintPage({
               comerciales antes del desglose tecnico.
             </p>
             <p className="font-semibold uppercase tracking-[0.16em] text-[#111318]">
-              ALFA High End Services
+              {brandName}
             </p>
           </footer>
         </section>
@@ -898,7 +978,7 @@ export default async function QuotePrintPage({
               <span className="text-[#555963]">Subtotal</span>
               <span>{formatCurrency(subtotalMXN, "MXN")}</span>
             </div>
-            {quoteData.is_partner_quote && partnerEquipmentDiscountMXN > 0 ? (
+            {showPartnerDiscountLines && partnerEquipmentDiscountMXN > 0 ? (
               <div className="mb-2 flex justify-between">
                 <span className="text-[#555963]">
                   Descuento aliado equipo
@@ -906,7 +986,7 @@ export default async function QuotePrintPage({
                 <span>-{formatCurrency(partnerEquipmentDiscountMXN, "MXN")}</span>
               </div>
             ) : null}
-            {quoteData.is_partner_quote && partnerLaborDiscountMXN > 0 ? (
+            {showPartnerDiscountLines && partnerLaborDiscountMXN > 0 ? (
               <div className="mb-2 flex justify-between">
                 <span className="text-[#555963]">
                   Descuento aliado mano de obra
@@ -916,8 +996,8 @@ export default async function QuotePrintPage({
             ) : null}
             {discountMXN > 0 ? (
               <div className="mb-2 flex justify-between">
-                <span className="text-[#555963]">
-                  {quoteData.is_partner_quote
+                  <span className="text-[#555963]">
+                  {quoteData.is_partner_quote && !partnerBranding
                     ? "Descuento adicional"
                     : "Descuento"}
                 </span>
@@ -926,11 +1006,11 @@ export default async function QuotePrintPage({
             ) : null}
             <div className="mb-3 flex justify-between">
               <span className="text-[#555963]">IVA 16%</span>
-              <span>{formatCurrency(ivaMXN, "MXN")}</span>
+              <span>{formatCurrency(displayIvaMXN, "MXN")}</span>
             </div>
             <div className="total-line flex justify-between border-t border-[#D6D1C8] pt-3 text-base font-semibold">
               <span>Total</span>
-              <span>{formatCurrency(totalMXN, "MXN")}</span>
+              <span>{formatCurrency(displayTotalMXN, "MXN")}</span>
             </div>
             <p className="mt-3 text-[9px] leading-4 text-[#555963]">
               El total en MXN es estimado. El tipo de cambio aplicable será el

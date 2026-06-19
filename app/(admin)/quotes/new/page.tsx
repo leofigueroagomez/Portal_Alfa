@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { arrayMove } from "@dnd-kit/sortable";
@@ -57,6 +58,15 @@ type ClientProject = {
   id: number;
   project_number: number | null;
   name: string | null;
+};
+
+type CommercialPartner = {
+  id: number;
+  commercial_name: string;
+  logo_url: string | null;
+  primary_color: string;
+  secondary_color: string | null;
+  is_active: boolean;
 };
 
 type QuoteTermsSettings = {
@@ -161,6 +171,11 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
   const [travelTollsMXN, setTravelTollsMXN] = useState("");
   const [travelFoodMXN, setTravelFoodMXN] = useState("");
   const [isPartnerQuote, setIsPartnerQuote] = useState(false);
+  const [commercialPartners, setCommercialPartners] = useState<
+    CommercialPartner[]
+  >([]);
+  const [selectedCommercialPartnerId, setSelectedCommercialPartnerId] =
+    useState("");
   const [partnerEquipmentDiscountPercent, setPartnerEquipmentDiscountPercent] =
     useState("15");
   const [partnerLaborDiscountPercent, setPartnerLaborDiscountPercent] =
@@ -264,6 +279,25 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
     }
 
     loadClients();
+  }, []);
+
+  useEffect(() => {
+    async function loadCommercialPartners() {
+      const { data, error } = await supabase
+        .from("commercial_partners")
+        .select("id, commercial_name, logo_url, primary_color, secondary_color, is_active")
+        .eq("is_active", true)
+        .order("commercial_name", { ascending: true });
+
+      if (error) {
+        console.error("Error cargando aliados comerciales:", error);
+        return;
+      }
+
+      setCommercialPartners((data || []) as CommercialPartner[]);
+    }
+
+    loadCommercialPartners();
   }, []);
 
   useEffect(() => {
@@ -689,6 +723,10 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
   const operatingMarginColorClass = getMarginColorClass(
     operatingMarginPercent
   );
+  const selectedCommercialPartner =
+    commercialPartners.find(
+      (partner) => String(partner.id) === selectedCommercialPartnerId
+    ) || null;
 
   function getSectionEquipmentTotal(section: QuoteSection) {
     return section.items.reduce((sum, item) => {
@@ -720,6 +758,11 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
   }
 
   async function handleSaveQuote() {
+    if (isPartnerQuote && !selectedCommercialPartnerId) {
+      alert("Selecciona el aliado comercial para esta cotizacion.");
+      return;
+    }
+
     setSavingQuote(true);
 
     const baseNumber = await getNextBaseNumber();
@@ -776,6 +819,9 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
       travel_food_mxn: Number(travelFoodMXN) || 0,
       travel_total_mxn: travelTotalMXN,
       is_partner_quote: isPartnerQuote,
+      commercial_partner_id: isPartnerQuote
+        ? Number(selectedCommercialPartnerId)
+        : null,
       partner_equipment_discount_percent:
         Number(partnerEquipmentDiscountPercent) || 0,
       partner_labor_discount_percent: Number(partnerLaborDiscountPercent) || 0,
@@ -848,6 +894,7 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
         "travel_food_mxn",
         "travel_total_mxn",
         "is_partner_quote",
+        "commercial_partner_id",
         "partner_equipment_discount_percent",
         "partner_labor_discount_percent",
         "partner_equipment_discount_mxn",
@@ -1632,13 +1679,83 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
                   <input
                     type="checkbox"
                     checked={isPartnerQuote}
-                    onChange={(e) => setIsPartnerQuote(e.target.checked)}
+                    onChange={(e) => {
+                      setIsPartnerQuote(e.target.checked);
+                      if (!e.target.checked) setSelectedCommercialPartnerId("");
+                    }}
                   />
                   Cotizacion para aliado comercial
                 </label>
 
                 {isPartnerQuote ? (
                   <>
+                    <select
+                      className="w-full rounded-xl bg-[#151518] px-3 py-2 outline-none"
+                      value={selectedCommercialPartnerId}
+                      onChange={(e) =>
+                        setSelectedCommercialPartnerId(e.target.value)
+                      }
+                    >
+                      <option value="">Seleccionar aliado</option>
+                      {commercialPartners.map((partner) => (
+                        <option key={partner.id} value={partner.id}>
+                          {partner.commercial_name}
+                        </option>
+                      ))}
+                    </select>
+
+                    {commercialPartners.length === 0 ? (
+                      <Link
+                        href="/commercial-partners"
+                        className="inline-flex text-xs font-semibold text-[#F4C66A]"
+                      >
+                        Crear aliado comercial
+                      </Link>
+                    ) : null}
+
+                    {selectedCommercialPartner ? (
+                      <div className="flex items-center gap-3 rounded-xl bg-[#151518] p-3">
+                        <div
+                          className="flex h-12 w-12 items-center justify-center rounded-lg"
+                          style={{
+                            background: selectedCommercialPartner.primary_color,
+                          }}
+                        >
+                          {selectedCommercialPartner.logo_url ? (
+                            <img
+                              src={selectedCommercialPartner.logo_url}
+                              alt={selectedCommercialPartner.commercial_name}
+                              className="max-h-9 max-w-9 object-contain"
+                            />
+                          ) : (
+                            <span className="text-[10px] text-white">Logo</span>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold">
+                            {selectedCommercialPartner.commercial_name}
+                          </p>
+                          <div className="mt-2 flex gap-2">
+                            <span
+                              className="h-3 w-8 rounded-full"
+                              style={{
+                                background:
+                                  selectedCommercialPartner.primary_color,
+                              }}
+                            />
+                            <span
+                              className="h-3 w-8 rounded-full"
+                              style={{
+                                background:
+                                  selectedCommercialPartner.secondary_color ||
+                                  "#111111",
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+
                     <div className="grid grid-cols-2 gap-3">
                       <input
                         className="rounded-xl bg-[#151518] px-3 py-2 outline-none"
