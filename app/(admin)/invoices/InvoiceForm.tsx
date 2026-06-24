@@ -161,6 +161,111 @@ function getQuoteDiscountMxn(quote: ApprovedQuote | null) {
   return roundMoney(Math.max(explicitDiscount + partnerDiscount, 0));
 }
 
+function getQuoteFiscalSnapshot(
+  quote: ApprovedQuote | null,
+  fallbackSubtotalMxn: number
+) {
+  if (!quote) {
+    const subtotalMxn = roundMoney(fallbackSubtotalMxn);
+    const ivaMxn = roundMoney(subtotalMxn * 0.16);
+
+    return {
+      subtotalMxn,
+      discountMxn: 0,
+      taxableSubtotalMxn: subtotalMxn,
+      ivaMxn,
+      totalMxn: roundMoney(subtotalMxn + ivaMxn),
+    };
+  }
+
+  const subtotalMxn = roundMoney(
+    Number(quote.subtotal_mxn) || fallbackSubtotalMxn
+  );
+  const discountMxn = Math.min(getQuoteDiscountMxn(quote), subtotalMxn);
+  const taxableSubtotalMxn = roundMoney(
+    Number(quote.taxable_base_mxn) ||
+      Math.max(subtotalMxn - discountMxn, 0)
+  );
+  const approvedTotalMxn = roundMoney(
+    Number(quote.total_mxn) || Number(quote.grand_total) || 0
+  );
+  const ivaMxn = roundMoney(
+    Number(quote.iva_mxn) ||
+      (approvedTotalMxn > 0
+        ? Math.max(approvedTotalMxn - taxableSubtotalMxn, 0)
+        : taxableSubtotalMxn * 0.16)
+  );
+
+  return {
+    subtotalMxn,
+    discountMxn,
+    taxableSubtotalMxn,
+    ivaMxn,
+    totalMxn:
+      approvedTotalMxn > 0
+        ? approvedTotalMxn
+        : roundMoney(taxableSubtotalMxn + ivaMxn),
+  };
+}
+
+function logInvoiceQuoteMismatchDiagnostics(input: {
+  quote: ApprovedQuote | null;
+  invoice: {
+    subtotalMxn: number;
+    discountMxn: number;
+    taxableSubtotalMxn: number;
+    ivaMxn: number;
+    totalMxn: number;
+  };
+  differenceMxn: number;
+  concepts: InvoiceConcept[];
+}) {
+  const quote = input.quote;
+  const quoteSubtotalMxn = roundMoney(Number(quote?.subtotal_mxn || 0));
+  const quoteDiscountMxn = getQuoteDiscountMxn(quote);
+  const quoteTaxableSubtotalMxn = roundMoney(
+    Number(quote?.taxable_base_mxn) ||
+      Math.max(quoteSubtotalMxn - quoteDiscountMxn, 0)
+  );
+  const quoteIvaMxn = roundMoney(
+    Number(quote?.iva_mxn) ||
+      Math.max(
+        Number(quote?.total_mxn || quote?.grand_total || 0) -
+          quoteTaxableSubtotalMxn,
+        0
+      )
+  );
+  const quoteTotalMxn = roundMoney(
+    Number(quote?.total_mxn || quote?.grand_total || 0)
+  );
+
+  console.warn("[InvoiceForm] factura vs cotizacion aprobada mismatch", {
+    quote: {
+      id: quote?.id || null,
+      quoteNumber: quote?.quote_number || null,
+      subtotalMxn: quoteSubtotalMxn,
+      ivaMxn: quoteIvaMxn,
+      discountMxn: quoteDiscountMxn,
+      taxableSubtotalMxn: quoteTaxableSubtotalMxn,
+      totalMxn: quoteTotalMxn,
+    },
+    invoice: input.invoice,
+    differenceMxn: input.differenceMxn,
+    items: input.concepts.map((concept) => ({
+      sourceQuoteItemId: concept.source_quote_item_id,
+      productId: concept.product_id,
+      description: concept.commercial_description,
+      quantity: concept.quantity,
+      unitPriceMxn: concept.unit_price_mxn,
+      subtotalMxn: concept.subtotal_mxn,
+      discountMxn: concept.discount_mxn,
+      netAmountMxn: concept.net_amount_mxn,
+      ivaMxn: concept.iva_mxn,
+      totalMxn: concept.total_mxn,
+    })),
+  });
+}
+
 function getProductDescription(item: QuoteItem) {
   return [item.product_brand, item.product_model, item.product_name]
     .filter(Boolean)
@@ -236,24 +341,45 @@ export default function InvoiceForm({
     const grossSubtotal = roundMoney(
       grossAmounts.reduce((sum, amount) => sum + amount, 0)
     );
-    const quoteDiscount = Math.min(getQuoteDiscountMxn(selectedQuote), grossSubtotal);
+    const fiscalSnapshot = getQuoteFiscalSnapshot(selectedQuote, grossSubtotal);
+    const quoteDiscount = fiscalSnapshot.discountMxn;
     let distributedDiscount = 0;
+    let distributedGross = 0;
+    let distributedIva = 0;
 
     return quoteItems.map((item, index) => {
       const product = getRelation(item.products);
       const quantity = Number(item.quantity || 1) || 1;
-      const grossAmount = grossAmounts[index] || 0;
+      const isLastItem = index === quoteItems.length - 1;
+      const grossAmount = isLastItem
+        ? roundMoney(fiscalSnapshot.subtotalMxn - distributedGross)
+        : roundMoney(
+            grossSubtotal > 0
+              ? ((grossAmounts[index] || 0) / grossSubtotal) *
+                  fiscalSnapshot.subtotalMxn
+              : 0
+          );
+      distributedGross = roundMoney(distributedGross + grossAmount);
       const discount =
-        index === quoteItems.length - 1
+        isLastItem
           ? roundMoney(quoteDiscount - distributedDiscount)
           : roundMoney(
-              grossSubtotal > 0
-                ? (grossAmount / grossSubtotal) * quoteDiscount
+              fiscalSnapshot.subtotalMxn > 0
+                ? (grossAmount / fiscalSnapshot.subtotalMxn) * quoteDiscount
                 : 0
             );
       distributedDiscount = roundMoney(distributedDiscount + discount);
       const netAmount = roundMoney(Math.max(grossAmount - discount, 0));
-      const iva = roundMoney(netAmount * 0.16);
+      const iva =
+        isLastItem
+          ? roundMoney(fiscalSnapshot.ivaMxn - distributedIva)
+          : roundMoney(
+              fiscalSnapshot.taxableSubtotalMxn > 0
+                ? (netAmount / fiscalSnapshot.taxableSubtotalMxn) *
+                    fiscalSnapshot.ivaMxn
+                : 0
+            );
+      distributedIva = roundMoney(distributedIva + iva);
       const commercialDescription = getProductDescription(item);
       const conceptKey = String(item.id);
       const fiscalDescription =
@@ -666,10 +792,13 @@ export default function InvoiceForm({
       const subtotalValue = roundMoney(subtotal);
       const discountValue = roundMoney(discount);
       const taxableSubtotalValue = roundMoney(taxableSubtotal);
-      const selectedQuoteTotal = roundMoney(
-        Number(selectedQuote?.total_mxn || selectedQuote?.grand_total || 0)
+      const ivaValue = roundMoney(iva);
+      const selectedQuoteSnapshot = getQuoteFiscalSnapshot(
+        selectedQuote,
+        subtotalValue
       );
-      const calculatedTotal = roundMoney(taxableSubtotalValue + roundMoney(iva));
+      const selectedQuoteTotal = selectedQuoteSnapshot.totalMxn;
+      const calculatedTotal = roundMoney(taxableSubtotalValue + ivaValue);
 
       if (discountValue > subtotalValue) {
         setErrorMessage("El descuento no puede ser mayor que el subtotal bruto.");
@@ -677,11 +806,35 @@ export default function InvoiceForm({
       }
 
       if (Math.abs(roundMoney(subtotalValue - discountValue) - taxableSubtotalValue) > 0.01) {
+        logInvoiceQuoteMismatchDiagnostics({
+          quote: selectedQuote,
+          invoice: {
+            subtotalMxn: subtotalValue,
+            discountMxn: discountValue,
+            taxableSubtotalMxn: taxableSubtotalValue,
+            ivaMxn: ivaValue,
+            totalMxn: calculatedTotal,
+          },
+          differenceMxn: roundMoney(calculatedTotal - selectedQuoteTotal),
+          concepts,
+        });
         setErrorMessage("El descuento prorrateado no cuadra con el subtotal neto.");
         return;
       }
 
       if (selectedQuoteTotal > 0 && Math.abs(calculatedTotal - selectedQuoteTotal) > 0.05) {
+        logInvoiceQuoteMismatchDiagnostics({
+          quote: selectedQuote,
+          invoice: {
+            subtotalMxn: subtotalValue,
+            discountMxn: discountValue,
+            taxableSubtotalMxn: taxableSubtotalValue,
+            ivaMxn: ivaValue,
+            totalMxn: calculatedTotal,
+          },
+          differenceMxn: roundMoney(calculatedTotal - selectedQuoteTotal),
+          concepts,
+        });
         setErrorMessage("El total de la factura no cuadra con la cotizacion aprobada.");
         return;
       }
