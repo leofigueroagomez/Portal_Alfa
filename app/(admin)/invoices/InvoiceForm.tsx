@@ -112,6 +112,8 @@ type CreatedInvoice = {
   internal_folio: string | null;
 };
 
+const IVA_RATE = 0.16;
+
 function today() {
   return getMexicoDate();
 }
@@ -123,6 +125,18 @@ function getRelation<T>(relation: T | T[] | null | undefined) {
 
 function roundMoney(value: number) {
   return Math.round(value * 100) / 100;
+}
+
+function moneyToCents(value: number) {
+  return Math.round(roundMoney(value) * 100);
+}
+
+function centsToMoney(cents: number) {
+  return roundMoney(cents / 100);
+}
+
+function getIvaFromTaxBase(taxBaseMxn: number) {
+  return roundMoney(taxBaseMxn * IVA_RATE);
 }
 
 function isMissingLegacyAmountColumnError(error: unknown) {
@@ -205,6 +219,134 @@ function getQuoteFiscalSnapshot(
       approvedTotalMxn > 0
         ? approvedTotalMxn
         : roundMoney(taxableSubtotalMxn + ivaMxn),
+  };
+}
+
+function distributeCentsByWeight(
+  targetMxn: number,
+  weights: number[],
+  fallbackWeight = 1
+) {
+  const targetCents = moneyToCents(targetMxn);
+  if (weights.length === 0) return [];
+
+  const normalizedWeights = weights.map((weight) =>
+    Math.max(Number.isFinite(weight) ? weight : 0, 0)
+  );
+  const totalWeight = normalizedWeights.reduce((sum, weight) => sum + weight, 0);
+  const effectiveWeights =
+    totalWeight > 0
+      ? normalizedWeights
+      : weights.map(() => Math.max(fallbackWeight, 1));
+  const effectiveTotalWeight = effectiveWeights.reduce(
+    (sum, weight) => sum + weight,
+    0
+  );
+  let distributedCents = 0;
+
+  return effectiveWeights.map((weight, index) => {
+    if (index === effectiveWeights.length - 1) {
+      return targetCents - distributedCents;
+    }
+
+    const cents = Math.round((targetCents * weight) / effectiveTotalWeight);
+    distributedCents += cents;
+    return cents;
+  });
+}
+
+function taxCentsFromBaseCents(baseCents: number) {
+  return Math.round(baseCents * IVA_RATE);
+}
+
+function sumCents(values: number[]) {
+  return values.reduce((sum, value) => sum + value, 0);
+}
+
+function moveTaxBaseCent(input: {
+  baseCents: number[];
+  grossCents: number[];
+  discountCents: number[];
+  direction: 1 | -1;
+}) {
+  const { baseCents, grossCents, discountCents, direction } = input;
+
+  for (let receiver = 0; receiver < baseCents.length; receiver += 1) {
+    for (let donor = 0; donor < baseCents.length; donor += 1) {
+      if (receiver === donor) continue;
+      if (direction === 1 && baseCents[donor] <= 0) continue;
+      if (direction === -1 && baseCents[receiver] <= 0) continue;
+
+      const currentTax =
+        taxCentsFromBaseCents(baseCents[receiver]) +
+        taxCentsFromBaseCents(baseCents[donor]);
+      const nextReceiverBase =
+        direction === 1 ? baseCents[receiver] + 1 : baseCents[receiver] - 1;
+      const nextDonorBase =
+        direction === 1 ? baseCents[donor] - 1 : baseCents[donor] + 1;
+
+      if (nextReceiverBase < 0 || nextDonorBase < 0) continue;
+      if (direction === 1 && grossCents[donor] - 1 < discountCents[donor]) {
+        continue;
+      }
+      if (
+        direction === -1 &&
+        grossCents[receiver] - 1 < discountCents[receiver]
+      ) {
+        continue;
+      }
+
+      const nextTax =
+        taxCentsFromBaseCents(nextReceiverBase) +
+        taxCentsFromBaseCents(nextDonorBase);
+
+      if (nextTax - currentTax !== direction) continue;
+
+      baseCents[receiver] = nextReceiverBase;
+      baseCents[donor] = nextDonorBase;
+      grossCents[receiver] += direction === 1 ? 1 : -1;
+      grossCents[donor] += direction === 1 ? -1 : 1;
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function alignTaxBaseDistribution(input: {
+  grossCents: number[];
+  discountCents: number[];
+  targetIvaMxn: number;
+}) {
+  const grossCents = [...input.grossCents];
+  const discountCents = [...input.discountCents];
+  const baseCents = grossCents.map((gross, index) =>
+    Math.max(gross - (discountCents[index] || 0), 0)
+  );
+  const targetIvaCents = moneyToCents(input.targetIvaMxn);
+  let currentIvaCents = sumCents(baseCents.map(taxCentsFromBaseCents));
+  let remainingIterations = Math.abs(targetIvaCents - currentIvaCents) * 50 + 100;
+
+  while (currentIvaCents !== targetIvaCents && remainingIterations > 0) {
+    const direction: 1 | -1 = currentIvaCents < targetIvaCents ? 1 : -1;
+    const moved = moveTaxBaseCent({
+      baseCents,
+      grossCents,
+      discountCents,
+      direction,
+    });
+
+    if (!moved) break;
+    currentIvaCents = sumCents(baseCents.map(taxCentsFromBaseCents));
+    remainingIterations -= 1;
+  }
+
+  return {
+    grossCents,
+    discountCents,
+    baseCents,
+    ivaCents: baseCents.map(taxCentsFromBaseCents),
+    matchedTargetIva: currentIvaCents === targetIvaCents,
   };
 }
 
@@ -342,44 +484,33 @@ export default function InvoiceForm({
       grossAmounts.reduce((sum, amount) => sum + amount, 0)
     );
     const fiscalSnapshot = getQuoteFiscalSnapshot(selectedQuote, grossSubtotal);
-    const quoteDiscount = fiscalSnapshot.discountMxn;
-    let distributedDiscount = 0;
-    let distributedGross = 0;
-    let distributedIva = 0;
+    const grossCents = distributeCentsByWeight(
+      fiscalSnapshot.subtotalMxn,
+      grossAmounts
+    );
+    const discountCents = distributeCentsByWeight(
+      fiscalSnapshot.discountMxn,
+      grossCents
+    );
+    const adjustedDistribution = alignTaxBaseDistribution({
+      grossCents,
+      discountCents,
+      targetIvaMxn: fiscalSnapshot.ivaMxn,
+    });
 
     return quoteItems.map((item, index) => {
       const product = getRelation(item.products);
       const quantity = Number(item.quantity || 1) || 1;
-      const isLastItem = index === quoteItems.length - 1;
-      const grossAmount = isLastItem
-        ? roundMoney(fiscalSnapshot.subtotalMxn - distributedGross)
-        : roundMoney(
-            grossSubtotal > 0
-              ? ((grossAmounts[index] || 0) / grossSubtotal) *
-                  fiscalSnapshot.subtotalMxn
-              : 0
-          );
-      distributedGross = roundMoney(distributedGross + grossAmount);
-      const discount =
-        isLastItem
-          ? roundMoney(quoteDiscount - distributedDiscount)
-          : roundMoney(
-              fiscalSnapshot.subtotalMxn > 0
-                ? (grossAmount / fiscalSnapshot.subtotalMxn) * quoteDiscount
-                : 0
-            );
-      distributedDiscount = roundMoney(distributedDiscount + discount);
-      const netAmount = roundMoney(Math.max(grossAmount - discount, 0));
-      const iva =
-        isLastItem
-          ? roundMoney(fiscalSnapshot.ivaMxn - distributedIva)
-          : roundMoney(
-              fiscalSnapshot.taxableSubtotalMxn > 0
-                ? (netAmount / fiscalSnapshot.taxableSubtotalMxn) *
-                    fiscalSnapshot.ivaMxn
-                : 0
-            );
-      distributedIva = roundMoney(distributedIva + iva);
+      const grossAmount = centsToMoney(
+        adjustedDistribution.grossCents[index] || 0
+      );
+      const discount = centsToMoney(
+        adjustedDistribution.discountCents[index] || 0
+      );
+      const netAmount = centsToMoney(
+        adjustedDistribution.baseCents[index] || 0
+      );
+      const iva = getIvaFromTaxBase(netAmount);
       const commercialDescription = getProductDescription(item);
       const conceptKey = String(item.id);
       const fiscalDescription =

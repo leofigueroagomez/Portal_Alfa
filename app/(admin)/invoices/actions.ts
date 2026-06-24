@@ -109,6 +109,12 @@ type CfdiReceiverDiagnostic = {
   TaxZipCode: string;
 };
 
+const IVA_RATE = 0.16;
+
+function roundMoney(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
 export type StampProjectInvoiceResult =
   | {
       ok: true;
@@ -190,6 +196,61 @@ function getInvoiceItemLabel(item: InvoiceItemForStamping) {
   return currentDescription
     ? currentDescription.slice(0, 160)
     : `Concepto #${item.id}`;
+}
+
+function getInvoiceItemTaxBase(item: InvoiceItemForStamping) {
+  return roundMoney(
+    Number(
+      item.net_amount_mxn ??
+        Math.max(
+          Number(item.gross_amount_mxn ?? item.subtotal_mxn ?? 0) -
+            Number(item.discount_mxn || 0),
+          0
+        )
+    )
+  );
+}
+
+function getExpectedItemIva(item: InvoiceItemForStamping) {
+  if ((item.fiscal_object || "02") !== "02") return 0;
+  return roundMoney(getInvoiceItemTaxBase(item) * IVA_RATE);
+}
+
+function logFacturamaItemTaxDiagnostics(
+  invoiceId: number,
+  invoiceItems: InvoiceItemForStamping[]
+) {
+  const diagnostics = invoiceItems.map((item, index) => {
+    const subtotalMxn = roundMoney(
+      Number(item.gross_amount_mxn ?? item.subtotal_mxn ?? 0)
+    );
+    const discountMxn = roundMoney(Number(item.discount_mxn || 0));
+    const taxBaseMxn = getInvoiceItemTaxBase(item);
+    const sentTaxMxn = roundMoney(Number(item.iva_mxn || 0));
+    const expectedTaxMxn = getExpectedItemIva(item);
+
+    return {
+      index,
+      id: item.id,
+      description: getInvoiceItemLabel(item),
+      quantity: Number(item.quantity || 1),
+      unitPriceMxn: roundMoney(Number(item.unit_price_mxn || 0)),
+      subtotalMxn,
+      discountMxn,
+      taxBaseMxn,
+      taxRate: (item.fiscal_object || "02") === "02" ? IVA_RATE : 0,
+      taxTotalSentMxn: sentTaxMxn,
+      taxTotalExpectedMxn: expectedTaxMxn,
+      differenceMxn: roundMoney(sentTaxMxn - expectedTaxMxn),
+    };
+  });
+
+  console.info("[stampProjectInvoice] Facturama item tax diagnostics", {
+    invoiceId,
+    items: diagnostics,
+  });
+
+  return diagnostics;
 }
 
 function getCfdiDescriptionError(item: InvoiceItemForStamping) {
@@ -644,6 +705,22 @@ export async function stampProjectInvoice(
 
     if (missingItemFields.length > 0) {
       throw new Error(`Faltan datos fiscales en conceptos: ${missingItemFields.join(" | ")}`);
+    }
+
+    const itemTaxDiagnostics = logFacturamaItemTaxDiagnostics(invoice.id, invoiceItems);
+    const invalidItemTaxes = itemTaxDiagnostics.filter(
+      (item) => Math.abs(item.differenceMxn) > 0.009
+    );
+
+    if (invalidItemTaxes.length > 0) {
+      throw new Error(
+        `IVA invalido por concepto antes de Facturama: ${invalidItemTaxes
+          .map(
+            (item) =>
+              `items[${item.index}] ${item.description} enviado ${item.taxTotalSentMxn}, esperado ${item.taxTotalExpectedMxn}`
+          )
+          .join(" | ")}`
+      );
     }
 
     const result = await stampFacturamaInvoice({
