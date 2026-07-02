@@ -53,3 +53,18 @@ export function hydrateDiagnosticBlocks(
       imageUrl: block.image_url || "",
     }));
 }
+
+export function isMissingDiagnosticContextSchema(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+
+  const candidate = error as { code?: string; message?: string };
+  const message = candidate.message || "";
+
+  return (
+    candidate.code === "PGRST205" ||
+    candidate.code === "42P01" ||
+    candidate.code === "42703" ||
+    message.includes("quote_diagnostic_blocks") ||
+    message.includes("include_diagnostic_context")
+  );
+}

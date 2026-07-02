@@ -19,6 +19,7 @@ import {
   type QuoteItemLaborActivity,
 } from "@/lib/quoteLaborActivities";
 import {
+  isMissingDiagnosticContextSchema,
   normalizeDiagnosticBlocks,
   type QuoteDiagnosticBlock,
 } from "@/lib/quoteDiagnosticContext";
@@ -959,14 +960,21 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
         .insert(diagnosticBlocksToInsert);
 
       if (diagnosticBlocksError) {
-        console.error("Error creando quote_diagnostic_blocks:", diagnosticBlocksError);
-        alert(
-          "Error creando quote_diagnostic_blocks: " +
-            JSON.stringify(diagnosticBlocksError) +
-            (diagnosticBlocksError.message ? ` ${diagnosticBlocksError.message}` : "")
-        );
-        setSavingQuote(false);
-        return;
+        if (isMissingDiagnosticContextSchema(diagnosticBlocksError)) {
+          console.warn(
+            "quote_diagnostic_blocks no existe en schema cache; se omite guardado V1.",
+            diagnosticBlocksError
+          );
+        } else {
+          console.error("Error creando quote_diagnostic_blocks:", diagnosticBlocksError);
+          alert(
+            "Error creando quote_diagnostic_blocks: " +
+              JSON.stringify(diagnosticBlocksError) +
+              (diagnosticBlocksError.message ? ` ${diagnosticBlocksError.message}` : "")
+          );
+          setSavingQuote(false);
+          return;
+        }
       }
     }
 

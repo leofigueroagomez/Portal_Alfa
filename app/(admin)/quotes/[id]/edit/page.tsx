@@ -21,6 +21,7 @@ import {
 } from "@/lib/quoteLaborActivities";
 import {
   hydrateDiagnosticBlocks,
+  isMissingDiagnosticContextSchema,
   normalizeDiagnosticBlocks,
   type QuoteDiagnosticBlock,
 } from "@/lib/quoteDiagnosticContext";
@@ -533,12 +534,18 @@ export default function EditQuotePage() {
           .order("sort_order", { ascending: true });
 
       if (diagnosticBlocksError) {
+        if (isMissingDiagnosticContextSchema(diagnosticBlocksError)) {
+          setDiagnosticBlocks([]);
+        } else {
         reportStepError("leer quote_diagnostic_blocks", diagnosticBlocksError);
         setLoading(false);
         return;
+        }
       }
 
-      setDiagnosticBlocks(hydrateDiagnosticBlocks(diagnosticBlocksData));
+      if (!diagnosticBlocksError) {
+        setDiagnosticBlocks(hydrateDiagnosticBlocks(diagnosticBlocksData));
+      }
 
       const savedItems = (itemsData || []) as SavedItem[];
       const savedItemIds = savedItems.map((item) => item.id).filter(Boolean);
@@ -1187,9 +1194,16 @@ export default function EditQuotePage() {
       .eq("quote_id", quoteId);
 
     if (deleteDiagnosticBlocksError) {
+      if (isMissingDiagnosticContextSchema(deleteDiagnosticBlocksError)) {
+        console.warn(
+          "quote_diagnostic_blocks no existe en schema cache; se omite reemplazo V1.",
+          deleteDiagnosticBlocksError
+        );
+      } else {
       reportStepError("borrar quote_diagnostic_blocks", deleteDiagnosticBlocksError);
       setSavingQuote(false);
       return;
+      }
     }
 
     const diagnosticBlocksToInsert = normalizeDiagnosticBlocks(diagnosticBlocks).map(
@@ -1208,9 +1222,16 @@ export default function EditQuotePage() {
         .insert(diagnosticBlocksToInsert);
 
       if (insertDiagnosticBlocksError) {
+        if (isMissingDiagnosticContextSchema(insertDiagnosticBlocksError)) {
+          console.warn(
+            "quote_diagnostic_blocks no existe en schema cache; se omite guardado V1.",
+            insertDiagnosticBlocksError
+          );
+        } else {
         reportStepError("guardar quote_diagnostic_blocks", insertDiagnosticBlocksError);
         setSavingQuote(false);
         return;
+        }
       }
     }
 

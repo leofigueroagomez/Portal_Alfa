@@ -52,3 +52,5 @@ for delete
 using (
   public.has_internal_role(array['admin', 'direccion', 'comercial', 'ingenieria'])
 );
+
+notify pgrst, 'reload schema';

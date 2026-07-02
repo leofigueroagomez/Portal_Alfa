@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isMissingDiagnosticContextSchema } from "@/lib/quoteDiagnosticContext";
 
 type NumericLike = number | string | null | undefined;
 
@@ -380,13 +381,26 @@ export async function getQuotePdfSnapshot(
   supabase: SupabaseClient,
   quoteId: number
 ): Promise<QuotePdfSnapshot> {
-  const { data: quote, error: quoteError } = await supabase
+  let { data: quote, error: quoteError } = await supabase
     .from("quotes")
     .select(
       "id, quote_number, status, currency, client_id, client_project_id, equipment_total, labor_total, grand_total, discount_amount_mxn, partner_equipment_discount_mxn, partner_labor_discount_mxn, partner_total_discount_mxn, subtotal_mxn, taxable_base_mxn, iva_mxn, total_mxn, exchange_rate, exchange_rate_source, exchange_rate_date, includes_travel_expenses_detail, travel_fuel_mxn, travel_tolls_mxn, travel_food_mxn, travel_total_mxn, notes, include_diagnostic_context, created_at"
     )
     .eq("id", quoteId)
     .maybeSingle<QuoteRow>();
+
+  if (quoteError && isMissingDiagnosticContextSchema(quoteError)) {
+    const fallback = await supabase
+      .from("quotes")
+      .select(
+        "id, quote_number, status, currency, client_id, client_project_id, equipment_total, labor_total, grand_total, discount_amount_mxn, partner_equipment_discount_mxn, partner_labor_discount_mxn, partner_total_discount_mxn, subtotal_mxn, taxable_base_mxn, iva_mxn, total_mxn, exchange_rate, exchange_rate_source, exchange_rate_date, includes_travel_expenses_detail, travel_fuel_mxn, travel_tolls_mxn, travel_food_mxn, travel_total_mxn, notes, created_at"
+      )
+      .eq("id", quoteId)
+      .maybeSingle<QuoteRow>();
+
+    quote = fallback.data;
+    quoteError = fallback.error;
+  }
 
   if (quoteError) throw quoteError;
   if (!quote) throw new Error("Cotizacion no encontrada.");
@@ -397,7 +411,7 @@ export async function getQuotePdfSnapshot(
     { data: sections },
     { data: items },
     { data: terms },
-    { data: diagnosticBlocks },
+    diagnosticBlocksResult,
   ] = await Promise.all([
     quote.client_id
       ? supabase
@@ -441,6 +455,17 @@ export async function getQuotePdfSnapshot(
       .order("sort_order", { ascending: true })
       .returns<DiagnosticBlockRow[]>(),
   ]);
+
+  if (
+    diagnosticBlocksResult.error &&
+    !isMissingDiagnosticContextSchema(diagnosticBlocksResult.error)
+  ) {
+    throw diagnosticBlocksResult.error;
+  }
+
+  const diagnosticBlocks = diagnosticBlocksResult.error
+    ? []
+    : diagnosticBlocksResult.data || [];
 
   const quoteItems = items || [];
   const productIds = Array.from(

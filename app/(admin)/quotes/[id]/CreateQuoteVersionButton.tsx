@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/services/supabase";
+import { isMissingDiagnosticContextSchema } from "@/lib/quoteDiagnosticContext";
 
 type Props = {
   quoteId: number;
@@ -192,9 +193,16 @@ export default function CreateQuoteVersionButton({
       .order("sort_order", { ascending: true });
 
     if (diagnosticBlocksError) {
+      if (isMissingDiagnosticContextSchema(diagnosticBlocksError)) {
+        console.warn(
+          "quote_diagnostic_blocks no existe en schema cache; se omite copia V1.",
+          diagnosticBlocksError
+        );
+      } else {
       reportStepError("leer quote_diagnostic_blocks", diagnosticBlocksError);
       setCreating(false);
       return;
+      }
     }
 
     const { data: maxVersionQuote, error: versionError } = await supabase
@@ -409,9 +417,16 @@ export default function CreateQuoteVersionButton({
         .insert(diagnosticBlocksToInsert);
 
       if (insertDiagnosticBlocksError) {
+        if (isMissingDiagnosticContextSchema(insertDiagnosticBlocksError)) {
+          console.warn(
+            "quote_diagnostic_blocks no existe en schema cache; se omite copia V1.",
+            insertDiagnosticBlocksError
+          );
+        } else {
         reportStepError("crear quote_diagnostic_blocks", insertDiagnosticBlocksError);
         setCreating(false);
         return;
+        }
       }
     }
 
