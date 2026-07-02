@@ -339,6 +339,7 @@ async function resolveQuoteItemImage(
 }
 
 async function resolveDiagnosticImage(
+  supabase: SupabaseClient,
   imageUrl: string | null,
   alt: string | null
 ): Promise<QuotePdfItemImage> {
@@ -350,16 +351,38 @@ async function resolveDiagnosticImage(
     return { src: imageUrl, sourceUrl: imageUrl, status: "embedded", alt };
   }
 
-  if (!isPublicFetchableUrl(imageUrl)) {
+  let sourceUrl = imageUrl;
+
+  if (!/^https?:\/\//i.test(imageUrl)) {
+    const bucket = supabase.storage.from("project-photos");
+    const { data: signedData } = await bucket.createSignedUrl(imageUrl, 60 * 60);
+
+    if (signedData?.signedUrl) {
+      sourceUrl = signedData.signedUrl;
+    } else {
+      const { data: publicData } = bucket.getPublicUrl(imageUrl);
+      sourceUrl = publicData.publicUrl || imageUrl;
+    }
+  }
+
+  if (!isPublicFetchableUrl(sourceUrl) || isGoogleDrivePreviewUrl(sourceUrl)) {
     return { src: null, sourceUrl: imageUrl, status: "failed", alt };
   }
 
-  const dataUrl = await fetchImageAsDataUrl(imageUrl);
+  const dataUrl = await fetchImageAsDataUrl(sourceUrl);
   if (dataUrl) {
     return { src: dataUrl, sourceUrl: imageUrl, status: "embedded", alt };
   }
 
-  return { src: imageUrl, sourceUrl: imageUrl, status: "remote", alt };
+  return { src: sourceUrl, sourceUrl: imageUrl, status: "remote", alt };
+}
+
+function isGoogleDrivePreviewUrl(value: string) {
+  try {
+    return new URL(value).hostname.toLowerCase().endsWith("drive.google.com");
+  } catch {
+    return false;
+  }
 }
 
 async function mapWithConcurrency<T, R>(
@@ -630,6 +653,7 @@ export async function getQuotePdfSnapshot(
       text: block.text?.trim() || null,
       imageUrl: block.image_url?.trim() || null,
       image: await resolveDiagnosticImage(
+        supabase,
         block.image_url?.trim() || null,
         block.title?.trim() || "Contexto y Diagnostico"
       ),
