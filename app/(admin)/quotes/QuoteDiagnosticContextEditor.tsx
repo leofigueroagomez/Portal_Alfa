@@ -8,6 +8,11 @@ import {
 } from "@/lib/quoteDiagnosticContext";
 import { supabase } from "@/services/supabase";
 
+const ACCEPTED_IMAGE_INPUT =
+  "image/jpeg,image/png,image/webp,image/heic,image/heif,image/heic-sequence,image/heif-sequence,.jpg,.jpeg,.png,.webp,.heic,.heif";
+const MAX_IMAGE_DIMENSION = 2400;
+const JPEG_QUALITY = 0.86;
+
 type Props = {
   enabled: boolean;
   blocks: QuoteDiagnosticBlock[];
@@ -84,19 +89,21 @@ export default function QuoteDiagnosticContextEditor({
 
   async function uploadImage(blockId: string, file: File | null | undefined) {
     if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      alert("Selecciona una imagen valida.");
+    if (!isAcceptedDiagnosticImage(file)) {
+      alert("Selecciona una imagen valida: JPG, PNG, WebP o HEIC de iPhone.");
       return;
     }
 
-    const filePath = `quote-diagnostics/${crypto.randomUUID()}.${safeExt(file)}`;
     setUploadingBlockId(blockId);
 
     try {
+      const uploadable = await prepareImageForUpload(file);
+      const filePath = `quote-diagnostics/${crypto.randomUUID()}.${uploadable.ext}`;
       const { error } = await supabase.storage
         .from("project-photos")
-        .upload(filePath, file, {
+        .upload(filePath, uploadable.blob, {
           cacheControl: "3600",
+          contentType: uploadable.contentType,
           upsert: false,
         });
 
@@ -105,7 +112,9 @@ export default function QuoteDiagnosticContextEditor({
     } catch (error) {
       console.error("Error subiendo imagen de diagnostico:", error);
       alert(
-        "No se pudo subir la imagen. Intenta de nuevo o guarda una URL manual."
+        error instanceof Error
+          ? error.message
+          : "No se pudo subir la imagen. Intenta de nuevo o guarda una URL manual."
       );
     } finally {
       setUploadingBlockId(null);
@@ -120,6 +129,7 @@ export default function QuoteDiagnosticContextEditor({
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#B3B3B8]">
             Documenta situacion actual, hallazgos y criterio tecnico para
             propuestas donde conviene justificar la solucion antes del catalogo.
+            Acepta JPG, PNG, WebP o HEIC de iPhone.
           </p>
         </div>
 
@@ -224,7 +234,7 @@ export default function QuoteDiagnosticContextEditor({
                             : "Subir imagen"}
                           <input
                             type="file"
-                            accept="image/*"
+                            accept={ACCEPTED_IMAGE_INPUT}
                             className="sr-only"
                             disabled={uploadingBlockId === block.id}
                             onChange={(event) => {
@@ -300,11 +310,112 @@ export default function QuoteDiagnosticContextEditor({
   );
 }
 
-function safeExt(file: File) {
-  if (file.type === "image/png") return "png";
-  if (file.type === "image/webp") return "webp";
-  if (file.type === "image/gif") return "gif";
-  return "jpg";
+function isAcceptedDiagnosticImage(file: File) {
+  if (isHeicImage(file)) return true;
+
+  return (
+    ["image/jpeg", "image/png", "image/webp"].includes(file.type) ||
+    /\.(jpe?g|png|webp)$/i.test(file.name)
+  );
+}
+
+function isHeicImage(file: File) {
+  return (
+    [
+      "image/heic",
+      "image/heif",
+      "image/heic-sequence",
+      "image/heif-sequence",
+    ].includes(file.type) || /\.(heic|heif)$/i.test(file.name)
+  );
+}
+
+async function prepareImageForUpload(file: File) {
+  if (isHeicImage(file)) {
+    return convertHeicToJpeg(file);
+  }
+
+  if (file.type === "image/png" || /\.png$/i.test(file.name)) {
+    return {
+      blob: file,
+      ext: "png",
+      contentType: file.type || "image/png",
+    };
+  }
+
+  if (file.type === "image/webp" || /\.webp$/i.test(file.name)) {
+    return {
+      blob: file,
+      ext: "webp",
+      contentType: file.type || "image/webp",
+    };
+  }
+
+  return {
+    blob: file,
+    ext: "jpg",
+    contentType: file.type || "image/jpeg",
+  };
+}
+
+async function convertHeicToJpeg(file: File) {
+  try {
+    const heic2any = (await import("heic2any")).default;
+    const result = await heic2any({
+      blob: file,
+      toType: "image/jpeg",
+      quality: JPEG_QUALITY,
+    });
+    const convertedBlob = Array.isArray(result) ? result[0] : result;
+    const jpegBlob = await resizeJpegIfNeeded(convertedBlob);
+
+    return {
+      blob: jpegBlob,
+      ext: "jpg",
+      contentType: "image/jpeg",
+    };
+  } catch (error) {
+    console.error("Error convirtiendo HEIC/HEIF:", error);
+    throw new Error(
+      "No se pudo convertir la foto HEIC. Intenta convertirla a JPG o PNG antes de subirla."
+    );
+  }
+}
+
+async function resizeJpegIfNeeded(blob: Blob): Promise<Blob> {
+  if (!("createImageBitmap" in window)) return blob;
+
+  const bitmap = await createImageBitmap(blob);
+  const scale = Math.min(
+    1,
+    MAX_IMAGE_DIMENSION / Math.max(bitmap.width, bitmap.height)
+  );
+
+  if (scale >= 1) {
+    bitmap.close();
+    return blob;
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+
+  const context = canvas.getContext("2d");
+  if (!context) {
+    bitmap.close();
+    return blob;
+  }
+
+  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+
+  return new Promise((resolve) => {
+    canvas.toBlob(
+      (resizedBlob) => resolve(resizedBlob || blob),
+      "image/jpeg",
+      JPEG_QUALITY
+    );
+  });
 }
 
 function isDirectPreviewUrl(value: string) {
