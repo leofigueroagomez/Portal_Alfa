@@ -320,7 +320,6 @@ Uso confirmado en servicios:
 - Politica productiva exacta de storage para `project-photos`.
 - Si `service_reports` debe tener APIs server-side para crear/editar en lugar de inserts directos desde cliente.
 - Flujo definitivo para convertir una propuesta de reparacion en cotizacion/factura aprobada.
-- Si `docs/ai/MODULE_INDEX.md` debe apuntar a este documento en la fila de Servicios y/o Postventa.
 
 ## Documentos Relacionados
 
