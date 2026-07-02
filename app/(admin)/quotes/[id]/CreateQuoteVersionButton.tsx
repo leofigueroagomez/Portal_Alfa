@@ -54,6 +54,13 @@ type QuoteItemLaborActivity = {
   sort_order: number | null;
 };
 
+type QuoteDiagnosticBlock = {
+  title: string | null;
+  text: string | null;
+  image_url: string | null;
+  sort_order: number | null;
+};
+
 type NewQuoteItem = Omit<QuoteItem, "id"> & {
   quote_id: number;
   quote_section_id: number;
@@ -93,6 +100,7 @@ type SourceQuote = {
   exchange_rate_source?: string | null;
   exchange_rate_date?: string | null;
   notes?: string | null;
+  include_diagnostic_context?: boolean | null;
 };
 
 function shouldMoveVersionProjectToQuoted(stage: string | null | undefined) {
@@ -135,7 +143,7 @@ export default function CreateQuoteVersionButton({
     let { data: quote, error: quoteError } = (await supabase
       .from("quotes")
       .select(
-        "id, quote_group_id, quote_base_number, client_project_id, currency, equipment_total, labor_total, tax_total, discount_total, grand_total, discount_type, discount_percent, discount_amount_mxn, includes_travel_expenses_detail, travel_fuel_mxn, travel_tolls_mxn, travel_food_mxn, travel_total_mxn, is_partner_quote, commercial_partner_id, partner_equipment_discount_percent, partner_labor_discount_percent, partner_equipment_discount_mxn, partner_labor_discount_mxn, partner_total_discount_mxn, subtotal_mxn, taxable_base_mxn, iva_mxn, total_mxn, exchange_rate, exchange_rate_source, exchange_rate_date, notes"
+        "id, quote_group_id, quote_base_number, client_project_id, currency, equipment_total, labor_total, tax_total, discount_total, grand_total, discount_type, discount_percent, discount_amount_mxn, includes_travel_expenses_detail, travel_fuel_mxn, travel_tolls_mxn, travel_food_mxn, travel_total_mxn, is_partner_quote, commercial_partner_id, partner_equipment_discount_percent, partner_labor_discount_percent, partner_equipment_discount_mxn, partner_labor_discount_mxn, partner_total_discount_mxn, subtotal_mxn, taxable_base_mxn, iva_mxn, total_mxn, exchange_rate, exchange_rate_source, exchange_rate_date, notes, include_diagnostic_context"
       )
       .eq("id", quoteId)
       .single()) as {
@@ -148,6 +156,7 @@ export default function CreateQuoteVersionButton({
       (quoteError.message.includes("exchange_rate_source") ||
         quoteError.message.includes("exchange_rate_date") ||
         quoteError.message.includes("notes") ||
+        quoteError.message.includes("include_diagnostic_context") ||
         quoteError.message.includes("is_partner_quote") ||
         quoteError.message.includes("commercial_partner_id") ||
         quoteError.message.includes("total_mxn"))
@@ -172,6 +181,18 @@ export default function CreateQuoteVersionButton({
         "leer quote actual",
         quoteError || { message: "No se recibió quote actual" }
       );
+      setCreating(false);
+      return;
+    }
+
+    const { data: diagnosticBlocks, error: diagnosticBlocksError } = await supabase
+      .from("quote_diagnostic_blocks")
+      .select("title, text, image_url, sort_order")
+      .eq("quote_id", quoteId)
+      .order("sort_order", { ascending: true });
+
+    if (diagnosticBlocksError) {
+      reportStepError("leer quote_diagnostic_blocks", diagnosticBlocksError);
       setCreating(false);
       return;
     }
@@ -301,6 +322,7 @@ export default function CreateQuoteVersionButton({
       exchange_rate_source: quote.exchange_rate_source,
       exchange_rate_date: quote.exchange_rate_date,
       notes: quote.notes,
+      include_diagnostic_context: quote.include_diagnostic_context,
     };
 
     let newQuoteResult = await supabase
@@ -315,6 +337,7 @@ export default function CreateQuoteVersionButton({
         newQuoteResult.error.message.includes("exchange_rate_date") ||
         newQuoteResult.error.message.includes("client_project_id") ||
         newQuoteResult.error.message.includes("notes") ||
+        newQuoteResult.error.message.includes("include_diagnostic_context") ||
         newQuoteResult.error.message.includes("is_partner_quote") ||
         newQuoteResult.error.message.includes("total_mxn"))
     ) {
@@ -342,6 +365,7 @@ export default function CreateQuoteVersionButton({
         iva_mxn,
         total_mxn,
         notes,
+        include_diagnostic_context,
         ...fallbackPayload
       } = newQuotePayload;
 
@@ -362,6 +386,33 @@ export default function CreateQuoteVersionButton({
       );
       setCreating(false);
       return;
+    }
+
+    const diagnosticBlocksToInsert = ((diagnosticBlocks || []) as QuoteDiagnosticBlock[])
+      .filter(
+        (block) =>
+          Boolean(block.title?.trim()) ||
+          Boolean(block.text?.trim()) ||
+          Boolean(block.image_url?.trim())
+      )
+      .map((block, index) => ({
+        quote_id: newQuote.id,
+        title: block.title?.trim() || null,
+        text: block.text?.trim() || null,
+        image_url: block.image_url?.trim() || null,
+        sort_order: index,
+      }));
+
+    if (diagnosticBlocksToInsert.length > 0) {
+      const { error: insertDiagnosticBlocksError } = await supabase
+        .from("quote_diagnostic_blocks")
+        .insert(diagnosticBlocksToInsert);
+
+      if (insertDiagnosticBlocksError) {
+        reportStepError("crear quote_diagnostic_blocks", insertDiagnosticBlocksError);
+        setCreating(false);
+        return;
+      }
     }
 
     const sectionIdMap = new Map<number, number>();

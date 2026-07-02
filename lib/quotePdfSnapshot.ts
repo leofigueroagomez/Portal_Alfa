@@ -44,6 +44,10 @@ export type QuotePdfSnapshot = {
     travelTotalMxn: number;
   };
   sections: QuotePdfSection[];
+  diagnosticContext: {
+    enabled: boolean;
+    blocks: QuotePdfDiagnosticBlock[];
+  };
   terms: {
     payment100Equipment: boolean;
     laborPaymentMode: string;
@@ -53,6 +57,15 @@ export type QuotePdfSnapshot = {
     includesConduit: boolean;
     includesCabling: boolean;
   };
+};
+
+export type QuotePdfDiagnosticBlock = {
+  id: number;
+  title: string | null;
+  text: string | null;
+  imageUrl: string | null;
+  image: QuotePdfItemImage;
+  sortOrder: number | null;
 };
 
 export type QuotePdfSection = {
@@ -131,6 +144,7 @@ type QuoteRow = {
   travel_food_mxn?: NumericLike;
   travel_total_mxn?: NumericLike;
   notes?: string | null;
+  include_diagnostic_context?: boolean | null;
   created_at: string | null;
 };
 
@@ -198,6 +212,14 @@ type TermsRow = {
   includes_travel_expenses: boolean | null;
   includes_conduit: boolean | null;
   includes_cabling: boolean | null;
+};
+
+type DiagnosticBlockRow = {
+  id: number;
+  title: string | null;
+  text: string | null;
+  image_url: string | null;
+  sort_order: number | null;
 };
 
 const defaultTerms = {
@@ -315,6 +337,30 @@ async function resolveQuoteItemImage(
   return { src: sourceUrl, sourceUrl, status: "remote", alt };
 }
 
+async function resolveDiagnosticImage(
+  imageUrl: string | null,
+  alt: string | null
+): Promise<QuotePdfItemImage> {
+  if (!imageUrl) {
+    return { src: null, sourceUrl: null, status: "missing", alt };
+  }
+
+  if (/^data:image\//i.test(imageUrl)) {
+    return { src: imageUrl, sourceUrl: imageUrl, status: "embedded", alt };
+  }
+
+  if (!isPublicFetchableUrl(imageUrl)) {
+    return { src: null, sourceUrl: imageUrl, status: "failed", alt };
+  }
+
+  const dataUrl = await fetchImageAsDataUrl(imageUrl);
+  if (dataUrl) {
+    return { src: dataUrl, sourceUrl: imageUrl, status: "embedded", alt };
+  }
+
+  return { src: imageUrl, sourceUrl: imageUrl, status: "remote", alt };
+}
+
 async function mapWithConcurrency<T, R>(
   values: T[],
   limit: number,
@@ -337,7 +383,7 @@ export async function getQuotePdfSnapshot(
   const { data: quote, error: quoteError } = await supabase
     .from("quotes")
     .select(
-      "id, quote_number, status, currency, client_id, client_project_id, equipment_total, labor_total, grand_total, discount_amount_mxn, partner_equipment_discount_mxn, partner_labor_discount_mxn, partner_total_discount_mxn, subtotal_mxn, taxable_base_mxn, iva_mxn, total_mxn, exchange_rate, exchange_rate_source, exchange_rate_date, includes_travel_expenses_detail, travel_fuel_mxn, travel_tolls_mxn, travel_food_mxn, travel_total_mxn, notes, created_at"
+      "id, quote_number, status, currency, client_id, client_project_id, equipment_total, labor_total, grand_total, discount_amount_mxn, partner_equipment_discount_mxn, partner_labor_discount_mxn, partner_total_discount_mxn, subtotal_mxn, taxable_base_mxn, iva_mxn, total_mxn, exchange_rate, exchange_rate_source, exchange_rate_date, includes_travel_expenses_detail, travel_fuel_mxn, travel_tolls_mxn, travel_food_mxn, travel_total_mxn, notes, include_diagnostic_context, created_at"
     )
     .eq("id", quoteId)
     .maybeSingle<QuoteRow>();
@@ -351,6 +397,7 @@ export async function getQuotePdfSnapshot(
     { data: sections },
     { data: items },
     { data: terms },
+    { data: diagnosticBlocks },
   ] = await Promise.all([
     quote.client_id
       ? supabase
@@ -387,6 +434,12 @@ export async function getQuotePdfSnapshot(
       )
       .eq("quote_id", quoteId)
       .maybeSingle<TermsRow>(),
+    supabase
+      .from("quote_diagnostic_blocks")
+      .select("id, title, text, image_url, sort_order")
+      .eq("quote_id", quoteId)
+      .order("sort_order", { ascending: true })
+      .returns<DiagnosticBlockRow[]>(),
   ]);
 
   const quoteItems = items || [];
@@ -538,6 +591,26 @@ export async function getQuotePdfSnapshot(
   const ivaMxn = toNumber(quote.iva_mxn) || taxableBaseMxn * 0.16;
   const totalMxn =
     toNumber(quote.total_mxn) || toNumber(quote.grand_total) || taxableBaseMxn + ivaMxn;
+  const snapshotDiagnosticBlocks = await mapWithConcurrency(
+    (diagnosticBlocks || []).filter(
+      (block) =>
+        Boolean(block.title?.trim()) ||
+        Boolean(block.text?.trim()) ||
+        Boolean(block.image_url?.trim())
+    ),
+    4,
+    async (block) => ({
+      id: block.id,
+      title: block.title?.trim() || null,
+      text: block.text?.trim() || null,
+      imageUrl: block.image_url?.trim() || null,
+      image: await resolveDiagnosticImage(
+        block.image_url?.trim() || null,
+        block.title?.trim() || "Contexto y Diagnostico"
+      ),
+      sortOrder: block.sort_order,
+    })
+  );
 
   return {
     quote: {
@@ -583,6 +656,10 @@ export async function getQuotePdfSnapshot(
           toNumber(quote.travel_food_mxn),
     },
     sections: snapshotSections.sort(bySortOrder),
+    diagnosticContext: {
+      enabled: Boolean(quote.include_diagnostic_context),
+      blocks: snapshotDiagnosticBlocks.sort(bySortOrder),
+    },
     terms: {
       payment100Equipment:
         terms?.payment_100_equipment ?? defaultTerms.payment100Equipment,

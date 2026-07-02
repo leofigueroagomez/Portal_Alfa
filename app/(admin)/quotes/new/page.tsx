@@ -18,6 +18,11 @@ import {
   type LaborActivityCatalogOption,
   type QuoteItemLaborActivity,
 } from "@/lib/quoteLaborActivities";
+import {
+  normalizeDiagnosticBlocks,
+  type QuoteDiagnosticBlock,
+} from "@/lib/quoteDiagnosticContext";
+import QuoteDiagnosticContextEditor from "../QuoteDiagnosticContextEditor";
 import QuoteLaborActivitiesPanel from "../QuoteLaborActivitiesPanel";
 import QuickCreateProductButton from "../QuickCreateProductButton";
 
@@ -181,6 +186,11 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
   const [partnerLaborDiscountPercent, setPartnerLaborDiscountPercent] =
     useState("25");
   const [notes, setNotes] = useState("");
+  const [includeDiagnosticContext, setIncludeDiagnosticContext] =
+    useState(false);
+  const [diagnosticBlocks, setDiagnosticBlocks] = useState<
+    QuoteDiagnosticBlock[]
+  >([]);
   const [termsSettings, setTermsSettings] = useState<QuoteTermsSettings>({
     payment_100_equipment: true,
     labor_payment_mode: "50_50",
@@ -829,6 +839,7 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
       partner_labor_discount_mxn: partnerLaborDiscountMXN,
       partner_total_discount_mxn: cappedPartnerDiscountMXN,
       notes: notes.trim() || null,
+      include_diagnostic_context: includeDiagnosticContext,
     };
 
     let quotePayloadToInsert: Record<string, string | number | null | boolean> = {
@@ -887,6 +898,10 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
         delete quotePayloadToInsert.notes;
       }
 
+      if (quoteResult.error.message.includes("include_diagnostic_context")) {
+        delete quotePayloadToInsert.include_diagnostic_context;
+      }
+
       [
         "includes_travel_expenses_detail",
         "travel_fuel_mxn",
@@ -926,6 +941,33 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
       );
       setSavingQuote(false);
       return;
+    }
+
+    const diagnosticBlocksToInsert = normalizeDiagnosticBlocks(diagnosticBlocks).map(
+      (block, index) => ({
+        quote_id: quote.id,
+        title: block.title || null,
+        text: block.text || null,
+        image_url: block.imageUrl || null,
+        sort_order: index,
+      })
+    );
+
+    if (diagnosticBlocksToInsert.length > 0) {
+      const { error: diagnosticBlocksError } = await supabase
+        .from("quote_diagnostic_blocks")
+        .insert(diagnosticBlocksToInsert);
+
+      if (diagnosticBlocksError) {
+        console.error("Error creando quote_diagnostic_blocks:", diagnosticBlocksError);
+        alert(
+          "Error creando quote_diagnostic_blocks: " +
+            JSON.stringify(diagnosticBlocksError) +
+            (diagnosticBlocksError.message ? ` ${diagnosticBlocksError.message}` : "")
+        );
+        setSavingQuote(false);
+        return;
+      }
     }
 
     for (const [sectionIndex, section] of sections.entries()) {
@@ -1194,6 +1236,13 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
           onChange={(e) => setNotes(e.target.value)}
         />
       </section>
+
+      <QuoteDiagnosticContextEditor
+        enabled={includeDiagnosticContext}
+        blocks={diagnosticBlocks}
+        onEnabledChange={setIncludeDiagnosticContext}
+        onBlocksChange={setDiagnosticBlocks}
+      />
 
       <section className="mb-8 rounded-2xl border border-[#1F1F24] bg-[#151518] p-4 sm:p-6">
         <h2 className="text-2xl font-semibold mb-6">

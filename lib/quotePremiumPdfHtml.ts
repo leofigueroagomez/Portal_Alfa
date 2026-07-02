@@ -7,6 +7,7 @@ import type { QuotePdfSnapshot } from "@/lib/quotePdfSnapshot";
 
 type QuotePdfItem = QuotePdfSnapshot["sections"][number]["items"][number];
 type QuotePdfSection = QuotePdfSnapshot["sections"][number];
+type QuotePdfDiagnosticBlock = QuotePdfSnapshot["diagnosticContext"]["blocks"][number];
 
 type QuotePremiumPdfBranding = {
   name: string;
@@ -355,6 +356,62 @@ function buildSection(section: QuotePdfSection) {
   `;
 }
 
+function buildDiagnosticContext(snapshot: QuotePdfSnapshot) {
+  if (!snapshot.diagnosticContext.enabled) return "";
+
+  const blocks = snapshot.diagnosticContext.blocks.filter(
+    (block) => block.title || block.text || block.image.src
+  );
+  if (blocks.length === 0) return "";
+
+  const blockHtml = blocks
+    .map((block) => buildDiagnosticBlock(block))
+    .join("");
+
+  return `
+    <section class="page diagnostic-page">
+      <div class="page-heading">
+        <div>
+          <h2>Contexto y Diagnóstico</h2>
+          <p class="summary-reference">${escapeHtml(getProjectDisplay(snapshot))} - ${escapeHtml(
+            snapshot.quote.quoteNumber || `Cotizacion #${snapshot.quote.id}`
+          )}</p>
+        </div>
+        <div class="page-meta">
+          <strong>${escapeHtml(getClientDisplay(snapshot))}</strong>
+          <span>Diagnostico tecnico</span>
+        </div>
+      </div>
+
+      <div class="diagnostic-list">
+        ${blockHtml}
+      </div>
+    </section>
+  `;
+}
+
+function buildDiagnosticBlock(block: QuotePdfDiagnosticBlock) {
+  const imageHtml = block.image.src
+    ? `<div class="diagnostic-image-wrap"><img class="diagnostic-image" src="${escapeHtml(
+        block.image.src
+      )}" alt="${escapeHtml(block.image.alt || block.title || "Evidencia")}" onerror="this.style.display='none'" /></div>`
+    : "";
+
+  return `
+    <article class="diagnostic-block ${block.image.src ? "has-image" : "no-image"}">
+      ${imageHtml}
+      <div class="diagnostic-copy">
+        ${block.title ? `<h3>${escapeHtml(block.title)}</h3>` : ""}
+        ${
+          block.text
+            ? `<p>${escapeHtml(block.text).replaceAll("\n", "<br />")}</p>`
+            : ""
+        }
+      </div>
+    </article>
+  `;
+}
+
 function buildNotes(snapshot: QuotePdfSnapshot) {
   if (!snapshot.quote.notes) return "";
 
@@ -528,6 +585,10 @@ export function buildQuotePremiumPdfHtml(
         min-height: calc(279.4mm - 28mm);
         padding: 4mm 0 0;
       }
+      .diagnostic-page {
+        min-height: calc(279.4mm - 28mm);
+        padding: 4mm 0 0;
+      }
       .page-heading {
         align-items: flex-end;
         padding-bottom: 18px;
@@ -597,6 +658,53 @@ export function buildQuotePremiumPdfHtml(
       .section {
         margin-top: 18px;
         break-inside: auto;
+      }
+      .diagnostic-list {
+        margin-top: 20px;
+      }
+      .diagnostic-block {
+        display: grid;
+        gap: 18px;
+        padding: 18px 0;
+        border-bottom: 1px solid #e7e0d5;
+        break-inside: avoid;
+      }
+      .diagnostic-block.has-image {
+        grid-template-columns: 190px minmax(0, 1fr);
+      }
+      .diagnostic-block.no-image {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .diagnostic-block:first-child {
+        padding-top: 0;
+      }
+      .diagnostic-block:last-child {
+        border-bottom: 0;
+      }
+      .diagnostic-image-wrap {
+        width: 190px;
+        height: 128px;
+        border: 1px solid #e1ddd5;
+        background: #f7f5f1;
+      }
+      .diagnostic-image {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+      .diagnostic-copy h3 {
+        margin-bottom: 8px;
+        color: ${escapeHtml(primaryColor)};
+        font-size: 11px;
+        letter-spacing: .1em;
+        text-transform: uppercase;
+      }
+      .diagnostic-copy p {
+        color: #3f444d;
+        font-size: 11px;
+        line-height: 1.55;
+        overflow-wrap: anywhere;
       }
       .section:first-of-type { margin-top: 0; }
       .section-start-block {
@@ -716,6 +824,7 @@ export function buildQuotePremiumPdfHtml(
   <body>
     ${buildCover(snapshot, branding)}
     ${buildExecutiveSummary(snapshot, branding)}
+    ${buildDiagnosticContext(snapshot)}
     ${sectionsHtml}
     ${buildClosing(snapshot)}
   </body>

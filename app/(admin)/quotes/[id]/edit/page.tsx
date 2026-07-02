@@ -19,8 +19,14 @@ import {
   type LaborActivityCatalogOption,
   type QuoteItemLaborActivity,
 } from "@/lib/quoteLaborActivities";
+import {
+  hydrateDiagnosticBlocks,
+  normalizeDiagnosticBlocks,
+  type QuoteDiagnosticBlock,
+} from "@/lib/quoteDiagnosticContext";
 import ProjectStageSelect from "@/components/ProjectStageSelect";
 import QuickCreateProductButton from "../../QuickCreateProductButton";
+import QuoteDiagnosticContextEditor from "../../QuoteDiagnosticContextEditor";
 import QuoteLaborActivitiesPanel from "../../QuoteLaborActivitiesPanel";
 
 type Product = {
@@ -115,6 +121,7 @@ type Quote = {
   partner_labor_discount_mxn?: number | null;
   partner_total_discount_mxn?: number | null;
   notes?: string | null;
+  include_diagnostic_context?: boolean | null;
 };
 
 type ClientProject = {
@@ -246,6 +253,11 @@ export default function EditQuotePage() {
   const [partnerLaborDiscountPercent, setPartnerLaborDiscountPercent] =
     useState("25");
   const [notes, setNotes] = useState("");
+  const [includeDiagnosticContext, setIncludeDiagnosticContext] =
+    useState(false);
+  const [diagnosticBlocks, setDiagnosticBlocks] = useState<
+    QuoteDiagnosticBlock[]
+  >([]);
   const [clientProject, setClientProject] = useState<ClientProject | null>(null);
   const [termsSettings, setTermsSettings] =
     useState<QuoteTermsSettings>(defaultTermsSettings);
@@ -292,7 +304,7 @@ export default function EditQuotePage() {
     async function loadQuote() {
       let { data: quoteData, error: quoteError } = (await supabase
         .from("quotes")
-        .select("id, quote_number, client_id, status, client_project_id, exchange_rate, exchange_rate_source, exchange_rate_date, discount_type, discount_percent, discount_amount_mxn, includes_travel_expenses_detail, travel_fuel_mxn, travel_tolls_mxn, travel_food_mxn, travel_total_mxn, is_partner_quote, commercial_partner_id, partner_equipment_discount_percent, partner_labor_discount_percent, partner_equipment_discount_mxn, partner_labor_discount_mxn, partner_total_discount_mxn, notes")
+        .select("id, quote_number, client_id, status, client_project_id, exchange_rate, exchange_rate_source, exchange_rate_date, discount_type, discount_percent, discount_amount_mxn, includes_travel_expenses_detail, travel_fuel_mxn, travel_tolls_mxn, travel_food_mxn, travel_total_mxn, is_partner_quote, commercial_partner_id, partner_equipment_discount_percent, partner_labor_discount_percent, partner_equipment_discount_mxn, partner_labor_discount_mxn, partner_total_discount_mxn, notes, include_diagnostic_context")
         .eq("id", quoteId)
         .single()) as {
         data: Quote | null;
@@ -308,6 +320,7 @@ export default function EditQuotePage() {
           quoteError.message.includes("discount_percent") ||
           quoteError.message.includes("discount_amount_mxn") ||
           quoteError.message.includes("notes") ||
+          quoteError.message.includes("include_diagnostic_context") ||
           quoteError.message.includes("includes_travel_expenses_detail") ||
           quoteError.message.includes("is_partner_quote") ||
           quoteError.message.includes("commercial_partner_id"))
@@ -364,6 +377,7 @@ export default function EditQuotePage() {
         String(quoteData.partner_labor_discount_percent ?? 25)
       );
       setNotes(quoteData.notes || "");
+      setIncludeDiagnosticContext(Boolean(quoteData.include_diagnostic_context));
 
       if (quoteData.client_project_id) {
         const { data: projectData, error: projectError } = await supabase
@@ -510,6 +524,21 @@ export default function EditQuotePage() {
         ...defaultTermsSettings,
         ...(termsData as Partial<QuoteTermsSettings> | null),
       });
+
+      const { data: diagnosticBlocksData, error: diagnosticBlocksError } =
+        await supabase
+          .from("quote_diagnostic_blocks")
+          .select("id, title, text, image_url, sort_order")
+          .eq("quote_id", quoteId)
+          .order("sort_order", { ascending: true });
+
+      if (diagnosticBlocksError) {
+        reportStepError("leer quote_diagnostic_blocks", diagnosticBlocksError);
+        setLoading(false);
+        return;
+      }
+
+      setDiagnosticBlocks(hydrateDiagnosticBlocks(diagnosticBlocksData));
 
       const savedItems = (itemsData || []) as SavedItem[];
       const savedItemIds = savedItems.map((item) => item.id).filter(Boolean);
@@ -1080,6 +1109,7 @@ export default function EditQuotePage() {
       exchange_rate_source: exchangeRateSource,
       exchange_rate_date: exchangeRateDate,
       notes: notes.trim() || null,
+      include_diagnostic_context: includeDiagnosticContext,
     };
 
     let updateResult = await supabase
@@ -1105,7 +1135,8 @@ export default function EditQuotePage() {
         updateResult.error.message.includes("is_partner_quote") ||
         updateResult.error.message.includes("commercial_partner_id") ||
         updateResult.error.message.includes("partner_total_discount_mxn") ||
-        updateResult.error.message.includes("notes"))
+        updateResult.error.message.includes("notes") ||
+        updateResult.error.message.includes("include_diagnostic_context"))
     ) {
       const {
         exchange_rate_source,
@@ -1132,6 +1163,7 @@ export default function EditQuotePage() {
         partner_labor_discount_mxn,
         partner_total_discount_mxn,
         notes,
+        include_diagnostic_context,
         ...fallbackPayload
       } = quoteUpdatePayload;
 
@@ -1147,6 +1179,39 @@ export default function EditQuotePage() {
       reportStepError("actualizar quote", quoteError);
       setSavingQuote(false);
       return;
+    }
+
+    const { error: deleteDiagnosticBlocksError } = await supabase
+      .from("quote_diagnostic_blocks")
+      .delete()
+      .eq("quote_id", quoteId);
+
+    if (deleteDiagnosticBlocksError) {
+      reportStepError("borrar quote_diagnostic_blocks", deleteDiagnosticBlocksError);
+      setSavingQuote(false);
+      return;
+    }
+
+    const diagnosticBlocksToInsert = normalizeDiagnosticBlocks(diagnosticBlocks).map(
+      (block, index) => ({
+        quote_id: quoteId,
+        title: block.title || null,
+        text: block.text || null,
+        image_url: block.imageUrl || null,
+        sort_order: index,
+      })
+    );
+
+    if (diagnosticBlocksToInsert.length > 0) {
+      const { error: insertDiagnosticBlocksError } = await supabase
+        .from("quote_diagnostic_blocks")
+        .insert(diagnosticBlocksToInsert);
+
+      if (insertDiagnosticBlocksError) {
+        reportStepError("guardar quote_diagnostic_blocks", insertDiagnosticBlocksError);
+        setSavingQuote(false);
+        return;
+      }
     }
 
     if (quote.status === "approved" && selectedClientProjectId) {
@@ -1580,6 +1645,13 @@ export default function EditQuotePage() {
               onChange={(e) => setNotes(e.target.value)}
             />
           </div>
+
+          <QuoteDiagnosticContextEditor
+            enabled={includeDiagnosticContext}
+            blocks={diagnosticBlocks}
+            onEnabledChange={setIncludeDiagnosticContext}
+            onBlocksChange={setDiagnosticBlocks}
+          />
 
           <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-4 sm:p-6">
             <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
