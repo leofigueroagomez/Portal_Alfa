@@ -13,7 +13,7 @@ Indice operativo para ubicar rapido donde trabajar. Los niveles de riesgo se bas
 | Productos y catalogo | Activo | `app/(admin)/products/`, `product-categories`, `product-tags` | `app/(admin)/products/`, storage de imagenes si aplica | Pendiente de crear | Medio |
 | Aliados comerciales | Activo | `app/(admin)/commercial-partners/` | `lib/commercialPartners.ts`, SQL de white-label | Pendiente de crear | Alto |
 | Leads y landing publica | Activo | `app/page.tsx`, `app/(admin)/leads/` | `app/public/`, docs de auditoria si aplica | Pendiente de crear | Medio |
-| Usuarios y configuracion | Activo | `app/(admin)/users/`, `app/(admin)/settings/` | `services/profile.ts`, `lib/permissions.ts`, `proxy.ts` | Pendiente de crear | Critico |
+| Usuarios y configuracion | Activo | `app/(admin)/users/`, `app/(admin)/settings/` | `services/profile.ts`, `lib/permissions.ts`, `proxy.ts` | [`../modules/usuarios-configuracion/MODULE_CONTEXT.md`](../modules/usuarios-configuracion/MODULE_CONTEXT.md) | Critico |
 | Dashboard direccion | Activo | `app/(admin)/director-dashboard/`, `app/(admin)/dashboard/` | reportes y SQL relacionados | Pendiente de crear | Alto |
 | Ingenieria | Activo | `app/(admin)/engineering/`, `app/(admin)/engineering-quotes/` | rutas bajo `app/(admin)/engineering*` | Pendiente de crear | Medio |
 | Notificaciones | Activo | `app/(admin)/notifications/` | rutas/API relacionadas a notificaciones | Pendiente de crear | Medio |
@@ -28,6 +28,6 @@ Indice operativo para ubicar rapido donde trabajar. Los niveles de riesgo se bas
 
 ## Pendientes De Fase 2
 
-- Crear contexto especifico para compras/contratistas, usuarios/configuracion y aliados comerciales.
+- Crear contexto especifico para compras/contratistas y aliados comerciales.
 - Confirmar tablas exactas por modulo desde Supabase o migraciones completas.
 - Documentar comandos de validacion por modulo.
