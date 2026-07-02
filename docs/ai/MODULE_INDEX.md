@@ -7,7 +7,7 @@ Indice operativo para ubicar rapido donde trabajar. Los niveles de riesgo se bas
 | Cotizaciones | Activo, critico para ventas y PDF Premium | `app/(admin)/quotes/`, `app/api/quotes/` | `lib/quotePremiumPdf.ts`, `lib/quotePremiumPdfHtml.ts`, `lib/quotePdfSnapshot.ts`, `lib/quoteDiagnosticContext.ts`, `sql/*quote*` | [`../modules/cotizaciones/MODULE_CONTEXT.md`](../modules/cotizaciones/MODULE_CONTEXT.md) | Critico |
 | Facturacion | Activo, fiscal | `app/(admin)/invoices/`, `app/api/invoices/`, `app/api/payment-complements/` | `lib/facturama.ts`, `lib/invoices.ts`, `lib/paymentComplements.ts`, `lib/satBillingProviders.ts` | [`../modules/facturacion/MODULE_CONTEXT.md`](../modules/facturacion/MODULE_CONTEXT.md) | Critico |
 | Portal cliente | Activo, separacion de datos cliente/admin | `app/portal/`, `app/(client)/`, `app/public/documents/` | `lib/clientPortal.ts`, `lib/publicDocuments.ts`, `proxy.ts`, `lib/apiAuth.ts` | [`../modules/portal-cliente/MODULE_CONTEXT.md`](../modules/portal-cliente/MODULE_CONTEXT.md) | Critico |
-| Proyectos | Activo | `app/(admin)/projects/` | `lib/project*`, `app/api/projects/` | Pendiente de crear | Alto |
+| Proyectos | Activo | `app/(admin)/projects/` | `lib/project*`, `app/api/projects/` | [`../modules/proyectos/MODULE_CONTEXT.md`](../modules/proyectos/MODULE_CONTEXT.md) | Alto |
 | Servicios | Activo | `app/(admin)/services/`, `app/portal/services/` | `app/api/services/`, librerias `service*` si existen | [`../modules/servicios-postventa/MODULE_CONTEXT.md`](../modules/servicios-postventa/MODULE_CONTEXT.md) | Alto |
 | Compras y contratistas | Activo | `app/(admin)/contractors/`, rutas de compras bajo proyectos | `lib/projectOperationalItems.ts`, `app/api/projects/` | Pendiente de crear | Alto |
 | Productos y catalogo | Activo | `app/(admin)/products/`, `product-categories`, `product-tags` | `app/(admin)/products/`, storage de imagenes si aplica | Pendiente de crear | Medio |
@@ -28,6 +28,6 @@ Indice operativo para ubicar rapido donde trabajar. Los niveles de riesgo se bas
 
 ## Pendientes De Fase 2
 
-- Crear contexto especifico para proyectos, compras/contratistas, usuarios/configuracion y aliados comerciales.
+- Crear contexto especifico para compras/contratistas, usuarios/configuracion y aliados comerciales.
 - Confirmar tablas exactas por modulo desde Supabase o migraciones completas.
 - Documentar comandos de validacion por modulo.
