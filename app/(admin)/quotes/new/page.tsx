@@ -134,6 +134,8 @@ function canMarkProjectQuoted(stage: string | null | undefined) {
   return !["won", "installed", "closed"].includes(stage || "");
 }
 
+const PRODUCT_RESULT_LIMIT = 10;
+
 export default function NewQuotePage() {
   const searchParams = useSearchParams();
   const prefillClientId = searchParams.get("clientId") || "";
@@ -150,7 +152,8 @@ export default function NewQuotePage() {
   const [categoryFilter, setCategoryFilter] = useState("");
   const [tagFilter, setTagFilter] = useState("");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
-const [sections, setSections] = useState<QuoteSection[]>([]);
+  const [sections, setSections] = useState<QuoteSection[]>([]);
+  const [collapsedSectionIds, setCollapsedSectionIds] = useState<string[]>([]);
   const [draggingItem, setDraggingItem] = useState<{
     sectionId: string;
     productId: number;
@@ -158,6 +161,7 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
   const [activeSectionId, setActiveSectionId] = useState("");
   const [newSectionName, setNewSectionName] = useState("");
   const [search, setSearch] = useState("");
+  const [isProductPanelOpen, setIsProductPanelOpen] = useState(true);
   const [savingQuote, setSavingQuote] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
   const [clientProjects, setClientProjects] = useState<ClientProject[]>([]);
@@ -398,7 +402,37 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
 
     setSections((current) => [...current, newSection]);
     setActiveSectionId(newSection.id);
+    setCollapsedSectionIds((current) =>
+      current.filter((sectionId) => sectionId !== newSection.id)
+    );
     setNewSectionName("");
+  }
+
+  function expandSection(sectionId: string) {
+    setCollapsedSectionIds((current) =>
+      current.filter((currentSectionId) => currentSectionId !== sectionId)
+    );
+  }
+
+  function toggleSectionCollapsed(sectionId: string) {
+    setCollapsedSectionIds((current) =>
+      current.includes(sectionId)
+        ? current.filter((currentSectionId) => currentSectionId !== sectionId)
+        : [...current, sectionId]
+    );
+  }
+
+  function collapseAllSections() {
+    setCollapsedSectionIds(sections.map((section) => section.id));
+  }
+
+  function expandAllSections() {
+    setCollapsedSectionIds([]);
+  }
+
+  function selectSection(sectionId: string) {
+    setActiveSectionId(sectionId);
+    expandSection(sectionId);
   }
 
   function renameSection(sectionId: string, newName: string) {
@@ -426,6 +460,9 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
     );
 
     setSections(nextSections);
+    setCollapsedSectionIds((current) =>
+      current.filter((currentSectionId) => currentSectionId !== sectionId)
+    );
 
     if (activeSectionId === sectionId) {
       setActiveSectionId(nextSections[0]?.id || "");
@@ -437,6 +474,8 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
       alert("Selecciona un sistema primero");
       return;
     }
+
+    expandSection(activeSectionId);
 
     setSections((current) =>
       current.map((section) => {
@@ -631,6 +670,7 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
 
     return matchesSearch && matchesCategory && matchesTag && matchesFavorite;
   });
+  const visibleProducts = filteredProducts.slice(0, PRODUCT_RESULT_LIMIT);
 
   const numericExchangeRate = Number(exchangeRate) || 1;
 
@@ -752,6 +792,17 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
       return sum + getItemLaborSaleTotal(item);
     }, 0);
   }
+
+  const activeSection =
+    sections.find((section) => section.id === activeSectionId) || null;
+  const activeSectionEquipment = activeSection
+    ? getSectionEquipmentTotal(activeSection)
+    : 0;
+  const activeSectionLabor = activeSection
+    ? getSectionLaborTotal(activeSection)
+    : 0;
+  const activeSectionSubtotalMXN =
+    activeSectionEquipment * numericExchangeRate + activeSectionLabor;
 
   async function getNextBaseNumber() {
     const { data } = await supabase
@@ -1388,12 +1439,31 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
               </div>
             </div>
 
+            {sections.length > 0 ? (
+              <div className="mb-5 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={collapseAllSections}
+                  className="rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-2 text-sm font-semibold text-[#B3B3B8] hover:text-white"
+                >
+                  Colapsar todos
+                </button>
+                <button
+                  type="button"
+                  onClick={expandAllSections}
+                  className="rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-2 text-sm font-semibold text-[#B3B3B8] hover:text-white"
+                >
+                  Expandir todos
+                </button>
+              </div>
+            ) : null}
+
             <div className="flex gap-3 flex-wrap">
               {sections.map((section) => (
                 <button
                   key={section.id}
                   type="button"
-                  onClick={() => setActiveSectionId(section.id)}
+                  onClick={() => selectSection(section.id)}
                   className={`rounded-xl px-4 py-3 text-sm font-semibold border ${
                     activeSectionId === section.id
                       ? "bg-[#9E1B32] border-[#9E1B32]"
@@ -1410,6 +1480,9 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
             {sections.map((section) => {
               const sectionEquipment = getSectionEquipmentTotal(section);
               const sectionLabor = getSectionLaborTotal(section);
+              const sectionSubtotalMXN =
+                sectionEquipment * numericExchangeRate + sectionLabor;
+              const isCollapsed = collapsedSectionIds.includes(section.id);
 
               return (
                 <div
@@ -1434,10 +1507,19 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
                         >
                           Eliminar
                         </button>
+
+                        <button
+                          type="button"
+                          onClick={() => toggleSectionCollapsed(section.id)}
+                          className="bg-[#222228] hover:bg-[#2A2A30] border border-[#2A2A30] text-[#B3B3B8] rounded-xl px-5 py-3 font-semibold"
+                        >
+                          {isCollapsed ? "Expandir" : "Colapsar"}
+                        </button>
                       </div>
 
                       <p className="text-sm text-[#B3B3B8] mt-1">
                         {section.items.length} partidas
+                        {isCollapsed ? " / sistema colapsado" : ""}
                       </p>
                     </div>
 
@@ -1452,7 +1534,31 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
                     </div>
                   </div>
 
-                  {section.items.length === 0 ? (
+                  {isCollapsed ? (
+                    <button
+                      type="button"
+                      onClick={() => toggleSectionCollapsed(section.id)}
+                      className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] p-4 text-left transition hover:border-[#9E1B32]"
+                    >
+                      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                        <div>
+                          <p className="font-semibold">{section.name}</p>
+                          <p className="mt-1 text-sm text-[#B3B3B8]">
+                            {section.items.length} partidas
+                          </p>
+                        </div>
+                        <div className="text-sm md:text-right">
+                          <p>Equipo: {formatCurrency(sectionEquipment, "USD")}</p>
+                          <p className="text-[#B3B3B8]">
+                            MO: {formatCurrency(sectionLabor, "MXN")}
+                          </p>
+                          <p className="mt-1 font-semibold">
+                            Subtotal ref.: {formatCurrency(sectionSubtotalMXN, "MXN")}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  ) : section.items.length === 0 ? (
                     <p className="text-[#77777D]">
                       No hay productos en este sistema.
                     </p>
@@ -1567,7 +1673,7 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
             })}
           </div>
 
-          <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-4 sm:p-6">
+          <div className="hidden">
             <div className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <h2 className="text-2xl font-semibold">
                 Biblioteca de productos
@@ -1638,7 +1744,7 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
             </div>
 
             <div className="divide-y divide-[#2A2A30]">
-              {filteredProducts.map((product) => (
+              {visibleProducts.map((product) => (
                 <div
                   key={product.id}
                   className="grid min-w-[680px] grid-cols-[120px_1fr_160px_90px] items-center gap-4 px-2 py-5"
@@ -1696,12 +1802,183 @@ const [sections, setSections] = useState<QuoteSection[]>([]);
                 </div>
               ))}
             </div>
+            {filteredProducts.length > PRODUCT_RESULT_LIMIT ? (
+              <p className="px-2 pt-4 text-sm text-[#B3B3B8]">
+                Mostrando {PRODUCT_RESULT_LIMIT} de {filteredProducts.length} resultados. Refina la busqueda.
+              </p>
+            ) : null}
           </div>
         </div>
         </div>
 
-        <aside className="space-y-6">
-          <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-4 sm:p-6 xl:sticky xl:top-8">
+        <aside className="space-y-6 xl:sticky xl:top-8 xl:self-start">
+          <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-4 sm:p-6">
+            <h2 className="mb-4 text-xl font-semibold">Sistema activo</h2>
+
+            {sections.length === 0 ? (
+              <p className="text-sm text-[#B3B3B8]">
+                Agrega un sistema para capturar partidas.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                <select
+                  value={activeSectionId}
+                  onChange={(e) => selectSection(e.target.value)}
+                  className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 text-sm font-semibold outline-none focus:border-[#9E1B32]"
+                >
+                  {sections.map((section) => (
+                    <option key={section.id} value={section.id}>
+                      {section.name}
+                    </option>
+                  ))}
+                </select>
+
+                {activeSection ? (
+                  <div className="rounded-xl border border-[#2A2A30] bg-[#222228] p-4 text-sm">
+                    <p className="font-semibold">{activeSection.name}</p>
+                    <p className="mt-1 text-[#B3B3B8]">
+                      {activeSection.items.length} partidas
+                    </p>
+                    <div className="mt-4 space-y-2">
+                      <div className="flex justify-between gap-3">
+                        <span className="text-[#B3B3B8]">Equipo</span>
+                        <span>{formatCurrency(activeSectionEquipment, "USD")}</span>
+                      </div>
+                      <div className="flex justify-between gap-3">
+                        <span className="text-[#B3B3B8]">Mano de obra</span>
+                        <span>{formatCurrency(activeSectionLabor, "MXN")}</span>
+                      </div>
+                      <div className="flex justify-between gap-3 border-t border-[#2A2A30] pt-3 font-semibold">
+                        <span>Subtotal ref.</span>
+                        <span>{formatCurrency(activeSectionSubtotalMXN, "MXN")}</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-4 sm:p-6">
+            <button
+              type="button"
+              onClick={() => setIsProductPanelOpen((current) => !current)}
+              className="flex w-full items-center justify-between gap-4 text-left"
+            >
+              <span className="text-xl font-semibold">Agregar productos</span>
+              <span className="rounded-xl border border-[#2A2A30] bg-[#222228] px-3 py-2 text-xs font-semibold text-[#B3B3B8]">
+                {isProductPanelOpen ? "Ocultar" : "Mostrar"}
+              </span>
+            </button>
+
+            {isProductPanelOpen ? (
+              <div className="mt-5 space-y-4">
+                <p className="rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 text-sm text-[#B3B3B8]">
+                  Se agregara a:{" "}
+                  <span className="font-semibold text-white">
+                    {activeSection?.name || "Selecciona un sistema"}
+                  </span>
+                </p>
+
+                <QuickCreateProductButton onProductCreated={handleProductCreated} />
+
+                <input
+                  type="text"
+                  placeholder="Buscar producto..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none focus:border-[#9E1B32]"
+                />
+
+                <div className="grid grid-cols-1 gap-3">
+                  <select
+                    className="rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none focus:border-[#9E1B32]"
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                  >
+                    <option value="">Todas las categorias</option>
+                    {productCategories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    className="rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none focus:border-[#9E1B32]"
+                    value={tagFilter}
+                    onChange={(e) => setTagFilter(e.target.value)}
+                  >
+                    <option value="">Todos los tags</option>
+                    {productTags.map((tag) => (
+                      <option key={tag.id} value={tag.id}>
+                        {tag.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  <label className="flex items-center gap-3 rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={favoritesOnly}
+                      onChange={(e) => setFavoritesOnly(e.target.checked)}
+                    />
+                    Favoritos ALFA
+                  </label>
+                </div>
+
+                <div className="max-h-[520px] overflow-y-auto divide-y divide-[#2A2A30]">
+                  {visibleProducts.map((product) => (
+                    <div key={product.id} className="flex gap-3 py-4">
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#222228]">
+                        {product.image_url ? (
+                          <img
+                            src={product.image_url}
+                            alt={product.name}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-[10px] text-[#77777D]">Sin img</span>
+                        )}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold">
+                          {product.brand} {product.model}
+                        </p>
+                        <p className="line-clamp-2 text-xs text-[#B3B3B8]">
+                          {product.name}
+                        </p>
+                        <p className="mt-2 text-sm font-semibold">
+                          {formatCurrency(
+                            product.calculated_sale_price,
+                            product.sale_currency
+                          )}
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => addProduct(product)}
+                        disabled={!activeSection}
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#9E1B32] text-2xl font-light disabled:cursor-not-allowed disabled:bg-[#2A2A30] disabled:text-[#77777D]"
+                      >
+                        +
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {filteredProducts.length > PRODUCT_RESULT_LIMIT ? (
+                  <p className="text-sm text-[#B3B3B8]">
+                    Mostrando {PRODUCT_RESULT_LIMIT} de {filteredProducts.length} resultados. Refina la busqueda.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-4 sm:p-6">
             <h2 className="text-2xl font-semibold mb-6">
               Resumen
             </h2>
