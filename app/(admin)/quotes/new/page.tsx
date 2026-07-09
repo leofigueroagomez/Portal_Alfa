@@ -2207,7 +2207,7 @@ export default function NewQuotePage() {
         </div>
         </div>
 
-        <aside className="space-y-6 xl:sticky xl:top-8 xl:self-start">
+        <aside className="space-y-6 xl:sticky xl:top-8 xl:max-h-[calc(100vh-4rem)] xl:self-start xl:overflow-y-auto xl:overscroll-contain xl:pr-2">
           <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-4 sm:p-6">
             <h2 className="mb-4 text-xl font-semibold">Sistema activo</h2>
 
