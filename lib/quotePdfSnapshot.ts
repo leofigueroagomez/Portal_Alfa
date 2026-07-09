@@ -2,6 +2,12 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isMissingDiagnosticContextSchema } from "@/lib/quoteDiagnosticContext";
+import {
+  CLIENT_EXISTING_SUPPLY_TYPE,
+  NEW_EQUIPMENT_SUPPLY_TYPE,
+  isMissingQuoteItemAreaAllocationsSchema,
+  type QuoteItemAreaAllocation,
+} from "@/lib/quoteItemPresentation";
 
 type NumericLike = number | string | null | undefined;
 
@@ -95,6 +101,10 @@ export type QuotePdfItem = {
   productName: string | null;
   productImageUrl: string | null;
   productImage: QuotePdfItemImage;
+  existingCustomerEquipment: boolean;
+  area: string | null;
+  customerVisibleNote: string | null;
+  areaAllocations: QuoteItemAreaAllocation[];
   sortOrder: number | null;
   laborActivities: QuotePdfLaborActivity[];
 };
@@ -184,6 +194,9 @@ type ItemRow = {
   product_model: string | null;
   product_name: string | null;
   product_image_url: string | null;
+  existing_customer_equipment?: boolean | null;
+  area?: string | null;
+  customer_visible_note?: string | null;
   sort_order: number | null;
 };
 
@@ -202,6 +215,16 @@ type LaborActivityRow = {
   sale_total_mxn: NumericLike;
   assigned_role: string | null;
   notes: string | null;
+  sort_order: number | null;
+};
+
+type AreaAllocationRow = {
+  id: number;
+  quote_item_id: number;
+  area: string | null;
+  quantity: NumericLike;
+  supply_type: string | null;
+  customer_visible_note: string | null;
   sort_order: number | null;
 };
 
@@ -237,7 +260,15 @@ function toNumber(value: NumericLike) {
   return Number(value || 0);
 }
 
-function getEquipmentUnitPriceUsd(item: ItemRow, exchangeRate: number) {
+function getEquipmentUnitPriceUsd(
+  item: ItemRow,
+  exchangeRate: number,
+  ignoreExistingCustomerEquipment = false
+) {
+  if (!ignoreExistingCustomerEquipment && item.existing_customer_equipment) {
+    return 0;
+  }
+
   if (item.unit_equipment_price_usd != null) {
     return toNumber(item.unit_equipment_price_usd);
   }
@@ -432,7 +463,7 @@ export async function getQuotePdfSnapshot(
     { data: client },
     { data: project },
     { data: sections },
-    { data: items },
+    itemsResult,
     { data: terms },
     diagnosticBlocksResult,
   ] = await Promise.all([
@@ -459,7 +490,7 @@ export async function getQuotePdfSnapshot(
     supabase
       .from("quote_items")
       .select(
-        "id, quote_section_id, product_id, quantity, sale_currency, unit_equipment_price, unit_equipment_price_usd, equipment_total, equipment_total_usd, unit_labor_price, labor_total, line_total, product_brand, product_model, product_name, product_image_url, sort_order"
+        "id, quote_section_id, product_id, quantity, sale_currency, unit_equipment_price, unit_equipment_price_usd, equipment_total, equipment_total_usd, unit_labor_price, labor_total, line_total, product_brand, product_model, product_name, product_image_url, existing_customer_equipment, area, customer_visible_note, sort_order"
       )
       .eq("quote_id", quoteId)
       .order("sort_order", { ascending: true })
@@ -490,7 +521,21 @@ export async function getQuotePdfSnapshot(
     ? []
     : diagnosticBlocksResult.data || [];
 
-  const quoteItems = items || [];
+  let quoteItems = itemsResult.data || [];
+  if (itemsResult.error) {
+    const fallbackItems = await supabase
+      .from("quote_items")
+      .select(
+        "id, quote_section_id, product_id, quantity, sale_currency, unit_equipment_price, unit_equipment_price_usd, equipment_total, equipment_total_usd, unit_labor_price, labor_total, line_total, product_brand, product_model, product_name, product_image_url, sort_order"
+      )
+      .eq("quote_id", quoteId)
+      .order("sort_order", { ascending: true })
+      .returns<ItemRow[]>();
+
+    if (fallbackItems.error) throw fallbackItems.error;
+    quoteItems = fallbackItems.data || [];
+  }
+
   const productIds = Array.from(
     new Set(quoteItems.map((item) => item.product_id).filter(Boolean) as number[])
   );
@@ -505,6 +550,29 @@ export async function getQuotePdfSnapshot(
     (products || []).map((product) => [product.id, product.image_url])
   );
   const itemIds = quoteItems.map((item) => item.id);
+  let areaAllocations: AreaAllocationRow[] = [];
+  if (itemIds.length) {
+    const areaAllocationsResult = await supabase
+      .from("quote_item_area_allocations")
+      .select(
+        "id, quote_item_id, area, quantity, supply_type, customer_visible_note, sort_order"
+      )
+      .in("quote_item_id", itemIds)
+      .order("sort_order", { ascending: true })
+      .returns<AreaAllocationRow[]>();
+
+    if (
+      areaAllocationsResult.error &&
+      !isMissingQuoteItemAreaAllocationsSchema(areaAllocationsResult.error)
+    ) {
+      throw areaAllocationsResult.error;
+    }
+
+    areaAllocations = areaAllocationsResult.error
+      ? []
+      : areaAllocationsResult.data || [];
+  }
+
   const { data: laborActivities } = itemIds.length
     ? await supabase
         .from("quote_item_labor_activities")
@@ -517,6 +585,23 @@ export async function getQuotePdfSnapshot(
     : { data: [] };
 
   const exchangeRate = toNumber(quote.exchange_rate) || 1;
+  const areaAllocationsByItemId = new Map<number, QuoteItemAreaAllocation[]>();
+  for (const allocation of areaAllocations) {
+    const current = areaAllocationsByItemId.get(allocation.quote_item_id) || [];
+    current.push({
+      id: allocation.id,
+      area: allocation.area || "",
+      quantity: toNumber(allocation.quantity),
+      supply_type:
+        allocation.supply_type === CLIENT_EXISTING_SUPPLY_TYPE
+          ? CLIENT_EXISTING_SUPPLY_TYPE
+          : NEW_EQUIPMENT_SUPPLY_TYPE,
+      customer_visible_note: allocation.customer_visible_note || "",
+      sort_order: allocation.sort_order || 0,
+    });
+    areaAllocationsByItemId.set(allocation.quote_item_id, current);
+  }
+
   const laborByItemId = new Map<number, QuotePdfLaborActivity[]>();
   for (const activity of laborActivities || []) {
     const current = laborByItemId.get(activity.quote_item_id) || [];
@@ -537,15 +622,33 @@ export async function getQuotePdfSnapshot(
   const itemsBySectionId = new Map<number, QuotePdfItem[]>();
   const snapshotItems = await mapWithConcurrency(quoteItems, 6, async (item) => {
     const quantity = toNumber(item.quantity);
-    const unitEquipmentPriceUsd = getEquipmentUnitPriceUsd(item, exchangeRate);
+    const itemAreaAllocations = areaAllocationsByItemId.get(item.id) || [];
+    const newEquipmentQuantity = itemAreaAllocations.length
+      ? itemAreaAllocations.reduce(
+          (sum, allocation) =>
+            allocation.supply_type === CLIENT_EXISTING_SUPPLY_TYPE
+              ? sum
+              : sum + toNumber(allocation.quantity),
+          0
+        )
+      : quantity;
+    const unitEquipmentPriceUsd = getEquipmentUnitPriceUsd(
+      item,
+      exchangeRate,
+      Boolean(itemAreaAllocations.length)
+    );
     const equipmentTotalUsd =
-      toNumber(item.equipment_total_usd) ||
-      toNumber(item.equipment_total) ||
-      unitEquipmentPriceUsd * quantity;
+      itemAreaAllocations.length > 0
+        ? unitEquipmentPriceUsd * newEquipmentQuantity
+        : toNumber(item.equipment_total_usd) ||
+          toNumber(item.equipment_total) ||
+          unitEquipmentPriceUsd * quantity;
     const unitLaborPriceMxn = toNumber(item.unit_labor_price);
     const laborTotalMxn = toNumber(item.labor_total) || unitLaborPriceMxn * quantity;
     const lineTotalMxn =
-      toNumber(item.line_total) || equipmentTotalUsd * exchangeRate + laborTotalMxn;
+      item.existing_customer_equipment || itemAreaAllocations.length > 0
+        ? equipmentTotalUsd * exchangeRate + laborTotalMxn
+        : toNumber(item.line_total) || equipmentTotalUsd * exchangeRate + laborTotalMxn;
     const description = [item.product_brand, item.product_model, item.product_name]
       .filter(Boolean)
       .join(" ");
@@ -567,6 +670,10 @@ export async function getQuotePdfSnapshot(
       productName: item.product_name,
       productImageUrl: imageUrl,
       productImage: await resolveQuoteItemImage(supabase, imageUrl, description || null),
+      existingCustomerEquipment: Boolean(item.existing_customer_equipment),
+      area: item.area || null,
+      customerVisibleNote: item.customer_visible_note || null,
+      areaAllocations: itemAreaAllocations,
       sortOrder: item.sort_order,
       laborActivities: laborByItemId.get(item.id) || [],
       quoteSectionId: item.quote_section_id,
@@ -591,6 +698,10 @@ export async function getQuotePdfSnapshot(
       productName: item.productName,
       productImageUrl: item.productImageUrl,
       productImage: item.productImage,
+      existingCustomerEquipment: item.existingCustomerEquipment,
+      area: item.area,
+      customerVisibleNote: item.customerVisibleNote,
+      areaAllocations: item.areaAllocations,
       sortOrder: item.sortOrder,
       laborActivities: item.laborActivities,
     });
@@ -599,14 +710,24 @@ export async function getQuotePdfSnapshot(
 
   const snapshotSections = (sections || []).map((section) => {
     const sectionItems = itemsBySectionId.get(section.id) || [];
+    const sectionHasAllocations = sectionItems.some(
+      (item) => item.areaAllocations.length > 0
+    );
+    const calculatedEquipmentTotalUsd = sectionItems.reduce(
+      (sum, item) => sum + item.equipmentTotalUsd,
+      0
+    );
     const equipmentTotalUsd =
-      toNumber(section.equipment_total) ||
-      sectionItems.reduce((sum, item) => sum + item.equipmentTotalUsd, 0);
+      sectionHasAllocations
+        ? calculatedEquipmentTotalUsd
+        : toNumber(section.equipment_total) || calculatedEquipmentTotalUsd;
     const laborTotalMxn =
       toNumber(section.labor_total) ||
       sectionItems.reduce((sum, item) => sum + item.laborTotalMxn, 0);
     const totalMxn =
-      toNumber(section.total) || equipmentTotalUsd * exchangeRate + laborTotalMxn;
+      sectionHasAllocations
+        ? equipmentTotalUsd * exchangeRate + laborTotalMxn
+        : toNumber(section.total) || equipmentTotalUsd * exchangeRate + laborTotalMxn;
 
     return {
       id: section.id,
@@ -619,26 +740,40 @@ export async function getQuotePdfSnapshot(
     };
   });
 
-  const equipmentTotalUsd =
-    toNumber(quote.equipment_total) ||
-    snapshotSections.reduce((sum, section) => sum + section.equipmentTotalUsd, 0);
+  const hasAnyAreaAllocations = snapshotSections.some((section) =>
+    section.items.some((item) => item.areaAllocations.length > 0)
+  );
+  const calculatedEquipmentTotalUsd = snapshotSections.reduce(
+    (sum, section) => sum + section.equipmentTotalUsd,
+    0
+  );
+  const equipmentTotalUsd = hasAnyAreaAllocations
+    ? calculatedEquipmentTotalUsd
+    : toNumber(quote.equipment_total) || calculatedEquipmentTotalUsd;
   const laborTotalMxn =
     toNumber(quote.labor_total) ||
     snapshotSections.reduce((sum, section) => sum + section.laborTotalMxn, 0);
-  const subtotalMxn =
-    toNumber(quote.subtotal_mxn) || equipmentTotalUsd * exchangeRate + laborTotalMxn;
+  const calculatedSubtotalMxn = equipmentTotalUsd * exchangeRate + laborTotalMxn;
+  const subtotalMxn = hasAnyAreaAllocations
+    ? calculatedSubtotalMxn
+    : toNumber(quote.subtotal_mxn) || calculatedSubtotalMxn;
   const discountMxn = toNumber(quote.discount_amount_mxn);
   const partnerEquipmentDiscountMxn = toNumber(quote.partner_equipment_discount_mxn);
   const partnerLaborDiscountMxn = toNumber(quote.partner_labor_discount_mxn);
   const partnerTotalDiscountMxn =
     toNumber(quote.partner_total_discount_mxn) ||
     partnerEquipmentDiscountMxn + partnerLaborDiscountMxn;
-  const taxableBaseMxn =
-    toNumber(quote.taxable_base_mxn) ||
+  const calculatedTaxableBaseMxn =
     subtotalMxn - partnerTotalDiscountMxn - discountMxn;
-  const ivaMxn = toNumber(quote.iva_mxn) || taxableBaseMxn * 0.16;
-  const totalMxn =
-    toNumber(quote.total_mxn) || toNumber(quote.grand_total) || taxableBaseMxn + ivaMxn;
+  const taxableBaseMxn = hasAnyAreaAllocations
+    ? calculatedTaxableBaseMxn
+    : toNumber(quote.taxable_base_mxn) || calculatedTaxableBaseMxn;
+  const ivaMxn = hasAnyAreaAllocations
+    ? taxableBaseMxn * 0.16
+    : toNumber(quote.iva_mxn) || taxableBaseMxn * 0.16;
+  const totalMxn = hasAnyAreaAllocations
+    ? taxableBaseMxn + ivaMxn
+    : toNumber(quote.total_mxn) || toNumber(quote.grand_total) || taxableBaseMxn + ivaMxn;
   const snapshotDiagnosticBlocks = await mapWithConcurrency(
     (diagnosticBlocks || []).filter(
       (block) =>

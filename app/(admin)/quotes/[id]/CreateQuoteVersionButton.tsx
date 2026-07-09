@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/services/supabase";
 import { isMissingDiagnosticContextSchema } from "@/lib/quoteDiagnosticContext";
+import { isMissingQuoteItemAreaAllocationsSchema } from "@/lib/quoteItemPresentation";
 
 type Props = {
   quoteId: number;
@@ -37,6 +38,9 @@ type QuoteItem = {
   product_model: string | null;
   product_name: string | null;
   product_image_url: string | null;
+  existing_customer_equipment?: boolean | null;
+  area?: string | null;
+  customer_visible_note?: string | null;
   sort_order: number | null;
 };
 
@@ -52,6 +56,15 @@ type QuoteItemLaborActivity = {
   sale_total_mxn: number | null;
   assigned_role: string | null;
   notes: string | null;
+  sort_order: number | null;
+};
+
+type QuoteItemAreaAllocation = {
+  quote_item_id: number;
+  area: string | null;
+  quantity: number | null;
+  supply_type: string | null;
+  customer_visible_note: string | null;
   sort_order: number | null;
 };
 
@@ -236,7 +249,7 @@ export default function CreateQuoteVersionButton({
     let { data: items, error: itemsError } = await supabase
       .from("quote_items")
       .select(
-        "id, quote_section_id, product_id, quantity, sale_currency, unit_equipment_price, unit_equipment_price_usd, unit_labor_price, equipment_total, equipment_total_usd, labor_total, line_total, product_brand, product_model, product_name, product_image_url, sort_order"
+        "id, quote_section_id, product_id, quantity, sale_currency, unit_equipment_price, unit_equipment_price_usd, unit_labor_price, equipment_total, equipment_total_usd, labor_total, line_total, product_brand, product_model, product_name, product_image_url, existing_customer_equipment, area, customer_visible_note, sort_order"
       )
       .eq("quote_id", quoteId)
       .order("sort_order", { ascending: true });
@@ -261,6 +274,26 @@ export default function CreateQuoteVersionButton({
 
     const sourceItems = (items || []) as QuoteItem[];
     const sourceItemIds = sourceItems.map((item) => item.id).filter(Boolean);
+    const { data: sourceAreaAllocations, error: areaAllocationsError } =
+      sourceItemIds.length > 0
+        ? await supabase
+            .from("quote_item_area_allocations")
+            .select(
+              "quote_item_id, area, quantity, supply_type, customer_visible_note, sort_order"
+            )
+            .in("quote_item_id", sourceItemIds)
+            .order("sort_order", { ascending: true })
+        : { data: [], error: null };
+
+    if (
+      areaAllocationsError &&
+      !isMissingQuoteItemAreaAllocationsSchema(areaAllocationsError)
+    ) {
+      reportStepError("leer distribucion por area", areaAllocationsError);
+      setCreating(false);
+      return;
+    }
+
     const { data: sourceLaborActivities, error: laborActivitiesError } =
       sourceItemIds.length > 0
         ? await supabase
@@ -481,6 +514,9 @@ export default function CreateQuoteVersionButton({
           product_model: item.product_model,
           product_name: item.product_name,
           product_image_url: item.product_image_url,
+          existing_customer_equipment: Boolean(item.existing_customer_equipment),
+          area: item.area || null,
+          customer_visible_note: item.customer_visible_note || null,
           sort_order: item.sort_order,
         });
       }
@@ -515,6 +551,55 @@ export default function CreateQuoteVersionButton({
         );
         if (sourceItem) {
           newItemIdBySourceItemId.set(sourceItem.id, insertedItem.id);
+        }
+      }
+
+      if (!areaAllocationsError && (sourceAreaAllocations || []).length > 0) {
+        const areaAllocationsToInsert = (
+          sourceAreaAllocations as QuoteItemAreaAllocation[]
+        )
+          .map((allocation) => {
+            const newQuoteItemId = newItemIdBySourceItemId.get(
+              allocation.quote_item_id
+            );
+
+            if (!newQuoteItemId) return null;
+
+            return {
+              quote_item_id: newQuoteItemId,
+              area: allocation.area || "General",
+              quantity: Number(allocation.quantity || 0),
+              supply_type: allocation.supply_type || "new_equipment",
+              customer_visible_note: allocation.customer_visible_note || null,
+              sort_order: allocation.sort_order || 0,
+            };
+          })
+          .filter(
+            (
+              allocation
+            ): allocation is {
+              quote_item_id: number;
+              area: string;
+              quantity: number;
+              supply_type: string;
+              customer_visible_note: string | null;
+              sort_order: number;
+            } => Boolean(allocation)
+          );
+
+        if (areaAllocationsToInsert.length > 0) {
+          const { error: insertAreaAllocationsError } = await supabase
+            .from("quote_item_area_allocations")
+            .insert(areaAllocationsToInsert);
+
+          if (insertAreaAllocationsError) {
+            reportStepError(
+              "crear distribucion por area",
+              insertAreaAllocationsError
+            );
+            setCreating(false);
+            return;
+          }
         }
       }
 

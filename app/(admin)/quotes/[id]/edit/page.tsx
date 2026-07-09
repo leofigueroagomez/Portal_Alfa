@@ -25,9 +25,19 @@ import {
   normalizeDiagnosticBlocks,
   type QuoteDiagnosticBlock,
 } from "@/lib/quoteDiagnosticContext";
+import {
+  CLIENT_EXISTING_SUPPLY_TYPE,
+  NEW_EQUIPMENT_SUPPLY_TYPE,
+  doQuoteItemAllocationsMatchQuantity,
+  isExistingCustomerEquipment,
+  isMissingQuoteItemAreaAllocationsSchema,
+  normalizeQuoteItemArea,
+  type QuoteItemAreaAllocation,
+} from "@/lib/quoteItemPresentation";
 import ProjectStageSelect from "@/components/ProjectStageSelect";
 import QuickCreateProductButton from "../../QuickCreateProductButton";
 import QuoteDiagnosticContextEditor from "../../QuoteDiagnosticContextEditor";
+import QuoteItemAreaDistributionModal from "../../QuoteItemAreaDistributionModal";
 import QuoteLaborActivitiesPanel from "../../QuoteLaborActivitiesPanel";
 
 type Product = {
@@ -60,6 +70,10 @@ type Product = {
 type QuoteItem = Product & {
   quantity: number;
   labor_activities: QuoteItemLaborActivity[];
+  existing_customer_equipment: boolean;
+  area: string;
+  customer_visible_note: string;
+  allocations: QuoteItemAreaAllocation[];
 };
 
 type QuoteSection = {
@@ -69,9 +83,18 @@ type QuoteSection = {
 };
 
 function getEquipmentUnitPriceUsd(
-  item: { calculated_sale_price: number; sale_currency: string | null },
+  item: {
+    calculated_sale_price: number;
+    sale_currency: string | null;
+    existing_customer_equipment?: boolean | null;
+    allocations?: QuoteItemAreaAllocation[] | null;
+  },
   exchangeRate: number
 ) {
+  if (!item.allocations?.length && isExistingCustomerEquipment(item)) {
+    return 0;
+  }
+
   if ((item.sale_currency || "USD").toUpperCase() === "MXN") {
     return exchangeRate > 0 ? item.calculated_sale_price / exchangeRate : 0;
   }
@@ -89,6 +112,18 @@ function normalizeToMXN(
   }
 
   return Number(value || 0) * exchangeRate;
+}
+
+function getNewEquipmentAllocationQuantity(item: QuoteItem) {
+  if (!item.allocations.length) {
+    return item.existing_customer_equipment ? 0 : item.quantity;
+  }
+
+  return item.allocations.reduce((sum, allocation) => {
+    return allocation.supply_type === CLIENT_EXISTING_SUPPLY_TYPE
+      ? sum
+      : sum + Number(allocation.quantity || 0);
+  }, 0);
 }
 
 function getMarginColorClass(percent: number) {
@@ -183,6 +218,19 @@ type SavedItem = {
   product_model: string | null;
   product_name: string | null;
   product_image_url: string | null;
+  existing_customer_equipment?: boolean | null;
+  area?: string | null;
+  customer_visible_note?: string | null;
+  sort_order: number | null;
+};
+
+type SavedAreaAllocation = {
+  id: number;
+  quote_item_id: number;
+  area: string | null;
+  quantity: number | null;
+  supply_type: string | null;
+  customer_visible_note: string | null;
   sort_order: number | null;
 };
 
@@ -227,6 +275,8 @@ export default function EditQuotePage() {
     sectionId: string;
     productId: number;
   } | null>(null);
+  const [activeDistributionItemKey, setActiveDistributionItemKey] =
+    useState("");
   const [activeSectionId, setActiveSectionId] = useState("");
   const [newSectionName, setNewSectionName] = useState("");
   const [search, setSearch] = useState("");
@@ -487,7 +537,7 @@ export default function EditQuotePage() {
       let { data: itemsData, error: itemsError } = await supabase
         .from("quote_items")
         .select(
-          "id, quote_section_id, product_id, quantity, sale_currency, unit_equipment_price, unit_equipment_price_usd, unit_labor_price, equipment_total_usd, product_brand, product_model, product_name, product_image_url, sort_order"
+          "id, quote_section_id, product_id, quantity, sale_currency, unit_equipment_price, unit_equipment_price_usd, unit_labor_price, equipment_total_usd, product_brand, product_model, product_name, product_image_url, existing_customer_equipment, area, customer_visible_note, sort_order"
         )
         .eq("quote_id", quoteId)
         .order("sort_order", { ascending: true });
@@ -552,6 +602,48 @@ export default function EditQuotePage() {
 
       const savedItems = (itemsData || []) as SavedItem[];
       const savedItemIds = savedItems.map((item) => item.id).filter(Boolean);
+      const { data: savedAreaAllocations, error: areaAllocationsError } =
+        savedItemIds.length > 0
+          ? await supabase
+              .from("quote_item_area_allocations")
+              .select(
+                "id, quote_item_id, area, quantity, supply_type, customer_visible_note, sort_order"
+              )
+              .in("quote_item_id", savedItemIds)
+              .order("sort_order", { ascending: true })
+          : { data: [], error: null };
+
+      if (
+        areaAllocationsError &&
+        !isMissingQuoteItemAreaAllocationsSchema(areaAllocationsError)
+      ) {
+        reportStepError("leer distribucion por area", areaAllocationsError);
+        setLoading(false);
+        return;
+      }
+
+      const areaAllocationsByItemId = new Map<number, QuoteItemAreaAllocation[]>();
+      if (!areaAllocationsError) {
+        ((savedAreaAllocations || []) as SavedAreaAllocation[]).forEach(
+          (allocation) => {
+            const quoteItemId = Number(allocation.quote_item_id);
+            const current = areaAllocationsByItemId.get(quoteItemId) || [];
+            current.push({
+              id: allocation.id,
+              area: allocation.area || "",
+              quantity: Number(allocation.quantity || 0),
+              supply_type:
+                allocation.supply_type === CLIENT_EXISTING_SUPPLY_TYPE
+                  ? CLIENT_EXISTING_SUPPLY_TYPE
+                  : NEW_EQUIPMENT_SUPPLY_TYPE,
+              customer_visible_note: allocation.customer_visible_note || "",
+              sort_order: Number(allocation.sort_order || 0),
+            });
+            areaAllocationsByItemId.set(quoteItemId, current);
+          }
+        );
+      }
+
       const { data: savedLaborActivities } =
         savedItemIds.length > 0
           ? await supabase
@@ -616,6 +708,12 @@ export default function EditQuotePage() {
                 partner_discount_eligible:
                   catalogProduct?.partner_discount_eligible ?? true,
                 quantity: Number(item.quantity || 0),
+                existing_customer_equipment: Boolean(
+                  item.existing_customer_equipment
+                ),
+                area: item.area || "",
+                customer_visible_note: item.customer_visible_note || "",
+                allocations: areaAllocationsByItemId.get(item.id) || [],
                 labor_activities:
                   laborActivitiesByItemId.get(item.id) ||
                   createLegacyLaborActivity(
@@ -818,6 +916,10 @@ export default function EditQuotePage() {
             {
               ...product,
               quantity: 1,
+              existing_customer_equipment: false,
+              area: "",
+              customer_visible_note: "",
+              allocations: [],
               labor_activities: createLegacyLaborActivity(
                 1,
                 product.labor_unit_sale_price,
@@ -916,6 +1018,166 @@ export default function EditQuotePage() {
     );
   }
 
+  function updateItemArea(sectionId: string, productId: number, area: string) {
+    setSections((current) =>
+      current.map((section) =>
+        section.id === sectionId
+          ? {
+              ...section,
+              items: section.items.map((item) =>
+                item.id === productId ? { ...item, area } : item
+              ),
+            }
+          : section
+      )
+    );
+  }
+
+  function updateCustomerVisibleNote(
+    sectionId: string,
+    productId: number,
+    customerVisibleNote: string
+  ) {
+    setSections((current) =>
+      current.map((section) =>
+        section.id === sectionId
+          ? {
+              ...section,
+              items: section.items.map((item) =>
+                item.id === productId
+                  ? { ...item, customer_visible_note: customerVisibleNote }
+                  : item
+              ),
+            }
+          : section
+      )
+    );
+  }
+
+  function toggleExistingCustomerEquipment(
+    sectionId: string,
+    productId: number,
+    checked: boolean
+  ) {
+    const catalogProduct = products.find((product) => product.id === productId);
+
+    setSections((current) =>
+      current.map((section) =>
+        section.id === sectionId
+          ? {
+              ...section,
+              items: section.items.map((item) =>
+                item.id === productId
+                  ? {
+                      ...item,
+                      existing_customer_equipment: checked,
+                      calculated_sale_price: checked
+                        ? 0
+                        : catalogProduct?.calculated_sale_price ??
+                          item.calculated_sale_price,
+                      customer_visible_note:
+                        checked && !item.customer_visible_note
+                          ? ""
+                          : item.customer_visible_note,
+                    }
+                  : item
+              ),
+            }
+          : section
+      )
+    );
+  }
+
+  function addItemAreaAllocation(sectionId: string, productId: number) {
+    setSections((current) =>
+      current.map((section) =>
+        section.id === sectionId
+          ? {
+              ...section,
+              items: section.items.map((item) =>
+                item.id === productId
+                  ? {
+                      ...item,
+                      allocations: [
+                        ...item.allocations,
+                        {
+                          id: crypto.randomUUID(),
+                          area: item.area || "",
+                          quantity: 1,
+                          supply_type: NEW_EQUIPMENT_SUPPLY_TYPE,
+                          customer_visible_note: "",
+                          sort_order: item.allocations.length,
+                        },
+                      ],
+                    }
+                  : item
+              ),
+            }
+          : section
+      )
+    );
+  }
+
+  function updateItemAreaAllocation(
+    sectionId: string,
+    productId: number,
+    allocationId: string | number | null | undefined,
+    field: "area" | "quantity" | "supply_type" | "customer_visible_note",
+    value: string | number
+  ) {
+    setSections((current) =>
+      current.map((section) =>
+        section.id === sectionId
+          ? {
+              ...section,
+              items: section.items.map((item) =>
+                item.id === productId
+                  ? {
+                      ...item,
+                      allocations: item.allocations.map((allocation) =>
+                        allocation.id === allocationId
+                          ? {
+                              ...allocation,
+                              [field]:
+                                field === "quantity" ? Number(value) : value,
+                            }
+                          : allocation
+                      ),
+                    }
+                  : item
+              ),
+            }
+          : section
+      )
+    );
+  }
+
+  function removeItemAreaAllocation(
+    sectionId: string,
+    productId: number,
+    allocationId: string | number | null | undefined
+  ) {
+    setSections((current) =>
+      current.map((section) =>
+        section.id === sectionId
+          ? {
+              ...section,
+              items: section.items.map((item) =>
+                item.id === productId
+                  ? {
+                      ...item,
+                      allocations: item.allocations.filter(
+                        (allocation) => allocation.id !== allocationId
+                      ),
+                    }
+                  : item
+              ),
+            }
+          : section
+      )
+    );
+  }
+
   function handleItemDrop(sectionId: string, targetProductId: number) {
     if (!draggingItem || draggingItem.sectionId !== sectionId) {
       setDraggingItem(null);
@@ -991,7 +1253,9 @@ export default function EditQuotePage() {
   const equipmentTotalUSD = sections.reduce((sectionSum, section) => {
     const total = section.items.reduce((sum, item) => {
       return (
-        sum + getEquipmentUnitPriceUsd(item, numericExchangeRate) * item.quantity
+        sum +
+        getEquipmentUnitPriceUsd(item, numericExchangeRate) *
+          getNewEquipmentAllocationQuantity(item)
       );
     }, 0);
 
@@ -1016,7 +1280,7 @@ export default function EditQuotePage() {
           return (
             sum +
             getEquipmentUnitPriceUsd(item, numericExchangeRate) *
-              item.quantity *
+              getNewEquipmentAllocationQuantity(item) *
               numericExchangeRate *
               ((Number(partnerEquipmentDiscountPercent) || 0) / 100)
           );
@@ -1058,6 +1322,10 @@ export default function EditQuotePage() {
     termsSettings.includes_travel_expenses || includesTravelExpensesDetail;
   const equipmentCostMXN = sections.reduce((sectionSum, section) => {
     const total = section.items.reduce((sum, item) => {
+      if (isExistingCustomerEquipment(item)) {
+        return sum;
+      }
+
       return (
         sum +
         normalizeToMXN(
@@ -1065,7 +1333,7 @@ export default function EditQuotePage() {
           item.cost_currency || item.sale_currency,
           numericExchangeRate
         ) *
-          item.quantity
+          getNewEquipmentAllocationQuantity(item)
       );
     }, 0);
 
@@ -1095,11 +1363,26 @@ export default function EditQuotePage() {
   const isDraft = quote?.status === "draft";
   const canEditQuote =
     isDraft || (quote?.status === "approved" && canAdminEditApproved);
+  const areaSuggestions = Array.from(
+    new Set(
+      sections
+        .flatMap((section) => section.items)
+        .flatMap((item) => [
+          normalizeQuoteItemArea(item.area),
+          ...item.allocations.map((allocation) =>
+            normalizeQuoteItemArea(allocation.area)
+          ),
+        ])
+        .filter(Boolean)
+    )
+  );
 
   function getSectionEquipmentTotal(section: QuoteSection) {
     return section.items.reduce((sum, item) => {
       return (
-        sum + getEquipmentUnitPriceUsd(item, numericExchangeRate) * item.quantity
+        sum +
+        getEquipmentUnitPriceUsd(item, numericExchangeRate) *
+          getNewEquipmentAllocationQuantity(item)
       );
     }, 0);
   }
@@ -1123,6 +1406,21 @@ export default function EditQuotePage() {
 
   async function handleSaveQuote() {
     if (!canEditQuote) return;
+
+    const invalidAllocationItem = sections
+      .flatMap((section) => section.items)
+      .find(
+        (item) =>
+          item.allocations.length > 0 &&
+          !doQuoteItemAllocationsMatchQuantity(item.quantity, item.allocations)
+      );
+
+    if (invalidAllocationItem) {
+      alert(
+        "La suma de la distribucion por area debe coincidir con la cantidad total de cada partida."
+      );
+      return;
+    }
 
     if (isPartnerQuote && !selectedCommercialPartnerId) {
       alert("Selecciona el aliado comercial para esta cotizacion.");
@@ -1361,7 +1659,8 @@ export default function EditQuotePage() {
           item,
           numericExchangeRate
         );
-        const itemEquipmentTotal = itemEquipmentUnitPriceUsd * item.quantity;
+        const itemEquipmentTotal =
+          itemEquipmentUnitPriceUsd * getNewEquipmentAllocationQuantity(item);
         const itemLaborTotal = getItemLaborSaleTotal(item);
         const itemLaborUnitPrice = getItemLaborUnitSalePrice(item);
 
@@ -1371,7 +1670,9 @@ export default function EditQuotePage() {
           product_id: item.id,
           quantity: item.quantity,
           sale_currency: item.sale_currency,
-          unit_equipment_price: item.calculated_sale_price,
+          unit_equipment_price: isExistingCustomerEquipment(item)
+            ? 0
+            : item.calculated_sale_price,
           unit_equipment_price_usd: itemEquipmentUnitPriceUsd,
           unit_labor_price: itemLaborUnitPrice,
           equipment_total: itemEquipmentTotal,
@@ -1382,6 +1683,9 @@ export default function EditQuotePage() {
           product_model: item.model,
           product_name: item.name,
           product_image_url: item.image_url,
+          existing_customer_equipment: isExistingCustomerEquipment(item),
+          area: normalizeQuoteItemArea(item.area) || null,
+          customer_visible_note: item.customer_visible_note.trim() || null,
           sort_order: itemIndex,
         };
       });
@@ -1395,6 +1699,39 @@ export default function EditQuotePage() {
         reportStepError("crear quote_items", itemsError);
         setSavingQuote(false);
         return;
+      }
+
+      const areaAllocationsToInsert = section.items.flatMap((item, itemIndex) => {
+        const savedItem = (savedItems || []).find(
+          (row) => Number(row.sort_order || 0) === itemIndex
+        );
+
+        if (!savedItem || !item.allocations.length) return [];
+
+        return item.allocations.map((allocation, allocationIndex) => ({
+          quote_item_id: savedItem.id,
+          area: normalizeQuoteItemArea(allocation.area) || "General",
+          quantity: Number(allocation.quantity || 0),
+          supply_type:
+            allocation.supply_type === CLIENT_EXISTING_SUPPLY_TYPE
+              ? CLIENT_EXISTING_SUPPLY_TYPE
+              : NEW_EQUIPMENT_SUPPLY_TYPE,
+          customer_visible_note:
+            allocation.customer_visible_note?.trim() || null,
+          sort_order: allocationIndex,
+        }));
+      });
+
+      if (areaAllocationsToInsert.length > 0) {
+        const { error: areaAllocationsError } = await supabase
+          .from("quote_item_area_allocations")
+          .insert(areaAllocationsToInsert);
+
+        if (areaAllocationsError) {
+          reportStepError("crear distribucion por area", areaAllocationsError);
+          setSavingQuote(false);
+          return;
+        }
       }
 
       const laborActivitiesToInsert = section.items.flatMap((item, itemIndex) => {
@@ -1958,6 +2295,121 @@ export default function EditQuotePage() {
                             ×
                           </button>
                         </div>
+
+                          <div className="mt-4 grid gap-3 border-t border-[#2A2A30] pt-4 md:grid-cols-[minmax(0,1fr)_220px]">
+                            <div className="space-y-3">
+                              <label className="block text-xs font-semibold uppercase tracking-[0.08em] text-[#77777D]">
+                                Area / zona
+                              </label>
+                              <input
+                                type="text"
+                                list={`quote-areas-${section.id}-${item.id}`}
+                                value={item.area}
+                                disabled={!canEditQuote}
+                                onChange={(event) =>
+                                  updateItemArea(
+                                    section.id,
+                                    item.id,
+                                    event.target.value
+                                  )
+                                }
+                                placeholder="Ingreso principal"
+                                className="w-full rounded-xl border border-[#2A2A30] bg-[#151518] px-4 py-3 text-sm outline-none focus:border-[#9E1B32] disabled:cursor-not-allowed disabled:opacity-70"
+                              />
+                              <datalist id={`quote-areas-${section.id}-${item.id}`}>
+                                {areaSuggestions.map((area) => (
+                                  <option key={area} value={area} />
+                                ))}
+                              </datalist>
+                            </div>
+
+                            <label className="flex items-center gap-3 rounded-xl border border-[#2A2A30] bg-[#151518] px-4 py-3 text-sm">
+                              <input
+                                type="checkbox"
+                                checked={item.existing_customer_equipment}
+                                disabled={!canEditQuote}
+                                onChange={(event) =>
+                                  toggleExistingCustomerEquipment(
+                                    section.id,
+                                    item.id,
+                                    event.target.checked
+                                  )
+                                }
+                              />
+                              <span>Equipo existente del cliente</span>
+                            </label>
+                          </div>
+
+                          {item.existing_customer_equipment ? (
+                            <div className="mt-3 rounded-xl border border-[#4A3A1A] bg-[#241D12] p-4">
+                              <span className="inline-flex rounded-full bg-[#3B2D11] px-3 py-1 text-xs font-semibold text-[#F4C66A]">
+                                Equipo existente del cliente
+                              </span>
+                              <p className="mt-2 text-sm text-[#B3B3B8]">
+                                El precio de equipo queda en $0.00; la mano de obra se mantiene editable.
+                              </p>
+                              <label className="mt-3 block text-xs font-semibold uppercase tracking-[0.08em] text-[#77777D]">
+                                Nota visible para cliente
+                              </label>
+                              <textarea
+                                value={item.customer_visible_note}
+                                disabled={!canEditQuote}
+                                onChange={(event) =>
+                                  updateCustomerVisibleNote(
+                                    section.id,
+                                    item.id,
+                                    event.target.value
+                                  )
+                                }
+                                placeholder="Reutilizaremos el que tiene el cliente actualmente"
+                                className="mt-2 min-h-20 w-full rounded-xl border border-[#2A2A30] bg-[#151518] px-4 py-3 text-sm outline-none focus:border-[#9E1B32] disabled:cursor-not-allowed disabled:opacity-70"
+                              />
+                            </div>
+                          ) : null}
+
+                          <QuoteItemAreaDistributionModal
+                            item={item}
+                            areaSuggestions={areaSuggestions}
+                            disabled={!canEditQuote}
+                            isOpen={
+                              activeDistributionItemKey ===
+                              `${section.id}:${item.id}`
+                            }
+                            equipmentSubtotalText={formatCurrency(
+                              getEquipmentUnitPriceUsd(item, numericExchangeRate) *
+                                getNewEquipmentAllocationQuantity(item),
+                              "USD"
+                            )}
+                            laborSubtotalText={formatCurrency(
+                              getItemLaborSaleTotal(item),
+                              "MXN"
+                            )}
+                            onOpen={() =>
+                              setActiveDistributionItemKey(
+                                `${section.id}:${item.id}`
+                              )
+                            }
+                            onClose={() => setActiveDistributionItemKey("")}
+                            onAdd={() =>
+                              addItemAreaAllocation(section.id, item.id)
+                            }
+                            onUpdate={(allocationId, field, value) =>
+                              updateItemAreaAllocation(
+                                section.id,
+                                item.id,
+                                allocationId,
+                                field,
+                                value
+                              )
+                            }
+                            onRemove={(allocationId) =>
+                              removeItemAreaAllocation(
+                                section.id,
+                                item.id,
+                                allocationId
+                              )
+                            }
+                          />
 
                           <QuoteLaborActivitiesPanel
                             activities={item.labor_activities}

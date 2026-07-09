@@ -6,6 +6,14 @@ import {
   getPartnerBrandingMissingReason,
   type CommercialPartner,
 } from "@/lib/commercialPartners";
+import {
+  CLIENT_EXISTING_SUPPLY_TYPE,
+  getQuoteItemAreaBreakdown,
+  getQuoteItemsPresentationTotals,
+  isMissingQuoteItemAreaAllocationsSchema,
+  shouldGroupQuoteItemsByPresentation,
+  type QuoteItemAreaAllocation,
+} from "@/lib/quoteItemPresentation";
 import { canApproveQuotes, canGeneratePartnerQuotes } from "@/lib/permissions";
 import { getCurrentUserProfile } from "@/services/profile";
 import ProjectStageSelect from "@/components/ProjectStageSelect";
@@ -75,6 +83,20 @@ type QuoteItem = {
   product_model: string | null;
   product_name: string | null;
   product_image_url: string | null;
+  existing_customer_equipment?: boolean | null;
+  area?: string | null;
+  customer_visible_note?: string | null;
+  allocations?: QuoteItemAreaAllocation[];
+  sort_order: number | null;
+};
+
+type SavedAreaAllocation = {
+  id: number;
+  quote_item_id: number;
+  area: string | null;
+  quantity: number | null;
+  supply_type: string | null;
+  customer_visible_note: string | null;
   sort_order: number | null;
 };
 
@@ -88,23 +110,6 @@ function formatDate(value: string | null) {
   if (!value) return "Sin fecha";
 
   return new Date(value).toLocaleDateString("es-MX");
-}
-
-function getEquipmentUnitPriceUsd(
-  item: QuoteItem,
-  exchangeRate: number
-) {
-  if (item.unit_equipment_price_usd != null) {
-    return Number(item.unit_equipment_price_usd || 0);
-  }
-
-  if ((item.sale_currency || "USD").toUpperCase() === "MXN") {
-    return exchangeRate > 0
-      ? Number(item.unit_equipment_price || 0) / exchangeRate
-      : 0;
-  }
-
-  return Number(item.unit_equipment_price || 0);
 }
 
 export default async function QuoteDetailPage({
@@ -179,7 +184,7 @@ export default async function QuoteDetailPage({
   const itemsResult = await supabase
     .from("quote_items")
     .select(
-      "id, quote_id, quote_section_id, product_id, quantity, sale_currency, unit_equipment_price, unit_equipment_price_usd, equipment_total_usd, unit_labor_price, line_total, product_brand, product_model, product_name, product_image_url, sort_order"
+      "id, quote_id, quote_section_id, product_id, quantity, sale_currency, unit_equipment_price, unit_equipment_price_usd, equipment_total_usd, unit_labor_price, line_total, product_brand, product_model, product_name, product_image_url, existing_customer_equipment, area, customer_visible_note, sort_order"
     )
     .eq("quote_id", id)
     .order("sort_order", { ascending: true });
@@ -241,12 +246,66 @@ export default async function QuoteDetailPage({
     !partnerMissingReason;
 
   const quoteSections = (sections || []) as QuoteSection[];
-  const quoteItems = (items || []) as QuoteItem[];
+  const quoteItemsBase = (items || []) as QuoteItem[];
+  const quoteItemIds = quoteItemsBase.map((item) => item.id);
+  const { data: areaAllocations, error: areaAllocationsError } =
+    quoteItemIds.length > 0
+      ? await supabase
+          .from("quote_item_area_allocations")
+          .select(
+            "id, quote_item_id, area, quantity, supply_type, customer_visible_note, sort_order"
+          )
+          .in("quote_item_id", quoteItemIds)
+          .order("sort_order", { ascending: true })
+      : { data: [], error: null };
+  const areaAllocationsByItemId = new Map<number, QuoteItemAreaAllocation[]>();
+  if (
+    areaAllocationsError &&
+    !isMissingQuoteItemAreaAllocationsSchema(areaAllocationsError)
+  ) {
+    throw areaAllocationsError;
+  }
+  if (!areaAllocationsError) {
+    ((areaAllocations || []) as SavedAreaAllocation[]).forEach((allocation) => {
+      const current = areaAllocationsByItemId.get(allocation.quote_item_id) || [];
+      current.push({
+        id: allocation.id,
+        area: allocation.area || "",
+        quantity: Number(allocation.quantity || 0),
+        supply_type:
+          allocation.supply_type === CLIENT_EXISTING_SUPPLY_TYPE
+            ? CLIENT_EXISTING_SUPPLY_TYPE
+            : "new_equipment",
+        customer_visible_note: allocation.customer_visible_note || "",
+        sort_order: Number(allocation.sort_order || 0),
+      });
+      areaAllocationsByItemId.set(allocation.quote_item_id, current);
+    });
+  }
+  const quoteItems = quoteItemsBase.map((item) => ({
+    ...item,
+    allocations: areaAllocationsByItemId.get(item.id) || [],
+  }));
   const detailExchangeRate = Number(quoteData.exchange_rate || 1);
+  const hasAnyAreaAllocations = quoteItems.some(
+    (item) => item.allocations.length > 0
+  );
+  const calculatedQuoteTotals = getQuoteItemsPresentationTotals(
+    quoteItems,
+    detailExchangeRate
+  );
+  const displayEquipmentTotalUSD = hasAnyAreaAllocations
+    ? calculatedQuoteTotals.equipmentTotalUsd
+    : Number(quoteData.equipment_total || 0);
+  const displayLaborTotalMXN = hasAnyAreaAllocations
+    ? calculatedQuoteTotals.laborTotalMxn
+    : Number(quoteData.labor_total || 0);
   const subtotalMXN =
-    Number(quoteData.subtotal_mxn) ||
-    Number(quoteData.equipment_total || 0) * detailExchangeRate +
-      Number(quoteData.labor_total || 0);
+    hasAnyAreaAllocations
+      ? displayEquipmentTotalUSD * detailExchangeRate + displayLaborTotalMXN
+      : Number(quoteData.subtotal_mxn) ||
+        Number(quoteData.equipment_total || 0) * detailExchangeRate +
+          Number(quoteData.labor_total || 0);
   const discountMXN = Number(quoteData.discount_amount_mxn || 0);
   const partnerEquipmentDiscountMXN = Number(
     quoteData.partner_equipment_discount_mxn || 0
@@ -259,13 +318,18 @@ export default async function QuoteDetailPage({
       partnerEquipmentDiscountMXN + partnerLaborDiscountMXN
   );
   const taxableBaseMXN =
-    Number(quoteData.taxable_base_mxn) ||
-    subtotalMXN - partnerDiscountMXN - discountMXN;
-  const ivaMXN = Number(quoteData.iva_mxn) || taxableBaseMXN * 0.16;
-  const totalMXN =
-    Number(quoteData.total_mxn) ||
-    Number(quoteData.grand_total) ||
-    taxableBaseMXN + ivaMXN;
+    hasAnyAreaAllocations
+      ? subtotalMXN - partnerDiscountMXN - discountMXN
+      : Number(quoteData.taxable_base_mxn) ||
+        subtotalMXN - partnerDiscountMXN - discountMXN;
+  const ivaMXN = hasAnyAreaAllocations
+    ? taxableBaseMXN * 0.16
+    : Number(quoteData.iva_mxn) || taxableBaseMXN * 0.16;
+  const totalMXN = hasAnyAreaAllocations
+    ? taxableBaseMXN + ivaMXN
+    : Number(quoteData.total_mxn) ||
+      Number(quoteData.grand_total) ||
+      taxableBaseMXN + ivaMXN;
   const travelTotalMXN =
     Number(quoteData.travel_total_mxn || 0) ||
     Number(quoteData.travel_fuel_mxn || 0) +
@@ -276,6 +340,62 @@ export default async function QuoteDetailPage({
     return quoteItems.filter(
       (item) => item.quote_section_id === sectionId
     );
+  }
+
+  function getItemLineTotalMxn(item: QuoteItem) {
+    return getQuoteItemAreaBreakdown(item, detailExchangeRate).reduce(
+      (sum, allocation) => sum + allocation.lineTotalMxn,
+      0
+    );
+  }
+
+  function getAreaGroups(sectionItems: QuoteItem[]) {
+    const groups = new Map<
+      string,
+      {
+        area: string;
+        rows: {
+          item: QuoteItem;
+          allocation: ReturnType<typeof getQuoteItemAreaBreakdown>[number];
+        }[];
+        subtotalMxn: number;
+      }
+    >();
+
+    for (const item of sectionItems) {
+      for (const allocation of getQuoteItemAreaBreakdown(
+        item,
+        Number(quoteData.exchange_rate || 1)
+      )) {
+        const current =
+          groups.get(allocation.area) || {
+            area: allocation.area,
+            rows: [],
+            subtotalMxn: 0,
+          };
+
+        current.rows.push({ item, allocation });
+        current.subtotalMxn += allocation.lineTotalMxn;
+        groups.set(allocation.area, current);
+      }
+    }
+
+    return Array.from(groups.values());
+  }
+
+  function getSectionDisplayTotals(section: QuoteSection, sectionItems: QuoteItem[]) {
+    if (!sectionItems.some((item) => (item.allocations || []).length > 0)) {
+      const equipmentTotalUsd = Number(section.equipment_total || 0);
+      const laborTotalMxn = Number(section.labor_total || 0);
+
+      return {
+        equipmentTotalUsd,
+        laborTotalMxn,
+        subtotalMxn: equipmentTotalUsd * detailExchangeRate + laborTotalMxn,
+      };
+    }
+
+    return getQuoteItemsPresentationTotals(sectionItems, detailExchangeRate);
   }
 
   return (
@@ -430,14 +550,14 @@ export default async function QuoteDetailPage({
         <div className="bg-[#151518] border border-[#1F1F24] rounded-2xl p-6">
           <p className="text-[#B3B3B8] mb-2">Equipos USD</p>
           <h2 className="text-2xl font-bold">
-            {formatCurrency(quoteData.equipment_total, "USD")}
+            {formatCurrency(displayEquipmentTotalUSD, "USD")}
           </h2>
         </div>
 
         <div className="bg-[#151518] border border-[#1F1F24] rounded-2xl p-6">
           <p className="text-[#B3B3B8] mb-2">Mano de obra MXN</p>
           <h2 className="text-2xl font-bold">
-            {formatCurrency(quoteData.labor_total, "MXN")}
+            {formatCurrency(displayLaborTotalMXN, "MXN")}
           </h2>
         </div>
 
@@ -539,6 +659,25 @@ export default async function QuoteDetailPage({
       <section className="space-y-6">
         {quoteSections.map((section) => {
           const sectionItems = getSectionItems(section.id);
+          const sectionDisplayTotals = getSectionDisplayTotals(
+            section,
+            sectionItems
+          );
+          const areaGroups = shouldGroupQuoteItemsByPresentation(sectionItems)
+            ? getAreaGroups(sectionItems)
+            : [
+                {
+                  area: "",
+                  rows: sectionItems.map((item) => ({
+                    item,
+                    allocation: getQuoteItemAreaBreakdown(
+                      item,
+                      Number(quoteData.exchange_rate || 1)
+                    )[0],
+                  })),
+                  subtotalMxn: 0,
+                },
+              ];
 
           return (
             <div
@@ -558,21 +697,21 @@ export default async function QuoteDetailPage({
 
                 <div className="text-right text-sm">
                   <p>
-                    Equipo: {formatCurrency(section.equipment_total, "USD")}
+                    Equipo:{" "}
+                    {formatCurrency(
+                      sectionDisplayTotals.equipmentTotalUsd,
+                      "USD"
+                    )}
                   </p>
 
                   <p className="text-[#B3B3B8]">
-                    MO: {formatCurrency(section.labor_total, "MXN")}
+                    MO:{" "}
+                    {formatCurrency(sectionDisplayTotals.laborTotalMxn, "MXN")}
                   </p>
 
                   <p className="font-semibold mt-1">
                     Total estimado:{" "}
-                    {formatCurrency(
-                      Number(section.equipment_total || 0) *
-                        Number(quoteData.exchange_rate || 1) +
-                        Number(section.labor_total || 0),
-                      "MXN"
-                    )}
+                    {formatCurrency(sectionDisplayTotals.subtotalMxn, "MXN")}
                   </p>
                 </div>
               </div>
@@ -582,10 +721,26 @@ export default async function QuoteDetailPage({
                   No hay partidas en este sistema.
                 </p>
               ) : (
-                <div className="space-y-4 overflow-x-auto">
-                  {sectionItems.map((item) => (
+                <div className="space-y-5 overflow-x-auto">
+                  {areaGroups.map((areaGroup) => (
+                    <div key={areaGroup.area || `section-${section.id}`}>
+                      {areaGroup.area ? (
+                        <div className="mb-3 flex min-w-[860px] items-center justify-between rounded-xl border border-[#2A2A30] bg-[#151518] px-4 py-3">
+                          <p className="text-sm font-semibold">
+                            {areaGroup.area}
+                          </p>
+                          <p className="text-sm text-[#B3B3B8]">
+                            Subtotal area:{" "}
+                            <span className="font-semibold text-white">
+                              {formatCurrency(areaGroup.subtotalMxn, "MXN")}
+                            </span>
+                          </p>
+                        </div>
+                      ) : null}
+                      <div className="space-y-4">
+                  {areaGroup.rows.map(({ item, allocation }) => (
                     <div
-                      key={item.id}
+                      key={`${item.id}-${allocation?.sortOrder || 0}-${allocation?.area || ""}`}
                       className="grid min-w-[860px] grid-cols-[70px_1fr_90px_140px_140px_140px] items-center gap-4 rounded-xl bg-[#222228] p-4"
                     >
                       <div className="w-16 h-16 bg-[#151518] rounded-xl overflow-hidden flex items-center justify-center">
@@ -611,19 +766,30 @@ export default async function QuoteDetailPage({
                         <p className="text-sm text-[#B3B3B8]">
                           {item.product_name || "Sin nombre"}
                         </p>
+                        {allocation?.supplyType === CLIENT_EXISTING_SUPPLY_TYPE ? (
+                          <span className="mt-2 inline-flex rounded-full bg-[#3B2D11] px-3 py-1 text-xs font-semibold text-[#F4C66A]">
+                            Equipo existente del cliente
+                          </span>
+                        ) : null}
+                        {allocation?.supplyType === CLIENT_EXISTING_SUPPLY_TYPE &&
+                        allocation.customerVisibleNote ? (
+                          <p className="mt-2 text-sm text-[#D7D7DB]">
+                            {allocation.customerVisibleNote}
+                          </p>
+                        ) : null}
                       </div>
 
                       <div>
                         <p className="text-[#77777D] text-xs mb-1">Cant.</p>
-                        <p>{item.quantity || 0}</p>
+                        <p>{allocation?.quantity || item.quantity || 0}</p>
                       </div>
 
                       <div>
                         <p className="text-[#77777D] text-xs mb-1">Equipo</p>
                         <p>
                           {formatCurrency(
-                            item.unit_equipment_price,
-                            item.sale_currency || quoteData.currency
+                            allocation?.equipmentTotalUsd || 0,
+                            "USD"
                           )}
                         </p>
                       </div>
@@ -632,7 +798,7 @@ export default async function QuoteDetailPage({
                         <p className="text-[#77777D] text-xs mb-1">MO</p>
                         <p>
                           {formatCurrency(
-                            item.unit_labor_price,
+                            allocation?.laborTotalMxn || 0,
                             "MXN"
                           )}
                         </p>
@@ -644,17 +810,13 @@ export default async function QuoteDetailPage({
                         </p>
                         <p className="font-semibold">
                           {formatCurrency(
-                            getEquipmentUnitPriceUsd(
-                              item,
-                              Number(quoteData.exchange_rate || 1)
-                            ) *
-                              Number(item.quantity || 0) *
-                              Number(quoteData.exchange_rate || 1) +
-                              Number(item.unit_labor_price || 0) *
-                                Number(item.quantity || 0),
+                            allocation?.lineTotalMxn ?? getItemLineTotalMxn(item),
                             "MXN"
                           )}
                         </p>
+                      </div>
+                    </div>
+                  ))}
                       </div>
                     </div>
                   ))}

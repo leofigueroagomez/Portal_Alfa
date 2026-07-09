@@ -3,11 +3,18 @@ import "server-only";
 import fs from "node:fs";
 import path from "node:path";
 import { formatCurrency, formatNumber } from "@/lib/format";
+import {
+  CLIENT_EXISTING_SUPPLY_TYPE,
+  getQuoteItemAreaBreakdown,
+  isExistingCustomerEquipment,
+  shouldGroupQuoteItemsByPresentation,
+} from "@/lib/quoteItemPresentation";
 import type { QuotePdfSnapshot } from "@/lib/quotePdfSnapshot";
 
 type QuotePdfItem = QuotePdfSnapshot["sections"][number]["items"][number];
 type QuotePdfSection = QuotePdfSnapshot["sections"][number];
 type QuotePdfDiagnosticBlock = QuotePdfSnapshot["diagnosticContext"]["blocks"][number];
+type QuotePdfAreaBreakdownRow = ReturnType<typeof getQuoteItemAreaBreakdown>[number];
 
 type QuotePremiumPdfBranding = {
   name: string;
@@ -287,10 +294,21 @@ function buildExecutiveSummary(
   `;
 }
 
-function buildItemRow(item: QuotePdfItem) {
+function buildItemRow(item: QuotePdfItem, allocation?: QuotePdfAreaBreakdownRow) {
   const brandModel = [item.productBrand, item.productModel].filter(Boolean).join(" ");
   const title = brandModel || item.productName || "Partida sin descripcion";
   const description = item.productName && item.productName !== brandModel ? item.productName : "";
+  const isClientExisting =
+    allocation?.supplyType === CLIENT_EXISTING_SUPPLY_TYPE ||
+    (!allocation && isExistingCustomerEquipment(item));
+  const existingEquipmentBadge = isClientExisting
+    ? `<span class="item-badge">Equipo existente del cliente</span>`
+    : "";
+  const visibleNote = allocation?.customerVisibleNote || item.customerVisibleNote;
+  const customerNote =
+    isClientExisting && visibleNote
+      ? `<div class="customer-note">${escapeHtml(visibleNote)}</div>`
+      : "";
   const activities = item.laborActivities.length
     ? `<ul class="labor">${item.laborActivities
         .map(
@@ -310,20 +328,64 @@ function buildItemRow(item: QuotePdfItem) {
       <div>${buildItemImage(item)}</div>
       <div class="item-description">
         <div class="item-title">${escapeHtml(title)}</div>
+        ${existingEquipmentBadge}
         ${description ? `<div class="item-meta">${escapeHtml(description)}</div>` : ""}
+        ${customerNote}
         ${activities}
       </div>
-      <div class="num">${number(item.quantity)}</div>
-      <div class="num">${money(item.equipmentTotalUsd, "USD")}</div>
-      <div class="num">${money(item.laborTotalMxn, "MXN")}</div>
-      <div class="num strong">${money(item.lineTotalMxn, "MXN")}</div>
+      <div class="num">${number(allocation?.quantity ?? item.quantity)}</div>
+      <div class="num">${money(allocation?.equipmentTotalUsd ?? item.equipmentTotalUsd, "USD")}</div>
+      <div class="num">${money(allocation?.laborTotalMxn ?? item.laborTotalMxn, "MXN")}</div>
+      <div class="num strong">${money(allocation?.lineTotalMxn ?? item.lineTotalMxn, "MXN")}</div>
     </div>
   `;
 }
 
-function buildSection(section: QuotePdfSection) {
-  const firstRows = section.items.slice(0, 2).map(buildItemRow).join("");
-  const remainingRows = section.items.slice(2).map(buildItemRow).join("");
+function getAreaGroups(section: QuotePdfSection, exchangeRate: number) {
+  const groups = new Map<
+    string,
+    {
+      area: string;
+      rows: { item: QuotePdfItem; allocation: QuotePdfAreaBreakdownRow }[];
+      subtotalMxn: number;
+    }
+  >();
+
+  for (const item of section.items) {
+    for (const allocation of getQuoteItemAreaBreakdown(item, exchangeRate)) {
+      const current =
+        groups.get(allocation.area) || {
+          area: allocation.area,
+          rows: [],
+          subtotalMxn: 0,
+        };
+
+      current.rows.push({ item, allocation });
+      current.subtotalMxn += allocation.lineTotalMxn;
+      groups.set(allocation.area, current);
+    }
+  }
+
+  return Array.from(groups.values());
+}
+
+function buildSection(section: QuotePdfSection, exchangeRate: number) {
+  const groupedByArea = shouldGroupQuoteItemsByPresentation(section.items);
+  const rows = groupedByArea
+    ? getAreaGroups(section, exchangeRate)
+        .map(
+          (group) => `
+            <div class="area-group">
+              <div class="area-head">
+                <strong>${escapeHtml(group.area)}</strong>
+                <span>Subtotal ${money(group.subtotalMxn, "MXN")}</span>
+              </div>
+              ${group.rows.map((row) => buildItemRow(row.item, row.allocation)).join("")}
+            </div>
+          `
+        )
+        .join("")
+    : section.items.map((item) => buildItemRow(item)).join("");
 
   return `
     <section class="section">
@@ -349,9 +411,8 @@ function buildSection(section: QuotePdfSection) {
           <span class="num">Mano de Obra</span>
           <span class="num">Total MXN</span>
         </div>
-        ${firstRows}
+        ${rows}
       </div>
-      ${remainingRows}
     </section>
   `;
 }
@@ -446,7 +507,9 @@ export function buildQuotePremiumPdfHtml(
   branding?: QuotePremiumPdfBranding
 ) {
   const title = snapshot.quote.quoteNumber || `Cotizacion #${snapshot.quote.id}`;
-  const sectionsHtml = snapshot.sections.map(buildSection).join("");
+  const sectionsHtml = snapshot.sections
+    .map((section) => buildSection(section, snapshot.exchangeRate.value))
+    .join("");
   const primaryColor = branding?.primaryColor || "#9e1b32";
   const secondaryColor = branding?.secondaryColor || "#15171c";
 
@@ -777,11 +840,46 @@ export function buildQuotePremiumPdfHtml(
         font-weight: 700;
         overflow-wrap: anywhere;
       }
+      .item-badge {
+        display: inline-block;
+        margin-top: 5px;
+        border: 1px solid #d8d2c7;
+        padding: 3px 7px;
+        color: ${escapeHtml(primaryColor)};
+        font-size: 8px;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
       .item-meta {
         margin-top: 4px;
         color: #626773;
         font-size: 9px;
         overflow-wrap: anywhere;
+      }
+      .customer-note {
+        margin-top: 5px;
+        color: #3f444d;
+        font-size: 10px;
+        line-height: 1.35;
+        overflow-wrap: anywhere;
+      }
+      .area-group {
+        break-inside: avoid;
+      }
+      .area-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 8px;
+        border-bottom: 1px solid #e7e0d5;
+        background: #f7f5f1;
+        padding: 7px 8px;
+        color: #15171c;
+        font-size: 9px;
+      }
+      .area-head span {
+        color: #626773;
+        font-weight: 700;
       }
       .labor {
         margin: 5px 0 0;
