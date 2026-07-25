@@ -72,6 +72,9 @@ Confirmado por SQL:
 - `notes text` en `sql/20260526_add_quote_notes.sql`.
 - Sprint 1 de Persianas agrega `quote_type text not null default 'standard'` con valores `standard` y `blinds` en `sql/20260724_quote_blinds_sprint1.sql`.
 - El trigger `enforce_quote_group_quote_type_consistency` evita mezclar verticales dentro de un mismo `quote_group_id`.
+- Sprint 1 crea `is_internal_user()` y `has_internal_role(text[])` sólo si
+  faltan, reutilizando las definiciones mínimas del hardening histórico sin
+  modificar las policies ajenas al módulo.
 
 Estado por entorno: Sprint 1 esta aplicado y validado en sandbox `pkqwlvqosooewbejbktx`; produccion sigue pendiente y no debe consumir este backend hasta aplicar y validar primero el esquema.
 

@@ -83,3 +83,23 @@ test("el rollback de Storage aborta ante objetos o referencias persistidas", asy
     /delete\s+from\s+public\.quote_blind_item_details/i
   );
 });
+
+test("Sprint 1 incluye únicamente los helpers RLS mínimos que requiere", async () => {
+  const sql = await readFile(
+    new URL("../sql/20260724_quote_blinds_sprint1.sql", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(sql, /to_regprocedure\('public\.is_internal_user\(\)'\)/);
+  assert.match(
+    sql,
+    /to_regprocedure\('public\.has_internal_role\(text\[\]\)'\)/
+  );
+  assert.match(sql, /create function public\.is_internal_user\(\)/);
+  assert.match(
+    sql,
+    /create function public\.has_internal_role\(allowed_roles text\[\]\)/
+  );
+  assert.doesNotMatch(sql, /has_project_portal_access/);
+  assert.doesNotMatch(sql, /beta_authenticated_/);
+});

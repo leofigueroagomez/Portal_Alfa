@@ -5,6 +5,59 @@
 
 begin;
 
+-- Minimal shared RLS prerequisites. Production may not have the historical
+-- hardening migration applied yet, so this release creates only the two
+-- helpers required by the Persianas policies. Existing definitions are kept.
+do $$
+begin
+  if to_regprocedure('public.is_internal_user()') is null then
+    execute $fn$
+      create function public.is_internal_user()
+      returns boolean
+      language sql
+      stable
+      security definer
+      set search_path = public
+      as $body$
+        select exists (
+          select 1
+          from public.profiles p
+          where p.id = auth.uid()
+            and p.is_active = true
+            and p.is_internal = true
+        )
+      $body$
+    $fn$;
+  end if;
+end $$;
+
+do $$
+begin
+  if to_regprocedure('public.has_internal_role(text[])') is null then
+    execute $fn$
+      create function public.has_internal_role(allowed_roles text[])
+      returns boolean
+      language sql
+      stable
+      security definer
+      set search_path = public
+      as $body$
+        select exists (
+          select 1
+          from public.profiles p
+          where p.id = auth.uid()
+            and p.is_active = true
+            and p.is_internal = true
+            and p.role = any(allowed_roles)
+        )
+      $body$
+    $fn$;
+  end if;
+end $$;
+
+grant execute on function public.is_internal_user() to authenticated;
+grant execute on function public.has_internal_role(text[]) to authenticated;
+
 alter table public.quotes
   add column if not exists quote_type text;
 

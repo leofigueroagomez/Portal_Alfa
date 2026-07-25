@@ -137,8 +137,11 @@ No continuar si algún punto falla.
 - [ ] Las variables fiscales conservan exactamente la configuración productiva
       previamente aprobada; este release no las modifica.
 - [ ] No se ejecutará timbrado, CFDI ni complemento de pago durante el smoke.
-- [ ] Se confirmó que `set_updated_at()`, `is_internal_user()` y
-      `has_internal_role(text[])` existen.
+- [ ] Se confirmó que `set_updated_at()` existe y que `profiles` conserva
+      `id`, `is_active`, `is_internal` y `role`.
+- [ ] Se auditó si `is_internal_user()` y `has_internal_role(text[])` existen.
+      Sprint 1 los crea únicamente cuando faltan y no reemplaza definiciones
+      existentes.
 - [ ] Existen `quotes`, `quote_groups`, `quote_sections` y `quote_items`.
 - [ ] `quotes.quote_type` y `quote_blind_item_details` todavía no existen, o su
       estado fue auditado como una aplicación idempotente compatible.
@@ -266,6 +269,10 @@ Ambos scripts abortan en lugar de borrar datos silenciosamente:
 
 - Sprint 4B aborta ante objetos o paths persistidos;
 - Sprint 1 aborta ante cotizaciones `blinds` o detalles.
+
+Sprint 1 no elimina durante rollback los helpers compartidos
+`is_internal_user()` ni `has_internal_role(text[])`. Conservarlos es la opción
+segura porque otras policies pueden reutilizarlos posteriormente.
 
 Si ya existen datos reales, no se ejecuta el rollback destructivo. Se conserva
 el schema, se revierte sólo la aplicación y se prepara una migración de datos
