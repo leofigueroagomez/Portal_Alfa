@@ -22,6 +22,7 @@ type Quote = {
   grand_total: number | null;
   total_mxn?: number | null;
   created_at: string | null;
+  quote_type?: "standard" | "blinds";
 };
 
 type ClientProject = {
@@ -44,8 +45,9 @@ export default async function QuotesPage() {
   let { data: quotes, error: quotesError } = (await supabase
     .from("quotes")
     .select(
-      "id, quote_number, client_id, client_project_id, status, currency, equipment_total, labor_total, grand_total, total_mxn, created_at"
+      "id, quote_number, client_id, client_project_id, status, currency, equipment_total, labor_total, grand_total, total_mxn, created_at, quote_type"
     )
+    .eq("quote_type", "standard")
     .order("created_at", { ascending: false })) as {
     data: Quote[] | null;
     error: { code?: string; message: string } | null;
@@ -55,7 +57,8 @@ export default async function QuotesPage() {
     quotesError &&
     quotesError.code === "PGRST204" &&
     (quotesError.message.includes("client_project_id") ||
-      quotesError.message.includes("total_mxn"))
+      quotesError.message.includes("total_mxn") ||
+      quotesError.message.includes("quote_type"))
   ) {
     const fallback = (await supabase
       .from("quotes")
@@ -146,12 +149,20 @@ export default async function QuotesPage() {
           </h1>
         </div>
 
-        <Link
-          href="/quotes/new"
-          className="bg-[#9E1B32] hover:bg-[#B91C3C] rounded-xl px-6 py-3 font-semibold"
-        >
-          Nueva cotización
-        </Link>
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href="/quotes/blinds"
+            className="rounded-xl border border-[#2A2A30] bg-[#151518] px-6 py-3 font-semibold text-[#B3B3B8] transition hover:border-[#9E1B32] hover:text-white"
+          >
+            Cotizaciones de Persianas
+          </Link>
+          <Link
+            href="/quotes/new"
+            className="rounded-xl bg-[#9E1B32] px-6 py-3 font-semibold hover:bg-[#B91C3C]"
+          >
+            Nueva cotización
+          </Link>
+        </div>
       </div>
 
       {quoteList.length === 0 ? (

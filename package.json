@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "smoke:quote-blinds": "node scripts/smoke-quote-blinds.mjs",
+    "test:quote-blinds": "node --experimental-strip-types --test tests/quoteBlinds.test.mjs tests/quoteBlindsPdf.test.mjs tests/quoteBlindsStorage.test.mjs",
     "sat:import": "node scripts/import-sat-catalogs.mjs"
   },
   "dependencies": {
