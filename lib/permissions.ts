@@ -42,6 +42,28 @@ export function canApproveQuotes(role: string | null | undefined) {
   return ["admin", "direccion", "comercial"].includes(normalized);
 }
 
+export function canManageBlindQuotes(role: string | null | undefined) {
+  if (
+    !role ||
+    ![
+      "admin",
+      "direccion",
+      "comercial",
+      "ingenieria",
+      "sales",
+      "engineering",
+    ].includes(role)
+  ) {
+    return false;
+  }
+  const normalized = normalizeRole(role);
+  return ["admin", "direccion", "comercial", "ingenieria"].includes(normalized);
+}
+
+export function canDeleteBlindQuoteItems(role: string | null | undefined) {
+  return isAdminLike(role);
+}
+
 export function canManageCommercialPartners(role: string | null | undefined) {
   const normalized = normalizeRole(role);
   return ["admin", "direccion", "comercial"].includes(normalized);

@@ -149,6 +149,58 @@ Recommended order:
 
 Do not apply RLS hardening directly to production without validating sandbox login, portal, fiscal flows, and admin dashboards.
 
+## Audited Quote Sandbox Bootstrap
+
+Validated on `alfa-os-sandbox` (`pkqwlvqosooewbejbktx`) on 2026-07-24.
+This sequence prepares the minimum production-shaped quote schema required
+before testing the Persianas Sprint 1 migration:
+
+1. `supabase/migrations/20260702103000_baseline_remote_schema.sql`
+2. `sql/20260615_critical_rls_hardening.sql`
+3. `sql/20260706_quote_item_customer_equipment_area.sql`
+
+Run every file with `ON_ERROR_STOP=1`. Run the baseline and the shared
+`quote_items` delta as single transactions:
+
+```bash
+psql "$SANDBOX_DATABASE_URL" -X -1 -v ON_ERROR_STOP=1 \
+  -f supabase/migrations/20260702103000_baseline_remote_schema.sql
+
+psql "$SANDBOX_DATABASE_URL" -X -v ON_ERROR_STOP=1 \
+  -f sql/20260615_critical_rls_hardening.sql
+
+psql "$SANDBOX_DATABASE_URL" -X -1 -v ON_ERROR_STOP=1 \
+  -f sql/20260706_quote_item_customer_equipment_area.sql
+```
+
+The sequence was tested first against local Supabase. It creates the quote
+tables, `set_updated_at`, `is_internal_user`, `has_internal_role`, hardened
+quote policies, and the shared area/customer-note fields used by current quote
+items.
+
+Do not include these unrelated deltas in the Persianas bootstrap:
+
+- `sql/20260702_quote_diagnostic_context.sql`
+- `sql/20260706_quote_item_area_allocations.sql`
+- `sql/20260630_leads_email_capture.sql`
+
+The first two currently create beta policies with `using (true)` or
+`with check (true)` and require a separate security review. The leads migration
+is unrelated to quote validation.
+
+Minimum synthetic fixture identifiers:
+
+- client number: `990001`
+- quote group: `SBX-PERSIANAS-BOOTSTRAP`
+- quote number: `SBX-PERSIANAS-BOOTSTRAP-V1`
+
+After bootstrap, confirm that `quotes`, `quote_groups`, `quote_sections`, and
+`quote_items` have RLS enabled and no open authenticated policies. The imported
+historical baseline can still contain beta open policies on unrelated tables;
+do not treat the bootstrap as a complete application-wide RLS certification.
+Create a new logical backup after inserting the synthetic fixture and before
+applying the Persianas Sprint 1 migration.
+
 ## Vercel Sandbox/Staging Setup
 
 Use a separate Vercel project or a dedicated staging environment for the same project.

@@ -70,6 +70,10 @@ Confirmado por SQL:
 - Campos de viaticos/partner en `sql/20260528_quote_travel_partner_mode.sql`.
 - `commercial_partner_id` referencia `commercial_partners(id)` con `on delete set null` en `sql/20260619_commercial_partners_white_label.sql`.
 - `notes text` en `sql/20260526_add_quote_notes.sql`.
+- Sprint 1 de Persianas agrega `quote_type text not null default 'standard'` con valores `standard` y `blinds` en `sql/20260724_quote_blinds_sprint1.sql`.
+- El trigger `enforce_quote_group_quote_type_consistency` evita mezclar verticales dentro de un mismo `quote_group_id`.
+
+Estado por entorno: Sprint 1 esta aplicado y validado en sandbox `pkqwlvqosooewbejbktx`; produccion sigue pendiente y no debe consumir este backend hasta aplicar y validar primero el esquema.
 
 Pendiente de confirmar: migracion base completa de `quotes`, constraints, defaults originales, triggers y RLS final en produccion.
 
@@ -107,6 +111,183 @@ Confirmado por SQL:
 - `existing_customer_equipment boolean not null default false`, `area text`, `customer_visible_note text` en `sql/20260706_quote_item_customer_equipment_area.sql`.
 
 Pendiente de confirmar: migracion base completa, columnas legacy, constraints y RLS final.
+
+### `quote_blind_item_details`
+
+Implementado por `sql/20260724_quote_blinds_sprint1.sql` para la vertical de Cotizaciones de Persianas:
+
+- Relacion 1:1 mediante `quote_item_id bigint primary key references quote_items(id) on delete cascade`.
+- Dimensiones: `width_cm`, `height_cm` positivas.
+- `calculated_m2_per_unit numeric(14,4)` generado como `width_cm * height_cm / 10000`.
+- Especificacion: `blind_type`, `collection`, `color`, `mechanism`, `control`.
+- Precio base: `price_per_m2_mxn`.
+- Ajuste auditable: `billable_m2_override` y `override_reason`; ambos deben existir juntos y el motivo no puede estar vacio.
+- Imagen: `reference_image_path` debe ser un path persistente `quote-blinds/...`, nunca URL HTTP, data URL ni signed URL.
+- `internal_notes` es solo interno y no debe incluirse en PDF, portal ni documentos publicos.
+- `created_at`, `updated_at` y trigger `set_updated_at`.
+- Trigger de integridad: solo admite `quote_item_id` perteneciente a una cotizacion `quote_type = 'blinds'`.
+- RLS: lectura directa solo para usuarios internos; insert/update para `admin`, `direccion`, `comercial`, `ingenieria`; delete para `admin`, `direccion`.
+- El portal/PDF no debe consultar esta tabla directamente porque contiene `internal_notes` y `override_reason`. La futura exposicion de Sprint 3 debera usar backend con validacion de proyecto/token y un select explicito que excluya campos internos.
+
+Los campos comerciales compartidos siguen en `quote_items`: area, marca, modelo, cantidad, nota visible, producto fiscal, orden y totales.
+
+Sprint 4B asigna la foto de referencia al bucket dedicado y privado
+`quote-blinds-private`, bajo
+`quote-blinds/{quoteId}/{quoteItemId}/...`. La fila conserva únicamente ese
+path persistente; nunca guarda una signed URL.
+
+Estado por entorno: aplicado en sandbox; pendiente en produccion.
+
+### Backend de Persianas (Sprint 2)
+
+Implementado en `lib/quoteBlindsContract.ts`, `lib/quoteBlindsBackend.ts` y rutas bajo `app/api/quotes/blinds/`:
+
+- `GET /api/quotes/blinds`: lista exclusivamente cotizaciones `quote_type = 'blinds'`.
+- `POST /api/quotes/blinds`: crea grupo propio, cotizacion MXN en borrador y seccion operativa `Persianas`.
+- `GET /api/quotes/blinds/{id}`: devuelve cotizacion, secciones, partidas y detalle tecnico 1:1.
+- `POST /api/quotes/blinds/{id}/items`: agrega partida y recalcula seccion/cotizacion.
+- `PATCH /api/quotes/blinds/{id}/items/{itemId}`: reemplaza el contrato completo de la partida y recalcula totales.
+- `DELETE /api/quotes/blinds/{id}/items/{itemId}`: elimina por cascade el detalle y recalcula totales.
+
+Contrato de calculo:
+
+- `calculated_m2_per_unit = round(width_cm * height_cm / 10000, 4)`.
+- `calculated_m2_total = round(calculated_m2_per_unit * quantity, 4)`.
+- `billable_m2 = billable_m2_override ?? calculated_m2_total`.
+- `line_total_mxn = round(billable_m2 * price_per_m2_mxn, 2)`.
+- `quote_items.unit_equipment_price` guarda el equivalente por pieza para conservar compatibilidad con la estructura comercial compartida.
+- La cotizacion suma `equipment_total`, calcula IVA al 16% y guarda subtotal/base/IVA/total en campos existentes; mano de obra queda en cero durante este sprint.
+
+Seguridad y limites:
+
+- Todas las rutas exigen usuario interno y usan el cliente Supabase de sesion; no usan service role ni omiten RLS.
+- Alta/edicion: `admin`, `direccion`, `comercial`, `ingenieria`.
+- Borrado: `admin`, `direccion`, consistente con RLS de `quote_items` y `quote_blind_item_details`.
+- No existe endpoint portal/publico en Sprint 2. Por ello `internal_notes` y `override_reason` solo aparecen en la respuesta interna de detalle.
+- Cada alta crea un `quote_group_id` nuevo, por lo que no mezcla verticales. Ademas, el trigger de Sprint 1 conserva la defensa en base.
+- Este sprint no implementa versionado de persianas, upload/resolucion de imagen, UI, PDF, portal, aprobacion, sincronizacion operativa ni facturacion.
+- Sin una funcion SQL transaccional, la creacion de grupo/cotizacion/seccion y el alta item/detalle son operaciones secuenciales. El backend hace validacion previa y compensacion best-effort, pero una falla intermedia puede requerir limpieza administrativa en sandbox.
+
+Smoke HTTP autenticado en sandbox, 2026-07-24:
+
+- Proyecto confirmado: `pkqwlvqosooewbejbktx`; produccion permanecio `linked:false`.
+- Harness reproducible: `scripts/smoke-quote-blinds.mjs`, ejecutado con sesiones reales y cookies SSR.
+- Fixture final: `ALFA-BLINDS-SMOKE-20260724234158`; cotizacion `7`, grupo `5`, partida `7`.
+- HTTP positivo: crear cotizacion `201`, listar `200`, detalle `200`, agregar partida `201`, editar `200`, borrar como admin `200`.
+- Totales comprobados: alta `$2,030.00`, edicion `$2,784.00`, despues de borrar `$0.00`.
+- HTTP negativo: anonimo `401`, cliente portal `401`, intento de borrado como comercial `403`.
+- La lista no incluyo `internal_notes` ni `override_reason`; el cliente portal no recibio datos de cotizacion. El detalle interno si conserva ambos campos por contrato interno.
+- `quote_blind_item_details` quedo sin huerfanos y la cotizacion estandar `SBX-PERSIANAS-BOOTSTRAP-V1` permanecio como `standard`.
+- Limpieza confirmada por conteos en cero para cotizacion, grupo, secciones, partidas, detalle, perfiles y usuarios Auth del fixture.
+- La llave administrativa de sandbox se uso solamente para alta/baja de identidades sinteticas y auditoria final de limpieza. Ninguna llamada HTTP uso service role; las rutas se probaron con sesiones `commercial`, `admin` y `client`.
+
+### Frontend de Persianas (Sprint 3)
+
+Implementado bajo `app/(admin)/quotes/blinds/` y enlazado desde el listado interno de cotizaciones:
+
+- `/quotes/blinds`: listado separado de cotizaciones de persianas, busqueda, estados vacio/carga/error y acceso a nueva captura.
+- `/quotes/blinds/new`: alta de cotizacion MXN asociada a cliente/proyecto usando `POST /api/quotes/blinds`.
+- `/quotes/blinds/{id}`: detalle y captura rapida de partidas, agrupadas por area o ubicacion.
+- El formulario reutiliza `lib/quoteBlindsContract.ts` para validar campos y mostrar en vivo m2 unitario, m2 total, m2 facturable y total de partida.
+- El resumen muestra piezas, m2 facturables, subtotal, IVA 16% y total. La mano de obra permanece en cero por contrato.
+- Alta, edicion y borrado consumen exclusivamente las rutas de Sprint 2 con la sesion interna actual. El borrado usa confirmacion en linea y respeta la capacidad `canDelete`.
+- La foto se presenta como pendiente de Storage; Sprint 3 no sube archivos ni genera URLs publicas.
+- Las notas internas y el motivo de ajuste se muestran solamente en el detalle interno. El listado no solicita ni renderiza esos campos.
+- El listado estandar `/quotes` filtra `quote_type = 'standard'`; conserva un fallback para entornos donde Sprint 1 aun no exista.
+- Fuera de alcance: PDF, portal cliente, facturacion, CFDI, Facturama, complementos, versionado y aprobacion de persianas.
+
+Validacion manual en navegador contra sandbox, 2026-07-24:
+
+- Fixture `ALFA-BLINDS-UI-20260724235921`, sesion real con rol `admin`; ninguna llamada de la aplicacion uso service role.
+- Crear, listar y abrir cotizacion: correcto.
+- Alta de partida: 2 piezas, 5.0000 m2 facturables, subtotal `$1,750.00`, IVA `$280.00`, total `$2,030.00`.
+- Edicion y retiro de ajuste manual: 3 piezas, 6.0000 m2 facturables, subtotal `$2,400.00`, IVA `$384.00`, total `$2,784.00`.
+- Borrado: resumen regreso a cero y se mostro el estado vacio.
+- Compatibilidad: `SBX-PERSIANAS-BOOTSTRAP-V1` siguio visible en `/quotes`; la cotizacion `blinds` no aparecio en el listado estandar.
+- Limpieza final confirmada: cero cotizaciones, detalles de persiana y perfiles asociados al fixture.
+
+### PDF Comercial de Persianas (Sprint 4A)
+
+Implementado con el mismo patron interno del PDF Premium estandar:
+
+- `GET /api/quotes/blinds/{id}/pdf`: endpoint interno autenticado, dinamico y `nodejs`; usa la sesion Supabase actual y respeta RLS.
+- `lib/quoteBlindsPdfSnapshot.ts`: construye un snapshot documental explicito para `quote_type = 'blinds'`.
+- `lib/quoteBlindsPdfHtml.ts`: genera HTML comercial escapado, agrupado por area y optimizado para carta.
+- `lib/quotePremiumPdf.ts`: renderer Chromium compartido; Sprint 4A no duplica la resolucion del ejecutable ni la configuracion de PDF.
+- La pantalla `/quotes/blinds/{id}` expone una sola accion `Imprimir / PDF` hacia el endpoint nuevo.
+
+Contrato documental:
+
+- Encabezado ALFA, cliente, proyecto, folio, fecha y vigencia estandar de 15 dias.
+- Portada con piezas, m2 considerados y total con IVA.
+- Partidas agrupadas por area con marca, modelo, tipo, coleccion, color, mecanismo, control, medidas, cantidad, m2 e importe.
+- Resumen con subtotal, IVA 16%, total, piezas y m2.
+- Solo se incluye `customer_visible_note`.
+- Si existe `reference_image_path`, el PDF muestra una referencia textual segura; nunca incluye el path privado ni resuelve Storage.
+- `internal_notes`, `override_reason`, paths privados, Facturama, CFDI, complementos y datos de portal no forman parte del tipo `QuoteBlindsPdfSnapshot` ni de la plantilla.
+- El endpoint exige usuario interno, aplica rate limit y nunca usa service role.
+
+Prueba documental local, 2026-07-24:
+
+- Fixture visual: 2 areas, 4 partidas, 6 piezas, 10.9 m2.
+- PDF carta de 3 paginas renderizado con Chromium y revisado como PNG con Poppler.
+- Totales verificados: subtotal `$10,400.00`, IVA `$1,664.00`, total `$12,064.00`.
+- Sin cortes de partidas; las areas pequenas se mantienen juntas entre paginas.
+- Extraccion de texto confirmo cliente, proyecto, areas, notas visibles y totales.
+- Extraccion negativa confirmo ausencia de notas internas, motivos de ajuste y paths `quote-blinds/...`.
+
+### Storage privado de Persianas (Sprint 4B)
+
+Implementado y validado exclusivamente en sandbox
+`pkqwlvqosooewbejbktx`:
+
+- Bucket dedicado `quote-blinds-private`, `public = false`, límite de 10 MB y
+  MIME permitidos `image/jpeg`, `image/png` e `image/webp`.
+- Paths persistentes:
+  `quote-blinds/{quoteId}/{quoteItemId}/{uuid}.{ext}`.
+- Policies `quote_blinds_images_*`: lectura para usuarios internos; alta,
+  reemplazo y eliminación para `admin`, `direccion`, `comercial` e
+  `ingenieria`. Todas validan bucket, prefijo y cotización `blinds`; alta y
+  actualización también validan la partida.
+- No existen policies abiertas nuevas con `using (true)` o
+  `with check (true)`.
+- Ruta interna
+  `GET/POST/DELETE /api/quotes/blinds/{id}/items/{itemId}/reference-image`:
+  firma por 10 minutos, sube/reemplaza y elimina sin service role.
+- La UI permite subir, previsualizar, reemplazar y quitar la foto al editar una
+  partida. Las listas internas muestran miniaturas desde signed URLs; no
+  renderizan el path privado.
+- El borrado autorizado de una partida intenta limpiar su imagen y devuelve
+  `image_cleanup_pending` si Storage requiere auditoría posterior.
+- El PDF mantiene las fotos como referencia textual. No resuelve signed URLs,
+  no incrusta el archivo y no expone bucket ni path.
+
+SQL y rollback:
+
+- `sql/20260724_quote_blinds_storage_sprint4b.sql`.
+- `sql/20260724_quote_blinds_storage_sprint4b_rollback.sql`.
+- `docs/QUOTE_BLINDS_SPRINT4B_STORAGE_ROLLBACK.md`.
+- El rollback aborta si el bucket conserva objetos.
+
+Validación integrada, 2026-07-24:
+
+- Fixture final `ALFA-BLINDS-S4B-20260725011059`; cotización `15`, grupo `13`,
+  partidas `33`, `34`, `35` y `36`.
+- Sesiones reales sintéticas `comercial`, `admin` y `client`; la llave
+  administrativa se usó sólo para identidades, auditoría y limpieza.
+- Dos uploads ejecutados desde el input de la UI, dos miniaturas firmadas
+  cargadas, reemplazo y retiro correctos.
+- Cliente: acceso al endpoint `401`, signed URL directa denegada y upload
+  directo denegado.
+- Borrado como `comercial`: `403`; borrado como `admin`: `200`, sin archivo
+  residual ni detalle huérfano.
+- Totales: 6 piezas, 15.72 m², subtotal `$7,248.00`, IVA `$1,159.68`, total
+  `$8,407.68`.
+- PDF autenticado: `200`, carta, 3 páginas, cliente/proyecto y áreas correctos.
+  No contiene `internal_notes`, `override_reason`, `quote-blinds/` ni
+  `quote-blinds-private`.
+- Limpieza completa: cotización, grupo, partidas, detalles, imágenes y usuarios
+  temporales eliminados; bucket con cero objetos.
 
 ### `quote_item_area_allocations`
 
@@ -222,6 +403,7 @@ Pendiente de confirmar: si el bucket publico de partner sigue siendo el criterio
 - Versionado/aprobacion: `CreateQuoteVersionButton.tsx`, `ApproveQuoteVersionButton.tsx`, detalle de cotizacion, `quote_groups`, `quotes.is_latest`, `quotes.status`, y `lib/projectOperationalItems.ts` si cambia sincronizacion de proyectos aprobados.
 - Cambios de schema: migracion en `sql/`, selects/inserts en crear/editar/versionar/PDF, helpers defensivos y `notify pgrst, 'reload schema';` cuando PostgREST deba reconocer columnas/tablas nuevas.
 - Equipo existente / area por partida Fase 1 y allocations Fase 2: `app/(admin)/quotes/new/page.tsx`, `app/(admin)/quotes/[id]/edit/page.tsx`, `app/(admin)/quotes/[id]/page.tsx`, `app/(admin)/quotes/[id]/print/page.tsx`, `app/public/documents/[token]/quote/page.tsx`, `CreateQuoteVersionButton.tsx`, `lib/quotePdfSnapshot.ts`, `lib/quotePremiumPdfHtml.ts`, `lib/quoteItemPresentation.ts`, migraciones SQL.
+- Persianas Sprint 1, backend Sprint 2, frontend Sprint 3 y PDF Sprint 4A: SQL/rollback, `lib/quoteBlindsContract.ts`, `lib/quoteBlindsBackend.ts`, `lib/quoteBlindsPdfSnapshot.ts`, `lib/quoteBlindsPdfHtml.ts`, rutas `app/api/quotes/blinds/`, pantallas `app/(admin)/quotes/blinds/`, acceso desde `app/(admin)/quotes/page.tsx`, pruebas dirigidas y este documento. Portal, facturacion y operacion siguen fuera de alcance.
 
 ## Validacion Especifica
 
@@ -267,6 +449,42 @@ Checklist minimo segun tipo de cambio:
   - errores por columna/tabla faltante deben ser deliberados y temporales;
   - migraciones de columnas/tablas usadas por Supabase deben terminar con recarga de schema cuando aplique;
   - revisar `isMissingDiagnosticContextSchema` antes de retirar defensas.
+- Persianas Sprint 1, antes de habilitar cualquier UI:
+  - confirmar que todas las cotizaciones existentes quedaron como `quote_type = 'standard'`;
+  - rechazar valores de `quote_type` fuera de `standard` y `blinds`;
+  - rechazar versiones del mismo grupo con distinto `quote_type`;
+  - rechazar dimensiones no positivas y precios negativos;
+  - confirmar calculo generado `width_cm * height_cm / 10000`;
+  - exigir motivo cuando existe `billable_m2_override`;
+  - rechazar detalles asociados a cotizaciones `standard`;
+  - probar matriz RLS con admin, comercial, ingenieria, usuario interno de solo lectura y usuarios portal; ningun usuario portal debe poder consultar directamente la tabla;
+  - confirmar que `project-photos` sigue privado y que no se guarda una signed URL;
+  - ejecutar primero en sandbox y conservar `sql/20260724_quote_blinds_sprint1_rollback.sql`.
+- Persianas Sprint 3:
+  - crear, listar y abrir una cotizacion `blinds` con sesion interna;
+  - agregar, editar y eliminar una partida, incluido retirar un ajuste manual;
+  - comprobar agrupacion por area y actualizacion de piezas, m2, subtotal, IVA y total;
+  - confirmar estados de carga, vacio, error, guardado y eliminado;
+  - confirmar que `/quotes` muestra solo cotizaciones `standard`;
+  - confirmar que no existe upload, PDF, portal o integracion fiscal en estas rutas.
+- Persianas Sprint 4A:
+  - generar PDF con sesion interna y confirmar `Content-Type: application/pdf`;
+  - verificar bytes iniciales `%PDF-` y `Content-Disposition` con folio seguro;
+  - probar al menos 2 areas y 4 partidas con mecanismos, controles y notas visibles distintos;
+  - renderizar todas las paginas y revisar cortes, encabezados, agrupacion y resumen;
+  - extraer texto para confirmar cliente, proyecto, folio, medidas, piezas, m2 y totales;
+  - confirmar ausencia de `internal_notes`, `override_reason` y paths privados;
+  - confirmar que el endpoint de PDF estandar conserva su ruta y comportamiento.
+- Persianas Sprint 4B:
+  - confirmar bucket `quote-blinds-private` privado y MIME/tamaño permitidos;
+  - confirmar cero policies abiertas y matriz interna/cliente;
+  - subir dos imágenes desde la UI, resolver miniaturas con signed URLs y
+    reemplazar/quitar una referencia;
+  - confirmar que sólo se persiste
+    `quote-blinds/{quoteId}/{quoteItemId}/...`;
+  - borrar una partida con imagen y auditar cero objetos/detalles huérfanos;
+  - comprobar que PDF y portal no reciben signed URLs, bucket o path privado;
+  - limpiar fixtures y confirmar bucket vacío.
 
 ## Reglas De Seguridad
 
@@ -285,6 +503,8 @@ Checklist minimo segun tipo de cambio:
 - Aprobacion afecta proyecto y sincronizacion operativa, no solo `quotes.status`.
 - RLS debe seguir patrones existentes de cotizaciones y tablas hijas.
 - No romper cotizaciones antiguas al agregar campos nuevos.
+- El backend de `quote_type` solo puede habilitarse en entornos donde Sprint 1 ya fue aplicado y validado; actualmente esto se cumple unicamente en sandbox.
+- El rollback de Persianas Sprint 1 se detiene si existen cotizaciones `blinds` o detalles persistidos para evitar perdida silenciosa de datos.
 
 ## Documentos Relacionados
 
@@ -292,3 +512,4 @@ Checklist minimo segun tipo de cambio:
 - [`../../ai/PROJECT_MAP.md`](../../ai/PROJECT_MAP.md)
 - [`../../ai/MODULE_INDEX.md`](../../ai/MODULE_INDEX.md)
 - [`../../ai/SECURITY_RULES.md`](../../ai/SECURITY_RULES.md)
+- [`../../QUOTE_BLINDS_RELEASE_SPRINT5.md`](../../QUOTE_BLINDS_RELEASE_SPRINT5.md)
