@@ -4,19 +4,29 @@ import type React from "react";
 import { useState, useTransition } from "react";
 import {
   AlertTriangle,
+  Calendar,
   CheckCircle2,
   Clock,
   Copy,
   CreditCard,
   Download,
+  Edit,
   ExternalLink,
+  Laptop,
   Mail,
+  MapPin,
   Send,
   ShieldAlert,
   ShieldCheck,
   Smartphone,
+  User,
 } from "lucide-react";
-import { markServiceAsPaidAction, sendServicePaymentReminderEmailAction } from "./actions";
+import {
+  markServiceAsPaidAction,
+  sendServicePaymentReminderEmailAction,
+  updateServiceAmountAction,
+  completeServiceReportAction,
+} from "./actions";
 
 type Props = {
   serviceId: number;
@@ -30,9 +40,21 @@ type Props = {
   isSigned: boolean;
   signerName: string | null;
   signedAt: string | null;
+  status: string;
   recipientEmail: string;
   recipientPhone: string;
   publicUrl: string;
+  calendarUrl?: string;
+  waTechAssignUrl?: string;
+  waTechAssignText?: string;
+  isRemote?: boolean;
+  requesterName?: string | null;
+  requesterPhone?: string | null;
+  scheduledTimeStart?: string | null;
+  scheduledTimeEnd?: string | null;
+  performedByName?: string | null;
+  serviceLocation?: string | null;
+  googleMapsUrl?: string | null;
   waSignUrl: string;
   waSignText: string;
   waCollectUrl: string;
@@ -53,9 +75,21 @@ export default function ServiceCollectionPanel({
   isSigned,
   signerName,
   signedAt,
+  status,
   recipientEmail,
   recipientPhone,
   publicUrl,
+  calendarUrl,
+  waTechAssignUrl,
+  waTechAssignText,
+  isRemote,
+  requesterName,
+  requesterPhone,
+  scheduledTimeStart,
+  scheduledTimeEnd,
+  performedByName,
+  serviceLocation,
+  googleMapsUrl,
   waSignUrl,
   waSignText,
   waCollectUrl,
@@ -64,6 +98,8 @@ export default function ServiceCollectionPanel({
   lastReminderSentAt,
 }: Props) {
   const [showPayModal, setShowPayModal] = useState(false);
+  const [showAmountModal, setShowAmountModal] = useState(false);
+  const [newAmountMxn, setNewAmountMxn] = useState(String(totalMxn || ""));
   const [payMethod, setPayMethod] = useState("transfer");
   const [payRef, setPayRef] = useState("");
   const [copiedLink, setCopiedLink] = useState(false);
@@ -75,6 +111,7 @@ export default function ServiceCollectionPanel({
   const [isPending, startTransition] = useTransition();
 
   const isPaid = paymentStatus === "paid";
+  const isCompleted = status === "completed";
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(val);
 
@@ -99,6 +136,32 @@ export default function ServiceCollectionPanel({
     });
   }
 
+  function handleSaveAmount(e: React.FormEvent) {
+    e.preventDefault();
+    startTransition(async () => {
+      const res = await updateServiceAmountAction(serviceId, Number(newAmountMxn) || 0);
+      if (res.ok) {
+        setShowAmountModal(false);
+      } else {
+        alert(res.error || "No se pudo actualizar el monto.");
+      }
+    });
+  }
+
+  function handleCompleteService() {
+    const confirmed = window.confirm(
+      "¿Aprobar y marcar este servicio como COMPLETADO por Dirección? Esta acción bloqueará la edición técnica."
+    );
+    if (!confirmed) return;
+
+    startTransition(async () => {
+      const res = await completeServiceReportAction(serviceId);
+      if (!res.ok) {
+        alert(res.error || "No se pudo completar el servicio.");
+      }
+    });
+  }
+
   function handleSendEmailReminder() {
     setEmailStatus("sending");
     setEmailMsg(null);
@@ -117,7 +180,7 @@ export default function ServiceCollectionPanel({
 
   return (
     <section className="space-y-6">
-      {/* 1. Semáforo de Estado de Pago y Recepción */}
+      {/* 1. Semáforo de Estado de Pago, Monto y Recepción */}
       <div
         className={`rounded-2xl border p-5 sm:p-6 shadow-xl ${
           isPaid
@@ -144,30 +207,31 @@ export default function ServiceCollectionPanel({
             )}
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-[#9E1B32]">
-                Control de Cobranza y Recepción
+                Control de Cobranza y Dirección
               </p>
               <h3 className="text-lg font-bold text-white">
                 {isPaid
                   ? "Servicio 100% Pagado y Liquidado"
                   : isSigned
                     ? "Servicio Firmado: Pendiente de Cobro"
-                    : "Servicio Pendiente de Revisión y Firma"}
+                    : "Servicio en Proceso (Pendiente de Firma)"}
               </h3>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${
-                isPaid
-                  ? "border-[#1F7A4D] bg-[#143D2A] text-[#8CE0B6]"
-                  : isSigned
-                    ? "border-[#614620] bg-[#322514] text-[#F4C66A]"
-                    : "border-[#2A2A30] bg-[#1C1D22] text-[#B3B3B8]"
-              }`}
-            >
-              {isPaid ? "Liquidado" : isSigned ? "Pendiente de Pago" : "Sin Firma"}
-            </span>
+            {!isCompleted && isSigned && (
+              <button
+                type="button"
+                onClick={handleCompleteService}
+                disabled={isPending}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-[#1F7A4D] bg-[#143D2A] px-4 py-2 text-xs font-bold text-[#8CE0B6] hover:bg-[#1C533A] transition shadow-md"
+                title="Aprobar y finalizar servicio"
+              >
+                <ShieldCheck size={14} />
+                Aprobar y Finalizar (Dirección)
+              </button>
+            )}
 
             {!isPaid && (
               <button
@@ -183,11 +247,24 @@ export default function ServiceCollectionPanel({
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-4 text-xs">
-          <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-            <span className="text-[#8E8E93]">Monto del Servicio</span>
-            <p className="mt-1 text-base font-bold text-white">
-              {formatCurrency(totalMxn)} <span className="text-[10px] text-[#77777D]">(+ IVA)</span>
-            </p>
+          <div className="rounded-xl border border-white/10 bg-black/20 p-3 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-[#8E8E93]">Monto a Cobrar</span>
+                <button
+                  type="button"
+                  onClick={() => setShowAmountModal(true)}
+                  className="text-[#9E1B32] hover:text-[#B91C3C] font-semibold text-[11px] flex items-center gap-1"
+                >
+                  <Edit size={12} />
+                  Definir
+                </button>
+              </div>
+              <p className="mt-1 text-base font-bold text-white">
+                {totalMxn > 0 ? `${formatCurrency(totalMxn)}` : "Por definir"}
+                {totalMxn > 0 && <span className="text-[10px] text-[#77777D]"> (+ IVA)</span>}
+              </p>
+            </div>
           </div>
           <div className="rounded-xl border border-white/10 bg-black/20 p-3">
             <span className="text-[#8E8E93]">Estado de Firma</span>
@@ -202,23 +279,73 @@ export default function ServiceCollectionPanel({
             </p>
           </div>
           <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-            <span className="text-[#8E8E93]">Último Registro</span>
+            <span className="text-[#8E8E93]">Estado del Reporte</span>
             <p className="mt-1 text-xs font-bold text-white truncate">
-              {isPaid && paidAt
-                ? `Pagado: ${new Date(paidAt).toLocaleDateString("es-MX")}`
-                : isSigned && signedAt
-                  ? `Firmado: ${new Date(signedAt).toLocaleDateString("es-MX")}`
-                  : "En curso"}
+              {isCompleted ? "✅ Finalizado por Dirección" : isSigned ? "⏳ Pendiente de Aprobación" : "📋 En proceso técnico"}
             </p>
           </div>
         </div>
       </div>
 
-      {/* 2. Acciones de Despacho por WhatsApp y Recordatorios de Cobranza */}
+      {/* 2. Agenda Google Calendar y Asignación de Técnico */}
+      <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5 sm:p-6 space-y-4 shadow-xl">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#2A2A30] pb-3">
+          <div>
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <Calendar size={18} className="text-[#4285F4]" />
+              Agenda, Calendario y Asignación Técnica
+            </h3>
+            <p className="text-xs text-[#8E8E93]">
+              Horario asignado: <strong>{scheduledTimeStart || "10:00"} a {scheduledTimeEnd || "12:00"}</strong> •{" "}
+              {isRemote ? "🛠️ Soporte Remoto" : "📍 Visita Presencial"}
+            </p>
+          </div>
+
+          {calendarUrl && (
+            <a
+              href={calendarUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded-xl border border-[#4285F4]/40 bg-[#1E2530] px-4 py-2.5 text-xs font-bold text-[#8AB4F8] hover:bg-[#253245] transition shadow-md self-start sm:self-auto"
+            >
+              <Calendar size={15} />
+              Agendar en Google Calendar
+              <ExternalLink size={13} />
+            </a>
+          )}
+        </div>
+
+        {/* Tarjeta de Asignación por WhatsApp al Técnico */}
+        {waTechAssignUrl && waTechAssignText && (
+          <div className="rounded-xl border border-[#2A2A30] bg-[#1C1D22] p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-bold text-white">
+                <Send size={15} className="text-[#25D366]" />
+                <span>Notificación de Asignación al Técnico ({performedByName || "Técnico ALFA"})</span>
+              </div>
+              <a
+                href={waTechAssignUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[#25D366] px-3.5 py-1.5 text-xs font-bold text-black hover:bg-[#1EBE5D] transition"
+              >
+                <Smartphone size={13} />
+                Enviar WhatsApp al Técnico
+              </a>
+            </div>
+
+            <div className="rounded-lg border border-[#2A2A30] bg-[#151518] p-3 text-[11px] text-[#B3B3B8] font-mono leading-relaxed whitespace-pre-wrap max-h-28 overflow-y-auto">
+              {waTechAssignText}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 3. Acciones de Despacho al Cliente por WhatsApp y Correo */}
       <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5 sm:p-6 space-y-6 shadow-xl">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#2A2A30] pb-4">
           <div>
-            <h3 className="text-xl font-bold text-white">Despacho y Seguimiento Multicanal</h3>
+            <h3 className="text-xl font-bold text-white">Despacho y Seguimiento al Cliente</h3>
             <p className="text-xs text-[#B3B3B8]">
               {isSigned
                 ? "Envía recordatorios de pago con las cuentas bancarias de ALFA IT y el PDF oficial adjunto."
@@ -242,7 +369,7 @@ export default function ServiceCollectionPanel({
             <div className="flex items-center gap-2">
               <Smartphone size={18} className="text-[#25D366]" />
               <h4 className="text-sm font-bold text-white">
-                {isSigned ? "Recordatorio por WhatsApp" : "Enviar a Firma por WhatsApp"}
+                {isSigned ? "Recordatorio de Pago por WhatsApp" : "Enviar a Firma por WhatsApp"}
               </h4>
             </div>
 
@@ -327,6 +454,64 @@ export default function ServiceCollectionPanel({
           </div>
         </div>
       </div>
+
+      {/* Modal para Definir Monto del Servicio (Dirección) */}
+      {showAmountModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-[#2A2A30] bg-[#151518] p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-[#2A2A30] pb-3">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Edit size={18} className="text-[#9E1B32]" />
+                Definir Monto de Cobro (Dirección)
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowAmountModal(false)}
+                className="text-[#77777D] hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveAmount} className="space-y-4 text-xs">
+              <p className="text-[#B3B3B8]">
+                Ingresa el importe total antes de IVA para el servicio <strong>{serviceNumber}</strong>. Al guardarlo, se generará el enlace de pago de Stripe correspondiente.
+              </p>
+
+              <label className="block space-y-1">
+                <span className="text-[#B3B3B8]">Monto en Pesos Mexicanos (MXN):</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={newAmountMxn}
+                  onChange={(e) => setNewAmountMxn(e.target.value)}
+                  placeholder="Ej. 1850.00"
+                  className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 text-base font-bold text-white outline-none focus:border-[#9E1B32]"
+                  required
+                />
+              </label>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAmountModal(false)}
+                  className="flex-1 rounded-xl border border-[#2A2A30] bg-[#222228] py-2.5 font-semibold text-white hover:bg-[#2A2A30]"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="flex-1 rounded-xl bg-[#9E1B32] py-2.5 font-bold text-white hover:bg-[#B91C3C] disabled:opacity-50"
+                >
+                  {isPending ? "Guardando..." : "Guardar Monto"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Modal para Reportar Pago Recibido */}
       {showPayModal && (

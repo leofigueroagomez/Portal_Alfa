@@ -8,6 +8,10 @@ import { getAlfaBankAccounts, formatBankTransferInstructions } from "@/lib/bankA
 import { getOrCreateServiceSigningLink, getOrCreateServiceReportPublicLink } from "@/lib/publicDocumentLinks";
 import { generateServiceReportPdf } from "@/lib/serviceReportPdf";
 import { getOrCreateServiceStripeCheckout } from "@/lib/stripe";
+import {
+  buildGoogleCalendarUrl,
+  buildTechnicianAssignmentWhatsAppMessage,
+} from "@/lib/googleCalendar";
 
 export async function markServiceAsPaidAction(
   serviceId: number,
@@ -48,6 +52,70 @@ export async function markServiceAsPaidAction(
   revalidatePath("/services");
 
   return { ok: true, message: "Pago registrado exitosamente." };
+}
+
+export async function updateServiceAmountAction(
+  serviceId: number,
+  amountMxn: number
+) {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { ok: false, error: "No autorizado." };
+  }
+
+  const adminClient = createSupabaseAdminClient();
+  const safeAmount = Math.max(Number(amountMxn) || 0, 0);
+
+  // Al cambiar el monto, invalidamos el payment_link_url anterior para que se regenere con el nuevo monto
+  const { error } = await adminClient
+    .from("service_reports")
+    .update({
+      labor_sale_mxn: safeAmount,
+      payment_link_url: null,
+    })
+    .eq("id", serviceId);
+
+  if (error) {
+    console.error("Error actualizando monto del servicio:", error);
+    return { ok: false, error: "No se pudo actualizar el monto del servicio." };
+  }
+
+  revalidatePath(`/services/${serviceId}`);
+  revalidatePath("/services");
+  return { ok: true, message: "Monto del servicio actualizado correctamente." };
+}
+
+export async function completeServiceReportAction(serviceId: number) {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { ok: false, error: "No autorizado." };
+  }
+
+  const adminClient = createSupabaseAdminClient();
+  const { error } = await adminClient
+    .from("service_reports")
+    .update({
+      status: "completed",
+      completed_at: new Date().toISOString(),
+    })
+    .eq("id", serviceId);
+
+  if (error) {
+    console.error("Error completando servicio:", error);
+    return { ok: false, error: "No se pudo completar el servicio." };
+  }
+
+  revalidatePath(`/services/${serviceId}`);
+  revalidatePath("/services");
+  return { ok: true, message: "Servicio finalizado y aprobado por Dirección." };
 }
 
 export async function sendServicePaymentReminderEmailAction(
@@ -229,13 +297,15 @@ export async function getServiceDispatchContext(serviceId: number) {
   const supabase = await createSupabaseServerClient();
   const adminClient = createSupabaseAdminClient();
 
-  const { data: report, error } = await adminClient
+    const { data: report, error } = await adminClient
     .from("service_reports")
     .select(`
       id, service_number, service_date, labor_sale_mxn, status, payment_status,
       paid_at, payment_method, payment_reference, payment_link_url,
       client_signer_name, client_signer_email, client_signer_phone, client_signed_at,
       last_payment_reminder_sent_at, payment_reminders_count,
+      is_remote, requester_name, requester_phone, scheduled_time_start, scheduled_time_end,
+      technician_phone, service_location, google_maps_url, performed_by_name, background,
       clients (name, company_name, email, phone),
       client_projects (name)
     `)
@@ -276,6 +346,7 @@ export async function getServiceDispatchContext(serviceId: number) {
 
   const recipientPhone =
     report.client_signer_phone ||
+    report.requester_phone ||
     (report.clients as { phone?: string } | null)?.phone ||
     "";
   const cleanPhone = recipientPhone.replace(/[^\d+]/g, "").replace(/^\+/, "");
@@ -283,6 +354,45 @@ export async function getServiceDispatchContext(serviceId: number) {
   const folio = report.service_number || `SERV-${String(report.id).padStart(4, "0")}`;
   const bank = getAlfaBankAccounts();
   const formattedAmount = new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(report.labor_sale_mxn || 0);
+
+  // Link de Google Calendar
+  const calendarUrl = buildGoogleCalendarUrl({
+    serviceNumber: folio,
+    clientName,
+    requesterName: report.requester_name,
+    requesterPhone: report.requester_phone,
+    technicianName: report.performed_by_name || "Técnico ALFA",
+    serviceDate: report.service_date || "2026-08-25",
+    startTime: report.scheduled_time_start || "10:00",
+    endTime: report.scheduled_time_end || "12:00",
+    isRemote: report.is_remote,
+    serviceLocation: report.service_location,
+    googleMapsUrl: report.google_maps_url,
+    background: report.background,
+    serviceUrl: `${baseUrl}/services/${serviceId}`,
+  });
+
+  // Mensaje de Asignación por WhatsApp al Técnico
+  const { text: waTechAssignText } = buildTechnicianAssignmentWhatsAppMessage({
+    serviceNumber: folio,
+    clientName,
+    requesterName: report.requester_name,
+    requesterPhone: report.requester_phone,
+    technicianName: report.performed_by_name || "Técnico ALFA",
+    serviceDate: report.service_date || "2026-08-25",
+    startTime: report.scheduled_time_start || "10:00",
+    endTime: report.scheduled_time_end || "12:00",
+    isRemote: report.is_remote,
+    serviceLocation: report.service_location,
+    googleMapsUrl: report.google_maps_url,
+    background: report.background,
+    serviceUrl: `${baseUrl}/services/${serviceId}`,
+  });
+
+  const cleanTechPhone = (report.technician_phone || "").replace(/[^\d+]/g, "").replace(/^\+/, "");
+  const waTechAssignUrl = cleanTechPhone
+    ? `https://wa.me/${cleanTechPhone}?text=${encodeURIComponent(waTechAssignText)}`
+    : `https://wa.me/?text=${encodeURIComponent(waTechAssignText)}`;
 
   // Mensaje para Firma
   const waSignText = [
@@ -336,6 +446,9 @@ export async function getServiceDispatchContext(serviceId: number) {
     recipientEmail: report.client_signer_email || (report.clients as { email?: string } | null)?.email || "",
     recipientPhone,
     publicUrl,
+    calendarUrl,
+    waTechAssignUrl,
+    waTechAssignText,
     waSignUrl,
     waSignText,
     waCollectUrl,

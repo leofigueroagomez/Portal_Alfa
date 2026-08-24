@@ -16,6 +16,12 @@ type ServiceReport = {
   service_number: string | null;
   client_id: number | null;
   client_project_id: number | null;
+  is_remote?: boolean | null;
+  requester_name?: string | null;
+  requester_phone?: string | null;
+  scheduled_time_start?: string | null;
+  scheduled_time_end?: string | null;
+  technician_phone?: string | null;
   service_location: string | null;
   google_maps_url: string | null;
   performed_by_name: string | null;
@@ -198,7 +204,7 @@ export default async function ServiceDetailPage({
         </div>
       </section>
 
-      {/* Módulo de Cobranza y Despacho Multicanal */}
+      {/* Módulo de Cobranza, Agenda y Despacho Multicanal */}
       <div className="mb-8">
         <ServiceCollectionPanel
           serviceId={Number(id)}
@@ -212,9 +218,21 @@ export default async function ServiceDetailPage({
           isSigned={isSigned}
           signerName={reportData.client_signer_name}
           signedAt={reportData.client_signed_at}
+          status={reportData.status || "draft"}
           recipientEmail={dispatchContext.recipientEmail}
           recipientPhone={dispatchContext.recipientPhone}
           publicUrl={dispatchContext.publicUrl}
+          calendarUrl={dispatchContext.calendarUrl}
+          waTechAssignUrl={dispatchContext.waTechAssignUrl}
+          waTechAssignText={dispatchContext.waTechAssignText}
+          isRemote={Boolean(reportData.is_remote)}
+          requesterName={reportData.requester_name}
+          requesterPhone={reportData.requester_phone}
+          scheduledTimeStart={reportData.scheduled_time_start}
+          scheduledTimeEnd={reportData.scheduled_time_end}
+          performedByName={reportData.performed_by_name}
+          serviceLocation={reportData.service_location}
+          googleMapsUrl={reportData.google_maps_url}
           waSignUrl={dispatchContext.waSignUrl}
           waSignText={dispatchContext.waSignText}
           waCollectUrl={dispatchContext.waCollectUrl}

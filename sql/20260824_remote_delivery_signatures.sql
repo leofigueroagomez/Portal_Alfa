@@ -16,50 +16,16 @@ alter table public.project_deliveries
   add column if not exists signature_method text;
 
 -- 2. Actualizar constraint de status en project_deliveries
-do $$
-declare
-  constraint_name text;
-begin
-  select conname
-    into constraint_name
-  from pg_constraint
-  where conrelid = 'public.project_deliveries'::regclass
-    and contype = 'c'
-    and pg_get_constraintdef(oid) ilike '%status%'
-  limit 1;
-
-  if constraint_name is not null then
-    execute format(
-      'alter table public.project_deliveries drop constraint %I',
-      constraint_name
-    );
-  end if;
-end $$;
+alter table public.project_deliveries
+  drop constraint if exists project_deliveries_status_check;
 
 alter table public.project_deliveries
   add constraint project_deliveries_status_check
   check (status in ('draft', 'pending_signature', 'pending_client_signature', 'delivered', 'accepted'));
 
 -- 3. Constraint para signature_method
-do $$
-declare
-  constraint_name text;
-begin
-  select conname
-    into constraint_name
-  from pg_constraint
-  where conrelid = 'public.project_deliveries'::regclass
-    and contype = 'c'
-    and pg_get_constraintdef(oid) ilike '%signature_method%'
-  limit 1;
-
-  if constraint_name is not null then
-    execute format(
-      'alter table public.project_deliveries drop constraint %I',
-      constraint_name
-    );
-  end if;
-end $$;
+alter table public.project_deliveries
+  drop constraint if exists project_deliveries_signature_method_check;
 
 alter table public.project_deliveries
   add constraint project_deliveries_signature_method_check
@@ -69,25 +35,8 @@ alter table public.project_deliveries
   );
 
 -- 4. Actualizar constraint de document_type en public_document_links para admitir firma de entregas
-do $$
-declare
-  constraint_name text;
-begin
-  select conname
-    into constraint_name
-  from pg_constraint
-  where conrelid = 'public.public_document_links'::regclass
-    and contype = 'c'
-    and pg_get_constraintdef(oid) ilike '%document_type%'
-  limit 1;
-
-  if constraint_name is not null then
-    execute format(
-      'alter table public.public_document_links drop constraint %I',
-      constraint_name
-    );
-  end if;
-end $$;
+alter table public.public_document_links
+  drop constraint if exists public_document_links_document_type_check;
 
 alter table public.public_document_links
   add constraint public_document_links_document_type_check
@@ -96,6 +45,8 @@ alter table public.public_document_links
       'project_delivery',
       'project_delivery_sign',
       'project_warranty',
+      'service_report',
+      'service_report_sign',
       'approved_quote',
       'authorized_plan',
       'project_invoice_pdf',
@@ -103,7 +54,7 @@ alter table public.public_document_links
     )
   );
 
--- 5. Índices de apoyo
+-- 5. Índices de consulta rápida
 create index if not exists project_deliveries_client_signed_at_idx
   on public.project_deliveries(client_signed_at);
 

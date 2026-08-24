@@ -42,6 +42,7 @@ import ProjectStageSelect from "@/components/ProjectStageSelect";
 import QuickCreateProductButton from "../../QuickCreateProductButton";
 import QuoteDiagnosticContextEditor from "../../QuoteDiagnosticContextEditor";
 import QuoteItemAreaDistributionModal from "../../QuoteItemAreaDistributionModal";
+import ReplaceQuoteItemModal from "../../ReplaceQuoteItemModal";
 import QuoteLaborActivitiesPanel from "../../QuoteLaborActivitiesPanel";
 
 type Product = {
@@ -81,6 +82,7 @@ type QuoteItem = Product & {
   area: string;
   customer_visible_note: string;
   allocations: QuoteItemAreaAllocation[];
+  costVerificationPending?: boolean;
 };
 
 type QuoteSection = {
@@ -288,6 +290,10 @@ export default function EditQuotePage() {
   } | null>(null);
   const [activeDistributionItemKey, setActiveDistributionItemKey] =
     useState("");
+  const [replacingTarget, setReplacingTarget] = useState<{
+    sectionId: string;
+    item: QuoteItem;
+  } | null>(null);
   const [activeSectionId, setActiveSectionId] = useState("");
   const [newSectionName, setNewSectionName] = useState("");
   const [search, setSearch] = useState("");
@@ -730,6 +736,9 @@ export default function EditQuotePage() {
                 ),
                 area: item.area || "",
                 customer_visible_note: item.customer_visible_note || "",
+                costVerificationPending: isProductCostStale(
+                  catalogProduct?.cost_updated_at ?? null
+                ),
                 allocations: areaAllocationsByItemId.get(item.id) || [],
                 labor_activities:
                   laborActivitiesByItemId.get(item.id) ||
@@ -953,14 +962,7 @@ export default function EditQuotePage() {
       return;
     }
 
-    if (isProductCostStale(product.cost_updated_at)) {
-      const days = getProductAgeInDays(product.cost_updated_at);
-      alert(
-        `${product.brand} ${product.model} tiene un costo sin verificar desde hace ${days} dias. ` +
-          `Actualiza el costo del producto en el catalogo antes de poder cotizarlo.`
-      );
-      return;
-    }
+    const costVerificationPending = isProductCostStale(product.cost_updated_at);
 
     expandSection(activeSectionId);
 
@@ -1004,6 +1006,7 @@ export default function EditQuotePage() {
               area: "",
               customer_visible_note: "",
               allocations: [],
+              costVerificationPending,
               labor_activities: createLegacyLaborActivity(
                 1,
                 product.labor_unit_sale_price,
@@ -1011,6 +1014,143 @@ export default function EditQuotePage() {
               ),
             },
           ],
+        };
+      })
+    );
+  }
+
+  function updateItemCostDraft(
+    sectionId: string,
+    productId: number,
+    patch: { cost_price?: number | null; cost_currency?: string }
+  ) {
+    setSections((current) =>
+      current.map((section) => {
+        if (section.id !== sectionId) return section;
+
+        return {
+          ...section,
+          items: section.items.map((item) =>
+            item.id === productId ? { ...item, ...patch } : item
+          ),
+        };
+      })
+    );
+  }
+
+  async function confirmItemCostVerification(item: QuoteItem) {
+    const newCostPrice = Number(item.cost_price) || 0;
+    const newCostCurrency = item.cost_currency || "USD";
+    const nowIso = new Date().toISOString();
+
+    const { error } = await supabase
+      .from("products")
+      .update({
+        cost_price: newCostPrice,
+        cost_currency: newCostCurrency,
+        cost_updated_at: nowIso,
+      })
+      .eq("id", item.id);
+
+    if (error) {
+      alert(
+        "No se pudo guardar el costo en el catalogo: " +
+          JSON.stringify(error) +
+          (error.message ? ` ${error.message}` : "")
+      );
+      return;
+    }
+
+    setSections((current) =>
+      current.map((section) => ({
+        ...section,
+        items: section.items.map((sectionItem) =>
+          sectionItem.id === item.id
+            ? {
+                ...sectionItem,
+                cost_price: newCostPrice,
+                cost_currency: newCostCurrency,
+                cost_updated_at: nowIso,
+                costVerificationPending: false,
+              }
+            : sectionItem
+        ),
+      }))
+    );
+
+    setProducts((current) =>
+      current.map((product) =>
+        product.id === item.id
+          ? {
+              ...product,
+              cost_price: newCostPrice,
+              cost_currency: newCostCurrency,
+              cost_updated_at: nowIso,
+            }
+          : product
+      )
+    );
+  }
+
+  function handleReplaceProduct(newProduct: Product, scope: "single" | "all") {
+    if (!replacingTarget) return;
+
+    const originalProductId = replacingTarget.item.id;
+    const targets =
+      scope === "all"
+        ? sections.flatMap((section) =>
+            section.items
+              .filter((item) => item.id === originalProductId)
+              .map((item) => ({ sectionId: section.id, productId: item.id }))
+          )
+        : [
+            {
+              sectionId: replacingTarget.sectionId,
+              productId: originalProductId,
+            },
+          ];
+
+    const costVerificationPending = isProductCostStale(
+      newProduct.cost_updated_at
+    );
+
+    setSections((current) =>
+      current.map((section) => {
+        const sectionTargets = targets.filter(
+          (target) => target.sectionId === section.id
+        );
+
+        if (sectionTargets.length === 0) return section;
+
+        return {
+          ...section,
+          items: section.items.map((item) => {
+            if (
+              !sectionTargets.some((target) => target.productId === item.id)
+            ) {
+              return item;
+            }
+
+            return {
+              ...item,
+              id: newProduct.id,
+              sku: newProduct.sku,
+              brand: newProduct.brand,
+              model: newProduct.model,
+              name: newProduct.name,
+              image_url: newProduct.image_url,
+              category: newProduct.category,
+              category_id: newProduct.category_id,
+              cost_price: newProduct.cost_price,
+              cost_currency: newProduct.cost_currency,
+              cost_updated_at: newProduct.cost_updated_at,
+              calculated_sale_price: newProduct.calculated_sale_price,
+              sale_currency: newProduct.sale_currency,
+              partner_discount_eligible: newProduct.partner_discount_eligible,
+              is_favorite: newProduct.is_favorite,
+              costVerificationPending,
+            };
+          }),
         };
       })
     );
@@ -1491,6 +1631,17 @@ export default function EditQuotePage() {
 
   async function handleSaveQuote() {
     if (!canEditQuote) return;
+
+    const pendingCostItem = sections
+      .flatMap((section) => section.items)
+      .find((item) => item.costVerificationPending);
+
+    if (pendingCostItem) {
+      alert(
+        `No puedes guardar la cotizacion: ${pendingCostItem.brand} ${pendingCostItem.model} tiene el costo sin verificar. Corrigelo en la partida antes de continuar.`
+      );
+      return;
+    }
 
     const invalidAllocationItem = sections
       .flatMap((section) => section.items)
@@ -2342,6 +2493,19 @@ export default function EditQuotePage() {
                             <p className="text-sm text-[#B3B3B8]">
                               {item.name}
                             </p>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setReplacingTarget({
+                                  sectionId: section.id,
+                                  item,
+                                })
+                              }
+                              className="mt-1 text-xs font-semibold text-[#F4C66A] hover:text-[#F7D68A]"
+                            >
+                              Reemplazar
+                            </button>
                           </div>
 
                           <input
@@ -2380,6 +2544,53 @@ export default function EditQuotePage() {
                             ×
                           </button>
                         </div>
+
+                          {item.costVerificationPending ? (
+                            <div className="mt-4 rounded-xl border border-[#F4A66A]/40 bg-[#2A1B10] p-4">
+                              <p className="mb-3 text-sm font-semibold text-[#F4A66A]">
+                                Costo sin verificar — corrige el costo de{" "}
+                                {item.brand} {item.model} para poder guardar
+                                la cotizacion.
+                              </p>
+                              <div className="flex flex-wrap items-center gap-3">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  className="w-32 rounded-xl bg-[#151518] p-3 outline-none"
+                                  value={item.cost_price ?? ""}
+                                  onChange={(e) =>
+                                    updateItemCostDraft(section.id, item.id, {
+                                      cost_price:
+                                        e.target.value === ""
+                                          ? null
+                                          : Number(e.target.value),
+                                    })
+                                  }
+                                />
+                                <select
+                                  className="rounded-xl bg-[#151518] p-3 outline-none"
+                                  value={item.cost_currency || "USD"}
+                                  onChange={(e) =>
+                                    updateItemCostDraft(section.id, item.id, {
+                                      cost_currency: e.target.value,
+                                    })
+                                  }
+                                >
+                                  <option>USD</option>
+                                  <option>MXN</option>
+                                </select>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    confirmItemCostVerification(item)
+                                  }
+                                  className="rounded-xl bg-[#9E1B32] px-4 py-3 text-sm font-semibold hover:bg-[#B91C3C]"
+                                >
+                                  Guardar costo verificado
+                                </button>
+                              </div>
+                            </div>
+                          ) : null}
 
                           <div className="mt-4 grid gap-3 border-t border-[#2A2A30] pt-4 md:grid-cols-[minmax(0,1fr)_220px]">
                             <div className="space-y-3">
@@ -3130,6 +3341,20 @@ export default function EditQuotePage() {
           </div>
         </aside>
       </section>
+
+      <ReplaceQuoteItemModal
+        target={replacingTarget}
+        products={products}
+        occurrenceCount={
+          replacingTarget
+            ? sections
+                .flatMap((section) => section.items)
+                .filter((item) => item.id === replacingTarget.item.id).length
+            : 0
+        }
+        onClose={() => setReplacingTarget(null)}
+        onReplace={handleReplaceProduct}
+      />
     </main>
   );
 }

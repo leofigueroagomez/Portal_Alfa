@@ -4,12 +4,15 @@ type ServerSupabaseStorage = Awaited<ReturnType<typeof createSupabaseServerClien
 
 export function formatServiceDate(value: string | null | undefined) {
   if (!value) return "Sin fecha";
-  return new Date(value).toLocaleDateString("es-MX");
+  return new Date(value + (value.includes("T") ? "" : "T12:00:00")).toLocaleDateString("es-MX", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 }
 
 export function getSolutionLabel(status: string | null | undefined) {
   if (status === "solved") return "Solucionado";
-  if (status === "not_solved") return "No solucionado";
   return "Pendiente";
 }
 

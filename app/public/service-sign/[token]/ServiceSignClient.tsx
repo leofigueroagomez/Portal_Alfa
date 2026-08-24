@@ -614,35 +614,35 @@ export default function ServiceSignClient({ token, context }: Props) {
         </section>
 
         {/* Resumen Financiero y Desglose de Cobro */}
-        <section className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5 sm:p-6 space-y-4 shadow-xl">
-          <h3 className="text-base font-bold text-white flex items-center gap-2 border-b border-[#2A2A30] pb-3">
-            <CreditCard size={18} className="text-[#9E1B32]" />
-            Desglose de Cobro por Servicio Técnico
-          </h3>
+        {financials.totalMxn > 0 ? (
+          <section className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5 sm:p-6 space-y-4 shadow-xl">
+            <h3 className="text-base font-bold text-white flex items-center gap-2 border-b border-[#2A2A30] pb-3">
+              <CreditCard size={18} className="text-[#9E1B32]" />
+              Desglose de Cobro por Servicio Técnico
+            </h3>
 
-          <div className="space-y-2 text-xs">
-            <div className="flex justify-between text-[#B3B3B8]">
-              <span>Mano de Obra y Revisión Técnica:</span>
-              <span className="font-semibold text-white">{formatCurrency(financials.laborMxn)}</span>
-            </div>
-            {financials.partsMxn > 0 && (
+            <div className="space-y-2 text-xs">
               <div className="flex justify-between text-[#B3B3B8]">
-                <span>Refacciones y Materiales Suministrados:</span>
-                <span className="font-semibold text-white">{formatCurrency(financials.partsMxn)}</span>
+                <span>Mano de Obra y Revisión Técnica:</span>
+                <span className="font-semibold text-white">{formatCurrency(financials.laborMxn)}</span>
               </div>
-            )}
-            {financials.discountMxn > 0 && (
-              <div className="flex justify-between text-[#8CE0B6]">
-                <span>Descuento Aplicado:</span>
-                <span>-{formatCurrency(financials.discountMxn)}</span>
+              <div className="border-t border-[#2A2A30] pt-2 flex justify-between text-sm font-bold text-white">
+                <span>Total a Liquidar:</span>
+                <span className="text-base text-[#F4C66A]">{formatCurrency(financials.totalMxn)} <span className="text-[10px] text-[#77777D] font-normal">(+ IVA si aplica)</span></span>
               </div>
-            )}
-            <div className="border-t border-[#2A2A30] pt-2 flex justify-between text-sm font-bold text-white">
-              <span>Total a Liquidar:</span>
-              <span className="text-base text-[#F4C66A]">{formatCurrency(financials.totalMxn)} <span className="text-[10px] text-[#77777D] font-normal">(+ IVA si aplica)</span></span>
             </div>
-          </div>
-        </section>
+          </section>
+        ) : (
+          <section className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5 sm:p-6 space-y-2 shadow-xl">
+            <div className="flex items-center gap-2">
+              <CreditCard size={18} className="text-[#9E1B32]" />
+              <h3 className="text-sm font-bold text-white">Liquidación del Servicio Técnico</h3>
+            </div>
+            <p className="text-xs text-[#8E8E93] leading-relaxed">
+              El importe del servicio y las opciones de pago (SPEI / Tarjeta) serán emitidos por Dirección tras la recepción de la visita técnica y le serán enviados por correo y WhatsApp.
+            </p>
+          </section>
+        )}
 
         {/* Sección de Firma Digital */}
         {signedSuccess ? (

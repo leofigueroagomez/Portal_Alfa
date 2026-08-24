@@ -12,7 +12,7 @@ export default async function NewServicePage() {
       .order("client_number", { ascending: true }),
     supabase
       .from("client_projects")
-      .select("id, client_id, project_number, name")
+      .select("id, client_id, project_number, name, site_address")
       .order("project_number", { ascending: true }),
   ]);
 

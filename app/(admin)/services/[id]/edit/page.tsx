@@ -25,7 +25,7 @@ export default async function EditServicePage({
         .order("client_number", { ascending: true }),
       supabase
         .from("client_projects")
-        .select("id, client_id, project_number, name")
+        .select("id, client_id, project_number, name, site_address")
         .order("project_number", { ascending: true }),
       supabase
         .from("service_report_photos")
@@ -52,7 +52,7 @@ export default async function EditServicePage({
         <p className="mb-3 text-sm tracking-[0.3em] text-[#9E1B32]">ALFA OS</p>
         <h1 className="text-3xl font-bold sm:text-4xl">Editar servicio</h1>
       </section>
-      {reportData && ["draft", "pending", "in_progress"].includes(reportData.status || "draft") ? (
+      {reportData && reportData.status !== "completed" ? (
         <ServiceReportForm
           mode="edit"
           clients={(clients || []) as ServiceClient[]}
@@ -62,7 +62,7 @@ export default async function EditServicePage({
         />
       ) : (
         <section className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-8 text-[#B3B3B8]">
-          Este reporte ya no se puede editar.
+          Este reporte ya ha sido finalizado por Dirección.
         </section>
       )}
     </main>
