@@ -20,6 +20,12 @@ export type DeliverySigningContext = {
     clientSignedAt: string | null;
     alfaSignatureUrl: string | null;
     clientSignatureUrl: string | null;
+    clientIneFrontUrl?: string | null;
+    clientIneBackUrl?: string | null;
+    signatureLatitude?: number | null;
+    signatureLongitude?: number | null;
+    signatureGeoAccuracyMeters?: number | null;
+    privacyConsentAccepted?: boolean | null;
   };
   project?: {
     id: number;
@@ -71,7 +77,7 @@ async function resolveSignedPhotoUrl(
 function dataUrlToBuffer(dataUrl: string): { buffer: Buffer; mime: string } {
   const matches = dataUrl.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
   if (!matches || matches.length !== 3) {
-    throw new Error("Formato de firma no válido (debe ser imagen en Base64)");
+    throw new Error("Formato de imagen no válido (debe ser Base64)");
   }
   const mime = matches[1];
   const buffer = Buffer.from(matches[2], "base64");
@@ -131,7 +137,7 @@ export async function getDeliverySigningContext(
   const { data: delivery, error: deliveryError } = await supabase
     .from("project_deliveries")
     .select(
-      "id, delivery_date, status, delivered_to_name, delivered_to_role, delivered_by_name, observations, client_signature_image_url, alfa_signature_image_url, site_attended_by_name, site_attended_by_role, client_signer_name, client_signed_at"
+      "id, delivery_date, status, delivered_to_name, delivered_to_role, delivered_by_name, observations, client_signature_image_url, alfa_signature_image_url, site_attended_by_name, site_attended_by_role, client_signer_name, client_signed_at, client_ine_front_url, client_ine_back_url, signature_latitude, signature_longitude, signature_geo_accuracy_meters, privacy_consent_accepted"
     )
     .eq("id", deliveryId)
     .eq("client_project_id", projectId)
@@ -159,6 +165,8 @@ export async function getDeliverySigningContext(
     evidencesRes,
     alfaSignatureUrl,
     clientSignatureUrl,
+    clientIneFrontUrl,
+    clientIneBackUrl,
   ] = await Promise.all([
     supabase
       .from("client_projects")
@@ -181,6 +189,8 @@ export async function getDeliverySigningContext(
       .order("sort_order", { ascending: true }),
     resolveSignedPhotoUrl(supabase, delivery.alfa_signature_image_url),
     resolveSignedPhotoUrl(supabase, delivery.client_signature_image_url),
+    resolveSignedPhotoUrl(supabase, delivery.client_ine_front_url || null),
+    resolveSignedPhotoUrl(supabase, delivery.client_ine_back_url || null),
   ]);
 
   let clientData = null;
@@ -217,6 +227,12 @@ export async function getDeliverySigningContext(
       clientSignedAt: delivery.client_signed_at,
       alfaSignatureUrl,
       clientSignatureUrl,
+      clientIneFrontUrl,
+      clientIneBackUrl,
+      signatureLatitude: delivery.signature_latitude,
+      signatureLongitude: delivery.signature_longitude,
+      signatureGeoAccuracyMeters: delivery.signature_geo_accuracy_meters,
+      privacyConsentAccepted: delivery.privacy_consent_accepted,
     },
     project: projectRes.data
       ? {
@@ -292,6 +308,16 @@ export type SubmitDeliverySignatureInput = {
   signatureDataUrl: string;
   signerName: string;
   signerRole?: string | null;
+  ineFrontDataUrl?: string | null;
+  ineBackDataUrl?: string | null;
+  geolocation?: {
+    latitude: number;
+    longitude: number;
+    accuracy?: number | null;
+    timestamp?: string | null;
+  } | null;
+  privacyConsentAccepted?: boolean;
+  privacyNoticeVersion?: string;
   ip?: string | null;
   userAgent?: string | null;
   request?: Request;
@@ -344,22 +370,59 @@ export async function submitDeliverySignature(input: SubmitDeliverySignatureInpu
     throw new Error("Esta entrega ya fue firmada previamente.");
   }
 
-  // Convertir firma y subir a storage
-  const { buffer, mime } = dataUrlToBuffer(input.signatureDataUrl);
   const timestamp = Date.now();
+
+  // 1. Subir firma digital
+  const { buffer: sigBuffer, mime: sigMime } = dataUrlToBuffer(input.signatureDataUrl);
   const signatureStoragePath = `project-deliveries/${projectId}/${deliveryId}/client-remote-signature-${timestamp}.png`;
 
-  const { error: uploadError } = await supabase.storage
+  const { error: sigUploadError } = await supabase.storage
     .from("project-photos")
-    .upload(signatureStoragePath, buffer, {
-      contentType: mime || "image/png",
+    .upload(signatureStoragePath, sigBuffer, {
+      contentType: sigMime || "image/png",
       upsert: false,
       cacheControl: "3600",
     });
 
-  if (uploadError) {
-    console.error("Error subiendo firma de cliente a storage:", uploadError);
+  if (sigUploadError) {
+    console.error("Error subiendo firma de cliente a storage:", sigUploadError);
     throw new Error("No se pudo guardar la firma digital en el servidor.");
+  }
+
+  // 2. Subir INE Frontal si viene
+  let ineFrontStoragePath: string | null = null;
+  if (input.ineFrontDataUrl && input.ineFrontDataUrl.startsWith("data:image/")) {
+    try {
+      const { buffer: ineFrontBuffer, mime: ineFrontMime } = dataUrlToBuffer(input.ineFrontDataUrl);
+      ineFrontStoragePath = `project-deliveries/${projectId}/${deliveryId}/client-ine-front-${timestamp}.png`;
+      await supabase.storage
+        .from("project-photos")
+        .upload(ineFrontStoragePath, ineFrontBuffer, {
+          contentType: ineFrontMime || "image/png",
+          upsert: false,
+          cacheControl: "3600",
+        });
+    } catch (e) {
+      console.error("Error guardando foto INE frontal:", e);
+    }
+  }
+
+  // 3. Subir INE Reverso si viene
+  let ineBackStoragePath: string | null = null;
+  if (input.ineBackDataUrl && input.ineBackDataUrl.startsWith("data:image/")) {
+    try {
+      const { buffer: ineBackBuffer, mime: ineBackMime } = dataUrlToBuffer(input.ineBackDataUrl);
+      ineBackStoragePath = `project-deliveries/${projectId}/${deliveryId}/client-ine-back-${timestamp}.png`;
+      await supabase.storage
+        .from("project-photos")
+        .upload(ineBackStoragePath, ineBackBuffer, {
+          contentType: ineBackMime || "image/png",
+          upsert: false,
+          cacheControl: "3600",
+        });
+    } catch (e) {
+      console.error("Error guardando foto INE reverso:", e);
+    }
   }
 
   const signedAt = new Date().toISOString();
@@ -371,12 +434,21 @@ export async function submitDeliverySignature(input: SubmitDeliverySignatureInpu
     .from("project_deliveries")
     .update({
       client_signature_image_url: signatureStoragePath,
+      client_ine_front_url: ineFrontStoragePath,
+      client_ine_back_url: ineBackStoragePath,
       client_signer_name: signerName,
       delivered_to_name: signerName,
       delivered_to_role: signerRole,
       client_signed_at: signedAt,
       client_signature_ip: input.ip || null,
       client_signature_user_agent: input.userAgent?.slice(0, 500) || null,
+      signature_latitude: input.geolocation?.latitude || null,
+      signature_longitude: input.geolocation?.longitude || null,
+      signature_geo_accuracy_meters: input.geolocation?.accuracy || null,
+      signature_geo_timestamp: input.geolocation?.timestamp || null,
+      privacy_consent_accepted: Boolean(input.privacyConsentAccepted),
+      privacy_consent_accepted_at: input.privacyConsentAccepted ? signedAt : null,
+      privacy_notice_version: input.privacyNoticeVersion || "v1.0",
       signature_method: "whatsapp_link",
       status: "delivered",
     })

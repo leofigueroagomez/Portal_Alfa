@@ -21,7 +21,15 @@ export async function POST(
 
   try {
     const body = await request.json();
-    const { signatureDataUrl, signerName, signerRole } = body || {};
+    const {
+      signatureDataUrl,
+      signerName,
+      signerRole,
+      ineFrontDataUrl,
+      ineBackDataUrl,
+      geolocation,
+      privacyConsentAccepted,
+    } = body || {};
 
     if (!signatureDataUrl || typeof signatureDataUrl !== "string" || !signatureDataUrl.startsWith("data:image/")) {
       return NextResponse.json(
@@ -37,11 +45,29 @@ export async function POST(
       );
     }
 
+    if (!privacyConsentAccepted) {
+      return NextResponse.json(
+        { error: "Es necesario aceptar el consentimiento de privacidad y tratamiento de datos." },
+        { status: 400 }
+      );
+    }
+
     const result = await submitDeliverySignature({
       token,
       signatureDataUrl,
       signerName: signerName.trim(),
       signerRole: typeof signerRole === "string" ? signerRole.trim() : null,
+      ineFrontDataUrl: typeof ineFrontDataUrl === "string" ? ineFrontDataUrl : null,
+      ineBackDataUrl: typeof ineBackDataUrl === "string" ? ineBackDataUrl : null,
+      geolocation: geolocation && typeof geolocation.latitude === "number" && typeof geolocation.longitude === "number"
+        ? {
+            latitude: geolocation.latitude,
+            longitude: geolocation.longitude,
+            accuracy: typeof geolocation.accuracy === "number" ? geolocation.accuracy : null,
+            timestamp: geolocation.timestamp || null,
+          }
+        : null,
+      privacyConsentAccepted: Boolean(privacyConsentAccepted),
       ip: clientIp,
       userAgent,
       request,

@@ -3,6 +3,7 @@
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import {
+  Camera,
   CheckCircle2,
   Clock,
   Download,
@@ -11,9 +12,12 @@ import {
   FileCheck2,
   FileText,
   HelpCircle,
+  IdCard,
   Image as ImageIcon,
   Lock,
+  MapPin,
   PenLine,
+  RotateCcw,
   Send,
   ShieldCheck,
   UserCheck,
@@ -27,6 +31,80 @@ type Props = {
   context: DeliverySigningContext;
 };
 
+// Comprime una imagen a Base64 max 1600px para carga rápida y nítida
+function fileToResizedDataUrl(file: File, maxSize = 1600): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (readerEvent) => {
+      const image = new Image();
+      image.onload = () => {
+        let width = image.width;
+        let height = image.height;
+
+        if (width > height) {
+          if (width > maxSize) {
+            height = Math.round((height * maxSize) / width);
+            width = maxSize;
+          }
+        } else {
+          if (height > maxSize) {
+            width = Math.round((width * maxSize) / height);
+            height = maxSize;
+          }
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(readerEvent.target?.result as string);
+          return;
+        }
+        ctx.drawImage(image, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", 0.85));
+      };
+      image.onerror = (err) => reject(err);
+      image.src = readerEvent.target?.result as string;
+    };
+    reader.onerror = (err) => reject(err);
+    reader.readAsDataURL(file);
+  });
+}
+
+function getGeolocation(): Promise<{
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+  timestamp: string;
+} | null> {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      resolve(null);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+          timestamp: new Date(position.timestamp).toISOString(),
+        });
+      },
+      () => {
+        // En caso de que el usuario decline o no responda, resolvemos null
+        resolve(null);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 7000,
+        maximumAge: 0,
+      }
+    );
+  });
+}
+
 export default function DeliverySignClient({ token, context }: Props) {
   const { delivery, project, client, systems, pendingItems, evidences, isAlreadySigned } = context;
 
@@ -37,7 +115,7 @@ export default function DeliverySignClient({ token, context }: Props) {
   const [signerRole, setSignerRole] = useState(
     delivery?.siteAttendedByRole || "Propietario / Titular"
   );
-  const [agreed, setAgreed] = useState(false);
+  const [privacyConsentAccepted, setPrivacyConsentAccepted] = useState(false);
   const [hasDrawn, setHasDrawn] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -45,6 +123,11 @@ export default function DeliverySignClient({ token, context }: Props) {
   const [signedAtDate, setSignedAtDate] = useState<string | null>(
     delivery?.clientSignedAt || null
   );
+
+  // Fotos de INE
+  const [ineFrontDataUrl, setIneFrontDataUrl] = useState<string | null>(null);
+  const [ineBackDataUrl, setIneBackDataUrl] = useState<string | null>(null);
+  const [processingIne, setProcessingIne] = useState<"front" | "back" | null>(null);
 
   // Estado del Lightbox de fotos
   const [activePhotoUrl, setActivePhotoUrl] = useState<string | null>(null);
@@ -135,9 +218,35 @@ export default function DeliverySignClient({ token, context }: Props) {
     setHasDrawn(false);
   }
 
+  async function handleIneUpload(
+    event: React.ChangeEvent<HTMLInputElement>,
+    side: "front" | "back"
+  ) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setProcessingIne(side);
+    try {
+      const resized = await fileToResizedDataUrl(file);
+      if (side === "front") setIneFrontDataUrl(resized);
+      else setIneBackDataUrl(resized);
+    } catch (err) {
+      console.error("Error procesando foto de INE:", err);
+      alert("No se pudo cargar la imagen. Intenta de nuevo.");
+    } finally {
+      setProcessingIne(null);
+      event.target.value = "";
+    }
+  }
+
   async function handleSignSubmit(event: React.FormEvent) {
     event.preventDefault();
     setSubmitError(null);
+
+    if (!ineFrontDataUrl) {
+      setSubmitError("Por favor toma una foto clara de tu identificación oficial (INE Frontal).");
+      return;
+    }
 
     if (!signerName.trim()) {
       setSubmitError("Por favor captura tu nombre completo.");
@@ -149,23 +258,31 @@ export default function DeliverySignClient({ token, context }: Props) {
       return;
     }
 
-    if (!agreed) {
-      setSubmitError("Debes aceptar la declaración de conformidad.");
+    if (!privacyConsentAccepted) {
+      setSubmitError("Debes aceptar el consentimiento de privacidad y tratamiento de datos.");
       return;
     }
 
     setSubmitting(true);
 
     try {
-      const dataUrl = canvasRef.current.toDataURL("image/png");
+      // 1. Obtener ubicación GPS en tiempo real
+      const geolocation = await getGeolocation();
+
+      // 2. Extraer firma en Base64
+      const signatureDataUrl = canvasRef.current.toDataURL("image/png");
 
       const response = await fetch(`/api/public/deliveries/${token}/sign`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          signatureDataUrl: dataUrl,
+          signatureDataUrl,
           signerName: signerName.trim(),
           signerRole: signerRole.trim() || null,
+          ineFrontDataUrl,
+          ineBackDataUrl,
+          geolocation,
+          privacyConsentAccepted: true,
         }),
       });
 
@@ -186,9 +303,14 @@ export default function DeliverySignClient({ token, context }: Props) {
 
   const pdfDownloadUrl = `/public/documents/${token}/pdf`;
 
+  const mapLink =
+    delivery?.signatureLatitude && delivery?.signatureLongitude
+      ? `https://www.google.com/maps/search/?api=1&query=${delivery.signatureLatitude},${delivery.signatureLongitude}`
+      : null;
+
   return (
     <div className="min-h-screen bg-[#0B0D0F] text-white">
-      {/* Lightbox Modal para visualizar evidencias en grande */}
+      {/* Lightbox Modal para fotos */}
       {activePhotoUrl && (
         <div
           role="dialog"
@@ -205,7 +327,7 @@ export default function DeliverySignClient({ token, context }: Props) {
           </button>
           <img
             src={activePhotoUrl}
-            alt={activePhotoCaption || "Evidencia fotográfica"}
+            alt={activePhotoCaption || "Fotografía"}
             className="max-h-[85vh] max-w-[95vw] rounded-xl object-contain shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           />
@@ -254,7 +376,8 @@ export default function DeliverySignClient({ token, context }: Props) {
                 Recepción de Proyecto Confirmada
               </h2>
               <p className="mt-1 text-sm text-[#8CE0B6]">
-                Este proyecto ha sido revisado y firmado digitalmente de conformidad.
+                Este proyecto ha sido revisado y firmado digitalmente de conformidad con respaldo de
+                identificación oficial y geolocalización.
               </p>
               {signedAtDate && (
                 <p className="mt-2 text-xs text-[#8CE0B6]/80 flex items-center justify-center gap-1.5">
@@ -267,15 +390,30 @@ export default function DeliverySignClient({ token, context }: Props) {
                 </p>
               )}
             </div>
-            <a
-              href={pdfDownloadUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2 rounded-xl bg-[#9E1B32] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#B91C3C] shadow-lg"
-            >
-              <Download size={16} />
-              Descargar Acta de Entrega en PDF
-            </a>
+
+            <div className="flex flex-wrap justify-center gap-3 pt-2">
+              <a
+                href={pdfDownloadUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#9E1B32] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#B91C3C] shadow-lg"
+              >
+                <Download size={16} />
+                Descargar Acta de Entrega en PDF
+              </a>
+
+              {mapLink && (
+                <a
+                  href={mapLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 rounded-xl border border-[#1F7A4D] bg-[#143D2A] px-5 py-3 text-sm font-semibold text-[#8CE0B6] transition hover:bg-[#1A5037]"
+                >
+                  <MapPin size={16} />
+                  Ver ubicación satelital
+                </a>
+              )}
+            </div>
           </section>
         )}
 
@@ -462,19 +600,20 @@ export default function DeliverySignClient({ token, context }: Props) {
           </div>
         </section>
 
-        {/* Sección de Firma del Cliente */}
+        {/* Módulo de Identificación Oficial y Firma del Cliente */}
         {!signedSuccess ? (
           <form
             onSubmit={handleSignSubmit}
-            className="rounded-2xl border border-[#9E1B32]/40 bg-[#151518] p-5 sm:p-6 space-y-5 shadow-2xl"
+            className="rounded-2xl border border-[#9E1B32]/40 bg-[#151518] p-5 sm:p-6 space-y-6 shadow-2xl"
           >
             <div className="border-b border-[#2A2A30] pb-3">
               <div className="flex items-center gap-2">
-                <PenLine size={20} className="text-[#9E1B32]" />
-                <h3 className="text-xl font-bold">Firma Digital de Conformidad</h3>
+                <ShieldCheck size={22} className="text-[#9E1B32]" />
+                <h3 className="text-xl font-bold">Verificación y Firma de Conformidad</h3>
               </div>
               <p className="mt-1 text-xs text-[#B3B3B8]">
-                Firma directamente en el recuadro blanco usando tu dedo o lápiz táctil.
+                Para brindar plena validez contractual, se requiere fotografía de tu identificación
+                oficial (INE) y tu firma digital.
               </p>
             </div>
 
@@ -484,36 +623,131 @@ export default function DeliverySignClient({ token, context }: Props) {
               </div>
             )}
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <label className="space-y-1">
-                <span className="text-xs text-[#B3B3B8]">Nombre completo de quien firma *</span>
-                <input
-                  type="text"
-                  required
-                  value={signerName}
-                  onChange={(e) => setSignerName(e.target.value)}
-                  placeholder="Tu nombre completo"
-                  className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-3.5 py-2.5 text-sm text-white outline-none focus:border-[#9E1B32]"
-                />
-              </label>
-              <label className="space-y-1">
-                <span className="text-xs text-[#B3B3B8]">Cargo o relación con el proyecto</span>
-                <input
-                  type="text"
-                  value={signerRole}
-                  onChange={(e) => setSignerRole(e.target.value)}
-                  placeholder="Ej. Propietario, Representante Legal, etc."
-                  className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-3.5 py-2.5 text-sm text-white outline-none focus:border-[#9E1B32]"
-                />
-              </label>
+            {/* Paso 1: Captura de INE */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <IdCard size={18} className="text-[#9E1B32]" />
+                <h4 className="text-sm font-bold text-white">
+                  1. Fotografía de Identificación Oficial (INE / Pasaporte) *
+                </h4>
+              </div>
+              <p className="text-xs text-[#B3B3B8]">
+                Toma una foto clara y legible con la cámara de tu smartphone.
+              </p>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {/* INE Frontal */}
+                <div className="rounded-xl border border-[#2A2A30] bg-[#1C1D22] p-3.5 space-y-2 text-center">
+                  <span className="text-xs font-semibold text-white">Anverso (Frontal) *</span>
+                  {ineFrontDataUrl ? (
+                    <div className="relative aspect-[3/2] w-full overflow-hidden rounded-lg border border-[#2A2A30] bg-black">
+                      <img
+                        src={ineFrontDataUrl}
+                        alt="INE Frontal"
+                        className="h-full w-full object-cover"
+                      />
+                      <label className="absolute bottom-2 right-2 inline-flex cursor-pointer items-center gap-1 rounded-lg bg-black/80 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm hover:bg-black">
+                        <RotateCcw size={12} />
+                        Repetir foto
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          className="sr-only"
+                          onChange={(e) => handleIneUpload(e, "front")}
+                        />
+                      </label>
+                    </div>
+                  ) : (
+                    <label className="flex h-28 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-[#2A2A30] bg-[#151518] p-4 text-[#B3B3B8] transition hover:border-[#9E1B32] hover:text-white">
+                      <Camera size={24} className="text-[#9E1B32]" />
+                      <span className="text-xs font-semibold">
+                        {processingIne === "front" ? "Procesando foto..." : "Tomar foto frontal"}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        className="sr-only"
+                        onChange={(e) => handleIneUpload(e, "front")}
+                      />
+                    </label>
+                  )}
+                </div>
+
+                {/* INE Reverso */}
+                <div className="rounded-xl border border-[#2A2A30] bg-[#1C1D22] p-3.5 space-y-2 text-center">
+                  <span className="text-xs font-semibold text-white">Reverso (Opcional)</span>
+                  {ineBackDataUrl ? (
+                    <div className="relative aspect-[3/2] w-full overflow-hidden rounded-lg border border-[#2A2A30] bg-black">
+                      <img
+                        src={ineBackDataUrl}
+                        alt="INE Reverso"
+                        className="h-full w-full object-cover"
+                      />
+                      <label className="absolute bottom-2 right-2 inline-flex cursor-pointer items-center gap-1 rounded-lg bg-black/80 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm hover:bg-black">
+                        <RotateCcw size={12} />
+                        Repetir foto
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          className="sr-only"
+                          onChange={(e) => handleIneUpload(e, "back")}
+                        />
+                      </label>
+                    </div>
+                  ) : (
+                    <label className="flex h-28 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-[#2A2A30] bg-[#151518] p-4 text-[#B3B3B8] transition hover:border-[#9E1B32] hover:text-white">
+                      <Camera size={24} className="text-[#77777D]" />
+                      <span className="text-xs font-semibold">
+                        {processingIne === "back" ? "Procesando foto..." : "Tomar foto reverso"}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        className="sr-only"
+                        onChange={(e) => handleIneUpload(e, "back")}
+                      />
+                    </label>
+                  )}
+                </div>
+              </div>
             </div>
 
-            {/* Recuadro de Canvas de Firma */}
+            {/* Paso 2: Datos del Firmante */}
+            <div className="space-y-3">
+              <h4 className="text-sm font-bold text-white">2. Datos de quien firma</h4>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="space-y-1">
+                  <span className="text-xs text-[#B3B3B8]">Nombre completo conforme a INE *</span>
+                  <input
+                    type="text"
+                    required
+                    value={signerName}
+                    onChange={(e) => setSignerName(e.target.value)}
+                    placeholder="Tu nombre y apellidos"
+                    className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-3.5 py-2.5 text-sm text-white outline-none focus:border-[#9E1B32]"
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs text-[#B3B3B8]">Cargo o relación con el proyecto</span>
+                  <input
+                    type="text"
+                    value={signerRole}
+                    onChange={(e) => setSignerRole(e.target.value)}
+                    placeholder="Ej. Propietario, Representante Legal, etc."
+                    className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-3.5 py-2.5 text-sm text-white outline-none focus:border-[#9E1B32]"
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* Paso 3: Trazo de Firma */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-[#B3B3B8]">
-                  Traza tu firma aquí:
-                </span>
+                <span className="text-xs font-semibold text-white">3. Traza tu firma digital:</span>
                 <button
                   type="button"
                   onClick={clearCanvas}
@@ -535,48 +769,69 @@ export default function DeliverySignClient({ token, context }: Props) {
                 />
               </div>
               <p className="text-[11px] text-[#77777D] text-center">
-                Desliza tu dedo en el recuadro para firmar.
+                Desliza tu dedo en el recuadro blanco para firmar.
               </p>
             </div>
 
-            {/* Checkbox Legal */}
-            <label className="flex items-start gap-3 rounded-xl border border-[#2A2A30] bg-[#1C1D22] p-3.5 cursor-pointer">
-              <input
-                type="checkbox"
-                required
-                checked={agreed}
-                onChange={(e) => setAgreed(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded accent-[#9E1B32] shrink-0"
-              />
-              <span className="text-xs text-[#B3B3B8] leading-relaxed select-none">
-                He revisado las evidencias fotográficas y sistemas entregados por ALFA IT, y
-                manifiesto mi total conformidad con la recepción técnica del proyecto.
-              </span>
-            </label>
+            {/* Paso 4: Consentimiento LFPDPPP & Geolocalización */}
+            <div className="space-y-2">
+              <label className="flex items-start gap-3 rounded-xl border border-[#2A2A30] bg-[#1C1D22] p-3.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  required
+                  checked={privacyConsentAccepted}
+                  onChange={(e) => setPrivacyConsentAccepted(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded accent-[#9E1B32] shrink-0"
+                />
+                <span className="text-xs text-[#B3B3B8] leading-relaxed select-none">
+                  Consiento expresamente el tratamiento de mis datos personales, fotografía de
+                  identificación oficial (INE) y geolocalización satelital en tiempo real,
+                  exclusivamente para fines de verificación de identidad, recepción técnica y validez
+                  contractual de la entrega del proyecto <strong>{project?.name}</strong>, conforme a la
+                  Ley Federal de Protección de Datos Personales en Posesión de los Particulares
+                  (LFPDPPP).
+                </span>
+              </label>
+              <p className="text-[10px] text-[#77777D] flex items-center gap-1 px-1">
+                <Lock size={12} />
+                Tus datos e identificación se almacenan de forma cifrada y confidencial por ALFA IT.
+              </p>
+            </div>
 
             {/* Botón de Envío */}
             <button
               type="submit"
-              disabled={submitting || !hasDrawn || !agreed}
+              disabled={submitting || !hasDrawn || !privacyConsentAccepted || !ineFrontDataUrl}
               className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#9E1B32] py-4 text-sm font-bold text-white transition hover:bg-[#B91C3C] disabled:bg-[#222228] disabled:text-[#77777D] shadow-xl"
             >
               <Send size={16} />
-              {submitting ? "Enviando firma digital..." : "Firmar y Recibir Proyecto"}
+              {submitting
+                ? "Validando ubicación y enviando firma..."
+                : "Firmar y Recibir Proyecto"}
             </button>
           </form>
         ) : (
-          /* Vista de la firma registrada */
+          /* Vista de la firma registrada y validaciones */
           <section className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5 sm:p-6 space-y-4 shadow-md">
             <p className="text-xs font-semibold tracking-wider text-[#9E1B32] uppercase">
-              Firma del Cliente Registrada
+              Constancia de Firma y Verificación de Identidad
             </p>
+
             <div className="rounded-xl border border-[#2A2A30] bg-[#1C1D22] p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
               <div>
                 <p className="text-xs text-[#77777D]">Firmado por</p>
                 <p className="text-base font-bold text-white">
                   {delivery?.clientSignerName || signerName}
                 </p>
-                <p className="text-xs text-[#B3B3B8]">{delivery?.siteAttendedByRole || signerRole}</p>
+                <p className="text-xs text-[#B3B3B8]">
+                  {delivery?.siteAttendedByRole || signerRole}
+                </p>
+                {delivery?.privacyConsentAccepted && (
+                  <p className="mt-2 text-[11px] text-[#8CE0B6] flex items-center gap-1">
+                    <ShieldCheck size={13} />
+                    Consentimiento LFPDPPP registrado
+                  </p>
+                )}
               </div>
               {delivery?.clientSignatureUrl ? (
                 <div className="h-20 w-48 rounded-lg bg-white p-1 shadow-inner flex items-center justify-center">
@@ -590,6 +845,25 @@ export default function DeliverySignClient({ token, context }: Props) {
                 <span className="text-xs text-[#8CE0B6] font-semibold">Firma digital procesada</span>
               )}
             </div>
+
+            {delivery?.clientIneFrontUrl && (
+              <div className="rounded-xl border border-[#2A2A30] bg-[#1C1D22] p-3 text-xs flex items-center justify-between">
+                <span className="text-[#B3B3B8] flex items-center gap-2">
+                  <IdCard size={16} className="text-[#8CE0B6]" />
+                  Identificación oficial INE cotejada exitosamente
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActivePhotoUrl(delivery.clientIneFrontUrl || null);
+                    setActivePhotoCaption("Identificación Oficial Registrada");
+                  }}
+                  className="font-semibold text-[#9E1B32] hover:underline"
+                >
+                  Ver foto
+                </button>
+              </div>
+            )}
           </section>
         )}
       </main>
@@ -597,7 +871,9 @@ export default function DeliverySignClient({ token, context }: Props) {
       {/* Footer */}
       <footer className="border-t border-[#1F1F24] py-8 text-center text-xs text-[#77777D]">
         <p>ALFA IT • Soluciones Tecnológicas de Alto Nivel</p>
-        <p className="mt-1">Documento digital firmado con validez técnica y operativa.</p>
+        <p className="mt-1">
+          Documento firmado digitalmente conforme al Código de Comercio y la LFPDPPP.
+        </p>
       </footer>
     </div>
   );

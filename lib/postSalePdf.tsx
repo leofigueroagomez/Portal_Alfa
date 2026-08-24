@@ -40,6 +40,12 @@ type Delivery = {
   site_attended_by_role?: string | null;
   client_signer_name?: string | null;
   client_signed_at?: string | null;
+  signature_latitude?: number | null;
+  signature_longitude?: number | null;
+  signature_geo_accuracy_meters?: number | null;
+  client_signature_ip?: string | null;
+  privacy_consent_accepted?: boolean | null;
+  client_ine_front_url?: string | null;
   observations: string | null;
   client_signature_image_url: string | null;
   alfa_signature_image_url: string | null;
@@ -569,6 +575,23 @@ export function ProjectDeliveryPdfDocument({
             </View>
           </View>
         </View>
+
+        {(delivery.signature_latitude || delivery.client_signature_ip || delivery.client_ine_front_url) ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Trazabilidad y Validez Legal (LFPDPPP & Código de Comercio)</Text>
+            <View style={styles.rowBox}>
+              <Text style={styles.muted}>
+                Firma electrónica con verificación de identidad (INE).
+                {delivery.signature_latitude && delivery.signature_longitude
+                  ? ` Coordenadas GPS: ${delivery.signature_latitude.toFixed(5)}, ${delivery.signature_longitude.toFixed(5)} (±${Math.round(delivery.signature_geo_accuracy_meters || 0)}m).`
+                  : ""}
+                {delivery.client_signature_ip ? ` IP: ${delivery.client_signature_ip}.` : ""}
+                {delivery.privacy_consent_accepted ? " Consentimiento LFPDPPP registrado." : ""}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
         <PdfFooter />
       </Page>
     </Document>
@@ -745,7 +768,7 @@ export async function generateProjectDeliveryPdf(
   const { data: delivery, error: deliveryError } = await supabase
     .from("project_deliveries")
     .select(
-      "id, delivery_date, status, delivered_to_name, delivered_to_role, delivered_by_name, site_attended_by_name, site_attended_by_role, client_signer_name, client_signed_at, observations, client_signature_image_url, alfa_signature_image_url"
+      "id, delivery_date, status, delivered_to_name, delivered_to_role, delivered_by_name, site_attended_by_name, site_attended_by_role, client_signer_name, client_signed_at, signature_latitude, signature_longitude, signature_geo_accuracy_meters, client_signature_ip, privacy_consent_accepted, client_ine_front_url, observations, client_signature_image_url, alfa_signature_image_url"
     )
     .eq("id", deliveryId)
     .eq("client_project_id", projectId)

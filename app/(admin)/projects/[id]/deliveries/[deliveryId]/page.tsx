@@ -1,6 +1,19 @@
 import Link from "next/link";
 import type React from "react";
-import { ArrowLeft, CalendarDays, CheckCircle2, Clock, FileText, Smartphone, UserRound } from "lucide-react";
+import {
+  ArrowLeft,
+  CalendarDays,
+  CheckCircle2,
+  Clock,
+  ExternalLink,
+  FileText,
+  IdCard,
+  Lock,
+  MapPin,
+  ShieldCheck,
+  Smartphone,
+  UserRound,
+} from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { getAppBaseUrl } from "@/lib/appUrl";
 import { getProjectDeliverySystemsForDisplay } from "@/lib/projectDeliverySystems";
@@ -39,6 +52,16 @@ type ProjectDelivery = {
   client_signer_email?: string | null;
   client_signed_at?: string | null;
   signature_method?: string | null;
+  client_ine_front_url?: string | null;
+  client_ine_back_url?: string | null;
+  signature_latitude?: number | null;
+  signature_longitude?: number | null;
+  signature_geo_accuracy_meters?: number | null;
+  signature_geo_timestamp?: string | null;
+  privacy_consent_accepted?: boolean | null;
+  privacy_consent_accepted_at?: string | null;
+  client_signature_ip?: string | null;
+  client_signature_user_agent?: string | null;
   observations: string | null;
   client_signature_image_url: string | null;
   alfa_signature_image_url: string | null;
@@ -135,7 +158,7 @@ export default async function ProjectDeliveryDetailPage({
   const deliveryResult = await supabase
     .from("project_deliveries")
     .select(
-      "id, delivery_date, status, delivered_to_name, delivered_to_role, delivered_by_name, site_attended_by_name, site_attended_by_role, client_signer_name, client_signer_phone, client_signer_email, client_signed_at, signature_method, observations, client_signature_image_url, alfa_signature_image_url, delivery_email_sent_at, delivery_email_sent_to, delivery_email_status, delivery_email_error"
+      "id, delivery_date, status, delivered_to_name, delivered_to_role, delivered_by_name, site_attended_by_name, site_attended_by_role, client_signer_name, client_signer_phone, client_signer_email, client_signed_at, signature_method, client_ine_front_url, client_ine_back_url, signature_latitude, signature_longitude, signature_geo_accuracy_meters, signature_geo_timestamp, privacy_consent_accepted, privacy_consent_accepted_at, client_signature_ip, client_signature_user_agent, observations, client_signature_image_url, alfa_signature_image_url, delivery_email_sent_at, delivery_email_sent_to, delivery_email_status, delivery_email_error"
     )
     .eq("id", deliveryId)
     .eq("client_project_id", id)
@@ -181,78 +204,90 @@ export default async function ProjectDeliveryDetailPage({
   }, null);
 
   const projectData = project as ClientProject | null;
-  const [client, evidences, pendingItems, deliverySystems, warranty, emailHistory, financialSummary, signingLink] =
-    await Promise.all([
-      safeLoad("load client", async () => {
-        if (!projectData?.client_id) return null;
-        const result = await supabase
-          .from("clients")
-          .select("name, phone, email, billing_email")
-          .eq("id", projectData.client_id)
-          .maybeSingle();
-        if (result.error) throw result.error;
-        return result.data;
-      }, null),
-      safeLoad("load evidences", async () => {
-        const result = await supabase
+  const [
+    client,
+    evidences,
+    pendingItems,
+    deliverySystems,
+    warranty,
+    emailHistory,
+    financialSummary,
+    signingLink,
+    ineFrontUrl,
+    ineBackUrl,
+  ] = await Promise.all([
+    safeLoad("load client", async () => {
+      if (!projectData?.client_id) return null;
+      const result = await supabase
+        .from("clients")
+        .select("name, phone, email, billing_email")
+        .eq("id", projectData.client_id)
+        .maybeSingle();
+      if (result.error) throw result.error;
+      return result.data;
+    }, null),
+    safeLoad("load evidences", async () => {
+      const result = await supabase
+        .from("project_delivery_evidences")
+        .select("id, file_url, file_path, file_name, file_type, file_size, caption")
+        .eq("project_delivery_id", deliveryId)
+        .order("sort_order", { ascending: true });
+      if (result.error) {
+        const fallbackResult = await supabase
           .from("project_delivery_evidences")
-          .select("id, file_url, file_path, file_name, file_type, file_size, caption")
+          .select("id, file_url, caption")
           .eq("project_delivery_id", deliveryId)
           .order("sort_order", { ascending: true });
-        if (result.error) {
-          const fallbackResult = await supabase
-            .from("project_delivery_evidences")
-            .select("id, file_url, caption")
-            .eq("project_delivery_id", deliveryId)
-            .order("sort_order", { ascending: true });
-          if (fallbackResult.error) throw fallbackResult.error;
-          return fallbackResult.data || [];
-        }
-        return result.data || [];
-      }, []),
-      safeLoad("load pending items", async () => {
-        const result = await supabase
-          .from("project_delivery_pending_items")
-          .select("id, description, status")
-          .eq("project_delivery_id", deliveryId)
-          .order("sort_order", { ascending: true });
-        if (result.error) throw result.error;
-        return result.data || [];
-      }, []),
-      safeLoad("load delivery systems", () =>
-        getProjectDeliverySystemsForDisplay(supabase, Number(id), deliveryId),
-      []),
-      safeLoad("load warranty", async () => {
-        const result = await supabase
-          .from("project_warranties")
-          .select("id")
-          .eq("client_project_id", id)
-          .order("warranty_date", { ascending: false })
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (result.error) throw result.error;
-        return result.data;
-      }, null),
-      safeLoad("load email history", async () => {
-        const result = await supabase
-          .from("project_delivery_email_history")
-          .select("id, sent_to, cc, subject, attachment_names, status, error_message, sent_at")
-          .eq("project_delivery_id", deliveryId)
-          .order("sent_at", { ascending: false });
-        if (result.error) throw result.error;
-        return result.data || [];
-      }, []),
-      safeLoad("load financial summary", () =>
-        getProjectFinancialSummary(supabase, Number(id)),
-      { approvedTotalMxn: 0, paidTotalMxn: 0, pendingTotalMxn: 0 }),
-      safeLoad("load signing link", () =>
-        getOrCreateDeliverySigningLink({
-          clientProjectId: Number(id),
-          projectDeliveryId: Number(deliveryId),
-        }),
-      null),
-    ]);
+        if (fallbackResult.error) throw fallbackResult.error;
+        return fallbackResult.data || [];
+      }
+      return result.data || [];
+    }, []),
+    safeLoad("load pending items", async () => {
+      const result = await supabase
+        .from("project_delivery_pending_items")
+        .select("id, description, status")
+        .eq("project_delivery_id", deliveryId)
+        .order("sort_order", { ascending: true });
+      if (result.error) throw result.error;
+      return result.data || [];
+    }, []),
+    safeLoad("load delivery systems", () =>
+      getProjectDeliverySystemsForDisplay(supabase, Number(id), deliveryId),
+    []),
+    safeLoad("load warranty", async () => {
+      const result = await supabase
+        .from("project_warranties")
+        .select("id")
+        .eq("client_project_id", id)
+        .order("warranty_date", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (result.error) throw result.error;
+      return result.data;
+    }, null),
+    safeLoad("load email history", async () => {
+      const result = await supabase
+        .from("project_delivery_email_history")
+        .select("id, sent_to, cc, subject, attachment_names, status, error_message, sent_at")
+        .eq("project_delivery_id", deliveryId)
+        .order("sent_at", { ascending: false });
+      if (result.error) throw result.error;
+      return result.data || [];
+    }, []),
+    safeLoad("load financial summary", () =>
+      getProjectFinancialSummary(supabase, Number(id)),
+    { approvedTotalMxn: 0, paidTotalMxn: 0, pendingTotalMxn: 0 }),
+    safeLoad("load signing link", () =>
+      getOrCreateDeliverySigningLink({
+        clientProjectId: Number(id),
+        projectDeliveryId: Number(deliveryId),
+      }),
+    null),
+    resolvePhotoUrl(supabase.storage, deliveryData.client_ine_front_url || null),
+    resolvePhotoUrl(supabase.storage, deliveryData.client_ine_back_url || null),
+  ]);
 
   const clientData = client as Client | null;
   const recipient = clientData?.billing_email || clientData?.email || "";
@@ -277,6 +312,11 @@ export default async function ProjectDeliveryDetailPage({
 
   const isSigned = Boolean(deliveryData.client_signature_image_url || deliveryData.client_signed_at);
   const isPendingSignature = deliveryData.status === "pending_signature" || (!isSigned && deliveryData.status === "draft");
+
+  const googleMapsUrl =
+    deliveryData.signature_latitude && deliveryData.signature_longitude
+      ? `https://maps.google.com/?q=${deliveryData.signature_latitude},${deliveryData.signature_longitude}`
+      : null;
 
   return (
     <main className="min-h-screen bg-[#0B0D0F] p-4 text-white md:p-8 xl:p-10">
@@ -352,6 +392,137 @@ export default async function ProjectDeliveryDetailPage({
               isAlreadySigned={isSigned}
             />
           </div>
+        </section>
+      )}
+
+      {/* Bloque de Blindaje Legal y Trazabilidad LFPDPPP (Si ya firmó) */}
+      {isSigned && (
+        <section className="mb-8 rounded-2xl border border-[#1F7A4D]/40 bg-[#12221A] p-5 sm:p-6 space-y-4 shadow-xl">
+          <div className="flex items-center gap-2 border-b border-[#1F7A4D]/30 pb-3">
+            <ShieldCheck size={22} className="text-[#8CE0B6]" />
+            <div>
+              <h2 className="text-lg font-bold text-white">
+                Validación Jurídica y Trazabilidad Digital (LFPDPPP)
+              </h2>
+              <p className="text-xs text-[#8CE0B6]">
+                Cadena de custodia y evidencias de validez contractual y no repudio.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 text-xs">
+            <div className="rounded-xl border border-[#1F7A4D]/30 bg-[#0F1B14] p-3.5 space-y-1">
+              <span className="text-[#77777D] font-medium">Método y Fecha</span>
+              <p className="font-bold text-white">
+                {deliveryData.signature_method === "whatsapp_link"
+                  ? "Enlace WhatsApp / Celular"
+                  : "Presencial en sitio"}
+              </p>
+              {deliveryData.client_signed_at && (
+                <p className="text-[#8CE0B6]">
+                  {new Date(deliveryData.client_signed_at).toLocaleString("es-MX")}
+                </p>
+              )}
+            </div>
+
+            <div className="rounded-xl border border-[#1F7A4D]/30 bg-[#0F1B14] p-3.5 space-y-1">
+              <span className="text-[#77777D] font-medium">Geolocalización GPS</span>
+              {deliveryData.signature_latitude && deliveryData.signature_longitude ? (
+                <div>
+                  <p className="font-bold text-white">
+                    {deliveryData.signature_latitude.toFixed(5)}, {deliveryData.signature_longitude.toFixed(5)}
+                  </p>
+                  {deliveryData.signature_geo_accuracy_meters && (
+                    <p className="text-[#77777D]">
+                      Precisión: ±{Math.round(deliveryData.signature_geo_accuracy_meters)}m
+                    </p>
+                  )}
+                  {googleMapsUrl && (
+                    <a
+                      href={googleMapsUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-1 inline-flex items-center gap-1 font-semibold text-[#8CE0B6] hover:underline"
+                    >
+                      <MapPin size={12} />
+                      Ver en Google Maps
+                    </a>
+                  )}
+                </div>
+              ) : (
+                <p className="text-[#77777D] italic">Ubicación satelital no provista</p>
+              )}
+            </div>
+
+            <div className="rounded-xl border border-[#1F7A4D]/30 bg-[#0F1B14] p-3.5 space-y-1">
+              <span className="text-[#77777D] font-medium">Consentimiento LFPDPPP</span>
+              <p className="font-bold text-[#8CE0B6] flex items-center gap-1">
+                <Lock size={13} />
+                Otorgado expresamente
+              </p>
+              {deliveryData.privacy_consent_accepted_at && (
+                <p className="text-[#77777D]">
+                  {new Date(deliveryData.privacy_consent_accepted_at).toLocaleTimeString("es-MX")}
+                </p>
+              )}
+            </div>
+
+            <div className="rounded-xl border border-[#1F7A4D]/30 bg-[#0F1B14] p-3.5 space-y-1 truncate">
+              <span className="text-[#77777D] font-medium">Dirección IP y Dispositivo</span>
+              <p className="font-bold text-white truncate">
+                {deliveryData.client_signature_ip || "IP no registrada"}
+              </p>
+              <p className="text-[10px] text-[#77777D] truncate" title={deliveryData.client_signature_user_agent || ""}>
+                {deliveryData.client_signature_user_agent || "Navegador web"}
+              </p>
+            </div>
+          </div>
+
+          {/* Fotos de INE */}
+          {(ineFrontUrl || ineBackUrl) && (
+            <div className="pt-2">
+              <span className="text-xs font-semibold text-[#8CE0B6] flex items-center gap-1.5 mb-2">
+                <IdCard size={15} />
+                Identificación Oficial del Firmante (INE / Pasaporte)
+              </span>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {ineFrontUrl && (
+                  <a
+                    href={ineFrontUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="overflow-hidden rounded-xl border border-[#1F7A4D]/40 bg-black group"
+                  >
+                    <img
+                      src={ineFrontUrl}
+                      alt="INE Anverso"
+                      className="h-28 w-full object-cover group-hover:opacity-90 transition"
+                    />
+                    <span className="block p-1.5 text-center text-[10px] font-semibold text-[#B3B3B8]">
+                      INE Anverso (Frontal)
+                    </span>
+                  </a>
+                )}
+                {ineBackUrl && (
+                  <a
+                    href={ineBackUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="overflow-hidden rounded-xl border border-[#1F7A4D]/40 bg-black group"
+                  >
+                    <img
+                      src={ineBackUrl}
+                      alt="INE Reverso"
+                      className="h-28 w-full object-cover group-hover:opacity-90 transition"
+                    />
+                    <span className="block p-1.5 text-center text-[10px] font-semibold text-[#B3B3B8]">
+                      INE Reverso
+                    </span>
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
         </section>
       )}
 
