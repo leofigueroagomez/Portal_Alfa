@@ -327,22 +327,22 @@ export async function generateContractorWhatsAppLinkAction(
       throw upsertErr;
     }
   } else {
-    // Existing user: generate magiclink / recovery link
+    // Existing user: generate recovery link to create/update password
     const { data, error } = await admin.auth.admin.generateLink({
-      type: "magiclink",
+      type: "recovery",
       email,
       options: {
-        redirectTo: `${appBaseUrl}/portal`,
+        redirectTo: `${appBaseUrl}/auth/accept-invite`,
       },
     });
 
     if (error) {
-      const rec = await admin.auth.admin.generateLink({
-        type: "recovery",
+      const magic = await admin.auth.admin.generateLink({
+        type: "magiclink",
         email,
-        options: { redirectTo: `${appBaseUrl}/portal` },
+        options: { redirectTo: `${appBaseUrl}/auth/accept-invite` },
       });
-      linkUrl = rec.data?.properties?.action_link || `${appBaseUrl}/login`;
+      linkUrl = magic.data?.properties?.action_link || `${appBaseUrl}/login`;
     } else {
       linkUrl = data.properties.action_link;
     }
