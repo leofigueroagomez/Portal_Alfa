@@ -43,6 +43,7 @@ const INITIAL_FORM = {
   category: "",
   category_id: "",
   supplier: "",
+  supplier_id: "",
   image_url: "",
   cost_price: "",
   cost_currency: "USD",
@@ -70,6 +71,7 @@ export default function QuickCreateProductButton({
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [categories, setCategories] = useState<TaxonomyOption[]>([]);
+  const [suppliers, setSuppliers] = useState<TaxonomyOption[]>([]);
   const [form, setForm] = useState(INITIAL_FORM);
 
   function updateField(field: string, value: string | boolean) {
@@ -121,23 +123,27 @@ export default function QuickCreateProductButton({
   }
 
   useEffect(() => {
-    async function loadCategories() {
-      const { data, error } = await supabase
-        .from("product_categories")
-        .select("id, name")
-        .eq("is_active", true)
-        .order("sort_order", { ascending: true })
-        .order("name", { ascending: true });
+    async function loadTaxonomy() {
+      const [{ data: catData }, { data: supData }] = await Promise.all([
+        supabase
+          .from("product_categories")
+          .select("id, name")
+          .eq("is_active", true)
+          .order("sort_order", { ascending: true })
+          .order("name", { ascending: true }),
+        supabase
+          .from("suppliers")
+          .select("id, name")
+          .eq("is_active", true)
+          .order("sort_order", { ascending: true })
+          .order("name", { ascending: true }),
+      ]);
 
-      if (error) {
-        console.error("Error cargando categorias:", error);
-        return;
-      }
-
-      setCategories((data || []) as TaxonomyOption[]);
+      setCategories((catData || []) as TaxonomyOption[]);
+      setSuppliers((supData || []) as TaxonomyOption[]);
     }
 
-    loadCategories();
+    loadTaxonomy();
   }, []);
 
   useEffect(() => {
@@ -194,6 +200,7 @@ export default function QuickCreateProductButton({
         category: form.category,
         category_id: form.category_id ? Number(form.category_id) : null,
         supplier: form.supplier,
+        supplier_id: form.supplier_id ? Number(form.supplier_id) : null,
         description: "",
         image_url: form.image_url,
         cost_price: Number(form.cost_price) || 0,
@@ -280,7 +287,26 @@ export default function QuickCreateProductButton({
                   </option>
                 ))}
               </select>
-              <input className="bg-[#222228] rounded-xl p-4 outline-none" placeholder="Proveedor" value={form.supplier} onChange={(e) => updateField("supplier", e.target.value)} />
+              <select
+                className="bg-[#222228] rounded-xl p-4 outline-none text-white text-sm"
+                value={form.supplier_id}
+                onChange={(e) => {
+                  const supId = e.target.value;
+                  const selected = suppliers.find((s) => String(s.id) === supId);
+                  setForm((cur) => ({
+                    ...cur,
+                    supplier_id: supId,
+                    supplier: selected?.name || "",
+                  }));
+                }}
+              >
+                <option value="">Proveedor oficial...</option>
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
               <input className="bg-[#222228] rounded-xl p-4 outline-none" placeholder="Costo" value={form.cost_price} onChange={(e) => updateField("cost_price", e.target.value)} />
               <select className="bg-[#222228] rounded-xl p-4 outline-none" value={form.cost_currency} onChange={(e) => updateField("cost_currency", e.target.value)}>
                 <option>USD</option>

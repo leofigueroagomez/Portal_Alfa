@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { syncProjectOperationalItems } from "@/lib/projectOperationalItems";
 import { supabase } from "@/services/supabase";
+import { createOrGetProjectContractAction } from "@/app/(admin)/projects/[id]/contract/actions";
+import { generateProjectSpecializedWorkOrders } from "@/lib/workOrdersAutomation";
 
 type Props = {
   quoteId: number;
@@ -104,6 +106,13 @@ export default function ApproveQuoteVersionButton({
         console.warn("No se pudo sincronizar base operativa al aprobar:", syncError);
       }
 
+      // Generar automáticamente las 3 Órdenes de Trabajo especializadas (Cableado, Instalaciones, Configuraciones)
+      try {
+        await generateProjectSpecializedWorkOrders(supabase, clientProjectId, quoteId);
+      } catch (odtError) {
+        console.warn("No se pudieron generar ODTs automáticas al aprobar:", odtError);
+      }
+
       fetch("/api/notifications/quote-approved", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -111,6 +120,13 @@ export default function ApproveQuoteVersionButton({
       }).catch((error) => {
         console.error("Error enviando notificacion de cotizacion:", error);
       });
+    }
+
+    // Generar automáticamente el contrato del proyecto para formalización inmediata
+    try {
+      await createOrGetProjectContractAction(quoteId);
+    } catch (contractError) {
+      console.warn("No se pudo generar contrato automático al aprobar:", contractError);
     }
 
     router.refresh();

@@ -127,3 +127,8 @@ export function canManageServices(role: string | null | undefined) {
   const normalized = normalizeRole(role);
   return ["admin", "direccion", "comercial", "project_manager"].includes(normalized);
 }
+
+export function canManagePricingSettings(role: string | null | undefined) {
+  const normalized = normalizeRole(role);
+  return ["admin", "direccion", "finanzas"].includes(normalized);
+}

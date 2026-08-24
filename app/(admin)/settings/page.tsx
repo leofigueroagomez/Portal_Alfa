@@ -1,7 +1,31 @@
 import Link from "next/link";
-import { Bell, Boxes, Handshake, SlidersHorizontal, Tags, UserCog, Wrench } from "lucide-react";
+import { Bell, Boxes, Coins, Hammer, Handshake, Layers, SlidersHorizontal, Tags, Truck, UserCog, Wrench } from "lucide-react";
 
 const settingsLinks = [
+  {
+    href: "/settings/labor-rates",
+    title: "Tabulador de Mano de Obra",
+    description: "Tarifas oficiales para subcontratistas y liquidación automática de órdenes de trabajo.",
+    icon: Hammer,
+  },
+  {
+    href: "/suppliers",
+    title: "Catálogo de Proveedores",
+    description: "Mayoristas homologados, contactos comerciales y métricas anuales de compra para negociación.",
+    icon: Truck,
+  },
+  {
+    href: "/settings/systems",
+    title: "Sistemas y Disciplinas",
+    description: "Catálogo homologado de sistemas cotizables (Audio, CCTV, Redes, Iluminación, etc.).",
+    icon: Layers,
+  },
+  {
+    href: "/settings/pricing",
+    title: "Costos y precios",
+    description: "Costo indirecto de empresa aplicado automáticamente a cada cotización nueva.",
+    icon: Coins,
+  },
   {
     href: "/users",
     title: "Usuarios",

@@ -26,6 +26,7 @@ import {
   sendServicePaymentReminderEmailAction,
   updateServiceAmountAction,
   completeServiceReportAction,
+  syncToGoogleCalendarAction,
 } from "./actions";
 
 type Props = {
@@ -45,6 +46,7 @@ type Props = {
   recipientPhone: string;
   publicUrl: string;
   calendarUrl?: string;
+  googleCalendarEventUrl?: string | null;
   waTechAssignUrl?: string;
   waTechAssignText?: string;
   isRemote?: boolean;
@@ -80,6 +82,7 @@ export default function ServiceCollectionPanel({
   recipientPhone,
   publicUrl,
   calendarUrl,
+  googleCalendarEventUrl,
   waTechAssignUrl,
   waTechAssignText,
   isRemote,
@@ -174,6 +177,24 @@ export default function ServiceCollectionPanel({
       } else {
         setEmailStatus("error");
         setEmailMsg(res.error || "Error al enviar recordatorio.");
+      }
+    });
+  }
+
+  const [calSyncStatus, setCalSyncStatus] = useState<"idle" | "syncing" | "synced" | "error">("idle");
+  const [calSyncMsg, setCalSyncMsg] = useState<string | null>(null);
+
+  function handleSyncGoogleCalendar() {
+    setCalSyncStatus("syncing");
+    setCalSyncMsg(null);
+    startTransition(async () => {
+      const res = await syncToGoogleCalendarAction(serviceId);
+      if (res.ok) {
+        setCalSyncStatus("synced");
+        setCalSyncMsg(res.message || "Sincronizado con Google Calendar de la Organización.");
+      } else {
+        setCalSyncStatus("error");
+        setCalSyncMsg(res.error || "No se pudo sincronizar automáticamente.");
       }
     });
   }
@@ -301,19 +322,56 @@ export default function ServiceCollectionPanel({
             </p>
           </div>
 
-          {calendarUrl && (
-            <a
-              href={calendarUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2 rounded-xl border border-[#4285F4]/40 bg-[#1E2530] px-4 py-2.5 text-xs font-bold text-[#8AB4F8] hover:bg-[#253245] transition shadow-md self-start sm:self-auto"
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleSyncGoogleCalendar}
+              disabled={isPending || calSyncStatus === "syncing"}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-[#4285F4] bg-[#1A233A] px-4 py-2.5 text-xs font-bold text-[#8AB4F8] hover:bg-[#202E4E] transition shadow-md disabled:opacity-50"
             >
-              <Calendar size={15} />
-              Agendar en Google Calendar
-              <ExternalLink size={13} />
-            </a>
-          )}
+              <Calendar size={14} />
+              {calSyncStatus === "syncing"
+                ? "Sincronizando con Google..."
+                : googleCalendarEventUrl
+                  ? "Re-sincronizar Calendario"
+                  : "Sincronizar a Google Calendar Org"}
+            </button>
+
+            {googleCalendarEventUrl ? (
+              <a
+                href={googleCalendarEventUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[#4285F4] px-4 py-2.5 text-xs font-bold text-white hover:bg-[#3367D6] transition shadow-md"
+              >
+                <ExternalLink size={13} />
+                Ver en Google Calendar
+              </a>
+            ) : calendarUrl ? (
+              <a
+                href={calendarUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-[#2A2A30] bg-[#1C1D22] px-4 py-2.5 text-xs font-semibold text-[#B3B3B8] hover:text-white hover:bg-[#25262C] transition"
+              >
+                Abrir en mi Google Calendar
+                <ExternalLink size={13} />
+              </a>
+            ) : null}
+          </div>
         </div>
+
+        {calSyncMsg && (
+          <p
+            className={`rounded-lg p-2.5 text-xs ${
+              calSyncStatus === "synced"
+                ? "border border-[#1F7A4D] bg-[#143D2A] text-[#8CE0B6]"
+                : "border border-[#6A2A2A] bg-[#351818] text-[#FFB4B4]"
+            }`}
+          >
+            {calSyncMsg}
+          </p>
+        )}
 
         {/* Tarjeta de Asignación por WhatsApp al Técnico */}
         {waTechAssignUrl && waTechAssignText && (

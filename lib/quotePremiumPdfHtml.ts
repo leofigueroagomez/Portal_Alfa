@@ -10,6 +10,7 @@ import {
   shouldGroupQuoteItemsByPresentation,
 } from "@/lib/quoteItemPresentation";
 import type { QuotePdfSnapshot } from "@/lib/quotePdfSnapshot";
+import { MISC_LINE_LABEL } from "@/lib/quoteIndirectCosts";
 
 type QuotePdfItem = QuotePdfSnapshot["sections"][number]["items"][number];
 type QuotePdfSection = QuotePdfSnapshot["sections"][number];
@@ -122,7 +123,10 @@ function getDisplayTotals(
 ) {
   if (!branding?.hidePartnerDiscount) return snapshot.totals;
 
-  const taxableBaseMxn = snapshot.totals.subtotalMxn - snapshot.totals.discountMxn;
+  const taxableBaseMxn =
+    snapshot.totals.subtotalMxn -
+    snapshot.totals.discountMxn +
+    snapshot.totals.miscTotalMxn;
   const ivaMxn = taxableBaseMxn * 0.16;
   const totalMxn = taxableBaseMxn + ivaMxn;
 
@@ -399,7 +403,12 @@ function buildSection(section: QuotePdfSection, exchangeRate: number) {
             <span>Totales:</span>
             <span>Equipo ${money(section.equipmentTotalUsd, "USD")}</span>
             <span>Mano de Obra ${money(section.laborTotalMxn, "MXN")}</span>
-            <strong>Total ${money(section.totalMxn, "MXN")}</strong>
+            ${
+              section.miscShareMxn > 0
+                ? `<span>${escapeHtml(MISC_LINE_LABEL)} ${money(section.miscShareMxn, "MXN")}</span>`
+                : ""
+            }
+            <strong>Total ${money(section.totalMxn + section.miscShareMxn, "MXN")}</strong>
           </div>
         </div>
 

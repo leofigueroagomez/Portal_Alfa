@@ -28,6 +28,7 @@ type ProductForm = {
   category: string;
   category_id: string;
   supplier: string;
+  supplier_id: string;
   description: string;
   image_url: string;
   cost_price: string;
@@ -58,6 +59,7 @@ const emptyForm: ProductForm = {
   category: "",
   category_id: "",
   supplier: "",
+  supplier_id: "",
   description: "",
   image_url: "",
   cost_price: "",
@@ -85,6 +87,7 @@ export default function NewProductPage() {
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [categories, setCategories] = useState<TaxonomyOption[]>([]);
   const [tags, setTags] = useState<TaxonomyOption[]>([]);
+  const [suppliers, setSuppliers] = useState<TaxonomyOption[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
   const [successMessage, setSuccessMessage] = useState("");
   const laborUnitSalePrice =
@@ -155,6 +158,7 @@ export default function NewProductPage() {
       const [
         { data: categoryData },
         { data: tagData },
+        { data: supplierData },
       ] = await Promise.all([
         supabase
           .from("product_categories")
@@ -168,10 +172,17 @@ export default function NewProductPage() {
           .eq("is_active", true)
           .order("sort_order", { ascending: true })
           .order("name", { ascending: true }),
+        supabase
+          .from("suppliers")
+          .select("id, name")
+          .eq("is_active", true)
+          .order("sort_order", { ascending: true })
+          .order("name", { ascending: true }),
       ]);
 
       setCategories((categoryData || []) as TaxonomyOption[]);
       setTags((tagData || []) as TaxonomyOption[]);
+      setSuppliers((supplierData || []) as TaxonomyOption[]);
     }
 
     loadTaxonomy();
@@ -256,6 +267,7 @@ export default function NewProductPage() {
         category: form.category,
         category_id: form.category_id ? Number(form.category_id) : null,
         supplier: form.supplier,
+        supplier_id: form.supplier_id ? Number(form.supplier_id) : null,
         description: form.description,
         image_url: form.image_url,
         cost_price: Number(form.cost_price) || 0,
@@ -348,7 +360,26 @@ export default function NewProductPage() {
                 ))}
               </select>
 
-              <input className="bg-[#222228] rounded-xl p-4 outline-none" placeholder="Proveedor" value={form.supplier} onChange={(e) => updateField("supplier", e.target.value)} />
+              <select
+                className="bg-[#222228] rounded-xl p-4 outline-none text-white text-sm"
+                value={form.supplier_id}
+                onChange={(e) => {
+                  const supId = e.target.value;
+                  const selected = suppliers.find((s) => String(s.id) === supId);
+                  setForm((cur) => ({
+                    ...cur,
+                    supplier_id: supId,
+                    supplier: selected?.name || "",
+                  }));
+                }}
+              >
+                <option value="">Proveedor oficial...</option>
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <textarea className="w-full bg-[#222228] rounded-xl p-4 outline-none mt-4 min-h-32" placeholder="Descripcion" value={form.description} onChange={(e) => updateField("description", e.target.value)} />

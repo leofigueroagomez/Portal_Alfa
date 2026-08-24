@@ -8,6 +8,10 @@ import {
   isMissingQuoteItemAreaAllocationsSchema,
   type QuoteItemAreaAllocation,
 } from "@/lib/quoteItemPresentation";
+import {
+  computeIndirectCostMxn,
+  computeSectionMiscShareMxn,
+} from "@/lib/quoteIndirectCosts";
 
 type NumericLike = number | string | null | undefined;
 
@@ -42,6 +46,9 @@ export type QuotePdfSnapshot = {
     totalMxn: number;
     grandTotalMxn: number;
     discountMxn: number;
+    indirectCostPercent: number;
+    indirectCostMxn: number;
+    miscTotalMxn: number;
     partnerEquipmentDiscountMxn: number;
     partnerLaborDiscountMxn: number;
     partnerTotalDiscountMxn: number;
@@ -82,6 +89,7 @@ export type QuotePdfSection = {
   equipmentTotalUsd: number;
   laborTotalMxn: number;
   totalMxn: number;
+  miscShareMxn: number;
   items: QuotePdfItem[];
 };
 
@@ -139,6 +147,9 @@ type QuoteRow = {
   labor_total: NumericLike;
   grand_total: NumericLike;
   discount_amount_mxn?: NumericLike;
+  indirect_cost_percent?: NumericLike;
+  indirect_cost_mxn?: NumericLike;
+  misc_total_mxn?: NumericLike;
   partner_equipment_discount_mxn?: NumericLike;
   partner_labor_discount_mxn?: NumericLike;
   partner_total_discount_mxn?: NumericLike;
@@ -438,7 +449,7 @@ export async function getQuotePdfSnapshot(
   let { data: quote, error: quoteError } = await supabase
     .from("quotes")
     .select(
-      "id, quote_number, status, currency, client_id, client_project_id, equipment_total, labor_total, grand_total, discount_amount_mxn, partner_equipment_discount_mxn, partner_labor_discount_mxn, partner_total_discount_mxn, subtotal_mxn, taxable_base_mxn, iva_mxn, total_mxn, exchange_rate, exchange_rate_source, exchange_rate_date, includes_travel_expenses_detail, travel_fuel_mxn, travel_tolls_mxn, travel_food_mxn, travel_total_mxn, notes, include_diagnostic_context, created_at"
+      "id, quote_number, status, currency, client_id, client_project_id, equipment_total, labor_total, grand_total, discount_amount_mxn, indirect_cost_percent, indirect_cost_mxn, misc_total_mxn, partner_equipment_discount_mxn, partner_labor_discount_mxn, partner_total_discount_mxn, subtotal_mxn, taxable_base_mxn, iva_mxn, total_mxn, exchange_rate, exchange_rate_source, exchange_rate_date, includes_travel_expenses_detail, travel_fuel_mxn, travel_tolls_mxn, travel_food_mxn, travel_total_mxn, notes, include_diagnostic_context, created_at"
     )
     .eq("id", quoteId)
     .maybeSingle<QuoteRow>();
@@ -447,7 +458,7 @@ export async function getQuotePdfSnapshot(
     const fallback = await supabase
       .from("quotes")
       .select(
-        "id, quote_number, status, currency, client_id, client_project_id, equipment_total, labor_total, grand_total, discount_amount_mxn, partner_equipment_discount_mxn, partner_labor_discount_mxn, partner_total_discount_mxn, subtotal_mxn, taxable_base_mxn, iva_mxn, total_mxn, exchange_rate, exchange_rate_source, exchange_rate_date, includes_travel_expenses_detail, travel_fuel_mxn, travel_tolls_mxn, travel_food_mxn, travel_total_mxn, notes, created_at"
+        "id, quote_number, status, currency, client_id, client_project_id, equipment_total, labor_total, grand_total, discount_amount_mxn, indirect_cost_percent, indirect_cost_mxn, misc_total_mxn, partner_equipment_discount_mxn, partner_labor_discount_mxn, partner_total_discount_mxn, subtotal_mxn, taxable_base_mxn, iva_mxn, total_mxn, exchange_rate, exchange_rate_source, exchange_rate_date, includes_travel_expenses_detail, travel_fuel_mxn, travel_tolls_mxn, travel_food_mxn, travel_total_mxn, notes, created_at"
       )
       .eq("id", quoteId)
       .maybeSingle<QuoteRow>();
@@ -763,8 +774,16 @@ export async function getQuotePdfSnapshot(
   const partnerTotalDiscountMxn =
     toNumber(quote.partner_total_discount_mxn) ||
     partnerEquipmentDiscountMxn + partnerLaborDiscountMxn;
+  const indirectCostPercent = toNumber(quote.indirect_cost_percent);
+  const indirectCostMxn = hasAnyAreaAllocations
+    ? computeIndirectCostMxn(
+        equipmentTotalUsd * exchangeRate,
+        indirectCostPercent
+      )
+    : toNumber(quote.indirect_cost_mxn);
+  const miscTotalMxn = toNumber(quote.misc_total_mxn);
   const calculatedTaxableBaseMxn =
-    subtotalMxn - partnerTotalDiscountMxn - discountMxn;
+    subtotalMxn - partnerTotalDiscountMxn - discountMxn + miscTotalMxn;
   const taxableBaseMxn = hasAnyAreaAllocations
     ? calculatedTaxableBaseMxn
     : toNumber(quote.taxable_base_mxn) || calculatedTaxableBaseMxn;
@@ -827,6 +846,9 @@ export async function getQuotePdfSnapshot(
       totalMxn,
       grandTotalMxn: toNumber(quote.grand_total) || totalMxn,
       discountMxn,
+      indirectCostPercent,
+      indirectCostMxn,
+      miscTotalMxn,
       partnerEquipmentDiscountMxn,
       partnerLaborDiscountMxn,
       partnerTotalDiscountMxn,
@@ -839,7 +861,16 @@ export async function getQuotePdfSnapshot(
           toNumber(quote.travel_tolls_mxn) +
           toNumber(quote.travel_food_mxn),
     },
-    sections: snapshotSections.sort(bySortOrder),
+    sections: snapshotSections
+      .map((section) => ({
+        ...section,
+        miscShareMxn: computeSectionMiscShareMxn(
+          section.equipmentTotalUsd * exchangeRate + section.laborTotalMxn,
+          subtotalMxn,
+          miscTotalMxn
+        ),
+      }))
+      .sort(bySortOrder),
     diagnosticContext: {
       enabled: Boolean(quote.include_diagnostic_context),
       blocks: snapshotDiagnosticBlocks.sort(bySortOrder),

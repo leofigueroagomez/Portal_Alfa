@@ -12,6 +12,12 @@ import {
   isProductCostStale,
 } from "@/lib/productFreshness";
 import {
+  computeIndirectCostMxn,
+  computeSectionMiscShareMxn,
+  getIndirectCostMultiplier,
+  MISC_LINE_LABEL,
+} from "@/lib/quoteIndirectCosts";
+import {
   createLegacyLaborActivity,
   getItemLaborCostTotal,
   getItemLaborSaleTotal,
@@ -130,17 +136,21 @@ function getEquipmentUnitPriceUsd(
     existing_customer_equipment?: boolean | null;
     allocations?: QuoteItemAreaAllocation[] | null;
   },
-  exchangeRate: number
+  exchangeRate: number,
+  indirectCostMultiplier: number
 ) {
   if (!item.allocations?.length && isExistingCustomerEquipment(item)) {
     return 0;
   }
 
-  if ((item.sale_currency || "USD").toUpperCase() === "MXN") {
-    return exchangeRate > 0 ? item.calculated_sale_price / exchangeRate : 0;
-  }
+  const basePrice =
+    (item.sale_currency || "USD").toUpperCase() === "MXN"
+      ? exchangeRate > 0
+        ? item.calculated_sale_price / exchangeRate
+        : 0
+      : item.calculated_sale_price;
 
-  return item.calculated_sale_price;
+  return basePrice * indirectCostMultiplier;
 }
 
 function normalizeToMXN(
@@ -209,6 +219,9 @@ export default function NewQuotePage() {
   } | null>(null);
   const [activeSectionId, setActiveSectionId] = useState("");
   const [newSectionName, setNewSectionName] = useState("");
+  const [quotableSystems, setQuotableSystems] = useState<
+    Array<{ id: number; name: string; code: string | null }>
+  >([]);
   const [search, setSearch] = useState("");
   const [isProductPanelOpen, setIsProductPanelOpen] = useState(true);
   const [savingQuote, setSavingQuote] = useState(false);
@@ -224,6 +237,11 @@ export default function NewQuotePage() {
   const [discountType, setDiscountType] = useState("none");
   const [discountPercent, setDiscountPercent] = useState("");
   const [discountAmountMXN, setDiscountAmountMXN] = useState("");
+  const [companyIndirectCostPercent, setCompanyIndirectCostPercent] =
+    useState(0);
+  const [miscItems, setMiscItems] = useState<
+    { id: string; description: string; amount: string }[]
+  >([]);
   const [includesTravelExpensesDetail, setIncludesTravelExpensesDetail] =
     useState(false);
   const [travelFuelMXN, setTravelFuelMXN] = useState("");
@@ -283,6 +301,40 @@ export default function NewQuotePage() {
   }, []);
 
   useEffect(() => {
+    async function loadCompanySettings() {
+      const { data } = await supabase
+        .from("company_settings")
+        .select("indirect_cost_percent")
+        .eq("id", true)
+        .maybeSingle();
+
+      setCompanyIndirectCostPercent(Number(data?.indirect_cost_percent || 0));
+    }
+
+    loadCompanySettings();
+  }, []);
+
+  function addMiscItem() {
+    setMiscItems((current) => [
+      ...current,
+      { id: crypto.randomUUID(), description: "", amount: "" },
+    ]);
+  }
+
+  function updateMiscItem(
+    id: string,
+    patch: Partial<{ description: string; amount: string }>
+  ) {
+    setMiscItems((current) =>
+      current.map((item) => (item.id === id ? { ...item, ...patch } : item))
+    );
+  }
+
+  function removeMiscItem(id: string) {
+    setMiscItems((current) => current.filter((item) => item.id !== id));
+  }
+
+  useEffect(() => {
     async function loadTaxonomy() {
       const [{ data: categoryData }, { data: tagData }] = await Promise.all([
         supabase
@@ -304,6 +356,26 @@ export default function NewQuotePage() {
     }
 
     loadTaxonomy();
+  }, []);
+
+  useEffect(() => {
+    async function loadQuotableSystems() {
+      const { data, error } = await supabase
+        .from("quotable_systems")
+        .select("id, name, code")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true })
+        .order("name", { ascending: true });
+
+      if (error) {
+        console.error("Error cargando sistemas homologados:", error);
+        return;
+      }
+
+      setQuotableSystems(data || []);
+    }
+
+    loadQuotableSystems();
   }, []);
 
   useEffect(() => {
@@ -439,13 +511,22 @@ export default function NewQuotePage() {
 
   function addSection() {
     if (!newSectionName.trim()) {
-      alert("Escribe el nombre del sistema");
+      alert("Selecciona un sistema homologado de la lista para agregarlo.");
+      return;
+    }
+
+    if (
+      sections.some(
+        (s) => s.name.trim().toLowerCase() === newSectionName.trim().toLowerCase()
+      )
+    ) {
+      alert(`El sistema "${newSectionName}" ya ha sido agregado a esta cotización.`);
       return;
     }
 
     const newSection = {
       id: crypto.randomUUID(),
-      name: newSectionName,
+      name: newSectionName.trim(),
       items: [],
     };
 
@@ -1027,12 +1108,15 @@ export default function NewQuotePage() {
   const visibleProducts = filteredProducts.slice(0, PRODUCT_RESULT_LIMIT);
 
   const numericExchangeRate = Number(exchangeRate) || 1;
+  const indirectCostMultiplier = getIndirectCostMultiplier(
+    companyIndirectCostPercent
+  );
 
   const equipmentTotalUSD = sections.reduce((sectionSum, section) => {
     const total = section.items.reduce((sum, item) => {
       return (
         sum +
-        getEquipmentUnitPriceUsd(item, numericExchangeRate) *
+        getEquipmentUnitPriceUsd(item, numericExchangeRate, indirectCostMultiplier) *
           getNewEquipmentAllocationQuantity(item)
       );
     }, 0);
@@ -1057,7 +1141,7 @@ export default function NewQuotePage() {
 
           return (
             sum +
-            getEquipmentUnitPriceUsd(item, numericExchangeRate) *
+            getEquipmentUnitPriceUsd(item, numericExchangeRate, indirectCostMultiplier) *
               getNewEquipmentAllocationQuantity(item) *
               numericExchangeRate *
               ((Number(partnerEquipmentDiscountPercent) || 0) / 100)
@@ -1087,8 +1171,16 @@ export default function NewQuotePage() {
     Math.max(discountMXN, 0),
     remainingAfterPartnerDiscount
   );
+  const indirectCostMXN = computeIndirectCostMxn(
+    equipmentTotalMXN,
+    companyIndirectCostPercent
+  );
+  const miscTotalMXN = miscItems.reduce(
+    (sum, item) => sum + (Number(item.amount) || 0),
+    0
+  );
   const taxableBaseMXN =
-    subtotalMXN - cappedPartnerDiscountMXN - cappedDiscountMXN;
+    subtotalMXN - cappedPartnerDiscountMXN - cappedDiscountMXN + miscTotalMXN;
   const ivaMXN = taxableBaseMXN * 0.16;
   const totalMXN = taxableBaseMXN + ivaMXN;
   const grandTotalMXN = totalMXN;
@@ -1156,7 +1248,7 @@ export default function NewQuotePage() {
     return section.items.reduce((sum, item) => {
       return (
         sum +
-        getEquipmentUnitPriceUsd(item, numericExchangeRate) *
+        getEquipmentUnitPriceUsd(item, numericExchangeRate, indirectCostMultiplier) *
           getNewEquipmentAllocationQuantity(item)
       );
     }, 0);
@@ -1166,6 +1258,18 @@ export default function NewQuotePage() {
     return section.items.reduce((sum, item) => {
       return sum + getItemLaborSaleTotal(item);
     }, 0);
+  }
+
+  function getSectionMiscShareMxn(section: QuoteSection) {
+    const sectionSubtotalMxn =
+      getSectionEquipmentTotal(section) * numericExchangeRate +
+      getSectionLaborTotal(section);
+
+    return computeSectionMiscShareMxn(
+      sectionSubtotalMxn,
+      subtotalMXN,
+      miscTotalMXN
+    );
   }
 
   const activeSection =
@@ -1271,6 +1375,9 @@ export default function NewQuotePage() {
       discount_percent:
         discountType === "percent" ? Number(discountPercent) || 0 : 0,
       discount_amount_mxn: cappedDiscountMXN,
+      indirect_cost_percent: companyIndirectCostPercent,
+      indirect_cost_mxn: indirectCostMXN,
+      misc_total_mxn: miscTotalMXN,
       subtotal_mxn: subtotalMXN,
       taxable_base_mxn: taxableBaseMXN,
       iva_mxn: ivaMXN,
@@ -1368,6 +1475,9 @@ export default function NewQuotePage() {
         "partner_equipment_discount_mxn",
         "partner_labor_discount_mxn",
         "partner_total_discount_mxn",
+        "indirect_cost_percent",
+        "indirect_cost_mxn",
+        "misc_total_mxn",
       ].forEach((field) => {
         if (quoteResult.error?.message.includes(field)) {
           delete quotePayloadToInsert[field];
@@ -1466,7 +1576,8 @@ export default function NewQuotePage() {
       const itemsToInsert = section.items.map((item, itemIndex) => {
         const itemEquipmentUnitPriceUsd = getEquipmentUnitPriceUsd(
           item,
-          numericExchangeRate
+          numericExchangeRate,
+          indirectCostMultiplier
         );
         const itemEquipmentTotal =
           itemEquipmentUnitPriceUsd * getNewEquipmentAllocationQuantity(item);
@@ -1615,6 +1726,32 @@ export default function NewQuotePage() {
       );
       setSavingQuote(false);
       return;
+    }
+
+    const miscItemsToInsert = miscItems
+      .filter((item) => item.description.trim() || Number(item.amount) > 0)
+      .map((item, index) => ({
+        quote_id: quote.id,
+        description: item.description.trim() || "Miscelaneo",
+        amount_mxn: Number(item.amount) || 0,
+        sort_order: index,
+      }));
+
+    if (miscItemsToInsert.length > 0) {
+      const { error: miscItemsError } = await supabase
+        .from("quote_misc_items")
+        .insert(miscItemsToInsert);
+
+      if (miscItemsError) {
+        console.error("Error creando quote_misc_items:", miscItemsError);
+        alert(
+          "Error creando quote_misc_items: " +
+            JSON.stringify(miscItemsError) +
+            (miscItemsError.message ? ` ${miscItemsError.message}` : "")
+        );
+        setSavingQuote(false);
+        return;
+      }
     }
 
     if (selectedClientProjectId) {
@@ -1871,20 +2008,32 @@ export default function NewQuotePage() {
                 Sistemas / secciones
               </h2>
 
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <input
+              <div className="flex flex-col gap-3 sm:flex-row items-stretch sm:items-center">
+                <select
                   value={newSectionName}
                   onChange={(e) => setNewSectionName(e.target.value)}
-                  placeholder="Nombre del sistema"
-                  className="bg-[#222228] border border-[#2A2A30] rounded-xl px-4 py-3 outline-none"
-                />
+                  className="bg-[#222228] border border-[#2A2A30] rounded-xl px-4 py-3 outline-none text-white text-xs font-semibold focus:border-[#9E1B32] min-w-[280px]"
+                >
+                  <option value="">Seleccionar sistema homologado...</option>
+                  {quotableSystems.map((sys) => {
+                    const isAlreadyAdded = sections.some(
+                      (s) => s.name.trim().toLowerCase() === sys.name.trim().toLowerCase()
+                    );
+                    return (
+                      <option key={sys.id} value={sys.name} disabled={isAlreadyAdded}>
+                        {sys.name} {isAlreadyAdded ? "(Ya agregado)" : ""}
+                      </option>
+                    );
+                  })}
+                </select>
 
                 <button
                   type="button"
                   onClick={addSection}
-                  className="bg-[#9E1B32] hover:bg-[#B91C3C] rounded-xl px-5 py-3 font-semibold"
+                  disabled={!newSectionName}
+                  className="bg-[#9E1B32] hover:bg-[#B91C3C] disabled:bg-[#222228] disabled:text-[#77777D] rounded-xl px-5 py-3 font-semibold transition text-xs shadow-md shrink-0"
                 >
-                  Agregar
+                  Agregar Sistema
                 </button>
               </div>
             </div>
@@ -1932,6 +2081,7 @@ export default function NewQuotePage() {
               const sectionLabor = getSectionLaborTotal(section);
               const sectionSubtotalMXN =
                 sectionEquipment * numericExchangeRate + sectionLabor;
+              const sectionMiscMXN = getSectionMiscShareMxn(section);
               const isCollapsed = collapsedSectionIds.includes(section.id);
 
               return (
@@ -1981,6 +2131,13 @@ export default function NewQuotePage() {
                       <p className="text-[#B3B3B8]">
                         MO: {formatCurrency(sectionLabor, "MXN")}
                       </p>
+
+                      {sectionMiscMXN > 0 ? (
+                        <p className="text-[#B3B3B8]">
+                          {MISC_LINE_LABEL}:{" "}
+                          {formatCurrency(sectionMiscMXN, "MXN")}
+                        </p>
+                      ) : null}
                     </div>
                   </div>
 
@@ -2002,6 +2159,12 @@ export default function NewQuotePage() {
                           <p className="text-[#B3B3B8]">
                             MO: {formatCurrency(sectionLabor, "MXN")}
                           </p>
+                          {sectionMiscMXN > 0 ? (
+                            <p className="text-[#B3B3B8]">
+                              {MISC_LINE_LABEL}:{" "}
+                              {formatCurrency(sectionMiscMXN, "MXN")}
+                            </p>
+                          ) : null}
                           <p className="mt-1 font-semibold">
                             Subtotal ref.: {formatCurrency(sectionSubtotalMXN, "MXN")}
                           </p>
@@ -2238,7 +2401,7 @@ export default function NewQuotePage() {
                               `${section.id}:${item.id}`
                             }
                             equipmentSubtotalText={formatCurrency(
-                              getEquipmentUnitPriceUsd(item, numericExchangeRate) *
+                              getEquipmentUnitPriceUsd(item, numericExchangeRate, indirectCostMultiplier) *
                                 getNewEquipmentAllocationQuantity(item),
                               "USD"
                             )}
@@ -2799,6 +2962,66 @@ export default function NewQuotePage() {
                 tipo de cambio DOF aplicable al día hábil de pago.
               </p>
 
+              <div className="space-y-3 rounded-xl border border-[#2A2A30] bg-[#222228] p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-[#B3B3B8]">
+                    Misceláneos (interno)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={addMiscItem}
+                    className="text-xs font-semibold text-[#F4C66A] hover:text-[#F7D68A]"
+                  >
+                    + Agregar
+                  </button>
+                </div>
+
+                <p className="text-xs text-[#77777D]">
+                  No es visible al cliente en detalle — se reparte entre los
+                  sistemas como {MISC_LINE_LABEL}.
+                </p>
+
+                {miscItems.map((item) => (
+                  <div key={item.id} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="Concepto (ej. desgaste de herramienta)"
+                      value={item.description}
+                      onChange={(e) =>
+                        updateMiscItem(item.id, {
+                          description: e.target.value,
+                        })
+                      }
+                      className="flex-1 rounded-xl bg-[#151518] px-3 py-2 text-sm outline-none"
+                    />
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="MXN"
+                      value={item.amount}
+                      onChange={(e) =>
+                        updateMiscItem(item.id, { amount: e.target.value })
+                      }
+                      className="w-28 rounded-xl bg-[#151518] px-3 py-2 text-right text-sm outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeMiscItem(item.id)}
+                      className="h-9 w-9 shrink-0 rounded-xl bg-[#151518] text-[#B3B3B8] hover:bg-[#2A2A30]"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+
+                {miscTotalMXN > 0 ? (
+                  <div className="flex justify-between border-t border-[#2A2A30] pt-3 text-sm font-semibold">
+                    <span>Total misceláneos</span>
+                    <span>{formatCurrency(miscTotalMXN, "MXN")}</span>
+                  </div>
+                ) : null}
+              </div>
+
               <div className="border-t border-[#2A2A30] pt-4 space-y-3">
                 <div className="flex justify-between">
                   <span className="text-[#B3B3B8]">Subtotal MXN</span>
@@ -2828,6 +3051,13 @@ export default function NewQuotePage() {
                         -{formatCurrency(partnerLaborDiscountMXN, "MXN")}
                       </span>
                     </div>
+                  </div>
+                ) : null}
+
+                {miscTotalMXN > 0 ? (
+                  <div className="flex justify-between">
+                    <span className="text-[#B3B3B8]">Misceláneos</span>
+                    <span>{formatCurrency(miscTotalMXN, "MXN")}</span>
                   </div>
                 ) : null}
 

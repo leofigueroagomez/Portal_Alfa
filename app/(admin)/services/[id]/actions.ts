@@ -12,6 +12,7 @@ import {
   buildGoogleCalendarUrl,
   buildTechnicianAssignmentWhatsAppMessage,
 } from "@/lib/googleCalendar";
+import { syncServiceToGoogleCalendar } from "@/lib/googleCalendarSync";
 
 export async function markServiceAsPaidAction(
   serviceId: number,
@@ -116,6 +117,62 @@ export async function completeServiceReportAction(serviceId: number) {
   revalidatePath(`/services/${serviceId}`);
   revalidatePath("/services");
   return { ok: true, message: "Servicio finalizado y aprobado por Dirección." };
+}
+
+export async function syncToGoogleCalendarAction(serviceId: number) {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { ok: false, error: "No autorizado." };
+  }
+
+  const adminClient = createSupabaseAdminClient();
+  const { data: report, error } = await adminClient
+    .from("service_reports")
+    .select(`
+      id, service_number, service_date, performed_by_name, background,
+      is_remote, requester_name, requester_phone, scheduled_time_start, scheduled_time_end,
+      technician_phone, service_location, google_maps_url,
+      clients (name, company_name)
+    `)
+    .eq("id", serviceId)
+    .maybeSingle();
+
+  if (error || !report) {
+    return { ok: false, error: "Reporte no encontrado." };
+  }
+
+  const clientName =
+    (report.clients as { company_name?: string; name?: string } | null)?.company_name ||
+    (report.clients as { name?: string } | null)?.name ||
+    "Cliente";
+
+  const result = await syncServiceToGoogleCalendar({
+    serviceId: report.id,
+    serviceNumber: report.service_number || `SERV-${report.id}`,
+    clientName,
+    requesterName: report.requester_name,
+    requesterPhone: report.requester_phone,
+    technicianName: report.performed_by_name || "Técnico ALFA",
+    technicianPhone: report.technician_phone,
+    serviceDate: report.service_date || "2026-08-25",
+    startTime: report.scheduled_time_start || "10:00",
+    endTime: report.scheduled_time_end || "12:00",
+    isRemote: report.is_remote,
+    serviceLocation: report.service_location,
+    googleMapsUrl: report.google_maps_url,
+    background: report.background,
+  });
+
+  if (result.ok) {
+    revalidatePath(`/services/${serviceId}`);
+    return { ok: true, message: "Sincronizado con Google Calendar de la Organización con éxito." };
+  } else {
+    return { ok: false, error: result.error || "No se pudo sincronizar con Google Calendar." };
+  }
 }
 
 export async function sendServicePaymentReminderEmailAction(

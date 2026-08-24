@@ -15,11 +15,17 @@ import {
   type QuoteItemAreaAllocation,
 } from "@/lib/quoteItemPresentation";
 import { canApproveQuotes, canGeneratePartnerQuotes } from "@/lib/permissions";
+import {
+  computeIndirectCostMxn,
+  computeSectionMiscShareMxn,
+  MISC_LINE_LABEL,
+} from "@/lib/quoteIndirectCosts";
 import { getCurrentUserProfile } from "@/services/profile";
 import ProjectStageSelect from "@/components/ProjectStageSelect";
 import CreateQuoteVersionButton from "./CreateQuoteVersionButton";
 import ApproveQuoteVersionButton from "./ApproveQuoteVersionButton";
 import PrintQuoteButton from "./PrintQuoteButton";
+import ProjectContractCard from "./ProjectContractCard";
 
 type Quote = {
   id: number;
@@ -37,6 +43,9 @@ type Quote = {
   discount_type?: string | null;
   discount_percent?: number | null;
   discount_amount_mxn?: number | null;
+  indirect_cost_percent?: number | null;
+  indirect_cost_mxn?: number | null;
+  misc_total_mxn?: number | null;
   includes_travel_expenses_detail?: boolean | null;
   travel_fuel_mxn?: number | null;
   travel_tolls_mxn?: number | null;
@@ -124,7 +133,7 @@ export default async function QuoteDetailPage({
   let { data: quote, error } = (await supabase
     .from("quotes")
     .select(
-      "id, quote_number, quote_group_id, quote_base_number, version, client_id, client_project_id, status, currency, equipment_total, labor_total, grand_total, discount_type, discount_percent, discount_amount_mxn, includes_travel_expenses_detail, travel_fuel_mxn, travel_tolls_mxn, travel_food_mxn, travel_total_mxn, is_partner_quote, commercial_partner_id, partner_equipment_discount_mxn, partner_labor_discount_mxn, partner_total_discount_mxn, subtotal_mxn, taxable_base_mxn, iva_mxn, total_mxn, exchange_rate, exchange_rate_source, exchange_rate_date, notes, created_at"
+      "id, quote_number, quote_group_id, quote_base_number, version, client_id, client_project_id, status, currency, equipment_total, labor_total, grand_total, discount_type, discount_percent, discount_amount_mxn, indirect_cost_percent, indirect_cost_mxn, misc_total_mxn, includes_travel_expenses_detail, travel_fuel_mxn, travel_tolls_mxn, travel_food_mxn, travel_total_mxn, is_partner_quote, commercial_partner_id, partner_equipment_discount_mxn, partner_labor_discount_mxn, partner_total_discount_mxn, subtotal_mxn, taxable_base_mxn, iva_mxn, total_mxn, exchange_rate, exchange_rate_source, exchange_rate_date, notes, created_at"
     )
     .eq("id", id)
     .single()) as {
@@ -141,6 +150,9 @@ export default async function QuoteDetailPage({
       error.message.includes("notes") ||
       error.message.includes("is_partner_quote") ||
       error.message.includes("commercial_partner_id") ||
+      error.message.includes("indirect_cost_percent") ||
+      error.message.includes("indirect_cost_mxn") ||
+      error.message.includes("misc_total_mxn") ||
       error.message.includes("total_mxn"))
   ) {
     const fallback = (await supabase
@@ -247,6 +259,12 @@ export default async function QuoteDetailPage({
       !partnerMissingReason
   );
 
+  const { data: initialContract } = await supabase
+    .from("project_contracts")
+    .select("id, contract_number, status, client_type, estimated_weeks, warranty_labor_months, client_signer_name, representative_name, client_signed_at, onboarding_token, signing_token")
+    .eq("quote_id", id)
+    .maybeSingle();
+
   const quoteSections = (sections || []) as QuoteSection[];
   const quoteItemsBase = (items || []) as QuoteItem[];
   const quoteItemIds = quoteItemsBase.map((item) => item.id);
@@ -319,11 +337,18 @@ export default async function QuoteDetailPage({
     quoteData.partner_total_discount_mxn ||
       partnerEquipmentDiscountMXN + partnerLaborDiscountMXN
   );
+  const indirectCostMXN = hasAnyAreaAllocations
+    ? computeIndirectCostMxn(
+        displayEquipmentTotalUSD * detailExchangeRate,
+        quoteData.indirect_cost_percent || 0
+      )
+    : Number(quoteData.indirect_cost_mxn || 0);
+  const miscTotalMXN = Number(quoteData.misc_total_mxn || 0);
   const taxableBaseMXN =
     hasAnyAreaAllocations
-      ? subtotalMXN - partnerDiscountMXN - discountMXN
+      ? subtotalMXN - partnerDiscountMXN - discountMXN + miscTotalMXN
       : Number(quoteData.taxable_base_mxn) ||
-        subtotalMXN - partnerDiscountMXN - discountMXN;
+        subtotalMXN - partnerDiscountMXN - discountMXN + miscTotalMXN;
   const ivaMXN = hasAnyAreaAllocations
     ? taxableBaseMXN * 0.16
     : Number(quoteData.iva_mxn) || taxableBaseMXN * 0.16;
@@ -398,6 +423,10 @@ export default async function QuoteDetailPage({
     }
 
     return getQuoteItemsPresentationTotals(sectionItems, detailExchangeRate);
+  }
+
+  function getSectionMiscShareMxn(sectionSubtotalMxn: number) {
+    return computeSectionMiscShareMxn(sectionSubtotalMxn, subtotalMXN, miscTotalMXN);
   }
 
   return (
@@ -553,6 +582,13 @@ export default async function QuoteDetailPage({
         </div>
       </section>
 
+      {/* Formalización y Contrato Digital de Proyecto */}
+      <ProjectContractCard
+        quoteId={Number(id)}
+        initialContract={initialContract}
+        quoteStatus={quoteData.status}
+      />
+
       <section className="mb-10 rounded-2xl border border-[#1F1F24] bg-[#151518] p-6">
         <h2 className="mb-6 text-2xl font-semibold">Resumen fiscal</h2>
         <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2 xl:grid-cols-4">
@@ -588,6 +624,20 @@ export default async function QuoteDetailPage({
               <p className="text-[#F4C66A]">
                 -{formatCurrency(partnerLaborDiscountMXN, "MXN")}
               </p>
+            </div>
+          ) : null}
+          {indirectCostMXN > 0 ? (
+            <div>
+              <p className="mb-1 text-[#77777D]">
+                Costo indirecto ({quoteData.indirect_cost_percent || 0}%)
+              </p>
+              <p>{formatCurrency(indirectCostMXN, "MXN")}</p>
+            </div>
+          ) : null}
+          {miscTotalMXN > 0 ? (
+            <div>
+              <p className="mb-1 text-[#77777D]">Misceláneos</p>
+              <p>{formatCurrency(miscTotalMXN, "MXN")}</p>
             </div>
           ) : null}
           {travelTotalMXN > 0 || quoteData.includes_travel_expenses_detail ? (
@@ -681,6 +731,16 @@ export default async function QuoteDetailPage({
                     MO:{" "}
                     {formatCurrency(sectionDisplayTotals.laborTotalMxn, "MXN")}
                   </p>
+
+                  {getSectionMiscShareMxn(sectionDisplayTotals.subtotalMxn) > 0 ? (
+                    <p className="text-[#B3B3B8]">
+                      {MISC_LINE_LABEL}:{" "}
+                      {formatCurrency(
+                        getSectionMiscShareMxn(sectionDisplayTotals.subtotalMxn),
+                        "MXN"
+                      )}
+                    </p>
+                  ) : null}
 
                   <p className="font-semibold mt-1">
                     Total estimado:{" "}

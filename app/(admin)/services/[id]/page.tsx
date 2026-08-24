@@ -22,6 +22,7 @@ type ServiceReport = {
   scheduled_time_start?: string | null;
   scheduled_time_end?: string | null;
   technician_phone?: string | null;
+  google_calendar_event_url?: string | null;
   service_location: string | null;
   google_maps_url: string | null;
   performed_by_name: string | null;
@@ -223,6 +224,7 @@ export default async function ServiceDetailPage({
           recipientPhone={dispatchContext.recipientPhone}
           publicUrl={dispatchContext.publicUrl}
           calendarUrl={dispatchContext.calendarUrl}
+          googleCalendarEventUrl={reportData.google_calendar_event_url}
           waTechAssignUrl={dispatchContext.waTechAssignUrl}
           waTechAssignText={dispatchContext.waTechAssignText}
           isRemote={Boolean(reportData.is_remote)}
