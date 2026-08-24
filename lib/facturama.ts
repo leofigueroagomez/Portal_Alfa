@@ -202,6 +202,10 @@ function getFacturamaConfigForExplicitEnv(env: FacturamaEnv) {
     throw new Error("Configura FACTURAMA_USERNAME y FACTURAMA_PASSWORD.");
   }
 
+  if (env === "production" && !getFacturamaProductionEnabled()) {
+    throw new Error("Facturama producción está deshabilitado en ALFA OS.");
+  }
+
   return {
     baseUrl: FACTURAMA_URLS[env],
     authorization: `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`,
