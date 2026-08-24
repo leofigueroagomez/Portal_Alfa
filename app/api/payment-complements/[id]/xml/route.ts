@@ -8,6 +8,7 @@ import {
   requireFiscalProjectAccessForProfile,
 } from "@/lib/apiAuth";
 import { downloadPaymentComplementFile } from "@/lib/facturama";
+import { buildFilename } from "@/lib/filenames";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 
@@ -48,7 +49,9 @@ export async function GET(
     const admin = createSupabaseAdminClient();
     const { data: complement, error: complementError } = await admin
       .from("project_payment_complements")
-      .select("id, facturama_id, status, complement_env")
+      .select(
+        "id, facturama_id, status, complement_env, project_invoices(internal_folio, clients(name, tax_business_name))"
+      )
       .eq("id", id)
       .maybeSingle();
 
@@ -64,11 +67,28 @@ export async function GET(
       "xml",
       complement.complement_env === "production" ? "production" : "sandbox"
     );
+    const invoice = Array.isArray(complement.project_invoices)
+      ? complement.project_invoices[0]
+      : complement.project_invoices;
+    const client = invoice
+      ? Array.isArray(invoice.clients)
+        ? invoice.clients[0]
+        : invoice.clients
+      : null;
+    const filename = buildFilename(
+      [
+        "Complemento-pago",
+        invoice?.internal_folio || `ID${id}`,
+        client?.tax_business_name || client?.name,
+      ],
+      "xml",
+      `complemento-pago-${id}`
+    );
 
     return new NextResponse(file.bytes, {
       headers: {
         "Content-Type": file.contentType,
-        "Content-Disposition": `attachment; filename="complemento-pago-${id}.xml"`,
+        "Content-Disposition": `attachment; filename="${filename}"`,
       },
     });
   } catch (error) {

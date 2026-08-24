@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Code2, FileText, History, Mail, Send, X } from "lucide-react";
+import { buildFilename } from "@/lib/filenames";
 
 type InvoiceFileLinksProps = {
   invoiceId?: number;
@@ -169,17 +170,24 @@ export default function InvoiceFileLinks({
     });
   }
 
+  const downloadNameParts = [
+    documentLabel,
+    folio || String(invoiceId || documentId || ""),
+    clientName,
+  ];
+  const pdfDownloadName = buildFilename(downloadNameParts, "pdf");
+  const xmlDownloadName = buildFilename(downloadNameParts, "xml");
+
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
         {pdfUrl ? (
           <a
             href={pdfUrl}
-            target="_blank"
-            rel="noreferrer"
-            title={`PDF: ${pdfUrl}`}
+            download={pdfDownloadName}
+            title={`Descargar PDF: ${pdfDownloadName}`}
             className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#2A2A30] text-[#B3B3B8] hover:border-[#9E1B32] hover:text-white"
-            aria-label="Abrir PDF"
+            aria-label="Descargar PDF"
           >
             <FileText size={17} />
           </a>
@@ -187,11 +195,10 @@ export default function InvoiceFileLinks({
         {xmlUrl ? (
           <a
             href={xmlUrl}
-            target="_blank"
-            rel="noreferrer"
-            title={`XML: ${xmlUrl}`}
+            download={xmlDownloadName}
+            title={`Descargar XML: ${xmlDownloadName}`}
             className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#2A2A30] text-[#B3B3B8] hover:border-[#9E1B32] hover:text-white"
-            aria-label="Abrir XML"
+            aria-label="Descargar XML"
           >
             <Code2 size={16} />
           </a>

@@ -8,6 +8,7 @@ import {
   requireFiscalProjectAccessForProfile,
 } from "@/lib/apiAuth";
 import { downloadFacturamaInvoiceFile } from "@/lib/facturama";
+import { buildFilename } from "@/lib/filenames";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 
@@ -50,7 +51,7 @@ export async function GET(
   const admin = createSupabaseAdminClient();
   const { data: invoice, error: invoiceError } = await admin
     .from("project_invoices")
-    .select("id, facturama_id, status")
+    .select("id, facturama_id, status, internal_folio, clients(name, tax_business_name)")
     .eq("id", invoiceId)
     .maybeSingle();
 
@@ -61,10 +62,21 @@ export async function GET(
 
   try {
     const file = await downloadFacturamaInvoiceFile(invoice.facturama_id, "xml");
+    const client = Array.isArray(invoice.clients) ? invoice.clients[0] : invoice.clients;
+    const filename = buildFilename(
+      [
+        "Factura",
+        invoice.internal_folio || `ID${invoiceId}`,
+        client?.tax_business_name || client?.name,
+      ],
+      "xml",
+      `factura-${invoiceId}`
+    );
+
     return new Response(file.bytes, {
       headers: {
         "Content-Type": file.contentType,
-        "Content-Disposition": `inline; filename="factura-${invoiceId}.xml"`,
+        "Content-Disposition": `attachment; filename="${filename}"`,
         "Cache-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
         "X-ALFA-Invoice-File": "xml",
