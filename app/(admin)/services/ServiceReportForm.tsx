@@ -12,6 +12,7 @@ import {
   Compass,
   ExternalLink,
   Laptop,
+  Mail,
   MapPin,
   Send,
   Sparkles,
@@ -26,11 +27,20 @@ import {
   buildTechnicianAssignmentWhatsAppMessage,
 } from "@/lib/googleCalendar";
 import { supabase } from "@/services/supabase";
+import { notifyContractorAction } from "./[id]/actions";
 
 export type ServiceClient = {
   id: number;
   client_number: number | null;
   name: string | null;
+};
+
+export type ServiceContractor = {
+  id: number;
+  name: string | null;
+  phone: string | null;
+  email: string | null;
+  specialty: string | null;
 };
 
 export type ServiceProject = {
@@ -54,6 +64,7 @@ export type ServiceReportInitial = {
   service_number: string | null;
   client_id: number | null;
   client_project_id: number | null;
+  contractor_id?: number | null;
   is_remote?: boolean | null;
   requester_name?: string | null;
   requester_phone?: string | null;
@@ -93,6 +104,7 @@ type Props = {
   mode: "new" | "edit";
   clients: ServiceClient[];
   projects: ServiceProject[];
+  contractors?: ServiceContractor[];
   initialReport?: ServiceReportInitial | null;
   existingPhotos?: ExistingServicePhoto[];
 };
@@ -128,6 +140,7 @@ export default function ServiceReportForm({
   mode,
   clients,
   projects,
+  contractors = [],
   initialReport,
   existingPhotos = [],
 }: Props) {
@@ -143,6 +156,12 @@ export default function ServiceReportForm({
   const [requesterPhone, setRequesterPhone] = useState(
     initialReport?.requester_phone || ""
   );
+
+  // Subcontratista y Asignación
+  const [contractorId, setContractorId] = useState<string>(
+    initialReport?.contractor_id ? String(initialReport.contractor_id) : ""
+  );
+  const [notifyContractorByEmail, setNotifyContractorByEmail] = useState<boolean>(true);
 
   // Programación de Horario y Asignación
   const [serviceDate, setServiceDate] = useState(
@@ -444,6 +463,7 @@ export default function ServiceReportForm({
     const payload = {
       client_id: Number(clientId),
       client_project_id: projectId ? Number(projectId) : null,
+      contractor_id: contractorId ? Number(contractorId) : null,
       is_remote: isRemote,
       requester_name: requesterName.trim() || null,
       requester_phone: requesterPhone.trim() || null,
@@ -501,11 +521,18 @@ export default function ServiceReportForm({
 
       await uploadPhotos(reportId);
 
+      // Si se asignó un contratista y se marcó notificar por correo, enviamos notificación
+      if (contractorId && notifyContractorByEmail) {
+        notifyContractorAction(reportId, Number(contractorId)).catch((e) =>
+          console.debug("[NotifyContractor] Error sending assignment email:", e)
+        );
+      }
+
       // Si es nuevo, preparamos los links para el modal interactivo de Calendar & WhatsApp
       const clientNameStr = selectedClient?.name || "Cliente";
       const appBaseUrl =
-        typeof window !== "undefined" ? window.location.origin : "https://portal.alfait.com.mx";
-      const serviceUrl = `${appBaseUrl}/services/${reportId}`;
+        typeof window !== "undefined" ? window.location.origin : "https://www.alfait.com.mx";
+      const serviceUrl = `${appBaseUrl}/portal/services/${reportId}`;
 
       const calendarUrl = buildGoogleCalendarUrl({
         serviceNumber: finalFolio,
@@ -686,6 +713,38 @@ export default function ServiceReportForm({
           </div>
 
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="lg:col-span-2">
+              <label className="mb-1.5 block text-xs font-semibold text-[#8E8E93] uppercase">
+                Subcontratista / Empresa Asignada
+              </label>
+              <select
+                className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3.5 text-sm text-white outline-none focus:border-[#9E1B32]"
+                value={contractorId}
+                onChange={(event) => {
+                  const val = event.target.value;
+                  setContractorId(val);
+                  if (val) {
+                    const c = contractors.find((item) => String(item.id) === val);
+                    if (c) {
+                      if (!performedByName || performedByName === "Técnico ALFA") {
+                        setPerformedByName(c.name || "");
+                      }
+                      if (!technicianPhone && c.phone) {
+                        setTechnicianPhone(c.phone);
+                      }
+                    }
+                  }
+                }}
+              >
+                <option value="">Personal Interno / Sin Subcontratista</option>
+                {contractors.map((contractor) => (
+                  <option key={contractor.id} value={contractor.id}>
+                    {contractor.name} ({contractor.specialty || "Técnico / Integrador"})
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-[#8E8E93] uppercase">
                 Fecha del Servicio <span className="text-[#9E1B32]">*</span>
@@ -695,6 +754,19 @@ export default function ServiceReportForm({
                 className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3.5 text-sm text-white outline-none focus:border-[#9E1B32]"
                 value={serviceDate}
                 onChange={(event) => setServiceDate(event.target.value)}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-[#8E8E93] uppercase">
+                Técnico Asignado <span className="text-[#9E1B32]">*</span>
+              </label>
+              <input
+                className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3.5 text-sm text-white outline-none focus:border-[#9E1B32]"
+                value={performedByName}
+                onChange={(event) => setPerformedByName(event.target.value)}
+                placeholder="Nombre del técnico responsable"
                 required
               />
             </div>
@@ -724,20 +796,7 @@ export default function ServiceReportForm({
               />
             </div>
 
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold text-[#8E8E93] uppercase">
-                Técnico Asignado <span className="text-[#9E1B32]">*</span>
-              </label>
-              <input
-                className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3.5 text-sm text-white outline-none focus:border-[#9E1B32]"
-                value={performedByName}
-                onChange={(event) => setPerformedByName(event.target.value)}
-                placeholder="Nombre del técnico responsable"
-                required
-              />
-            </div>
-
-            <div className="lg:col-span-4">
+            <div className="lg:col-span-2">
               <label className="mb-1.5 block text-xs font-semibold text-[#8E8E93] uppercase">
                 WhatsApp del Técnico (para envío de asignación)
               </label>
@@ -749,6 +808,28 @@ export default function ServiceReportForm({
                 placeholder="Teléfono del técnico (ej. 3398765432)"
               />
             </div>
+
+            {contractorId && (
+              <div className="lg:col-span-4 rounded-xl border border-[#2A2A30] bg-[#1A1A20] p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Mail className="h-5 w-5 text-[#F0B8C0]" />
+                  <div>
+                    <p className="text-xs font-medium text-white">
+                      Notificar por correo electrónico al subcontratista
+                    </p>
+                    <p className="text-[11px] text-[#8A8A93]">
+                      Se enviará el detalle operativo del servicio y el enlace directo a su portal técnico.
+                    </p>
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={notifyContractorByEmail}
+                  onChange={(e) => setNotifyContractorByEmail(e.target.checked)}
+                  className="h-4 w-4 accent-[#9E1B32] rounded cursor-pointer"
+                />
+              </div>
+            )}
           </div>
 
           {/* Widget de Comprobación de Agenda en Vivo para el Día Seleccionado */}

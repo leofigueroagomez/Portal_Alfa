@@ -109,13 +109,15 @@ export async function proxy(request: NextRequest) {
       .maybeSingle();
 
     const role = String(profile?.role || "");
-    const isClientPortal =
+    const isExternalPortal =
       role === "client" ||
+      role === "contractor" ||
       profile?.user_type === "client_portal" ||
+      profile?.user_type === "contractor_portal" ||
       profile?.is_internal === false;
     const isInternal = Boolean(profile?.is_active && profile?.is_internal === true);
 
-    if (profileError || !profile || isClientPortal || !isInternal) {
+    if (profileError || !profile || isExternalPortal || !isInternal) {
       return NextResponse.redirect(new URL("/portal", request.url));
     }
   }

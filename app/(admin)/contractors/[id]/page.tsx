@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, FileText, Pencil } from "lucide-react";
+import { ArrowLeft, FileText, Pencil, Users } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import {
   getContractorBalance,
@@ -114,6 +114,13 @@ export default async function ContractorDetailPage({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link
+            href={`/contractors/${id}/portal-users`}
+            className="inline-flex items-center gap-2 rounded-xl border border-[#2A2A30] bg-[#222228] px-5 py-3 font-semibold text-[#B3B3B8] hover:text-white transition hover:border-[#B84A5A]"
+          >
+            <Users size={18} className="text-[#B84A5A]" />
+            Usuarios del Portal
+          </Link>
           <Link
             href={`/contractors/${id}/statement/print`}
             className="inline-flex items-center gap-2 rounded-xl border border-[#2A2A30] bg-[#222228] px-5 py-3 font-semibold text-[#B3B3B8] hover:text-white"

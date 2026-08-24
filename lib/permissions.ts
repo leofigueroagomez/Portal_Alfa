@@ -12,12 +12,13 @@ export const internalAlfaRoles = [
 export const alfaRoles = internalAlfaRoles;
 
 export type InternalAlfaRole = (typeof internalAlfaRoles)[number];
-export type AlfaRole = InternalAlfaRole | "client";
+export type AlfaRole = InternalAlfaRole | "client" | "contractor";
 
 export function normalizeRole(role: string | null | undefined): AlfaRole {
   if (role === "sales") return "comercial";
   if (role === "engineering") return "ingenieria";
   if (role === "client") return "client";
+  if (role === "contractor") return "contractor";
   if (internalAlfaRoles.includes(role as InternalAlfaRole)) {
     return role as InternalAlfaRole;
   }

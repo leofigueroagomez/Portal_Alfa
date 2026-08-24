@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/services/supabaseServer";
 import ServiceReportForm, {
   ExistingServicePhoto,
   ServiceClient,
+  ServiceContractor,
   ServiceProject,
   ServiceReportInitial,
 } from "../../ServiceReportForm";
@@ -16,23 +17,33 @@ export default async function EditServicePage({
 }) {
   const supabase = await createSupabaseServerClient();
   const { id } = await params;
-  const [{ data: report }, { data: clients }, { data: projects }, { data: rawPhotos }] =
-    await Promise.all([
-      supabase.from("service_reports").select("*").eq("id", id).maybeSingle(),
-      supabase
-        .from("clients")
-        .select("id, client_number, name")
-        .order("client_number", { ascending: true }),
-      supabase
-        .from("client_projects")
-        .select("id, client_id, project_number, name, site_address")
-        .order("project_number", { ascending: true }),
-      supabase
-        .from("service_report_photos")
-        .select("id, image_url, caption, sort_order")
-        .eq("service_report_id", id)
-        .order("sort_order", { ascending: true }),
-    ]);
+  const [
+    { data: report },
+    { data: clients },
+    { data: projects },
+    { data: contractors },
+    { data: rawPhotos },
+  ] = await Promise.all([
+    supabase.from("service_reports").select("*").eq("id", id).maybeSingle(),
+    supabase
+      .from("clients")
+      .select("id, client_number, name")
+      .order("client_number", { ascending: true }),
+    supabase
+      .from("client_projects")
+      .select("id, client_id, project_number, name, site_address")
+      .order("project_number", { ascending: true }),
+    supabase
+      .from("contractors")
+      .select("id, name, phone, email, specialty")
+      .eq("is_active", true)
+      .order("name", { ascending: true }),
+    supabase
+      .from("service_report_photos")
+      .select("id, image_url, caption, sort_order")
+      .eq("service_report_id", id)
+      .order("sort_order", { ascending: true }),
+  ]);
 
   const reportData = report as ServiceReportInitial | null;
   const photos = await Promise.all(
@@ -57,6 +68,7 @@ export default async function EditServicePage({
           mode="edit"
           clients={(clients || []) as ServiceClient[]}
           projects={(projects || []) as ServiceProject[]}
+          contractors={(contractors || []) as ServiceContractor[]}
           initialReport={reportData}
           existingPhotos={photos}
         />

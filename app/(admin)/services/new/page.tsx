@@ -1,20 +1,30 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
-import ServiceReportForm, { ServiceClient, ServiceProject } from "../ServiceReportForm";
+import ServiceReportForm, {
+  ServiceClient,
+  ServiceContractor,
+  ServiceProject,
+} from "../ServiceReportForm";
 
 export default async function NewServicePage() {
   const supabase = await createSupabaseServerClient();
-  const [{ data: clients }, { data: projects }] = await Promise.all([
-    supabase
-      .from("clients")
-      .select("id, client_number, name")
-      .order("client_number", { ascending: true }),
-    supabase
-      .from("client_projects")
-      .select("id, client_id, project_number, name, site_address")
-      .order("project_number", { ascending: true }),
-  ]);
+  const [{ data: clients }, { data: projects }, { data: contractors }] =
+    await Promise.all([
+      supabase
+        .from("clients")
+        .select("id, client_number, name")
+        .order("client_number", { ascending: true }),
+      supabase
+        .from("client_projects")
+        .select("id, client_id, project_number, name, site_address")
+        .order("project_number", { ascending: true }),
+      supabase
+        .from("contractors")
+        .select("id, name, phone, email, specialty")
+        .eq("is_active", true)
+        .order("name", { ascending: true }),
+    ]);
 
   return (
     <main className="min-h-screen bg-[#0B0D0F] p-4 text-white md:p-8 xl:p-10">
@@ -30,6 +40,7 @@ export default async function NewServicePage() {
         mode="new"
         clients={(clients || []) as ServiceClient[]}
         projects={(projects || []) as ServiceProject[]}
+        contractors={(contractors || []) as ServiceContractor[]}
       />
     </main>
   );

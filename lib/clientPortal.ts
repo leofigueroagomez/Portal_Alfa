@@ -21,14 +21,20 @@ export type ClientPortalProject = {
   expected_close_date?: string | null;
 };
 
-export async function getClientPortalContext() {
+export type ClientPortalContext = {
+  supabase: SupabaseClient;
+  user: any;
+  portalUser: ClientPortalUser;
+};
+
+export async function findClientPortalContext(): Promise<ClientPortalContext | null> {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/login");
+    return null;
   }
 
   const { data: portalUser, error } = await supabase
@@ -40,7 +46,7 @@ export async function getClientPortalContext() {
     .maybeSingle();
 
   if (error || !portalUser) {
-    notFound();
+    return null;
   }
 
   return {
@@ -48,6 +54,14 @@ export async function getClientPortalContext() {
     user,
     portalUser: portalUser as ClientPortalUser,
   };
+}
+
+export async function getClientPortalContext(): Promise<ClientPortalContext> {
+  const ctx = await findClientPortalContext();
+  if (!ctx) {
+    notFound();
+  }
+  return ctx;
 }
 
 export async function getAccessibleClientProject(

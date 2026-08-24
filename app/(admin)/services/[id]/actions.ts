@@ -13,6 +13,7 @@ import {
   buildTechnicianAssignmentWhatsAppMessage,
 } from "@/lib/googleCalendar";
 import { syncServiceToGoogleCalendar } from "@/lib/googleCalendarSync";
+import { sendContractorServiceAssignmentEmail } from "@/lib/contractorNotificationEmail";
 
 export async function markServiceAsPaidAction(
   serviceId: number,
@@ -513,4 +514,19 @@ export async function getServiceDispatchContext(serviceId: number) {
     isSigned,
     bankAccounts: bank,
   };
+}
+
+export async function notifyContractorAction(
+  serviceId: number,
+  contractorId: number
+) {
+  try {
+    const result = await sendContractorServiceAssignmentEmail({
+      serviceId,
+      contractorId,
+    });
+    return result;
+  } catch (err: any) {
+    return { ok: false, error: err.message };
+  }
 }
