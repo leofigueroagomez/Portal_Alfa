@@ -165,6 +165,7 @@ export default async function ProjectsPage() {
   const projectRows = operationalProjects.map((project) => {
     const approvedQuotes = approvedQuotesByProject.get(project.id);
     const primaryQuote = approvedQuotes?.[0];
+    const quoteCount = approvedQuotes?.length || 0;
     const total = getApprovedTotal(approvedQuotes);
     const displayTotal =
       total > 0 ? total : Number(project.estimated_value_mxn || 0);
@@ -177,8 +178,13 @@ export default async function ProjectsPage() {
       id: project.id,
       name: project.name,
       clientName: getClientName(project.client_id),
-      approvedQuoteId: primaryQuote?.id || null,
-      approvedQuoteNumber: primaryQuote?.quote_number || null,
+      // Only expose a single quote link when there's exactly one approved
+      // quote for this project — with 2+ (matriz + adicionales) the UI
+      // shows a count instead of a misleading single link.
+      approvedQuoteId: quoteCount === 1 ? primaryQuote?.id || null : null,
+      approvedQuoteNumber:
+        quoteCount === 1 ? primaryQuote?.quote_number || null : null,
+      approvedQuoteCount: quoteCount,
       displayTotal,
       referenceDateLabel: formatDate(referenceDate),
     };

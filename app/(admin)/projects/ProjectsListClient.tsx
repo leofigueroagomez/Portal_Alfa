@@ -11,6 +11,7 @@ type ProjectRow = {
   clientName: string;
   approvedQuoteId: number | null;
   approvedQuoteNumber: string | null;
+  approvedQuoteCount: number;
   displayTotal: number;
   referenceDateLabel: string;
 };
@@ -135,6 +136,10 @@ export default function ProjectsListClient({ projects }: Props) {
                     >
                       {project.approvedQuoteNumber || `#${project.approvedQuoteId}`}
                     </Link>
+                  ) : project.approvedQuoteCount > 1 ? (
+                    <span className="text-[#B3B3B8]">
+                      {project.approvedQuoteCount} cotizaciones aprobadas
+                    </span>
                   ) : (
                     <span className="text-[#77777D]">Sin cotizacion</span>
                   )}
