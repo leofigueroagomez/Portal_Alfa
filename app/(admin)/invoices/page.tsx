@@ -1,7 +1,7 @@
 import { Landmark, ReceiptText } from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { getCurrentUserProfile } from "@/services/profile";
-import { canManageUsers } from "@/lib/permissions";
+import { canCancelInvoices, canManageUsers } from "@/lib/permissions";
 import { formatCurrency } from "@/lib/format";
 import {
   getFacturamaEnv,
@@ -47,6 +47,7 @@ export default async function InvoicesPage() {
   const supabase = await createSupabaseServerClient();
   const profile = await getCurrentUserProfile();
   const allowManualInvoices = canManageUsers(profile?.role);
+  const canCancel = canCancelInvoices(profile?.role);
   const facturamaEnv = getFacturamaEnv();
   const facturamaProductionEnabled = getFacturamaProductionEnabled();
   const sandboxReceiverNotice = getFacturamaSandboxReceiverNotice();
@@ -75,13 +76,13 @@ export default async function InvoicesPage() {
     supabase
       .from("project_invoices")
       .select(
-        "id, internal_folio, client_project_id, client_id, invoice_date, subtotal_mxn, iva_mxn, total_mxn, subtotal, iva, total, status, facturama_id, xml_url, pdf_url, sat_uuid, payment_method_code, payment_form_code, requires_payment_complement, payment_complement_status, sat_payment_form_catalog(code, name, is_active), clients(id, name, tax_rfc, tax_business_name, tax_regime, default_cfdi_use, fiscal_regime, cfdi_use, tax_zip_code, billing_email), client_projects(name)"
+        "id, internal_folio, client_project_id, client_id, invoice_date, subtotal_mxn, iva_mxn, total_mxn, subtotal, iva, total, status, facturama_id, xml_url, pdf_url, sat_uuid, payment_method_code, payment_form_code, requires_payment_complement, payment_complement_status, sat_payment_form_catalog(code, name, is_active), clients(id, name, tax_rfc, tax_business_name, tax_regime, default_cfdi_use, fiscal_regime, cfdi_use, tax_zip_code, billing_email, phone), client_projects(name)"
       )
       .order("invoice_date", { ascending: false })
       .order("created_at", { ascending: false }),
     supabase
       .from("clients")
-      .select("id, name, tax_rfc, tax_business_name, tax_regime, default_cfdi_use, fiscal_regime, cfdi_use, tax_zip_code, billing_email")
+      .select("id, name, tax_rfc, tax_business_name, tax_regime, default_cfdi_use, fiscal_regime, cfdi_use, tax_zip_code, billing_email, phone")
       .order("name"),
     supabase.from("client_projects").select("id, client_id, name, estimated_value_mxn"),
     supabase
@@ -241,6 +242,7 @@ export default async function InvoicesPage() {
         facturamaEnv={facturamaEnv}
         sandboxReceiverNotice={sandboxReceiverNotice}
         facturamaProductionEnabled={facturamaProductionEnabled}
+        canCancel={canCancel}
       />
     </main>
   );

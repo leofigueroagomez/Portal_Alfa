@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { getCurrentUserProfile } from "@/services/profile";
-import { canManageUsers } from "@/lib/permissions";
+import { canCancelInvoices, canManageUsers } from "@/lib/permissions";
 import { formatCurrency } from "@/lib/format";
 import {
   getFacturamaEnv,
@@ -61,6 +61,7 @@ export default async function ProjectInvoicesPage({
   const supabase = await createSupabaseServerClient();
   const profile = await getCurrentUserProfile();
   const allowManualInvoices = canManageUsers(profile?.role);
+  const canCancel = canCancelInvoices(profile?.role);
   const facturamaEnv = getFacturamaEnv();
   const facturamaProductionEnabled = getFacturamaProductionEnabled();
   const paymentComplementsConfig = getPaymentComplementsConfig();
@@ -115,7 +116,7 @@ export default async function ProjectInvoicesPage({
     projectData.client_id
       ? supabase
           .from("clients")
-          .select("id, name, tax_rfc, tax_business_name, tax_regime, default_cfdi_use, fiscal_regime, cfdi_use, tax_zip_code, billing_email")
+          .select("id, name, tax_rfc, tax_business_name, tax_regime, default_cfdi_use, fiscal_regime, cfdi_use, tax_zip_code, billing_email, phone")
           .eq("id", projectData.client_id)
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
@@ -326,6 +327,7 @@ export default async function ProjectInvoicesPage({
         facturamaEnv={facturamaEnv}
         sandboxReceiverNotice={sandboxReceiverNotice}
         facturamaProductionEnabled={facturamaProductionEnabled}
+        canCancel={canCancel}
       />
     </main>
   );

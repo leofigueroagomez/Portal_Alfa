@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Code2, FileText, History, Mail, Send, X } from "lucide-react";
 import { buildFilename } from "@/lib/filenames";
+import WhatsAppInvoiceButton from "./WhatsAppInvoiceButton";
 
 type InvoiceFileLinksProps = {
   invoiceId?: number;
@@ -12,6 +13,8 @@ type InvoiceFileLinksProps = {
   folio?: string | null;
   clientName?: string | null;
   billingEmail?: string | null;
+  clientPhone?: string | null;
+  totalLabel?: string | null;
   xmlUrl?: string | null;
   pdfUrl?: string | null;
   satUuid?: string | null;
@@ -44,6 +47,8 @@ export default function InvoiceFileLinks({
   folio,
   clientName,
   billingEmail,
+  clientPhone,
+  totalLabel,
   xmlUrl,
   pdfUrl,
   satUuid,
@@ -223,6 +228,15 @@ export default function InvoiceFileLinks({
           >
             <Mail size={16} />
           </button>
+        ) : null}
+        {canSend ? (
+          <WhatsAppInvoiceButton
+            documentLabel={effectiveDocumentLabel}
+            folio={folio}
+            clientName={clientName}
+            totalLabel={totalLabel}
+            defaultPhone={clientPhone}
+          />
         ) : null}
       </div>
       <div className="max-w-[260px] space-y-1 font-mono text-[10px] leading-snug text-[#77777D]">

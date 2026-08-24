@@ -606,6 +606,67 @@ export async function downloadPaymentComplementFile(
   };
 }
 
+export type FacturamaCancellationMotive = "01" | "02" | "03" | "04";
+
+export type FacturamaCancelResult = {
+  status: "canceled" | "requested" | "rejected" | "unknown";
+  satUuid: string | null;
+  requestDate: string | null;
+  responseDate: string | null;
+  expirationDate: string | null;
+  acuseXmlBase64: string | null;
+  facturamaResponse: FacturamaResponseLog;
+};
+
+type FacturamaCancelResponse = {
+  Status?: string;
+  Uuid?: string;
+  RequestDate?: string;
+  ResponseDate?: string;
+  ExpirationDate?: string;
+  AcuseXmlBase64?: string;
+};
+
+export async function cancelFacturamaInvoice(
+  facturamaId: string,
+  motive: FacturamaCancellationMotive,
+  uuidReplacement?: string | null,
+  env?: FacturamaEnv
+): Promise<FacturamaCancelResult> {
+  const params = new URLSearchParams({ type: "issued", motive });
+  if (uuidReplacement) params.set("uuidReplacement", uuidReplacement);
+
+  const response = await facturamaRequest<FacturamaCancelResponse>(
+    `cfdi/${facturamaId}?${params.toString()}`,
+    { method: "DELETE" },
+    { facturamaId, motive, uuidReplacement: uuidReplacement || null },
+    env
+  );
+
+  const rawStatus = (response.data.Status || "").toLowerCase();
+  const status: FacturamaCancelResult["status"] =
+    rawStatus === "canceled" || rawStatus === "requested" || rawStatus === "rejected"
+      ? rawStatus
+      : "unknown";
+
+  return {
+    status,
+    satUuid: response.data.Uuid || null,
+    requestDate: response.data.RequestDate || null,
+    responseDate: response.data.ResponseDate || null,
+    expirationDate: response.data.ExpirationDate || null,
+    acuseXmlBase64: response.data.AcuseXmlBase64 || null,
+    facturamaResponse: {
+      provider: "facturama",
+      path: response.path,
+      status: response.status,
+      statusText: response.statusText,
+      request: response.request,
+      body: response.body,
+    },
+  };
+}
+
 function detectFacturamaFileFormat(bytes: Buffer): "pdf" | "xml" | null {
   if (bytes.subarray(0, 4).toString("utf8") === "%PDF") return "pdf";
 

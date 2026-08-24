@@ -21,6 +21,7 @@ import InvoiceFileLinks, {
 import InvoiceStatusSelect from "@/app/(admin)/invoices/InvoiceStatusSelect";
 import StampInvoiceButton from "@/app/(admin)/invoices/StampInvoiceButton";
 import DeleteDraftInvoiceButton from "@/app/(admin)/invoices/DeleteDraftInvoiceButton";
+import CancelInvoiceButton from "@/app/(admin)/invoices/CancelInvoiceButton";
 import PaymentComplementPanel from "@/app/(admin)/invoices/PaymentComplementPanel";
 import type { PaymentFormCatalogItem } from "@/lib/paymentTerms";
 
@@ -85,6 +86,7 @@ type Props = {
   facturamaEnv: "sandbox" | "production";
   sandboxReceiverNotice: string | null;
   facturamaProductionEnabled: boolean;
+  canCancel: boolean;
 };
 
 export default function ProjectInvoicesTableClient({
@@ -101,6 +103,7 @@ export default function ProjectInvoicesTableClient({
   facturamaEnv,
   sandboxReceiverNotice,
   facturamaProductionEnabled,
+  canCancel,
 }: Props) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -306,6 +309,8 @@ export default function ProjectInvoicesTableClient({
                         folio={invoice.internal_folio}
                         clientName={client?.name || client?.tax_business_name || null}
                         billingEmail={client?.billing_email || null}
+                        clientPhone={client?.phone || null}
+                        totalLabel={formatCurrency(getInvoiceTotal(invoice), "MXN")}
                         xmlUrl={invoice.xml_url}
                         pdfUrl={invoice.pdf_url}
                         satUuid={invoice.sat_uuid}
@@ -313,12 +318,22 @@ export default function ProjectInvoicesTableClient({
                         status={invoice.status}
                         emailLogs={emailLogsByInvoice.get(invoice.id) || []}
                       />
-                      <DeleteDraftInvoiceButton
-                        invoiceId={invoice.id}
-                        status={invoice.status}
-                        facturamaId={invoice.facturama_id}
-                        internalFolio={invoice.internal_folio}
-                      />
+                      <div className="flex flex-col items-start gap-2">
+                        <DeleteDraftInvoiceButton
+                          invoiceId={invoice.id}
+                          status={invoice.status}
+                          facturamaId={invoice.facturama_id}
+                          internalFolio={invoice.internal_folio}
+                        />
+                        <CancelInvoiceButton
+                          invoiceId={invoice.id}
+                          status={invoice.status}
+                          facturamaId={invoice.facturama_id}
+                          satUuid={invoice.sat_uuid}
+                          internalFolio={invoice.internal_folio}
+                          canCancel={canCancel}
+                        />
+                      </div>
                     </div>
                     {paymentComplementsEnabled ? (
                       <div className="px-5 pb-5">
@@ -326,6 +341,7 @@ export default function ProjectInvoicesTableClient({
                           invoice={invoice}
                           clientName={client?.name || client?.tax_business_name || null}
                           billingEmail={client?.billing_email || null}
+                          clientPhone={client?.phone || null}
                           payments={projectPayments}
                           complements={invoiceComplements}
                           emailLogsByComplementId={emailLogsByPaymentComplement}

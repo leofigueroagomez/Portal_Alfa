@@ -2,10 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import {
+  cancelFacturamaInvoice,
   facturamaSandboxReceiverNotice,
   getFacturamaErrorDetails,
   getFacturamaSandboxReceiverOverride,
   stampFacturamaInvoice,
+  type FacturamaCancellationMotive,
   type FacturamaResponseLog,
   type FacturamaSandboxReceiver,
 } from "@/lib/facturama";
@@ -23,7 +25,7 @@ import {
   type FiscalCatalogItem,
 } from "@/lib/fiscalData";
 import { getMissingProductFiscalFields, type ProductFiscalCatalogs } from "@/lib/productFiscalData";
-import { canViewFinancials } from "@/lib/permissions";
+import { canCancelInvoices, canViewFinancials } from "@/lib/permissions";
 import { formatRfcDiagnostic, getRfcDiagnostic, type RfcDiagnostic } from "@/lib/rfc";
 import { isPaymentMethodCode } from "@/lib/paymentTerms";
 import { getMexicoDate } from "@/lib/mexicoDate";
@@ -897,5 +899,118 @@ export async function deleteDraftInvoice(
       ok: false,
       error: error instanceof Error ? error.message : "Error desconocido.",
     };
+  }
+}
+
+export type CancelProjectInvoiceResult =
+  | {
+      ok: true;
+      satStatus: "canceled" | "requested" | "rejected" | "unknown";
+      message: string;
+    }
+  | { ok: false; error: string };
+
+export async function cancelProjectInvoice(
+  invoiceId: number,
+  motive: FacturamaCancellationMotive,
+  uuidReplacement?: string
+): Promise<CancelProjectInvoiceResult> {
+  let supabase: SupabaseAdminClient | null = null;
+
+  try {
+    const profile = await getCurrentUserProfile();
+
+    if (!profile?.is_active || !canCancelInvoices(profile.role)) {
+      throw new Error("Solo Direccion puede cancelar facturas.");
+    }
+
+    if (motive === "01" && !uuidReplacement?.trim()) {
+      throw new Error(
+        "El motivo 01 (comprobante con errores con relacion) requiere el UUID del CFDI que lo sustituye."
+      );
+    }
+
+    supabase = createSupabaseAdminClient();
+    const { data: invoice, error } = await supabase
+      .from("project_invoices")
+      .select("id, client_project_id, status, facturama_id, sat_uuid")
+      .eq("id", invoiceId)
+      .maybeSingle();
+
+    if (error) throw new Error(`Error leyendo factura: ${error.message}`);
+    if (!invoice) throw new Error("Factura no encontrada.");
+
+    if (
+      !["issued", "paid"].includes(String(invoice.status)) ||
+      !invoice.facturama_id ||
+      !invoice.sat_uuid
+    ) {
+      throw new Error(
+        "Solo se pueden cancelar facturas timbradas (emitidas o pagadas)."
+      );
+    }
+
+    const result = await cancelFacturamaInvoice(
+      invoice.facturama_id,
+      motive,
+      uuidReplacement || null
+    );
+
+    const nowIso = new Date().toISOString();
+    const updatePayload: Record<string, unknown> = {
+      cancellation_motive: motive,
+      cancellation_uuid_replacement: uuidReplacement?.trim() || null,
+      cancellation_status: result.status === "unknown" ? null : result.status,
+      cancellation_acuse_xml: result.acuseXmlBase64,
+      cancelled_by_user_id: profile.id,
+      last_error: null,
+      facturama_response: result.facturamaResponse,
+    };
+
+    if (result.status === "canceled") {
+      updatePayload.status = "cancelled";
+      updatePayload.cancelled_at = nowIso;
+    }
+
+    const { error: updateError } = await supabase
+      .from("project_invoices")
+      .update(updatePayload)
+      .eq("id", invoiceId);
+
+    if (updateError) {
+      throw new Error(`Error guardando cancelacion: ${updateError.message}`);
+    }
+
+    revalidatePath("/invoices");
+    if (invoice.client_project_id) {
+      revalidatePath(`/projects/${invoice.client_project_id}/invoices`);
+    }
+
+    const message =
+      result.status === "canceled"
+        ? "Factura cancelada ante el SAT."
+        : result.status === "requested"
+          ? "Cancelacion solicitada. Queda pendiente de aceptacion del receptor ante el SAT (hasta 72 horas). El estatus interno seguira como esta hasta confirmar."
+          : result.status === "rejected"
+            ? "El SAT rechazo la solicitud de cancelacion."
+            : "Facturama respondio con un estatus no reconocido, revisa el detalle.";
+
+    return { ok: true, satStatus: result.status, message };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "No se pudo cancelar la factura.";
+    const details = getFacturamaErrorDetails(error);
+
+    if (supabase) {
+      await supabase
+        .from("project_invoices")
+        .update({
+          last_error: message,
+          facturama_response: details,
+        })
+        .eq("id", invoiceId);
+    }
+
+    return { ok: false, error: message };
   }
 }

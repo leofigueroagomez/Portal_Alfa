@@ -18,6 +18,7 @@ import InvoiceFileLinks, { type FiscalDocumentEmailLog } from "./InvoiceFileLink
 import InvoiceStatusSelect from "./InvoiceStatusSelect";
 import StampInvoiceButton from "./StampInvoiceButton";
 import DeleteDraftInvoiceButton from "./DeleteDraftInvoiceButton";
+import CancelInvoiceButton from "./CancelInvoiceButton";
 
 type Props = {
   invoices: ProjectInvoice[];
@@ -25,6 +26,7 @@ type Props = {
   facturamaEnv: "sandbox" | "production";
   sandboxReceiverNotice: string | null;
   facturamaProductionEnabled: boolean;
+  canCancel: boolean;
 };
 
 type SortKey = "date_desc" | "date_asc" | "client_asc" | "total_desc" | "total_asc" | "folio_asc";
@@ -44,6 +46,7 @@ export default function InvoicesTableClient({
   facturamaEnv,
   sandboxReceiverNotice,
   facturamaProductionEnabled,
+  canCancel,
 }: Props) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -215,6 +218,8 @@ export default function InvoicesTableClient({
           folio={invoice.internal_folio}
           clientName={client?.name || client?.tax_business_name || null}
           billingEmail={client?.billing_email || null}
+          clientPhone={client?.phone || null}
+          totalLabel={formatCurrency(getInvoiceTotal(invoice), "MXN")}
           xmlUrl={invoice.xml_url}
           pdfUrl={invoice.pdf_url}
           satUuid={invoice.sat_uuid}
@@ -222,12 +227,22 @@ export default function InvoicesTableClient({
           status={invoice.status}
           emailLogs={emailLogsByInvoice[invoice.id] || []}
         />
-        <DeleteDraftInvoiceButton
-          invoiceId={invoice.id}
-          status={invoice.status}
-          facturamaId={invoice.facturama_id}
-          internalFolio={invoice.internal_folio}
-        />
+        <div className="flex flex-col items-start gap-2">
+          <DeleteDraftInvoiceButton
+            invoiceId={invoice.id}
+            status={invoice.status}
+            facturamaId={invoice.facturama_id}
+            internalFolio={invoice.internal_folio}
+          />
+          <CancelInvoiceButton
+            invoiceId={invoice.id}
+            status={invoice.status}
+            facturamaId={invoice.facturama_id}
+            satUuid={invoice.sat_uuid}
+            internalFolio={invoice.internal_folio}
+            canCancel={canCancel}
+          />
+        </div>
       </div>
     );
   }

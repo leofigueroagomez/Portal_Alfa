@@ -132,3 +132,7 @@ export function canManagePricingSettings(role: string | null | undefined) {
   const normalized = normalizeRole(role);
   return ["admin", "direccion", "finanzas"].includes(normalized);
 }
+
+export function canCancelInvoices(role: string | null | undefined) {
+  return normalizeRole(role) === "direccion";
+}

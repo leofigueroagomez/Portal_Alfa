@@ -18,6 +18,7 @@ export type FiscalClientData = {
   cfdi_use?: string | null;
   tax_zip_code?: string | null;
   billing_email?: string | null;
+  phone?: string | null;
 };
 
 export type FiscalCatalogs = {

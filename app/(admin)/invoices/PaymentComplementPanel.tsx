@@ -62,6 +62,7 @@ type Props = {
   invoice: InvoiceForComplement;
   clientName?: string | null;
   billingEmail?: string | null;
+  clientPhone?: string | null;
   payments: ProjectPaymentForComplement[];
   complements: PaymentComplementForPanel[];
   emailLogsByComplementId?: Map<number, FiscalDocumentEmailLog[]>;
@@ -94,6 +95,7 @@ export default function PaymentComplementPanel({
   invoice,
   clientName,
   billingEmail,
+  clientPhone,
   payments,
   complements,
   emailLogsByComplementId,
@@ -383,6 +385,13 @@ export default function PaymentComplementPanel({
                         }`}
                         clientName={clientName}
                         billingEmail={billingEmail}
+                        clientPhone={clientPhone}
+                        totalLabel={formatCurrency(
+                          Number(
+                            complement.paid_amount_mxn ?? complement.amount_paid_mxn ?? 0
+                          ),
+                          "MXN"
+                        )}
                         xmlUrl={complement.xml_url}
                         pdfUrl={complement.pdf_url}
                         satUuid={complement.sat_uuid}

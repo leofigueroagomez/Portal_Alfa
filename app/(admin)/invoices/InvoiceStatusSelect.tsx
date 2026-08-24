@@ -3,35 +3,47 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/services/supabase";
-import { invoiceStatusLabels, invoiceStatuses, normalizeInvoiceStatus } from "@/lib/invoices";
+import { invoiceStatusLabels, normalizeInvoiceStatus } from "@/lib/invoices";
 
 type Props = {
   invoiceId: number;
   currentStatus: string | null | undefined;
 };
 
+const TOGGLEABLE_STATUSES = ["issued", "paid"] as const;
+
 export default function InvoiceStatusSelect({ invoiceId, currentStatus }: Props) {
   const router = useRouter();
-  const [status, setStatus] = useState(normalizeInvoiceStatus(currentStatus));
+  const normalizedCurrent = normalizeInvoiceStatus(currentStatus);
+  const [status, setStatus] = useState(normalizedCurrent);
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  if (normalizedCurrent !== "issued" && normalizedCurrent !== "paid") {
+    return (
+      <span className="text-sm text-[#77777D]">
+        {invoiceStatusLabels[normalizedCurrent]}
+      </span>
+    );
+  }
+
   async function updateStatus(nextStatus: string) {
-    const normalized = normalizeInvoiceStatus(nextStatus);
-    setStatus(normalized);
+    if (nextStatus !== "issued" && nextStatus !== "paid") return;
+
+    setStatus(nextStatus);
     setSaving(true);
     setErrorMessage(null);
 
     const { error } = await supabase
       .from("project_invoices")
-      .update({ status: normalized })
+      .update({ status: nextStatus })
       .eq("id", invoiceId);
 
     setSaving(false);
 
     if (error) {
       setErrorMessage(`Error actualizando factura: ${error.message}`);
-      setStatus(normalizeInvoiceStatus(currentStatus));
+      setStatus(normalizedCurrent);
       return;
     }
 
@@ -46,7 +58,7 @@ export default function InvoiceStatusSelect({ invoiceId, currentStatus }: Props)
         disabled={saving}
         onChange={(event) => updateStatus(event.target.value)}
       >
-        {invoiceStatuses.map((option) => (
+        {TOGGLEABLE_STATUSES.map((option) => (
           <option key={option} value={option}>
             {invoiceStatusLabels[option]}
           </option>
