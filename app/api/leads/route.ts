@@ -1,4 +1,10 @@
 import { NextResponse } from "next/server";
+import {
+  checkBasicRateLimit,
+  createRequestId,
+  getClientIp,
+  logApiError,
+} from "@/lib/apiAuth";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
@@ -50,19 +56,29 @@ function normalizeSource(value: string) {
 }
 
 export async function POST(request: Request) {
+  const requestId = createRequestId();
+  const clientIp = getClientIp(request);
+
+  if (!checkBasicRateLimit(`lead-submit:${clientIp}`, 5, 60_000)) {
+    return NextResponse.json(
+      { error: "Demasiadas solicitudes. Intenta de nuevo más tarde.", requestId },
+      { status: 429 }
+    );
+  }
+
   const body = await request.json().catch(() => null);
 
   const lead = {
-    name: String(body?.name || "").trim(),
-    customerType: String(body?.customerType || "").trim(),
-    company: String(body?.company || "").trim(),
-    phone: String(body?.phone || "").trim(),
-    service: String(body?.service || "").trim(),
-    message: String(body?.message || "").trim(),
-    interest: String(body?.interest || "").trim(),
-    budgetRange: String(body?.budgetRange || "").trim(),
-    timeline: String(body?.timeline || "").trim(),
-    source: normalizeSource(String(body?.source || "Landing Web").trim()),
+    name: String(body?.name || "").trim().slice(0, 120),
+    customerType: String(body?.customerType || "").trim().slice(0, 50),
+    company: String(body?.company || "").trim().slice(0, 120),
+    phone: String(body?.phone || "").trim().slice(0, 30),
+    service: String(body?.service || "").trim().slice(0, 200),
+    message: String(body?.message || "").trim().slice(0, 2000),
+    interest: String(body?.interest || "").trim().slice(0, 100),
+    budgetRange: String(body?.budgetRange || "").trim().slice(0, 100),
+    timeline: String(body?.timeline || "").trim().slice(0, 100),
+    source: normalizeSource(String(body?.source || "Landing Web").trim().slice(0, 100)),
     status: String(body?.status || "nuevo").trim(),
   };
 
@@ -138,7 +154,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: true, stored: true });
   } catch (error) {
-    console.error("lead persistence failed:", error);
+    logApiError(requestId, "lead persistence failed", error);
 
     return NextResponse.json({ ok: true, stored: false });
   }

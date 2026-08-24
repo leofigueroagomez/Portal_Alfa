@@ -1,11 +1,14 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { formatCurrency, formatNumber } from "@/lib/format";
+import { normalizeRole } from "@/lib/permissions";
 import {
   getPurchaseProgressPercent,
   summarizePurchaseVariationMxn,
 } from "@/lib/projectPurchases";
 import { normalizeSalesStage } from "@/lib/salesStages";
+import { getCurrentInternalUserProfile } from "@/services/profile";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -210,6 +213,11 @@ function KpiCard({
 }
 
 export default async function DirectorDashboardPage() {
+  const profile = await getCurrentInternalUserProfile();
+  if (!profile || !["admin", "direccion"].includes(normalizeRole(profile.role))) {
+    redirect("/dashboard");
+  }
+
   const supabase = await createSupabaseServerClient();
   const currentMonth = getCurrentMonthRange();
 
