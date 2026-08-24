@@ -121,6 +121,7 @@ export default async function DashboardPage() {
     supabase
       .from("quotes")
       .select("id, quote_number, status, total_mxn, grand_total, created_at")
+      .eq("is_latest", true)
       .order("created_at", { ascending: false }),
     supabase
       .from("client_projects")

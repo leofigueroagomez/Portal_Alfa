@@ -232,7 +232,8 @@ export default async function DirectorDashboardPage() {
       .from("quotes")
       .select(
         "id, quote_number, client_id, client_project_id, status, equipment_total, labor_total, subtotal_mxn, total_mxn, grand_total, exchange_rate, approved_at, created_at"
-      ),
+      )
+      .eq("is_latest", true),
     supabase
       .from("project_payments")
       .select(

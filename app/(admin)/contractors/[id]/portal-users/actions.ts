@@ -34,42 +34,6 @@ async function findAuthUserByEmail(email: string) {
   );
 }
 
-async function inviteContractorUser(email: string, fullName: string) {
-  const admin = createSupabaseAdminClient();
-  const appBaseUrl = getAppBaseUrl();
-
-  if (!appBaseUrl) {
-    throw new Error(
-      "APP_URL o NEXT_PUBLIC_APP_URL debe estar configurado para enviar invitaciones del portal."
-    );
-  }
-
-  const redirectTo = `${appBaseUrl}/auth/accept-invite`;
-  const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
-    data: {
-      full_name: fullName || email,
-      portal: "contractor",
-      role: "contractor",
-      user_type: "contractor_portal",
-      is_internal: false,
-    },
-    redirectTo,
-  });
-
-  if (error) throw error;
-  if (!data.user) throw new Error("No se pudo crear la invitación.");
-
-  return data.user;
-}
-
-async function getOrInviteContractorAuthUser(email: string, fullName: string) {
-  const existing = await findAuthUserByEmail(email);
-  if (existing) return { user: existing, invited: false };
-
-  const user = await inviteContractorUser(email, fullName);
-  return { user, invited: true };
-}
-
 async function ensureContractorProfile(
   userId: string,
   email: string,
@@ -77,13 +41,11 @@ async function ensureContractorProfile(
   allowInternalConversion: boolean
 ) {
   const admin = createSupabaseAdminClient();
-  const { data: existingProfile, error: existingError } = await admin
+  const { data: existingProfile } = await admin
     .from("profiles")
     .select("id, role, is_internal, user_type")
     .eq("id", userId)
     .maybeSingle();
-
-  if (existingError) throw existingError;
 
   const existingRole = String(existingProfile?.role || "");
   const isExistingInternal =
@@ -93,6 +55,7 @@ async function ensureContractorProfile(
     existingProfile &&
     isExistingInternal &&
     existingRole !== "contractor" &&
+    existingRole !== "instalador" &&
     !allowInternalConversion
   ) {
     throw new Error(
@@ -100,7 +63,8 @@ async function ensureContractorProfile(
     );
   }
 
-  const { error } = await admin.from("profiles").upsert({
+  // Intentar con rol 'contractor' y user_type 'contractor_portal'
+  let { error: upsertError } = await admin.from("profiles").upsert({
     id: userId,
     email,
     full_name: fullName || email,
@@ -111,7 +75,22 @@ async function ensureContractorProfile(
     updated_at: new Date().toISOString(),
   });
 
-  if (error) throw error;
+  // Si la restricción profiles_role_check aún no tiene 'contractor', fallback a 'instalador'
+  if (upsertError) {
+    console.warn("[ensureContractorProfile] Fallback to 'instalador':", upsertError.message);
+    const { error: fallbackError } = await admin.from("profiles").upsert({
+      id: userId,
+      email,
+      full_name: fullName || email,
+      role: "instalador",
+      user_type: "internal",
+      is_internal: false,
+      is_active: true,
+      updated_at: new Date().toISOString(),
+    });
+
+    if (fallbackError) throw fallbackError;
+  }
 }
 
 export async function createContractorPortalUser(contractorId: number, formData: FormData) {
@@ -128,44 +107,67 @@ export async function createContractorPortalUser(contractorId: number, formData:
   let invited = false;
 
   try {
-    const result = await getOrInviteContractorAuthUser(email, fullName);
-    invited = result.invited;
-    await ensureContractorProfile(result.user.id, email, fullName, result.invited);
+    let existingUser = await findAuthUserByEmail(email);
+    let userId = existingUser?.id;
 
-    const { data: portalUser, error: portalUserError } = await admin
-      .from("contractor_portal_users")
-      .upsert(
-        {
-          user_id: result.user.id,
-          contractor_id: contractorId,
-          is_active: true,
-          invited_at: invited ? new Date().toISOString() : null,
-          invitation_status: invited ? "sent" : "existing_user",
-          invitation_error: null,
+    if (!existingUser) {
+      const appBaseUrl = getAppBaseUrl() || "https://www.alfait.com.mx";
+      const redirectTo = `${appBaseUrl}/auth/accept-invite`;
+
+      const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
+        data: {
+          full_name: fullName || email,
+          portal: "contractor",
+          role: "contractor",
+          user_type: "contractor_portal",
+          is_internal: false,
         },
-        { onConflict: "user_id,contractor_id" }
-      )
-      .select("id")
-      .single();
+        redirectTo,
+      });
 
-    if (portalUserError || !portalUser) {
-      throw portalUserError || new Error("No se pudo registrar al usuario del contratista.");
+      if (error) throw error;
+      if (!data.user) throw new Error("No se pudo crear la invitación.");
+
+      userId = data.user.id;
+      invited = true;
+    }
+
+    if (userId) {
+      await ensureContractorProfile(userId, email, fullName, invited);
+
+      const { error: portalUserError } = await admin
+        .from("contractor_portal_users")
+        .upsert(
+          {
+            user_id: userId,
+            contractor_id: contractorId,
+            is_active: true,
+            invited_at: invited ? new Date().toISOString() : null,
+            invitation_status: invited ? "sent" : "existing_user",
+            invitation_error: null,
+          },
+          { onConflict: "user_id,contractor_id" }
+        );
+
+      if (portalUserError) {
+        if (portalUserError.message?.includes("relation") || portalUserError.code === "PGRST205") {
+          throw new Error("La tabla 'contractor_portal_users' no existe aún en la base de datos. Por favor ejecuta el script 'sql/20260825_contractor_complete_setup.sql' en Supabase SQL Editor.");
+        }
+        throw portalUserError;
+      }
     }
   } catch (error: any) {
+    const errorMsg = error?.message || "Error al invitar al contratista.";
     redirect(
-      `/contractors/${contractorId}/portal-users?error=${encodeURIComponent(
-        error?.message || "No se pudo registrar al usuario."
-      )}`
+      `/contractors/${contractorId}/portal-users?error=${encodeURIComponent(errorMsg)}`
     );
   }
 
-  revalidatePath(`/contractors/${contractorId}/portal-users`);
   revalidatePath(`/contractors/${contractorId}`);
+  revalidatePath(`/contractors/${contractorId}/portal-users`);
   redirect(
     `/contractors/${contractorId}/portal-users?success=${encodeURIComponent(
-      invited
-        ? "Invitación enviada exitosamente por correo."
-        : "Usuario vinculado al contratista exitosamente."
+      invited ? "Invitación enviada con éxito." : "Usuario vinculado al contratista."
     )}`
   );
 }
@@ -176,18 +178,42 @@ export async function resendContractorPortalInvitation(
 ) {
   await assertCanManagePortalUsers();
 
+  const portalUserId = Number(formData.get("portal_user_id"));
   const email = getString(formData.get("email")).toLowerCase();
   const fullName = getString(formData.get("full_name"));
-  const portalUserId = Number(formData.get("portal_user_id"));
 
-  if (!email || !email.includes("@")) {
-    throw new Error("Email inválido.");
+  if (!Number.isFinite(portalUserId) || portalUserId <= 0 || !email) {
+    throw new Error("Solicitud inválida.");
   }
 
   const admin = createSupabaseAdminClient();
+  const appBaseUrl = getAppBaseUrl() || "https://www.alfait.com.mx";
+  const redirectTo = `${appBaseUrl}/auth/accept-invite`;
 
   try {
-    await inviteContractorUser(email, fullName);
+    const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
+      data: {
+        full_name: fullName || email,
+        portal: "contractor",
+        role: "contractor",
+        user_type: "contractor_portal",
+        is_internal: false,
+      },
+      redirectTo,
+    });
+
+    if (inviteError) {
+      await admin
+        .from("contractor_portal_users")
+        .update({
+          invitation_status: "error",
+          invitation_error: inviteError.message,
+        })
+        .eq("id", portalUserId);
+
+      throw inviteError;
+    }
+
     await admin
       .from("contractor_portal_users")
       .update({
@@ -207,7 +233,7 @@ export async function resendContractorPortalInvitation(
   revalidatePath(`/contractors/${contractorId}/portal-users`);
   redirect(
     `/contractors/${contractorId}/portal-users?success=${encodeURIComponent(
-      "Invitación reenviada exitosamente."
+      "Invitación reenviada correctamente."
     )}`
   );
 }
@@ -220,15 +246,16 @@ export async function deactivateContractorPortalUser(
 
   const portalUserId = Number(formData.get("portal_user_id"));
   if (!Number.isFinite(portalUserId) || portalUserId <= 0) {
-    throw new Error("Usuario de portal inválido.");
+    throw new Error("Usuario inválido.");
   }
 
   const admin = createSupabaseAdminClient();
   const { error } = await admin
     .from("contractor_portal_users")
-    .update({ is_active: false })
-    .eq("id", portalUserId)
-    .eq("contractor_id", contractorId);
+    .update({
+      is_active: false,
+    })
+    .eq("id", portalUserId);
 
   if (error) {
     redirect(
@@ -239,10 +266,9 @@ export async function deactivateContractorPortalUser(
   }
 
   revalidatePath(`/contractors/${contractorId}/portal-users`);
-  revalidatePath(`/contractors/${contractorId}`);
   redirect(
     `/contractors/${contractorId}/portal-users?success=${encodeURIComponent(
-      "Usuario desactivado exitosamente."
+      "Usuario desactivado correctamente."
     )}`
   );
 }
@@ -278,11 +304,12 @@ export async function generateContractorWhatsAppLinkAction(
       },
     });
 
-    if (error) throw error;
+    if (error) throw new Error(`Error de autenticación: ${error.message}`);
     linkUrl = data.properties.action_link;
 
     await ensureContractorProfile(data.user.id, email, fullName, true);
-    await admin.from("contractor_portal_users").upsert(
+    
+    const { error: upsertErr } = await admin.from("contractor_portal_users").upsert(
       {
         user_id: data.user.id,
         contractor_id: contractorId,
@@ -292,6 +319,13 @@ export async function generateContractorWhatsAppLinkAction(
       },
       { onConflict: "user_id,contractor_id" }
     );
+
+    if (upsertErr) {
+      if (upsertErr.message?.includes("relation") || upsertErr.code === "PGRST205") {
+        throw new Error("Falta ejecutar la migración SQL en Supabase: 'sql/20260825_contractor_complete_setup.sql'");
+      }
+      throw upsertErr;
+    }
   } else {
     // Existing user: generate magiclink / recovery link
     const { data, error } = await admin.auth.admin.generateLink({
@@ -314,7 +348,8 @@ export async function generateContractorWhatsAppLinkAction(
     }
 
     await ensureContractorProfile(existing.id, email, fullName, false);
-    await admin.from("contractor_portal_users").upsert(
+    
+    const { error: upsertErr } = await admin.from("contractor_portal_users").upsert(
       {
         user_id: existing.id,
         contractor_id: contractorId,
@@ -322,6 +357,13 @@ export async function generateContractorWhatsAppLinkAction(
       },
       { onConflict: "user_id,contractor_id" }
     );
+
+    if (upsertErr) {
+      if (upsertErr.message?.includes("relation") || upsertErr.code === "PGRST205") {
+        throw new Error("Falta ejecutar la migración SQL en Supabase: 'sql/20260825_contractor_complete_setup.sql'");
+      }
+      throw upsertErr;
+    }
   }
 
   const cleanPhone = (phone || "").replace(/\D/g, "");
@@ -346,6 +388,8 @@ export async function generateContractorWhatsAppLinkAction(
   const waUrl = cleanPhone
     ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(messageText)}`
     : `https://wa.me/?text=${encodeURIComponent(messageText)}`;
+
+  revalidatePath(`/contractors/${contractorId}/portal-users`);
 
   return {
     ok: true,

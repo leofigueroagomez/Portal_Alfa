@@ -88,7 +88,8 @@ export default async function InvoicesPage() {
     supabase
       .from("quotes")
       .select("id, client_project_id, total_mxn, grand_total")
-      .eq("status", "approved"),
+      .eq("status", "approved")
+      .eq("is_latest", true),
     supabase
       .from("fiscal_document_email_logs")
       .select("id, document_type, document_id, document_uuid, to_email, cc_email, subject, message, status, resend_email_id, error_message, sent_at, created_at")

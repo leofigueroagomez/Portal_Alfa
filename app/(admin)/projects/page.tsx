@@ -37,8 +37,12 @@ function formatDate(value: string | null | undefined) {
   return new Date(value).toLocaleDateString("es-MX");
 }
 
-function getApprovedTotal(quote: Quote | null | undefined) {
+function getQuoteTotal(quote: Quote | null | undefined) {
   return Number(quote?.total_mxn ?? quote?.grand_total ?? 0);
+}
+
+function getApprovedTotal(quotes: Quote[] | undefined) {
+  return (quotes || []).reduce((sum, quote) => sum + getQuoteTotal(quote), 0);
 }
 
 export default async function ProjectsPage() {
@@ -102,18 +106,24 @@ export default async function ProjectsPage() {
             "id, quote_number, client_project_id, status, total_mxn, grand_total, created_at"
           )
           .eq("status", "approved")
+          .eq("is_latest", true)
           .in("client_project_id", projectIds)
           .order("created_at", { ascending: false })
       : Promise.resolve({ data: [] as Quote[] }),
   ]);
 
   const approvedQuotes = (quotesResult.data || []) as Quote[];
-  const approvedQuotesByProject = new Map<number, Quote>();
+  // A project can legitimately have several distinct approved quotes (a
+  // "matriz" plus "adicionales" added later) — all of them count, we only
+  // ever exclude superseded versions of the *same* quote (via is_latest
+  // above), never sibling quotes on the same project.
+  const approvedQuotesByProject = new Map<number, Quote[]>();
 
   for (const quote of approvedQuotes) {
-    if (quote.client_project_id && !approvedQuotesByProject.has(quote.client_project_id)) {
-      approvedQuotesByProject.set(quote.client_project_id, quote);
-    }
+    if (!quote.client_project_id) continue;
+    const current = approvedQuotesByProject.get(quote.client_project_id) || [];
+    current.push(quote);
+    approvedQuotesByProject.set(quote.client_project_id, current);
   }
 
   const operationalProjects = projectList
@@ -128,10 +138,10 @@ export default async function ProjectsPage() {
       return stage === "won" || hasApprovedQuote;
     })
     .sort((a, b) => {
-      const aQuote = approvedQuotesByProject.get(a.id);
-      const bQuote = approvedQuotesByProject.get(b.id);
-      const aDate = a.expected_close_date || aQuote?.created_at || a.created_at || "";
-      const bDate = b.expected_close_date || bQuote?.created_at || b.created_at || "";
+      const aQuotes = approvedQuotesByProject.get(a.id);
+      const bQuotes = approvedQuotesByProject.get(b.id);
+      const aDate = a.expected_close_date || aQuotes?.[0]?.created_at || a.created_at || "";
+      const bDate = b.expected_close_date || bQuotes?.[0]?.created_at || b.created_at || "";
 
       return aDate.localeCompare(bDate);
     });
@@ -141,8 +151,8 @@ export default async function ProjectsPage() {
   }
 
   const totalApproved = operationalProjects.reduce((sum, project) => {
-    const approvedQuote = approvedQuotesByProject.get(project.id);
-    const approvedTotal = getApprovedTotal(approvedQuote);
+    const approvedQuotes = approvedQuotesByProject.get(project.id);
+    const approvedTotal = getApprovedTotal(approvedQuotes);
 
     return (
       sum +
@@ -153,21 +163,22 @@ export default async function ProjectsPage() {
   }, 0);
 
   const projectRows = operationalProjects.map((project) => {
-    const approvedQuote = approvedQuotesByProject.get(project.id);
-    const total = getApprovedTotal(approvedQuote);
+    const approvedQuotes = approvedQuotesByProject.get(project.id);
+    const primaryQuote = approvedQuotes?.[0];
+    const total = getApprovedTotal(approvedQuotes);
     const displayTotal =
       total > 0 ? total : Number(project.estimated_value_mxn || 0);
     const referenceDate =
       project.expected_close_date ||
-      approvedQuote?.created_at ||
+      primaryQuote?.created_at ||
       project.created_at;
 
     return {
       id: project.id,
       name: project.name,
       clientName: getClientName(project.client_id),
-      approvedQuoteId: approvedQuote?.id || null,
-      approvedQuoteNumber: approvedQuote?.quote_number || null,
+      approvedQuoteId: primaryQuote?.id || null,
+      approvedQuoteNumber: primaryQuote?.quote_number || null,
       displayTotal,
       referenceDateLabel: formatDate(referenceDate),
     };

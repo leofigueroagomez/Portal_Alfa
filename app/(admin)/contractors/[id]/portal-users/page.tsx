@@ -90,9 +90,9 @@ export default async function ContractorPortalUsersPage({
   const admin = createSupabaseAdminClient();
 
   const [
-    { data: contractor, error: contractorError },
-    { data: portalUsers },
-    { data: signedAgreements },
+    contractorRes,
+    portalUsersRes,
+    signedAgreementsRes,
     authUsersResult,
   ] = await Promise.all([
     admin
@@ -112,13 +112,13 @@ export default async function ContractorPortalUsersPage({
     admin.auth.admin.listUsers({ page: 1, perPage: 1000 }),
   ]);
 
-  if (contractorError || !contractor) {
+  if (contractorRes.error || !contractorRes.data) {
     notFound();
   }
 
-  const contractorData = contractor as Contractor;
-  const portalUserList = (portalUsers || []) as PortalUserRow[];
-  const agreementList = (signedAgreements || []) as AgreementRow[];
+  const contractorData = contractorRes.data as Contractor;
+  const portalUserList = (portalUsersRes.data || []) as PortalUserRow[];
+  const agreementList = (signedAgreementsRes.data || []) as AgreementRow[];
 
   const authUserById = new Map<string, { email: string | null; fullName: string | null }>();
   for (const user of authUsersResult.data?.users || []) {
@@ -200,6 +200,14 @@ export default async function ContractorPortalUsersPage({
           </div>
 
           {/* Feedback messages */}
+          {portalUsersRes.error || signedAgreementsRes.error ? (
+            <div className="mt-6 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs text-amber-200 space-y-1">
+              <p className="font-bold text-amber-300">⚠️ Configuración de base de datos pendiente en Supabase</p>
+              <p className="text-zinc-300">
+                Para activar el registro de subcontratistas, ejecuta el script <code className="bg-black/50 px-1.5 py-0.5 rounded font-mono text-amber-200">sql/20260825_contractor_complete_setup.sql</code> en el <strong>SQL Editor de Supabase</strong>.
+              </p>
+            </div>
+          ) : null}
           {success ? (
             <div className="mt-6 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-300">
               {success}
