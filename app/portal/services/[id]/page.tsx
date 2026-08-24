@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, FileText, WalletCards, Wrench, type LucideIcon } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import {
@@ -11,6 +11,7 @@ import {
 import {
   getContractorPortalContext,
   getAccessibleContractorService,
+  getContractorSignedAgreement,
 } from "@/lib/contractorPortal";
 import { resolveServicePhotoUrl } from "@/lib/serviceReports";
 import ContractorServiceView from "./ContractorServiceView";
@@ -94,6 +95,17 @@ export default async function PortalServiceDetailPage({
   // 1. Check if logged-in user is a Contractor
   const contractorCtx = await getContractorPortalContext();
   if (contractorCtx) {
+    // Bloqueo de Onboarding: Requerir firma de NDA y Responsiva Laboral
+    const signedAgreement = await getContractorSignedAgreement(
+      contractorCtx.supabase,
+      contractorCtx.portalUser.contractor_id,
+      contractorCtx.user.id
+    );
+
+    if (!signedAgreement) {
+      redirect("/portal/contractor-agreement");
+    }
+
     const { service, photos: rawPhotos } = await getAccessibleContractorService(
       contractorCtx.supabase,
       contractorCtx.portalUser.contractor_id,

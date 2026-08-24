@@ -13,6 +13,7 @@ import {
   Sparkles,
   Wrench,
 } from "lucide-react";
+import { redirect } from "next/navigation";
 import {
   addMonths,
   findClientPortalContext,
@@ -25,7 +26,10 @@ import {
   type ClientPortalPayment,
   type ClientPortalProject,
 } from "@/lib/clientPortal";
-import { getContractorPortalContext } from "@/lib/contractorPortal";
+import {
+  getContractorPortalContext,
+  getContractorSignedAgreement,
+} from "@/lib/contractorPortal";
 import { formatCurrency } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -123,7 +127,18 @@ export default async function PortalPage() {
   // 1. Check if logged in as a Subcontractor
   const contractorCtx = await getContractorPortalContext();
   if (contractorCtx) {
-    const { supabase, portalUser, contractor } = contractorCtx;
+    const { supabase, portalUser, contractor, user } = contractorCtx;
+
+    // Bloqueo de Onboarding: Requerir firma de NDA y Responsiva Laboral
+    const signedAgreement = await getContractorSignedAgreement(
+      supabase,
+      portalUser.contractor_id,
+      user.id
+    );
+
+    if (!signedAgreement) {
+      redirect("/portal/contractor-agreement");
+    }
 
     const [{ data: services }, { data: workOrders }] = await Promise.all([
       supabase

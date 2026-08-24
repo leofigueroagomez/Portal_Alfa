@@ -19,6 +19,45 @@ export type ContractorInfo = {
   specialty: string | null;
 };
 
+export type ContractorSignedAgreement = {
+  id: number;
+  contractor_id: number;
+  contractor_portal_user_id: number | null;
+  user_id: string | null;
+  service_regime?: "independent_technician" | "specialized_contractor" | string | null;
+  person_type?: string | null;
+  legal_business_name?: string | null;
+  signer_name: string;
+  signer_rfc: string | null;
+  signer_curp: string | null;
+  signer_phone: string | null;
+  signer_email?: string | null;
+  fiscal_address?: string | null;
+  representative_name?: string | null;
+  representative_powers?: string | null;
+  signer_role: string | null;
+  has_repse?: boolean | null;
+  repse_number?: string | null;
+  repse_activity?: string | null;
+  repse_expiration_date?: string | null;
+  imss_patronal_registry?: string | null;
+  approximate_workers?: number | null;
+  site_supervisor_name?: string | null;
+  site_supervisor_phone?: string | null;
+  bank_name?: string | null;
+  bank_clabe?: string | null;
+  bank_account_holder?: string | null;
+  signature_data: string;
+  ine_front_data?: string | null;
+  ine_back_data?: string | null;
+  tax_constancy_data?: string | null;
+  geo_lat?: number | null;
+  geo_lng?: number | null;
+  geo_accuracy?: number | null;
+  ip_address: string | null;
+  signed_at: string;
+};
+
 export async function getContractorPortalContext() {
   const supabase = await createSupabaseServerClient();
   const {
@@ -53,6 +92,30 @@ export async function getContractorPortalContext() {
     portalUser: portalUser as ContractorPortalUser,
     contractor: contractor as ContractorInfo | null,
   };
+}
+
+export async function getContractorSignedAgreement(
+  supabase: SupabaseClient,
+  contractorId: number,
+  userId?: string
+) {
+  let query = supabase
+    .from("contractor_signed_agreements")
+    .select(
+      "id, contractor_id, contractor_portal_user_id, user_id, service_regime, person_type, legal_business_name, signer_name, signer_rfc, signer_curp, signer_phone, signer_email, fiscal_address, representative_name, representative_powers, signer_role, has_repse, repse_number, repse_activity, repse_expiration_date, imss_patronal_registry, approximate_workers, site_supervisor_name, site_supervisor_phone, bank_name, bank_clabe, bank_account_holder, signature_data, ine_front_data, ine_back_data, tax_constancy_data, geo_lat, geo_lng, geo_accuracy, ip_address, signed_at"
+    )
+    .eq("contractor_id", contractorId);
+
+  if (userId) {
+    query = query.eq("user_id", userId);
+  }
+
+  const { data } = await query
+    .order("signed_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return data as ContractorSignedAgreement | null;
 }
 
 export async function getAccessibleContractorService(
