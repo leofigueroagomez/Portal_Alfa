@@ -1,23 +1,22 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Phone } from "lucide-react";
+import FaqAccordion, { FaqItem } from "@/components/FaqAccordion";
 
 export const metadata: Metadata = {
   title: "Audio y Video Profesional | ALFA High End Services",
   description:
     "Diseñamos e implementamos soluciones de audio y video para residencias, salas de juntas, espacios corporativos y proyectos especiales. Experiencias audiovisuales pensadas para disfrutarse todos los días.",
-  keywords: [
-    "audio y video profesional",
-    "salas de juntas",
-    "videoconferencia",
-    "audio residencial",
-    "home cinema",
-    "video wall",
-    "audio distribuido",
-    "pantallas comerciales",
-    "integración audiovisual",
-  ],
+  alternates: {
+    canonical: "/servicios/audio-video",
+  },
+  openGraph: {
+    title: "Audio y Video Profesional | ALFA High End Services",
+    description:
+      "Diseño e integración de audio de alta fidelidad, salas de juntas y Home Cinema.",
+    type: "website",
+  },
 };
 
 const experienceCards = [
@@ -71,6 +70,29 @@ const brands = [
   { name: "Lutron", src: "/logos/brands/lutron.png", className: "max-h-12 max-w-[78%]" },
   { name: "AudioQuest", src: "/logos/brands/audioquest.png", className: "max-h-12 max-w-[78%]" },
   { name: "KEF", src: "/logos/brands/kef.png", className: "max-h-12 max-w-[70%]" },
+];
+
+const faqItems: FaqItem[] = [
+  {
+    question: "¿En qué etapa de la obra o remodelación se debe planear el audio y video?",
+    answer:
+      "Lo ideal es intervenir desde la etapa de anteproyecto o diseño arquitectónico para canalizar tuberías ocultas, calcular la acústica y prever nichos o refuerzos para altavoces arquitectónicos antes del cierre de plafones y muros.",
+  },
+  {
+    question: "¿Puedo controlar la música de toda mi casa desde mi celular o iPad?",
+    answer:
+      "Sí. Diseñamos sistemas de audio multiroom donde puedes reproducir Spotify, Apple Music o Tidal en zonas independientes (sala, terraza, alberca, recámara principal) o agrupar toda la casa para una reunión con un solo toque.",
+  },
+  {
+    question: "¿Qué marcas de audio y video integran en ALFA?",
+    answer:
+      "Trabajamos con los fabricantes más prestigiosos del mundo como Bowers & Wilkins, McIntosh, Sonos, KEF, Panamax y AudioQuest, garantizando pureza sonora, estética refinada y soporte a largo plazo.",
+  },
+  {
+    question: "¿Cómo optimizan el sonido en espacios con acústica compleja o cristales?",
+    answer:
+      "Utilizamos calibración acústica digital (DSP y ecualización de sala) y seleccionamos altavoces con dispersión controlada para minimizar reflexiones no deseadas en superficies duras, logrando un sonido cálido y definido.",
+  },
 ];
 
 export default function AudioVideoPage() {
@@ -250,6 +272,13 @@ export default function AudioVideoPage() {
         </div>
       </section>
 
+      {/* FAQs */}
+      <FaqAccordion
+        title="Preguntas Frecuentes sobre Audio y Video"
+        eyebrow="Experiencias Acústicas"
+        items={faqItems}
+      />
+
       <section className="bg-[#111111] px-5 py-20 text-white sm:px-8 lg:px-12">
         <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1fr_auto] lg:items-end">
           <div className="max-w-3xl">
@@ -266,15 +295,51 @@ export default function AudioVideoPage() {
             </p>
           </div>
 
-          <Link
-            href="/#diagnostico"
-            className="inline-flex min-h-12 items-center justify-center gap-2 bg-[#7A1F2B] px-6 text-sm font-semibold text-white transition hover:bg-[#5A1320]"
-          >
-            Solicitar diagnóstico
-            <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </Link>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Link
+              href="/#diagnostico"
+              className="inline-flex min-h-12 items-center justify-center gap-2 bg-[#7A1F2B] px-6 text-sm font-semibold text-white transition hover:bg-[#5A1320]"
+            >
+              Solicitar diagnóstico
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
+            <a
+              href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_PHONE || "523310000000"}?text=${encodeURIComponent(
+                "Hola ALFA, me interesa solicitar un diagnóstico para un proyecto de Audio y Video Profesional."
+              )}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex min-h-12 items-center justify-center gap-2 border border-white/20 px-6 text-sm font-semibold text-white transition hover:bg-white/10"
+            >
+              <Phone className="h-4 w-4" />
+              WhatsApp
+            </a>
+          </div>
         </div>
       </section>
+
+      <footer className="border-t border-white/10 bg-[#0A0A0A] px-5 py-8 text-center text-xs text-zinc-500 sm:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 sm:flex-row">
+          <p>© {new Date().getFullYear()} ALFA High End Services. Todos los derechos reservados.</p>
+          <div className="flex items-center gap-6">
+            <Link href="/" className="hover:text-zinc-300 transition">
+              Inicio
+            </Link>
+            <Link href="/servicios/redes" className="hover:text-zinc-300 transition">
+              Redes
+            </Link>
+            <Link href="/servicios/cctv" className="hover:text-zinc-300 transition">
+              CCTV
+            </Link>
+            <Link href="/alfa-os" className="hover:text-zinc-300 transition">
+              ALFA OS
+            </Link>
+            <Link href="/aviso-de-privacidad" className="hover:text-zinc-300 transition">
+              Aviso de Privacidad
+            </Link>
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }

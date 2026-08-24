@@ -21,7 +21,8 @@ import {
   Wrench,
 } from "lucide-react";
 
-const WHATSAPP_PHONE = "5210000000000";
+const WHATSAPP_PHONE =
+  process.env.NEXT_PUBLIC_WHATSAPP_PHONE || "523310000000";
 
 const experienceAreas = [
   {
@@ -44,10 +45,26 @@ const highEndSolutions = [
     icon: MonitorSpeaker,
     href: "/servicios/audio-video",
   },
-  { title: "Infraestructura tecnológica", icon: Network },
-  { title: "Seguridad electrónica", icon: ShieldCheck },
-  { title: "Automatización y control", icon: SlidersHorizontal },
-  { title: "Soporte especializado", icon: Headphones },
+  {
+    title: "Infraestructura tecnológica",
+    icon: Network,
+    href: "/servicios/redes",
+  },
+  {
+    title: "Seguridad electrónica",
+    icon: ShieldCheck,
+    href: "/servicios/cctv",
+  },
+  {
+    title: "Automatización y control",
+    icon: SlidersHorizontal,
+    href: "/servicios/control-de-acceso",
+  },
+  {
+    title: "Soporte especializado",
+    icon: Headphones,
+    href: "/alfa-os",
+  },
 ];
 
 const alfaOsItems = [
@@ -282,22 +299,34 @@ export default function PublicLanding() {
               High End Services
             </span>
           </Link>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <Link
               href="/servicios/audio-video"
-              className="hidden rounded border border-white/10 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:border-[#B84A5A] hover:text-white md:inline-flex"
+              className="hidden rounded border border-white/10 px-3.5 py-2 text-xs font-medium uppercase tracking-wider text-zinc-300 transition hover:border-[#B84A5A] hover:text-white lg:inline-flex"
             >
-              Servicios &gt; Audio y Video
+              Audio & Video
+            </Link>
+            <Link
+              href="/servicios/redes"
+              className="hidden rounded border border-white/10 px-3.5 py-2 text-xs font-medium uppercase tracking-wider text-zinc-300 transition hover:border-[#B84A5A] hover:text-white xl:inline-flex"
+            >
+              Redes
+            </Link>
+            <Link
+              href="/alfa-os"
+              className="hidden rounded border border-white/10 px-3.5 py-2 text-xs font-medium uppercase tracking-wider text-zinc-300 transition hover:border-[#B84A5A] hover:text-white md:inline-flex"
+            >
+              ALFA OS
             </Link>
             <a
               href="#diagnostico"
-              className="hidden rounded border border-white/15 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:border-[#B84A5A] hover:text-white sm:inline-flex"
+              className="hidden rounded border border-white/15 px-3.5 py-2 text-xs font-medium uppercase tracking-wider text-zinc-200 transition hover:border-[#B84A5A] hover:text-white sm:inline-flex"
             >
               Diagnóstico
             </a>
             <Link
               href="/login"
-              className="rounded bg-[#7A1F2B] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#5A1320]"
+              className="rounded bg-[#7A1F2B] px-4 py-2 text-xs font-semibold uppercase tracking-wider text-white transition hover:bg-[#5A1320]"
             >
               Portal
             </Link>
@@ -933,6 +962,135 @@ export default function PublicLanding() {
           </form>
         </div>
       </section>
+
+      <footer className="border-t border-white/10 bg-[#0A0A0A] px-5 py-16 text-white sm:px-8 lg:px-12">
+        <div className="mx-auto grid max-w-7xl gap-10 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
+            <Link href="/" className="flex items-center gap-3">
+              <Image
+                src="/logo-alfa.png"
+                alt="ALFA High End Services"
+                width={140}
+                height={70}
+                className="h-10 w-auto object-contain"
+              />
+            </Link>
+            <p className="mt-5 text-sm leading-6 text-zinc-400">
+              Integración tecnológica premium llave en mano para residencias,
+              empresas e industria.
+            </p>
+            <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-[#B84A5A]">
+              Zapopan, Jalisco, México
+            </p>
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white">
+              Soluciones
+            </p>
+            <ul className="mt-4 space-y-2.5 text-sm text-zinc-400">
+              <li>
+                <Link
+                  href="/servicios/audio-video"
+                  className="transition hover:text-white"
+                >
+                  Audio & Video Profesional
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/servicios/redes"
+                  className="transition hover:text-white"
+                >
+                  Redes e Infraestructura
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/servicios/cctv"
+                  className="transition hover:text-white"
+                >
+                  Seguridad Electrónica y CCTV
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/servicios/control-de-acceso"
+                  className="transition hover:text-white"
+                >
+                  Control de Acceso
+                </Link>
+              </li>
+              <li>
+                <Link href="/alfa-os" className="transition hover:text-white">
+                  ALFA OS (Seguimiento)
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white">
+              Sectores
+            </p>
+            <ul className="mt-4 space-y-2.5 text-sm text-zinc-400">
+              <li>Residencial de Alto Nivel</li>
+              <li>Corporativo & Oficinas</li>
+              <li>Comercial & Retail</li>
+              <li>Industrial & Crítico</li>
+            </ul>
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white">
+              Contacto & Legal
+            </p>
+            <ul className="mt-4 space-y-2.5 text-sm text-zinc-400">
+              <li>
+                <a
+                  href={whatsappUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="transition hover:text-white"
+                >
+                  WhatsApp Directo
+                </a>
+              </li>
+              <li>
+                <Link href="/login" className="transition hover:text-white">
+                  Portal de Clientes
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/aviso-de-privacidad"
+                  className="transition hover:text-white"
+                >
+                  Aviso de Privacidad
+                </Link>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="mx-auto mt-12 flex max-w-7xl flex-col items-center justify-between gap-4 border-t border-white/10 pt-8 text-xs text-zinc-500 sm:flex-row">
+          <p>
+            © {new Date().getFullYear()} ALFA High End Services. Todos los
+            derechos reservados.
+          </p>
+          <div className="flex items-center gap-6">
+            <Link
+              href="/aviso-de-privacidad"
+              className="transition hover:text-zinc-400"
+            >
+              Aviso de Privacidad
+            </Link>
+            <Link href="/login" className="transition hover:text-zinc-400">
+              Acceso Portal
+            </Link>
+          </div>
+        </div>
+      </footer>
 
       <a
         href={whatsappUrl}

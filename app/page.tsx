@@ -7,47 +7,115 @@ const seoTitle =
 const seoDescription =
   "ALFA diseña e implementa soluciones tecnológicas llave en mano para residencias y empresas. Redes estables, audio premium, videovigilancia y automatización con acompañamiento antes, durante y después del proyecto.";
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "");
+const siteUrl = (
+  process.env.NEXT_PUBLIC_SITE_URL || "https://www.alfait.com.mx"
+).replace(/\/+$/, "");
 
 export const metadata: Metadata = {
-  title: seoTitle,
+  title: "Automatización, Redes y Audio para Residencias y Empresas | ALFA",
   description: seoDescription,
-  keywords: [
-    "redes residenciales",
-    "wifi residencial",
-    "internet estable",
-    "audio residencial",
-    "audio multiroom",
-    "cámaras de seguridad",
-    "videovigilancia residencial",
-    "automatización residencial",
-    "casa inteligente",
-    "control de acceso",
-    "integración tecnológica",
-    "soluciones llave en mano",
-  ],
+  alternates: {
+    canonical: "/",
+  },
   openGraph: {
     title: seoTitle,
     description: seoDescription,
+    url: siteUrl,
+    siteName: "ALFA High End Services",
+    locale: "es_MX",
     type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: seoTitle,
+    description: seoDescription,
   },
 };
 
 const organizationJsonLd = {
   "@context": "https://schema.org",
-  "@type": "LocalBusiness",
+  "@type": ["LocalBusiness", "ProfessionalService"],
   name: "ALFA High End Services",
+  alternateName: "ALFA IT",
   description:
-    "Integración tecnológica premium para residencias, empresas e industria.",
-  areaServed: "México",
+    "Integración tecnológica premium llave en mano: audio de alta fidelidad, redes empresariales, videovigilancia CCTV, control de acceso y automatización con seguimiento vía ALFA OS.",
   url: siteUrl,
+  logo: `${siteUrl}/logo-alfa.png`,
+  image: `${siteUrl}/projects/residencia-premium.jpeg`,
+  priceRange: "$$$$",
   address: {
     "@type": "PostalAddress",
     addressLocality: "Zapopan",
     addressRegion: "Jalisco",
     addressCountry: "MX",
   },
-  sameAs: [],
+  geo: {
+    "@type": "GeoCoordinates",
+    latitude: 20.7167,
+    longitude: -103.4167,
+  },
+  areaServed: [
+    { "@type": "City", name: "Zapopan" },
+    { "@type": "City", name: "Guadalajara" },
+    { "@type": "State", name: "Jalisco" },
+    { "@type": "Country", name: "México" },
+  ],
+  hasOfferCatalog: {
+    "@type": "OfferCatalog",
+    name: "Servicios de Integración Tecnológica ALFA",
+    itemListElement: [
+      {
+        "@type": "Offer",
+        itemOffered: {
+          "@type": "Service",
+          name: "Audio y Video Profesional",
+          url: `${siteUrl}/servicios/audio-video`,
+          description:
+            "Sistemas de audio de alta fidelidad, Home Cinema y distribución audiovisual residencial y corporativa.",
+        },
+      },
+      {
+        "@type": "Offer",
+        itemOffered: {
+          "@type": "Service",
+          name: "Redes e Infraestructura Tecnológica",
+          url: `${siteUrl}/servicios/redes`,
+          description:
+            "Cableado estructurado, redes WiFi profesionales y racks de telecomunicaciones.",
+        },
+      },
+      {
+        "@type": "Offer",
+        itemOffered: {
+          "@type": "Service",
+          name: "Seguridad Electrónica y CCTV",
+          url: `${siteUrl}/servicios/cctv`,
+          description:
+            "Sistemas de videovigilancia, monitoreo y cámaras de seguridad IP de alto desempeño.",
+        },
+      },
+      {
+        "@type": "Offer",
+        itemOffered: {
+          "@type": "Service",
+          name: "Control de Acceso",
+          url: `${siteUrl}/servicios/control-de-acceso`,
+          description:
+            "Sistemas de control de accesos vehiculares y peatonales para residencias y empresas.",
+        },
+      },
+      {
+        "@type": "Offer",
+        itemOffered: {
+          "@type": "Service",
+          name: "ALFA OS - Seguimiento de Proyectos",
+          url: `${siteUrl}/alfa-os`,
+          description:
+            "Plataforma centralizada de seguimiento en tiempo real, evidencias y soporte para clientes.",
+        },
+      },
+    ],
+  },
 };
 
 export default function Page() {
