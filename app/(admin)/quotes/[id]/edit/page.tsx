@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { arrayMove } from "@dnd-kit/sortable";
 import { supabase } from "@/services/supabase";
 import { formatCurrency, formatNumber } from "@/lib/format";
@@ -250,6 +250,10 @@ const PRODUCT_RESULT_LIMIT = 10;
 export default function EditQuotePage() {
   const params = useParams<{ id: string }>();
   const quoteId = Number(params.id);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const autoRefreshTriggeredRef = useRef(false);
+  const redirectToPrintAfterSaveRef = useRef(false);
 
   const [quote, setQuote] = useState<Quote | null>(null);
   const [canAdminEditApproved, setCanAdminEditApproved] = useState(false);
@@ -283,6 +287,9 @@ export default function EditQuotePage() {
   const [isProductPanelOpen, setIsProductPanelOpen] = useState(true);
   const [loading, setLoading] = useState(true);
   const [savingQuote, setSavingQuote] = useState(false);
+  const [refreshingRate, setRefreshingRate] = useState(false);
+  const [pendingAutoSaveAfterRateRefresh, setPendingAutoSaveAfterRateRefresh] =
+    useState(false);
   const [exchangeRate, setExchangeRate] = useState("17");
   const [exchangeRateSource, setExchangeRateSource] = useState("manual");
   const [exchangeRateDate, setExchangeRateDate] = useState(
@@ -784,6 +791,62 @@ export default function EditQuotePage() {
 
     loadExchangeRate();
   }, [quote?.status]);
+
+  async function handleRefreshExchangeRate() {
+    setRefreshingRate(true);
+
+    try {
+      const response = await fetch("/api/exchange-rate");
+      const data = await response.json();
+
+      if (data?.rate) {
+        setExchangeRate(String(data.rate));
+        setExchangeRateSource(data.source || "fallback-manual");
+        setExchangeRateDate(data.date || getMexicoDate());
+        setPendingAutoSaveAfterRateRefresh(true);
+      } else {
+        console.error("No se pudo cargar tipo de cambio:", data);
+        alert("No se pudo obtener el tipo de cambio actual. Captúralo manualmente.");
+      }
+    } catch (error) {
+      console.error("Error actualizando tipo de cambio:", error);
+      alert("No se pudo actualizar el tipo de cambio.");
+    } finally {
+      setRefreshingRate(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!pendingAutoSaveAfterRateRefresh) return;
+
+    setPendingAutoSaveAfterRateRefresh(false);
+
+    (async () => {
+      await handleSaveQuote();
+
+      if (redirectToPrintAfterSaveRef.current) {
+        redirectToPrintAfterSaveRef.current = false;
+        router.push(`/quotes/${quoteId}/print`);
+      }
+    })();
+  }, [pendingAutoSaveAfterRateRefresh]);
+
+  useEffect(() => {
+    if (autoRefreshTriggeredRef.current) return;
+    if (loading || !authChecked || !quote) return;
+    if (searchParams.get("refreshRate") !== "1") return;
+
+    const isEditableNow =
+      quote.status === "draft" ||
+      (quote.status === "approved" && canAdminEditApproved);
+
+    if (!isEditableNow) return;
+
+    autoRefreshTriggeredRef.current = true;
+    redirectToPrintAfterSaveRef.current = true;
+    router.replace(`/quotes/${quoteId}/edit`);
+    handleRefreshExchangeRate();
+  }, [loading, authChecked, quote, canAdminEditApproved, searchParams]);
 
   useEffect(() => {
     if (!activeSectionId && sections.length > 0) {
@@ -2773,6 +2836,19 @@ export default function EditQuotePage() {
                   value={exchangeRate}
                   onChange={(e) => setExchangeRate(e.target.value)}
                 />
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleRefreshExchangeRate}
+                  disabled={refreshingRate || savingQuote}
+                  className="text-xs font-semibold text-[#F4C66A] hover:text-[#F7D68A] disabled:opacity-50"
+                >
+                  {refreshingRate
+                    ? "Actualizando tipo de cambio..."
+                    : "Actualizar TC del día y guardar"}
+                </button>
               </div>
 
               <div className="space-y-3 rounded-xl border border-[#2A2A30] bg-[#222228] p-4">

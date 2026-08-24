@@ -6,6 +6,7 @@ export type PublicDocumentLink = {
   token: string;
   document_type:
     | "project_delivery"
+    | "project_delivery_sign"
     | "project_warranty"
     | "approved_quote"
     | "authorized_plan"

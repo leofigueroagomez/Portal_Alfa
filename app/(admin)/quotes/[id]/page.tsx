@@ -488,6 +488,16 @@ export default async function QuoteDetailPage({
               </Link>
             )}
 
+            {(quoteData.status === "draft" ||
+              (quoteData.status === "approved" && canAdminEditApprovedQuote)) && (
+              <Link
+                href={`/quotes/${quoteData.id}/edit?refreshRate=1`}
+                className="bg-[#222228] hover:bg-[#2A2A30] border border-[#2A2A30] text-[#B3B3B8] rounded-xl px-5 py-3 font-semibold"
+              >
+                Actualizar TC y reimprimir
+              </Link>
+            )}
+
             <a
               href={`/api/quotes/${quoteData.id}/premium-pdf`}
               target="_blank"

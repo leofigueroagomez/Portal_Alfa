@@ -27,6 +27,9 @@ const fiscalDocumentTypes = new Set<PublicDocumentType>([
 ]);
 
 function getDefaultExpiresAt(documentType: PublicDocumentType) {
+  if (documentType === "project_delivery_sign") {
+    return new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString();
+  }
   const days = fiscalDocumentTypes.has(documentType) ? 30 : 90;
   return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
 }
@@ -140,4 +143,15 @@ export async function getOrCreatePublicDocumentLink(input: PublicDocumentLinkInp
   }
 
   return data as PublicDocumentLink;
+}
+
+export async function getOrCreateDeliverySigningLink(input: {
+  clientProjectId: number;
+  projectDeliveryId: number;
+}) {
+  return getOrCreatePublicDocumentLink({
+    clientProjectId: input.clientProjectId,
+    projectDeliveryId: input.projectDeliveryId,
+    documentType: "project_delivery_sign",
+  });
 }

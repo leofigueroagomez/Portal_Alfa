@@ -32,6 +32,11 @@ export default async function PublicDocumentPage({
       href: `/public/documents/${token}/pdf`,
       label: "Abrir PDF",
     },
+    project_delivery_sign: {
+      title: "Revisión y firma de entrega",
+      href: `/public/delivery-sign/${token}`,
+      label: "Revisar y firmar",
+    },
     project_warranty: {
       title: "Carta de garantia",
       href: `/public/documents/${token}/pdf`,
