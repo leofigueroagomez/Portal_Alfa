@@ -19,6 +19,7 @@ import { getCurrentUserProfile } from "@/services/profile";
 import ProjectStageSelect from "@/components/ProjectStageSelect";
 import CreateQuoteVersionButton from "./CreateQuoteVersionButton";
 import ApproveQuoteVersionButton from "./ApproveQuoteVersionButton";
+import PrintQuoteButton from "./PrintQuoteButton";
 
 type Quote = {
   id: number;
@@ -240,10 +241,11 @@ export default async function QuoteDetailPage({
     supabase,
     commercialPartner || null
   );
-  const canGeneratePartnerPrint =
+  const canGeneratePartnerPrint = Boolean(
     quoteData.is_partner_quote &&
-    canGeneratePartnerQuotes(currentProfile?.role) &&
-    !partnerMissingReason;
+      canGeneratePartnerQuotes(currentProfile?.role) &&
+      !partnerMissingReason
+  );
 
   const quoteSections = (sections || []) as QuoteSection[];
   const quoteItemsBase = (items || []) as QuoteItem[];
@@ -488,55 +490,16 @@ export default async function QuoteDetailPage({
               </Link>
             )}
 
-            {(quoteData.status === "draft" ||
-              (quoteData.status === "approved" && canAdminEditApprovedQuote)) && (
-              <Link
-                href={`/quotes/${quoteData.id}/edit?refreshRate=1`}
-                className="bg-[#222228] hover:bg-[#2A2A30] border border-[#2A2A30] text-[#B3B3B8] rounded-xl px-5 py-3 font-semibold"
-              >
-                Actualizar TC y reimprimir
-              </Link>
-            )}
-
-            <a
-              href={`/api/quotes/${quoteData.id}/premium-pdf`}
-              target="_blank"
-              rel="noreferrer"
-              className="bg-[#222228] hover:bg-[#2A2A30] border border-[#2A2A30] text-[#B3B3B8] rounded-xl px-5 py-3 font-semibold"
-            >
-              Imprimir / PDF
-            </a>
-
-            {quoteData.is_partner_quote ? (
-              <>
-                <a
-                  href={`/quotes/${quoteData.id}/print?branding=partner`}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-disabled={!canGeneratePartnerPrint}
-                  className={`rounded-xl border px-5 py-3 font-semibold ${
-                    canGeneratePartnerPrint
-                      ? "border-[#9E1B32] bg-[#9E1B32] text-white hover:bg-[#B91C3C]"
-                      : "pointer-events-none border-[#2A2A30] bg-[#222228] text-[#77777D]"
-                  }`}
-                >
-                  Imprimir cotizacion para aliado
-                </a>
-                <a
-                  href={`/api/quotes/${quoteData.id}/premium-pdf?branding=partner`}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-disabled={!canGeneratePartnerPrint}
-                  className={`rounded-xl border px-5 py-3 font-semibold ${
-                    canGeneratePartnerPrint
-                      ? "border-[#2A2A30] bg-[#222228] text-[#B3B3B8] hover:bg-[#2A2A30]"
-                      : "pointer-events-none border-[#2A2A30] bg-[#222228] text-[#77777D]"
-                  }`}
-                >
-                  PDF aliado
-                </a>
-              </>
-            ) : null}
+            <PrintQuoteButton
+              quoteId={quoteData.id}
+              isPartnerQuote={Boolean(quoteData.is_partner_quote)}
+              canGeneratePartnerPrint={canGeneratePartnerPrint}
+              partnerMissingReason={partnerMissingReason}
+              canRefreshRate={
+                quoteData.status === "draft" ||
+                (quoteData.status === "approved" && canAdminEditApprovedQuote)
+              }
+            />
 
             <CreateQuoteVersionButton
               quoteId={quoteData.id}

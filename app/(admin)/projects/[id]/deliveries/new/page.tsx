@@ -6,6 +6,16 @@ import NewProjectDeliveryForm from "./NewProjectDeliveryForm";
 type ClientProject = {
   id: number;
   name: string | null;
+  client_id: number | null;
+  site_contact_name: string | null;
+  site_contact_phone: string | null;
+};
+
+type Client = {
+  id: number;
+  name: string | null;
+  phone: string | null;
+  email: string | null;
 };
 
 type OperationalItem = {
@@ -22,7 +32,7 @@ export default async function NewProjectDeliveryPage({
 
   const { data: project, error } = await supabase
     .from("client_projects")
-    .select("id, name")
+    .select("id, name, client_id, site_contact_name, site_contact_phone")
     .eq("id", id)
     .maybeSingle();
 
@@ -41,6 +51,17 @@ export default async function NewProjectDeliveryPage({
   }
 
   const projectData = project as ClientProject;
+
+  let clientData: Client | null = null;
+  if (projectData.client_id) {
+    const { data: client } = await supabase
+      .from("clients")
+      .select("id, name, phone, email")
+      .eq("id", projectData.client_id)
+      .maybeSingle();
+    clientData = client as Client | null;
+  }
+
   const { data: operationalItems } = await supabase
     .from("project_operational_items")
     .select("system_name")
@@ -75,7 +96,14 @@ export default async function NewProjectDeliveryPage({
         </p>
       </section>
 
-      <NewProjectDeliveryForm projectId={projectData.id} systemOptions={systemOptions} />
+      <NewProjectDeliveryForm
+        projectId={projectData.id}
+        systemOptions={systemOptions}
+        defaultClientName={clientData?.name || ""}
+        defaultClientPhone={clientData?.phone || projectData.site_contact_phone || ""}
+        defaultClientEmail={clientData?.email || ""}
+        defaultSiteContactName={projectData.site_contact_name || ""}
+      />
     </main>
   );
 }

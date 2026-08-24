@@ -32,13 +32,21 @@ function formatDate(value: string | null | undefined) {
 }
 
 function statusClasses(status: string | null | undefined) {
-  return status === "delivered"
-    ? "border-[#1F7A4D] bg-[#143D2A] text-[#8CE0B6]"
-    : "border-[#614620] bg-[#322514] text-[#F4C66A]";
+  if (status === "delivered" || status === "accepted") {
+    return "border-[#1F7A4D] bg-[#143D2A] text-[#8CE0B6]";
+  }
+  if (status === "pending_signature" || status === "pending_client_signature") {
+    return "border-[#614620] bg-[#322514] text-[#F4C66A]";
+  }
+  return "border-[#614620] bg-[#322514] text-[#F4C66A]";
 }
 
 function statusLabel(status: string | null | undefined) {
-  return status === "delivered" ? "Entregado" : "Borrador";
+  if (status === "delivered" || status === "accepted") return "Entregado";
+  if (status === "pending_signature" || status === "pending_client_signature") {
+    return "Pendiente de firma";
+  }
+  return "Borrador";
 }
 
 export default async function ProjectDeliveriesPage({

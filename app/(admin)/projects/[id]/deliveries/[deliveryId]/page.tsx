@@ -1,12 +1,14 @@
 import Link from "next/link";
 import type React from "react";
-import { ArrowLeft, CalendarDays, CheckCircle2, FileText, UserRound } from "lucide-react";
+import { ArrowLeft, CalendarDays, CheckCircle2, Clock, FileText, Smartphone, UserRound } from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { getAppBaseUrl } from "@/lib/appUrl";
 import { getProjectDeliverySystemsForDisplay } from "@/lib/projectDeliverySystems";
 import { getProjectFinancialSummary } from "@/lib/projectFinancials";
+import { getOrCreateDeliverySigningLink } from "@/lib/publicDocumentLinks";
 import DeliveryPhotoManager from "./DeliveryPhotoManager";
 import SendDeliveryEmailButton from "./SendDeliveryEmailButton";
+import WhatsAppDeliverySignButton from "./WhatsAppDeliverySignButton";
 
 type ServerSupabaseStorage = Awaited<ReturnType<typeof createSupabaseServerClient>>["storage"];
 
@@ -18,6 +20,7 @@ type ClientProject = {
 
 type Client = {
   name: string | null;
+  phone?: string | null;
   email?: string | null;
   billing_email?: string | null;
 };
@@ -29,6 +32,13 @@ type ProjectDelivery = {
   delivered_to_name: string | null;
   delivered_to_role: string | null;
   delivered_by_name: string | null;
+  site_attended_by_name?: string | null;
+  site_attended_by_role?: string | null;
+  client_signer_name?: string | null;
+  client_signer_phone?: string | null;
+  client_signer_email?: string | null;
+  client_signed_at?: string | null;
+  signature_method?: string | null;
   observations: string | null;
   client_signature_image_url: string | null;
   alfa_signature_image_url: string | null;
@@ -72,7 +82,7 @@ type EmailHistory = {
 
 function formatDate(value: string | null | undefined) {
   if (!value) return "Sin fecha";
-  return new Date(value).toLocaleDateString("es-MX");
+  return new Date(value + (value.includes("T") ? "" : "T12:00:00")).toLocaleDateString("es-MX");
 }
 
 function logDeliveryPageError(
@@ -125,7 +135,7 @@ export default async function ProjectDeliveryDetailPage({
   const deliveryResult = await supabase
     .from("project_deliveries")
     .select(
-      "id, delivery_date, status, delivered_to_name, delivered_to_role, delivered_by_name, observations, client_signature_image_url, alfa_signature_image_url, delivery_email_sent_at, delivery_email_sent_to, delivery_email_status, delivery_email_error"
+      "id, delivery_date, status, delivered_to_name, delivered_to_role, delivered_by_name, site_attended_by_name, site_attended_by_role, client_signer_name, client_signer_phone, client_signer_email, client_signed_at, signature_method, observations, client_signature_image_url, alfa_signature_image_url, delivery_email_sent_at, delivery_email_sent_to, delivery_email_status, delivery_email_error"
     )
     .eq("id", deliveryId)
     .eq("client_project_id", id)
@@ -171,13 +181,13 @@ export default async function ProjectDeliveryDetailPage({
   }, null);
 
   const projectData = project as ClientProject | null;
-  const [client, evidences, pendingItems, deliverySystems, warranty, emailHistory, financialSummary] =
+  const [client, evidences, pendingItems, deliverySystems, warranty, emailHistory, financialSummary, signingLink] =
     await Promise.all([
       safeLoad("load client", async () => {
         if (!projectData?.client_id) return null;
         const result = await supabase
           .from("clients")
-          .select("name, email, billing_email")
+          .select("name, phone, email, billing_email")
           .eq("id", projectData.client_id)
           .maybeSingle();
         if (result.error) throw result.error;
@@ -236,6 +246,12 @@ export default async function ProjectDeliveryDetailPage({
       safeLoad("load financial summary", () =>
         getProjectFinancialSummary(supabase, Number(id)),
       { approvedTotalMxn: 0, paidTotalMxn: 0, pendingTotalMxn: 0 }),
+      safeLoad("load signing link", () =>
+        getOrCreateDeliverySigningLink({
+          clientProjectId: Number(id),
+          projectDeliveryId: Number(deliveryId),
+        }),
+      null),
     ]);
 
   const clientData = client as Client | null;
@@ -259,6 +275,9 @@ export default async function ProjectDeliveryDetailPage({
     resolvePhotoUrl(supabase.storage, deliveryData.alfa_signature_image_url),
   ]);
 
+  const isSigned = Boolean(deliveryData.client_signature_image_url || deliveryData.client_signed_at);
+  const isPendingSignature = deliveryData.status === "pending_signature" || (!isSigned && deliveryData.status === "draft");
+
   return (
     <main className="min-h-screen bg-[#0B0D0F] p-4 text-white md:p-8 xl:p-10">
       <Link
@@ -269,24 +288,72 @@ export default async function ProjectDeliveryDetailPage({
         Volver a entregas
       </Link>
 
-      <section className="mb-10 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+      <section className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
-          <p className="mb-3 text-sm tracking-[0.3em] text-[#9E1B32]">
-            {formatDate(deliveryData.delivery_date)}
-          </p>
+          <div className="mb-3 flex items-center gap-3">
+            <p className="text-sm tracking-[0.3em] text-[#9E1B32]">
+              {formatDate(deliveryData.delivery_date)}
+            </p>
+            <span
+              className={`inline-flex rounded-full border px-3 py-0.5 text-xs font-semibold ${
+                isSigned
+                  ? "border-[#1F7A4D] bg-[#143D2A] text-[#8CE0B6]"
+                  : "border-[#614620] bg-[#322514] text-[#F4C66A]"
+              }`}
+            >
+              {isSigned ? "Firmado de conformidad" : "Pendiente de firma del cliente"}
+            </span>
+          </div>
           <h1 className="text-3xl font-bold sm:text-4xl">Entrega de proyecto</h1>
-          <p className="mt-3 text-[#B3B3B8]">
+          <p className="mt-2 text-[#B3B3B8]">
             {clientData?.name || "Sin cliente"} / {projectData?.name || "Sin proyecto"}
           </p>
         </div>
-        <Link
-          href={`/projects/${id}/deliveries/${deliveryId}/print`}
-          className="inline-flex w-fit items-center gap-2 rounded-xl bg-[#9E1B32] px-5 py-3 font-semibold hover:bg-[#B91C3C]"
-        >
-          <FileText size={18} />
-          PDF de entrega
-        </Link>
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href={`/projects/${id}/deliveries/${deliveryId}/print`}
+            className="inline-flex w-fit items-center gap-2 rounded-xl bg-[#9E1B32] px-5 py-3 font-semibold hover:bg-[#B91C3C]"
+          >
+            <FileText size={18} />
+            PDF de entrega
+          </Link>
+        </div>
       </section>
+
+      {/* Módulo de WhatsApp para Firma Remota */}
+      {signingLink?.token && (
+        <section className={`mb-8 rounded-2xl border p-5 sm:p-6 shadow-xl ${
+          isSigned
+            ? "border-[#1F1F24] bg-[#151518]"
+            : "border-[#614620] bg-[#22180C]"
+        }`}>
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <Smartphone size={20} className={isSigned ? "text-[#8CE0B6]" : "text-[#F4C66A]"} />
+                <h2 className="text-xl font-bold text-white">
+                  {isSigned ? "Enlace de Firma Remota Compartido" : "Enviar a Firma por WhatsApp"}
+                </h2>
+              </div>
+              <p className="mt-1 text-xs text-[#B3B3B8]">
+                {isSigned
+                  ? "El cliente ya firmó digitalmente este reporte desde su celular."
+                  : "Envía el enlace al cliente titular para que revise fotos, sistemas y firme en su celular."}
+              </p>
+            </div>
+            <WhatsAppDeliverySignButton
+              projectId={Number(id)}
+              deliveryId={Number(deliveryId)}
+              token={signingLink.token}
+              clientName={deliveryData.client_signer_name || clientData?.name || "Cliente"}
+              projectName={projectData?.name || "Proyecto ALFA"}
+              defaultPhone={deliveryData.client_signer_phone || clientData?.phone || ""}
+              siteAttendedByName={deliveryData.site_attended_by_name}
+              isAlreadySigned={isSigned}
+            />
+          </div>
+        </section>
+      )}
 
       <section className="mb-8">
         <SendDeliveryEmailButton
@@ -305,7 +372,7 @@ export default async function ProjectDeliveryDetailPage({
       <section className="mb-8 rounded-2xl border border-[#1F1F24] bg-[#151518] p-5 sm:p-6">
         <h2 className="mb-5 text-2xl font-semibold">Historial de correos</h2>
         {emailHistoryList.length === 0 ? (
-          <p className="text-[#77777D]">Sin envios registrados.</p>
+          <p className="text-[#77777D]">Sin envíos registrados.</p>
         ) : (
           <div className="space-y-3">
             {emailHistoryList.map((email) => (
@@ -347,9 +414,19 @@ export default async function ProjectDeliveryDetailPage({
 
       <section className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-4">
         <InfoCard icon={<CalendarDays size={16} />} label="Fecha entrega" value={formatDate(deliveryData.delivery_date)} />
-        <InfoCard icon={<UserRound size={16} />} label="Recibe" value={deliveryData.delivered_to_name || "Sin receptor"} />
-        <InfoCard label="Cargo" value={deliveryData.delivered_to_role || "Sin cargo"} />
-        <InfoCard label="Estado" value={deliveryData.status === "delivered" ? "Entregado" : "Borrador"} />
+        <InfoCard
+          icon={<UserRound size={16} />}
+          label="Cliente firmante"
+          value={deliveryData.client_signer_name || deliveryData.delivered_to_name || "Sin titular"}
+        />
+        <InfoCard
+          label="Atendió en obra"
+          value={deliveryData.site_attended_by_name || "No especificado"}
+        />
+        <InfoCard
+          label="Estado"
+          value={isSigned ? "Entregado y Firmado" : "Pendiente de firma"}
+        />
       </section>
 
       <section className="mb-8 rounded-2xl border border-[#1F1F24] bg-[#151518] p-5 sm:p-6">
@@ -407,8 +484,23 @@ export default async function ProjectDeliveryDetailPage({
       />
 
       <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <SignaturePanel title="Firma cliente" imageUrl={clientSignatureUrl} fallback="Sin firma del cliente." />
-        <SignaturePanel title="Firma ALFA" imageUrl={alfaSignatureUrl} fallback="Sin firma ALFA." />
+        <SignaturePanel
+          title="Firma cliente"
+          imageUrl={clientSignatureUrl}
+          fallback={
+            isPendingSignature
+              ? "Pendiente de firma digital del cliente vía WhatsApp o enlace."
+              : "Sin firma del cliente registrada."
+          }
+          signedAt={deliveryData.client_signed_at}
+          signerName={deliveryData.client_signer_name || deliveryData.delivered_to_name}
+        />
+        <SignaturePanel
+          title="Firma ALFA"
+          imageUrl={alfaSignatureUrl}
+          fallback="Sin firma ALFA."
+          signerName={deliveryData.delivered_by_name || "Responsable ALFA"}
+        />
       </section>
     </main>
   );
@@ -438,14 +530,33 @@ function SignaturePanel({
   title,
   imageUrl,
   fallback,
+  signedAt,
+  signerName,
 }: {
   title: string;
   imageUrl: string;
   fallback: string;
+  signedAt?: string | null;
+  signerName?: string | null;
 }) {
   return (
-    <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5 sm:p-6">
-      <h2 className="mb-4 text-2xl font-semibold">{title}</h2>
+    <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5 sm:p-6 space-y-3">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-semibold">{title}</h2>
+        {signedAt && (
+          <span className="inline-flex items-center gap-1 text-xs text-[#8CE0B6]">
+            <Clock size={13} />
+            {new Date(signedAt).toLocaleString("es-MX", { dateStyle: "short", timeStyle: "short" })}
+          </span>
+        )}
+      </div>
+
+      {signerName && (
+        <p className="text-xs text-[#B3B3B8]">
+          Firmante: <strong className="text-white">{signerName}</strong>
+        </p>
+      )}
+
       {imageUrl ? (
         <img
           src={imageUrl}
@@ -453,7 +564,7 @@ function SignaturePanel({
           className="max-h-[300px] w-full rounded-xl border border-[#2A2A30] bg-white object-contain"
         />
       ) : (
-        <div className="rounded-xl border border-[#614620] bg-[#322514] p-4 text-[#F4C66A]">
+        <div className="rounded-xl border border-[#614620] bg-[#322514] p-4 text-xs text-[#F4C66A]">
           {fallback}
         </div>
       )}

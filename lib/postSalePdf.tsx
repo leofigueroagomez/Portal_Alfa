@@ -36,6 +36,10 @@ type Delivery = {
   delivered_to_name: string | null;
   delivered_to_role: string | null;
   delivered_by_name: string | null;
+  site_attended_by_name?: string | null;
+  site_attended_by_role?: string | null;
+  client_signer_name?: string | null;
+  client_signed_at?: string | null;
   observations: string | null;
   client_signature_image_url: string | null;
   alfa_signature_image_url: string | null;
@@ -475,12 +479,16 @@ export function ProjectDeliveryPdfDocument({
 
         <View style={styles.grid}>
           <View style={styles.card}>
-            <Text style={styles.label}>Recibe</Text>
-            <Text style={styles.value}>{delivery.delivered_to_name || "Sin receptor"}</Text>
-            <Text style={styles.muted}>{delivery.delivered_to_role || ""}</Text>
+            <Text style={styles.label}>Cliente / Titular</Text>
+            <Text style={styles.value}>{delivery.client_signer_name || delivery.delivered_to_name || "Cliente"}</Text>
+            {delivery.site_attended_by_name ? (
+              <Text style={styles.muted}>Atendió en obra: {delivery.site_attended_by_name}{delivery.site_attended_by_role ? ` (${delivery.site_attended_by_role})` : ""}</Text>
+            ) : (
+              <Text style={styles.muted}>{delivery.delivered_to_role || ""}</Text>
+            )}
           </View>
           <View style={styles.card}>
-            <Text style={styles.label}>Entrega</Text>
+            <Text style={styles.label}>Entrega ALFA</Text>
             <Text style={styles.value}>{delivery.delivered_by_name || "ALFA IT"}</Text>
           </View>
         </View>
@@ -544,11 +552,14 @@ export function ProjectDeliveryPdfDocument({
 
         <View style={styles.grid}>
           <View style={styles.card}>
-            <Text style={styles.label}>Firma cliente</Text>
+            <Text style={styles.label}>Firma Cliente</Text>
             {clientSignatureUrl ? <Image src={clientSignatureUrl} style={styles.signatureImage} /> : null}
             <View style={styles.signatureLine}>
-              <Text>{delivery.delivered_to_name || "Cliente"}</Text>
+              <Text>{delivery.client_signer_name || delivery.delivered_to_name || "Cliente"}</Text>
             </View>
+            {delivery.client_signed_at ? (
+              <Text style={styles.muted}>Firma digital: {formatDate(delivery.client_signed_at)}</Text>
+            ) : null}
           </View>
           <View style={styles.card}>
             <Text style={styles.label}>Firma ALFA</Text>
@@ -734,7 +745,7 @@ export async function generateProjectDeliveryPdf(
   const { data: delivery, error: deliveryError } = await supabase
     .from("project_deliveries")
     .select(
-      "id, delivery_date, status, delivered_to_name, delivered_to_role, delivered_by_name, observations, client_signature_image_url, alfa_signature_image_url"
+      "id, delivery_date, status, delivered_to_name, delivered_to_role, delivered_by_name, site_attended_by_name, site_attended_by_role, client_signer_name, client_signed_at, observations, client_signature_image_url, alfa_signature_image_url"
     )
     .eq("id", deliveryId)
     .eq("client_project_id", projectId)

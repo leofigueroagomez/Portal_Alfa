@@ -64,7 +64,10 @@ export async function GET(
       });
     }
 
-    if (link.document_type === "project_delivery" && link.project_delivery_id) {
+    if (
+      (link.document_type === "project_delivery" || link.document_type === "project_delivery_sign") &&
+      link.project_delivery_id
+    ) {
       const { data: delivery, error } = await supabase
         .from("project_deliveries")
         .select("id")
@@ -83,7 +86,7 @@ export async function GET(
           request,
           requestId,
         });
-        return NextResponse.json({ error: "Documento no disponible." }, { status: 404 });
+        return NextResponse.json({ error: "Documento no disponible o aún no firmado." }, { status: 404 });
       }
     }
 
@@ -111,7 +114,8 @@ export async function GET(
     }
 
     const pdf =
-      link.document_type === "project_delivery" && link.project_delivery_id
+      (link.document_type === "project_delivery" || link.document_type === "project_delivery_sign") &&
+      link.project_delivery_id
         ? await generateProjectDeliveryPdf(
             supabase,
             link.client_project_id,
@@ -134,7 +138,7 @@ export async function GET(
     }
 
     const filename =
-      link.document_type === "project_delivery"
+      link.document_type === "project_delivery" || link.document_type === "project_delivery_sign"
         ? `acta-entrega-${link.client_project_id}-${link.project_delivery_id}.pdf`
         : `carta-garantia-${link.client_project_id}-${link.project_warranty_id}.pdf`;
 

@@ -18,12 +18,21 @@ import {
 } from "@/lib/commercialPartners";
 import { canGeneratePartnerQuotes } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
+import { getMexicoDate } from "@/lib/mexicoDate";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-function getSafeFilename(value: string | null, fallback: string) {
-  return (value || fallback).replace(/[^a-zA-Z0-9._-]+/g, "-");
+function slugifyFilenamePart(value: string | null | undefined, maxLength = 40) {
+  const normalized = (value || "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .trim();
+
+  return normalized
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, maxLength);
 }
 
 export async function GET(
@@ -108,17 +117,27 @@ export async function GET(
 
     const html = buildQuotePremiumPdfHtml(snapshot, branding);
     const pdf = await renderQuotePremiumPdf(html);
-    const filename = getSafeFilename(
-      snapshot.quote.quoteNumber,
-      `cotizacion-${snapshot.quote.id}`
+
+    const quoteNumberPart =
+      slugifyFilenamePart(snapshot.quote.quoteNumber) || `ID${snapshot.quote.id}`;
+    const clientPart = slugifyFilenamePart(
+      snapshot.client.companyName || snapshot.client.name
     );
+    const brandingSuffix = branding ? "-Aliado" : "";
+    const filename = [
+      "Cotizacion",
+      quoteNumberPart,
+      clientPart,
+      getMexicoDate(),
+    ]
+      .filter(Boolean)
+      .join("-")
+      .concat(brandingSuffix);
 
     return new Response(new Uint8Array(pdf), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="${filename}${
-          branding ? "-aliado" : "-premium-v0"
-        }.pdf"`,
+        "Content-Disposition": `inline; filename="${filename}.pdf"`,
         "Cache-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
       },

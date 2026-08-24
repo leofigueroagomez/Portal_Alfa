@@ -24,6 +24,10 @@ type ProjectDelivery = {
   delivered_to_name: string | null;
   delivered_to_role: string | null;
   delivered_by_name: string | null;
+  site_attended_by_name?: string | null;
+  site_attended_by_role?: string | null;
+  client_signer_name?: string | null;
+  client_signed_at?: string | null;
   observations: string | null;
   client_signature_image_url: string | null;
   alfa_signature_image_url: string | null;
@@ -75,7 +79,7 @@ export default async function ProjectDeliveryPrintPage({
   const { data: delivery, error } = await supabase
     .from("project_deliveries")
     .select(
-      "id, delivery_date, status, delivered_to_name, delivered_to_role, delivered_by_name, observations, client_signature_image_url, alfa_signature_image_url"
+      "id, delivery_date, status, delivered_to_name, delivered_to_role, delivered_by_name, site_attended_by_name, site_attended_by_role, client_signer_name, client_signed_at, observations, client_signature_image_url, alfa_signature_image_url"
     )
     .eq("id", deliveryId)
     .eq("client_project_id", id)
@@ -225,21 +229,26 @@ export default async function ProjectDeliveryPrintPage({
         <section className="summary-box mb-6 grid grid-cols-2 gap-4 text-xs">
           <div className="border border-[#E1DDD5] p-4">
             <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#9E1B32]">
-              Recibe
+              Cliente / Titular
             </p>
             <p className="text-base font-semibold">
-              {deliveryData.delivered_to_name || "Sin receptor"}
+              {deliveryData.client_signer_name || deliveryData.delivered_to_name || "Sin receptor"}
             </p>
-            <p className="mt-1 text-[#555963]">
-              {deliveryData.delivered_to_role || ""}
-            </p>
+            {deliveryData.site_attended_by_name ? (
+              <p className="mt-1 text-[#555963]">
+                Atendió en obra: {deliveryData.site_attended_by_name}
+                {deliveryData.site_attended_by_role ? ` (${deliveryData.site_attended_by_role})` : ""}
+              </p>
+            ) : (
+              <p className="mt-1 text-[#555963]">{deliveryData.delivered_to_role || ""}</p>
+            )}
           </div>
           <div className="border border-[#E1DDD5] p-4">
             <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#9E1B32]">
               Entrega
             </p>
             <p className="text-base font-semibold">
-              {deliveryData.delivered_by_name || "ALFA"}
+              {deliveryData.delivered_by_name || "ALFA IT"}
             </p>
           </div>
         </section>
@@ -322,13 +331,14 @@ export default async function ProjectDeliveryPrintPage({
             title="Firma cliente"
             imageUrl={clientSignatureUrl}
             fallback="Sin firma capturada"
-            name={deliveryData.delivered_to_name || "Cliente"}
+            name={deliveryData.client_signer_name || deliveryData.delivered_to_name || "Cliente"}
+            signedAt={deliveryData.client_signed_at}
           />
           <SignatureBox
             title="Firma ALFA"
             imageUrl={alfaSignatureUrl}
             fallback="Sin firma capturada"
-            name={deliveryData.delivered_by_name || "ALFA"}
+            name={deliveryData.delivered_by_name || "ALFA IT"}
           />
         </section>
       </article>
@@ -341,17 +351,26 @@ function SignatureBox({
   imageUrl,
   fallback,
   name,
+  signedAt,
 }: {
   title: string;
   imageUrl: string;
   fallback: string;
   name: string;
+  signedAt?: string | null;
 }) {
   return (
     <div className="signature-box border border-[#E1DDD5] p-4">
-      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#9E1B32]">
-        {title}
-      </p>
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#9E1B32]">
+          {title}
+        </p>
+        {signedAt && (
+          <span className="text-[9px] text-[#555963]">
+            Firma digital: {formatDate(signedAt)}
+          </span>
+        )}
+      </div>
       {imageUrl ? (
         <img
           src={imageUrl}

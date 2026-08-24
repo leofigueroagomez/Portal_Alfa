@@ -826,7 +826,9 @@ export default function EditQuotePage() {
 
       if (redirectToPrintAfterSaveRef.current) {
         redirectToPrintAfterSaveRef.current = false;
-        router.push(`/quotes/${quoteId}/print`);
+        window.location.href = quote?.is_partner_quote
+          ? `/api/quotes/${quoteId}/premium-pdf?branding=partner`
+          : `/api/quotes/${quoteId}/premium-pdf`;
       }
     })();
   }, [pendingAutoSaveAfterRateRefresh]);
