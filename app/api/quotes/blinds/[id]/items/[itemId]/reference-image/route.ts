@@ -19,6 +19,7 @@ import {
   QUOTE_BLINDS_IMAGE_SIGNED_URL_TTL_SECONDS,
   QUOTE_BLINDS_IMAGES_BUCKET,
 } from "@/lib/quoteBlindsStorage";
+import { validateImageMagicBytes } from "@/lib/imageValidation";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 
 export const dynamic = "force-dynamic";
@@ -148,19 +149,27 @@ export async function POST(request: Request, context: RouteContext) {
       );
     }
 
+    const bytes = Buffer.from(await file.arrayBuffer());
+    const validation = validateImageMagicBytes(bytes);
+    if (!validation.ok || !isAcceptedQuoteBlindImageMimeType(validation.detectedMime)) {
+      return NextResponse.json(
+        { error: validation.ok ? "La imagen debe ser JPG, PNG o WebP." : validation.error },
+        { status: 400 }
+      );
+    }
+
     const newPath = buildQuoteBlindImagePath({
       quoteId: state.quoteId,
       quoteItemId: state.quoteItemId,
-      mimeType: file.type,
+      mimeType: validation.detectedMime,
       uniqueId: crypto.randomUUID(),
     });
     const previousPath = getReferenceImagePath(state.item);
-    const bytes = Buffer.from(await file.arrayBuffer());
     const { error: uploadError } = await state.supabase.storage
       .from(QUOTE_BLINDS_IMAGES_BUCKET)
       .upload(newPath, bytes, {
         cacheControl: "3600",
-        contentType: file.type,
+        contentType: validation.detectedMime,
         upsert: false,
       });
 

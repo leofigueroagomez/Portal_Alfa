@@ -55,6 +55,30 @@ function normalizeSource(value: string) {
   return value === "pagina_web_alfa_high_end_services" ? "Landing Web" : value;
 }
 
+async function verifyTurnstileToken(token: string, ip: string): Promise<boolean> {
+  const secretKey = process.env.TURNSTILE_SECRET_KEY;
+  if (!secretKey) return true;
+
+  try {
+    const formData = new URLSearchParams();
+    formData.append("secret", secretKey);
+    formData.append("response", token);
+    if (ip && ip !== "unknown") formData.append("remoteip", ip);
+
+    const result = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      body: formData,
+      cache: "no-store",
+    });
+
+    if (!result.ok) return false;
+    const json = (await result.json()) as { success?: boolean };
+    return Boolean(json.success);
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(request: Request) {
   const requestId = createRequestId();
   const clientIp = getClientIp(request);
@@ -67,6 +91,34 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => null);
+
+  // Honeypot anti-bot check
+  const honeypot = String(body?.hp_website || body?.website_url || "").trim();
+  if (honeypot) {
+    return NextResponse.json({ ok: true, stored: false });
+  }
+
+  // Cloudflare Turnstile verification if configured in production
+  if (process.env.TURNSTILE_SECRET_KEY) {
+    const turnstileToken = String(
+      body?.turnstileToken || body?.["cf-turnstile-response"] || ""
+    ).trim();
+
+    if (!turnstileToken) {
+      return NextResponse.json(
+        { error: "Verificación de seguridad requerida.", requestId },
+        { status: 400 }
+      );
+    }
+
+    const isHuman = await verifyTurnstileToken(turnstileToken, clientIp);
+    if (!isHuman) {
+      return NextResponse.json(
+        { error: "Falló la verificación de seguridad.", requestId },
+        { status: 400 }
+      );
+    }
+  }
 
   const lead = {
     name: String(body?.name || "").trim().slice(0, 120),

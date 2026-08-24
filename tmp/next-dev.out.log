@@ -1,0 +1,1707 @@
+
+> alfa-portal@0.1.0 dev
+> next dev
+
+▲ Next.js 16.2.6 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.0.167:3000
+- Environments: .env.local
+✓ Ready in 419ms
+Creating turbopack project {
+  dir: 'C:\\Users\\Leo Figueroa\\Desktop\\alfa-portal',
+  testMode: true
+}
+
+ GET / 200 in 362ms (next.js: 72ms, proxy.ts: 138ms, application-code: 151ms)
+ GET / 200 in 46ms (next.js: 4ms, proxy.ts: 3ms, application-code: 39ms)
+ GET /login 200 in 50ms (next.js: 34ms, application-code: 16ms)
+ GET /login 200 in 16ms (next.js: 3ms, application-code: 13ms)
+ GET /login 200 in 16ms (next.js: 4ms, application-code: 13ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /dashboard 200 in 963ms (next.js: 4ms, proxy.ts: 350ms, application-code: 609ms)
+ GET /dashboard 200 in 1607ms (next.js: 55ms, proxy.ts: 526ms, application-code: 1027ms)
+ GET /quotes 200 in 959ms (next.js: 32ms, proxy.ts: 262ms, application-code: 664ms)
+ GET /quotes/74 200 in 1488ms (next.js: 403ms, proxy.ts: 103ms, application-code: 982ms)
+ GET /quotes/76 200 in 1078ms (next.js: 11ms, proxy.ts: 332ms, application-code: 735ms)
+ GET /quotes 200 in 760ms (next.js: 4ms, proxy.ts: 109ms, application-code: 647ms)
+ GET /quotes/76 200 in 808ms (next.js: 9ms, proxy.ts: 108ms, application-code: 691ms)
+ GET /quotes/76/edit 200 in 536ms (next.js: 396ms, proxy.ts: 121ms, application-code: 19ms)
+ GET /api/exchange-rate 200 in 236ms (next.js: 39ms, application-code: 197ms)
+✓ Compiled in 93ms
+ GET / 200 in 136ms (next.js: 48ms, proxy.ts: 56ms, application-code: 32ms)
+ GET / 200 in 22ms (next.js: 5ms, proxy.ts: 3ms, application-code: 15ms)
+ GET / 200 in 22ms (next.js: 4ms, proxy.ts: 3ms, application-code: 15ms)
+ GET / 200 in 22ms (next.js: 4ms, proxy.ts: 3ms, application-code: 15ms)
+ GET / 200 in 23ms (next.js: 4ms, proxy.ts: 3ms, application-code: 16ms)
+ GET / 200 in 19ms (next.js: 4ms, proxy.ts: 2ms, application-code: 12ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 1247ms (next.js: 71ms, proxy.ts: 1128ms, application-code: 48ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 167ms (next.js: 5ms, proxy.ts: 136ms, application-code: 27ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 139ms (next.js: 5ms, proxy.ts: 107ms, application-code: 27ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 131ms (next.js: 9ms, proxy.ts: 92ms, application-code: 29ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 130ms (next.js: 5ms, proxy.ts: 94ms, application-code: 32ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 137ms (next.js: 4ms, proxy.ts: 109ms, application-code: 24ms)
+✓ Compiled in 78ms
+ GET / 200 in 161ms (next.js: 55ms, proxy.ts: 54ms, application-code: 52ms)
+ GET / 200 in 102ms (next.js: 4ms, proxy.ts: 3ms, application-code: 95ms)
+ GET / 200 in 80ms (next.js: 7ms, proxy.ts: 7ms, application-code: 66ms)
+ GET / 200 in 80ms (next.js: 37ms, proxy.ts: 7ms, application-code: 36ms)
+ GET / 200 in 80ms (next.js: 52ms, proxy.ts: 8ms, application-code: 20ms)
+ GET / 200 in 82ms (next.js: 22ms, proxy.ts: 7ms, application-code: 52ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 772ms (next.js: 79ms, proxy.ts: 636ms, application-code: 57ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 257ms (next.js: 5ms, proxy.ts: 221ms, application-code: 31ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 166ms (next.js: 11ms, proxy.ts: 115ms, application-code: 39ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 247ms (next.js: 5ms, proxy.ts: 203ms, application-code: 39ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 161ms (next.js: 10ms, proxy.ts: 122ms, application-code: 29ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 151ms (next.js: 6ms, proxy.ts: 111ms, application-code: 33ms)
+ GET / 200 in 118ms (next.js: 41ms, proxy.ts: 56ms, application-code: 20ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 352ms (next.js: 32ms, proxy.ts: 280ms, application-code: 40ms)
+ GET / 200 in 125ms (next.js: 44ms, proxy.ts: 58ms, application-code: 23ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 873ms (next.js: 32ms, proxy.ts: 806ms, application-code: 36ms)
+ GET / 200 in 124ms (next.js: 51ms, proxy.ts: 50ms, application-code: 23ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 697ms (next.js: 37ms, proxy.ts: 616ms, application-code: 43ms)
+✓ Compiled in 116ms
+ GET / 200 in 113ms (next.js: 44ms, proxy.ts: 44ms, application-code: 24ms)
+ GET / 200 in 23ms (next.js: 4ms, proxy.ts: 3ms, application-code: 17ms)
+ GET / 200 in 16ms (next.js: 3ms, proxy.ts: 2ms, application-code: 11ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 587ms (next.js: 29ms, proxy.ts: 524ms, application-code: 33ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 223ms (next.js: 4ms, proxy.ts: 191ms, application-code: 27ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 186ms (next.js: 9ms, proxy.ts: 151ms, application-code: 27ms)
+✓ Compiled in 62ms
+ GET / 200 in 116ms (next.js: 46ms, proxy.ts: 45ms, application-code: 24ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 667ms (next.js: 68ms, proxy.ts: 563ms, application-code: 35ms)
+✓ Compiled in 65ms
+ GET / 200 in 110ms (next.js: 45ms, proxy.ts: 46ms, application-code: 19ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 520ms (next.js: 70ms, proxy.ts: 407ms, application-code: 42ms)
+✓ Compiled in 61ms
+ GET / 200 in 116ms (next.js: 48ms, proxy.ts: 48ms, application-code: 20ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 509ms (next.js: 69ms, proxy.ts: 401ms, application-code: 38ms)
+✓ Compiled in 62ms
+ GET / 200 in 122ms (next.js: 51ms, proxy.ts: 42ms, application-code: 29ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 521ms (next.js: 71ms, proxy.ts: 415ms, application-code: 35ms)
+✓ Compiled in 64ms
+ GET / 200 in 115ms (next.js: 47ms, proxy.ts: 47ms, application-code: 21ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 542ms (next.js: 72ms, proxy.ts: 431ms, application-code: 39ms)
+ GET / 200 in 112ms (next.js: 45ms, proxy.ts: 42ms, application-code: 25ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 1070ms (next.js: 33ms, proxy.ts: 353ms, application-code: 684ms)
+ GET /api/exchange-rate 200 in 27ms (next.js: 18ms, application-code: 9ms)
+✓ Compiled in 57ms
+ GET / 200 in 114ms (next.js: 43ms, proxy.ts: 52ms, application-code: 19ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 633ms (next.js: 75ms, proxy.ts: 512ms, application-code: 45ms)
+✓ Compiled in 52ms
+ GET / 200 in 121ms (next.js: 49ms, proxy.ts: 45ms, application-code: 27ms)
+ GET / 200 in 19ms (next.js: 4ms, proxy.ts: 2ms, application-code: 13ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 449ms (next.js: 31ms, proxy.ts: 384ms, application-code: 34ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 136ms (next.js: 6ms, proxy.ts: 105ms, application-code: 26ms)
+✓ Compiled in 57ms
+ GET / 200 in 118ms (next.js: 50ms, proxy.ts: 44ms, application-code: 24ms)
+ GET / 200 in 22ms (next.js: 4ms, proxy.ts: 3ms, application-code: 15ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 531ms (next.js: 29ms, proxy.ts: 469ms, application-code: 33ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 130ms (next.js: 5ms, proxy.ts: 105ms, application-code: 21ms)
+✓ Compiled in 52ms
+ GET / 200 in 121ms (next.js: 49ms, proxy.ts: 45ms, application-code: 28ms)
+ GET / 200 in 20ms (next.js: 5ms, proxy.ts: 3ms, application-code: 12ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 762ms (next.js: 31ms, proxy.ts: 698ms, application-code: 33ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 159ms (next.js: 6ms, proxy.ts: 127ms, application-code: 25ms)
+ GET / 200 in 116ms (next.js: 52ms, proxy.ts: 45ms, application-code: 18ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 465ms (next.js: 36ms, proxy.ts: 398ms, application-code: 31ms)
+ GET / 200 in 125ms (next.js: 53ms, proxy.ts: 46ms, application-code: 26ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 493ms (next.js: 32ms, proxy.ts: 430ms, application-code: 32ms)
+ GET / 200 in 114ms (next.js: 49ms, proxy.ts: 44ms, application-code: 21ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 903ms (next.js: 31ms, proxy.ts: 839ms, application-code: 33ms)
+ GET / 200 in 131ms (next.js: 43ms, proxy.ts: 64ms, application-code: 24ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 547ms (next.js: 31ms, proxy.ts: 486ms, application-code: 31ms)
+ GET / 200 in 153ms (next.js: 52ms, proxy.ts: 81ms, application-code: 20ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 883ms (next.js: 33ms, proxy.ts: 816ms, application-code: 34ms)
+ GET / 200 in 117ms (next.js: 49ms, proxy.ts: 44ms, application-code: 24ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 512ms (next.js: 30ms, proxy.ts: 451ms, application-code: 30ms)
+ GET / 200 in 127ms (next.js: 55ms, proxy.ts: 48ms, application-code: 23ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 771ms (next.js: 33ms, proxy.ts: 700ms, application-code: 38ms)
+✓ Compiled in 65ms
+ GET / 200 in 136ms (next.js: 45ms, proxy.ts: 66ms, application-code: 24ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 565ms (next.js: 79ms, proxy.ts: 447ms, application-code: 40ms)
+✓ Compiled in 72ms
+ GET / 200 in 147ms (next.js: 44ms, proxy.ts: 78ms, application-code: 24ms)
+ GET / 200 in 23ms (next.js: 4ms, proxy.ts: 3ms, application-code: 16ms)
+ GET / 200 in 23ms (next.js: 5ms, proxy.ts: 3ms, application-code: 16ms)
+ GET / 200 in 23ms (next.js: 4ms, proxy.ts: 3ms, application-code: 15ms)
+ GET / 200 in 23ms (next.js: 4ms, proxy.ts: 3ms, application-code: 15ms)
+ GET / 200 in 18ms (next.js: 4ms, proxy.ts: 3ms, application-code: 11ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 626ms (next.js: 75ms, proxy.ts: 507ms, application-code: 43ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 182ms (next.js: 5ms, proxy.ts: 146ms, application-code: 31ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 170ms (next.js: 5ms, proxy.ts: 131ms, application-code: 34ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 146ms (next.js: 9ms, proxy.ts: 102ms, application-code: 35ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 158ms (next.js: 6ms, proxy.ts: 115ms, application-code: 37ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 139ms (next.js: 6ms, proxy.ts: 106ms, application-code: 27ms)
+ GET / 200 in 127ms (next.js: 56ms, proxy.ts: 46ms, application-code: 26ms)
+ GET / 200 in 20ms (next.js: 4ms, proxy.ts: 3ms, application-code: 13ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 606ms (next.js: 37ms, proxy.ts: 526ms, application-code: 43ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 147ms (next.js: 7ms, proxy.ts: 115ms, application-code: 26ms)
+ GET / 200 in 122ms (next.js: 52ms, proxy.ts: 47ms, application-code: 22ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 475ms (next.js: 30ms, proxy.ts: 412ms, application-code: 33ms)
+ GET / 200 in 148ms (next.js: 82ms, proxy.ts: 43ms, application-code: 23ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 685ms (next.js: 30ms, proxy.ts: 621ms, application-code: 34ms)
+ GET / 200 in 130ms (next.js: 54ms, proxy.ts: 55ms, application-code: 21ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 1303ms (next.js: 34ms, proxy.ts: 1234ms, application-code: 35ms)
+✓ Compiled in 82ms
+ GET / 200 in 141ms (next.js: 58ms, proxy.ts: 57ms, application-code: 26ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 610ms (next.js: 94ms, proxy.ts: 474ms, application-code: 41ms)
+ GET / 200 in 113ms (next.js: 42ms, proxy.ts: 52ms, application-code: 19ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 598ms (next.js: 33ms, proxy.ts: 529ms, application-code: 36ms)
+ GET / 200 in 121ms (next.js: 48ms, proxy.ts: 46ms, application-code: 27ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 557ms (next.js: 33ms, proxy.ts: 486ms, application-code: 37ms)
+✓ Compiled in 72ms
+ GET / 200 in 123ms (next.js: 44ms, proxy.ts: 60ms, application-code: 19ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 478ms (next.js: 82ms, proxy.ts: 345ms, application-code: 50ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 1992ms (next.js: 10ms, proxy.ts: 1321ms, application-code: 661ms)
+ GET /api/exchange-rate 200 in 27ms (next.js: 18ms, application-code: 9ms)
+ GET /quotes 200 in 1704ms (next.js: 19ms, proxy.ts: 607ms, application-code: 1078ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes 200 in 1558ms (next.js: 4ms, proxy.ts: 165ms, application-code: 1390ms)
+ GET /quotes/76 200 in 1349ms (next.js: 119ms, proxy.ts: 195ms, application-code: 1035ms)
+ GET /quotes/76/edit 200 in 136ms (next.js: 10ms, proxy.ts: 115ms, application-code: 12ms)
+ GET /api/exchange-rate 200 in 7ms (next.js: 2ms, application-code: 5ms)
+✓ Compiled in 65ms
+ GET / 200 in 166ms (next.js: 81ms, proxy.ts: 60ms, application-code: 26ms)
+ GET / 200 in 20ms (next.js: 4ms, proxy.ts: 2ms, application-code: 14ms)
+ GET / 200 in 23ms (next.js: 4ms, proxy.ts: 3ms, application-code: 17ms)
+ GET / 200 in 20ms (next.js: 4ms, proxy.ts: 2ms, application-code: 14ms)
+ GET / 200 in 20ms (next.js: 3ms, proxy.ts: 2ms, application-code: 14ms)
+ GET / 200 in 25ms (next.js: 3ms, proxy.ts: 2ms, application-code: 20ms)
+ GET / 200 in 19ms (next.js: 3ms, proxy.ts: 7ms, application-code: 10ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 976ms (next.js: 102ms, proxy.ts: 816ms, application-code: 58ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 162ms (next.js: 5ms, proxy.ts: 124ms, application-code: 34ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 148ms (next.js: 6ms, proxy.ts: 111ms, application-code: 31ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 163ms (next.js: 9ms, proxy.ts: 123ms, application-code: 30ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 145ms (next.js: 4ms, proxy.ts: 108ms, application-code: 33ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 139ms (next.js: 5ms, proxy.ts: 106ms, application-code: 29ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 154ms (next.js: 10ms, proxy.ts: 119ms, application-code: 25ms)
+✓ Compiled in 161ms
+ GET / 200 in 140ms (next.js: 60ms, proxy.ts: 53ms, application-code: 27ms)
+ GET / 200 in 18ms (next.js: 4ms, proxy.ts: 3ms, application-code: 11ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 1021ms (next.js: 44ms, proxy.ts: 937ms, application-code: 40ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 172ms (next.js: 6ms, proxy.ts: 140ms, application-code: 26ms)
+ GET / 200 in 140ms (next.js: 57ms, proxy.ts: 63ms, application-code: 20ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 635ms (next.js: 42ms, proxy.ts: 561ms, application-code: 32ms)
+ GET / 200 in 131ms (next.js: 61ms, proxy.ts: 50ms, application-code: 20ms)
+ GET / 200 in 20ms (next.js: 4ms, proxy.ts: 1989µs, application-code: 14ms)
+ GET / 200 in 17ms (next.js: 4ms, proxy.ts: 2ms, application-code: 11ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 549ms (next.js: 44ms, proxy.ts: 464ms, application-code: 42ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 169ms (next.js: 4ms, proxy.ts: 138ms, application-code: 26ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 140ms (next.js: 4ms, proxy.ts: 112ms, application-code: 24ms)
+✓ Compiled in 64ms
+ GET / 200 in 129ms (next.js: 53ms, proxy.ts: 59ms, application-code: 17ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /api/exchange-rate 200 in 31ms (next.js: 25ms, application-code: 6ms)
+ GET /quotes/76/edit 200 in 693ms (next.js: 94ms, proxy.ts: 526ms, application-code: 73ms)
+✓ Compiled in 90ms
+ GET / 200 in 143ms (next.js: 64ms, proxy.ts: 57ms, application-code: 22ms)
+ GET / 200 in 20ms (next.js: 4ms, proxy.ts: 2ms, application-code: 14ms)
+ GET / 200 in 20ms (next.js: 3ms, proxy.ts: 2ms, application-code: 14ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 606ms (next.js: 96ms, proxy.ts: 459ms, application-code: 51ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 236ms (next.js: 5ms, proxy.ts: 202ms, application-code: 29ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 149ms (next.js: 8ms, proxy.ts: 119ms, application-code: 22ms)
+ GET / 200 in 128ms (next.js: 59ms, proxy.ts: 51ms, application-code: 18ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 768ms (next.js: 45ms, proxy.ts: 689ms, application-code: 34ms)
+✓ Compiled in 55ms
+ GET / 200 in 132ms (next.js: 59ms, proxy.ts: 55ms, application-code: 18ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 610ms (next.js: 95ms, proxy.ts: 480ms, application-code: 36ms)
+ GET / 200 in 163ms (next.js: 71ms, proxy.ts: 68ms, application-code: 23ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 759ms (next.js: 45ms, proxy.ts: 682ms, application-code: 33ms)
+ GET / 200 in 156ms (next.js: 70ms, proxy.ts: 69ms, application-code: 18ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 1362ms (next.js: 47ms, proxy.ts: 1278ms, application-code: 37ms)
+✓ Compiled in 61ms
+ GET / 200 in 142ms (next.js: 64ms, proxy.ts: 54ms, application-code: 23ms)
+ GET / 200 in 17ms (next.js: 4ms, proxy.ts: 3ms, application-code: 10ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 1109ms (next.js: 47ms, proxy.ts: 1018ms, application-code: 44ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 289ms (next.js: 6ms, proxy.ts: 260ms, application-code: 23ms)
+✓ Compiled in 52ms
+ GET / 200 in 184ms (next.js: 89ms, proxy.ts: 53ms, application-code: 42ms)
+ GET / 200 in 20ms (next.js: 3ms, proxy.ts: 5ms, application-code: 13ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 354ms (next.js: 44ms, proxy.ts: 273ms, application-code: 37ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 138ms (next.js: 5ms, proxy.ts: 112ms, application-code: 22ms)
+✓ Compiled in 67ms
+ GET / 200 in 158ms (next.js: 64ms, proxy.ts: 68ms, application-code: 26ms)
+ GET / 200 in 21ms (next.js: 4ms, proxy.ts: 3ms, application-code: 14ms)
+ GET / 200 in 25ms (next.js: 4ms, proxy.ts: 2ms, application-code: 19ms)
+ GET / 200 in 20ms (next.js: 4ms, proxy.ts: 3ms, application-code: 13ms)
+ GET / 200 in 20ms (next.js: 4ms, proxy.ts: 2ms, application-code: 14ms)
+ GET / 200 in 29ms (next.js: 4ms, proxy.ts: 2ms, application-code: 23ms)
+ GET / 200 in 24ms (next.js: 4ms, proxy.ts: 9ms, application-code: 11ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 946ms (next.js: 99ms, proxy.ts: 794ms, application-code: 53ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 222ms (next.js: 5ms, proxy.ts: 186ms, application-code: 32ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 198ms (next.js: 8ms, proxy.ts: 163ms, application-code: 27ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 193ms (next.js: 5ms, proxy.ts: 162ms, application-code: 26ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 193ms (next.js: 8ms, proxy.ts: 153ms, application-code: 31ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 201ms (next.js: 5ms, proxy.ts: 169ms, application-code: 28ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 191ms (next.js: 9ms, proxy.ts: 158ms, application-code: 24ms)
+✓ Compiled in 66ms
+ GET / 200 in 158ms (next.js: 76ms, proxy.ts: 56ms, application-code: 26ms)
+ GET / 200 in 17ms (next.js: 4ms, proxy.ts: 2ms, application-code: 11ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 748ms (next.js: 47ms, proxy.ts: 665ms, application-code: 36ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 164ms (next.js: 6ms, proxy.ts: 129ms, application-code: 29ms)
+ GET / 200 in 185ms (next.js: 105ms, proxy.ts: 61ms, application-code: 20ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 589ms (next.js: 44ms, proxy.ts: 512ms, application-code: 32ms)
+ GET / 200 in 146ms (next.js: 68ms, proxy.ts: 57ms, application-code: 20ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 535ms (next.js: 47ms, proxy.ts: 456ms, application-code: 32ms)
+✓ Compiled in 50ms
+ GET / 200 in 155ms (next.js: 70ms, proxy.ts: 58ms, application-code: 27ms)
+ GET / 200 in 19ms (next.js: 4ms, proxy.ts: 3ms, application-code: 11ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 1430ms (next.js: 46ms, proxy.ts: 1345ms, application-code: 38ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 204ms (next.js: 4ms, proxy.ts: 177ms, application-code: 23ms)
+ GET / 200 in 150ms (next.js: 67ms, proxy.ts: 60ms, application-code: 23ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 739ms (next.js: 45ms, proxy.ts: 659ms, application-code: 35ms)
+ GET / 200 in 149ms (next.js: 61ms, proxy.ts: 65ms, application-code: 24ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 621ms (next.js: 47ms, proxy.ts: 543ms, application-code: 31ms)
+✓ Compiled in 65ms
+ GET / 200 in 196ms (next.js: 99ms, proxy.ts: 74ms, application-code: 23ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 637ms (next.js: 98ms, proxy.ts: 505ms, application-code: 34ms)
+✓ Compiled in 49ms
+ GET / 200 in 140ms (next.js: 60ms, proxy.ts: 53ms, application-code: 27ms)
+ GET / 200 in 18ms (next.js: 4ms, proxy.ts: 2ms, application-code: 11ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 614ms (next.js: 95ms, proxy.ts: 478ms, application-code: 40ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 197ms (next.js: 4ms, proxy.ts: 172ms, application-code: 21ms)
+✓ Compiled in 62ms
+ GET / 200 in 165ms (next.js: 67ms, proxy.ts: 70ms, application-code: 28ms)
+ GET / 200 in 18ms (next.js: 4ms, proxy.ts: 3ms, application-code: 11ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 685ms (next.js: 53ms, proxy.ts: 591ms, application-code: 41ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 230ms (next.js: 6ms, proxy.ts: 198ms, application-code: 26ms)
+ GET / 200 in 147ms (next.js: 71ms, proxy.ts: 57ms, application-code: 19ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 521ms (next.js: 46ms, proxy.ts: 441ms, application-code: 34ms)
+✓ Compiled in 53ms
+ GET / 200 in 160ms (next.js: 61ms, proxy.ts: 67ms, application-code: 32ms)
+ GET / 200 in 19ms (next.js: 4ms, proxy.ts: 3ms, application-code: 12ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 593ms (next.js: 49ms, proxy.ts: 504ms, application-code: 40ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 145ms (next.js: 5ms, proxy.ts: 116ms, application-code: 24ms)
+ GET / 200 in 159ms (next.js: 63ms, proxy.ts: 66ms, application-code: 30ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 338ms (next.js: 45ms, proxy.ts: 262ms, application-code: 32ms)
+[admin-layout] leads badge query {
+  table: 'leads',
+  filters: {
+    status: 'nuevo',
+    user_id: 'none',
+    owner_id: 'none',
+    assigned_to: 'none',
+    archived: 'none',
+    deleted: 'none'
+  },
+  found: 1,
+  error: null
+}
+ GET /quotes/76/edit 200 in 1653ms (next.js: 9ms, proxy.ts: 674ms, application-code: 970ms)
+ GET /api/exchange-rate 200 in 30ms (next.js: 21ms, application-code: 9ms)
+ GET /quotes 200 in 1804ms (next.js: 17ms, proxy.ts: 848ms, application-code: 939ms)
+ GET /quotes/76 200 in 1167ms (next.js: 129ms, proxy.ts: 98ms, application-code: 941ms)
+ GET /quotes/76/edit 200 in 130ms (next.js: 9ms, proxy.ts: 108ms, application-code: 13ms)
+ GET /api/exchange-rate 200 in 7ms (next.js: 2ms, application-code: 4ms)
+ GET /api/quotes/76/premium-pdf 200 in 7.5s (next.js: 1133ms, application-code: 6.4s)
+ GET /quotes/76/edit 200 in 1001ms (next.js: 10ms, proxy.ts: 977ms, application-code: 14ms)
+ GET /api/exchange-rate 200 in 7ms (next.js: 2ms, application-code: 4ms)
+ GET /quotes 200 in 1360ms (next.js: 4ms, proxy.ts: 384ms, application-code: 972ms)
+ GET /quotes/76 200 in 1238ms (next.js: 9ms, proxy.ts: 97ms, application-code: 1132ms)
+ GET /api/quotes/76/premium-pdf 200 in 5.7s (next.js: 7ms, application-code: 5.7s)
+ GET /api/quotes/76/premium-pdf 200 in 4.3s (next.js: 7ms, application-code: 4.3s)
+ GET /api/quotes/76/premium-pdf 200 in 3.3s (next.js: 6ms, application-code: 3.3s)
+ GET /quotes/76/edit 200 in 1161ms (next.js: 11ms, proxy.ts: 1135ms, application-code: 15ms)
+ GET /api/exchange-rate 200 in 7ms (next.js: 2ms, application-code: 5ms)
+ GET /quotes 200 in 1140ms (next.js: 4ms, proxy.ts: 222ms, application-code: 915ms)
+ GET /quotes/76 200 in 1165ms (next.js: 8ms, proxy.ts: 102ms, application-code: 1055ms)
+ GET /api/quotes/76/premium-pdf 200 in 5.9s (next.js: 7ms, application-code: 5.9s)
+ GET /api/quotes/76/premium-pdf 200 in 3.9s (next.js: 7ms, application-code: 3.9s)
+ GET /api/quotes/76/premium-pdf 200 in 3.3s (next.js: 7ms, application-code: 3.3s)
+ GET /quotes/new 200 in 1021ms (next.js: 75ms, proxy.ts: 930ms, application-code: 16ms)
+ GET /api/exchange-rate 200 in 199ms (next.js: 3ms, application-code: 196ms)
+ GET /api/exchange-rate 200 in 219ms (next.js: 3ms, application-code: 216ms)
+ GET /quotes 200 in 1136ms (next.js: 5ms, proxy.ts: 336ms, application-code: 795ms)
+ GET /quotes/77 200 in 1182ms (next.js: 11ms, proxy.ts: 111ms, application-code: 1060ms)
+ GET /api/quotes/77/premium-pdf 200 in 2.2s (next.js: 8ms, application-code: 2.2s)
+ GET /api/quotes/77/premium-pdf 200 in 2.6s (next.js: 6ms, application-code: 2.6s)
+ GET /api/quotes/77/premium-pdf 200 in 1982ms (next.js: 6ms, application-code: 1976ms)
+ GET /quotes 200 in 837ms (next.js: 4ms, proxy.ts: 248ms, application-code: 586ms)
