@@ -268,6 +268,7 @@ const interestOptions = [
   "CCTV y seguridad electrónica",
   "Control de acceso y automatización",
   "Proyecto integral llave en mano",
+  "Alianza para despacho / Arquitectura",
   "Soporte y póliza ALFA OS",
   "Otro",
 ];
@@ -454,6 +455,12 @@ export default function PublicLanding() {
             >
               ALFA OS
             </Link>
+            <Link
+              href="/arquitectos"
+              className="rounded border border-white/10 px-3.5 py-2 text-xs font-medium uppercase tracking-wider text-zinc-300 transition hover:border-[#B84A5A] hover:text-white"
+            >
+              Arquitectos
+            </Link>
             <a
               href="#diagnostico"
               className="rounded border border-white/15 px-3.5 py-2 text-xs font-medium uppercase tracking-wider text-zinc-200 transition hover:border-[#B84A5A] hover:text-white"
@@ -502,6 +509,22 @@ export default function PublicLanding() {
               })}
             </div>
             <div className="mt-4 flex flex-col gap-2 border-t border-white/10 pt-4">
+              <Link
+                href="/alfa-os"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center justify-between rounded-lg px-3 py-2 text-sm text-zinc-200 hover:bg-white/5"
+              >
+                <span>Plataforma ALFA OS</span>
+                <ArrowRight className="h-4 w-4 text-[#B84A5A]" />
+              </Link>
+              <Link
+                href="/arquitectos"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center justify-between rounded-lg px-3 py-2 text-sm text-zinc-200 hover:bg-white/5"
+              >
+                <span>Alianzas para Arquitectos</span>
+                <ArrowRight className="h-4 w-4 text-[#B84A5A]" />
+              </Link>
               <a
                 href="#diagnostico"
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -1024,6 +1047,9 @@ export default function PublicLanding() {
                 className={fieldClassName}
               >
                 <option value="residencial">Residencial</option>
+                <option value="arquitecto_interiorista">
+                  Despacho de Arquitectura / Interiorismo
+                </option>
                 <option value="comercial">Comercial</option>
                 <option value="corporativo">Corporativo</option>
                 <option value="industrial">Industrial</option>
@@ -1244,6 +1270,14 @@ export default function PublicLanding() {
               <li>Corporativo & Oficinas</li>
               <li>Comercial & Retail</li>
               <li>Industrial & Crítico</li>
+              <li>
+                <Link
+                  href="/arquitectos"
+                  className="font-medium text-[#B84A5A] transition hover:text-[#F0B8C0]"
+                >
+                  Alianzas con Arquitectos →
+                </Link>
+              </li>
             </ul>
           </div>
 

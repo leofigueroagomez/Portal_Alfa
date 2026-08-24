@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 
 const allowedCustomerTypes = [
   "residencial",
+  "arquitecto_interiorista",
   "comercial",
   "corporativo",
   "industrial",
@@ -19,22 +20,33 @@ const allowedCustomerTypes = [
 const allowedInterests = [
   "Iluminación y persianas (Lutron / Shelly)",
   "Iluminación arquitectónica",
+  "Audio de referencia y video profesional",
   "Audio y video",
   "Audio de referencia",
+  "Redes e infraestructura de alta velocidad",
   "Redes e infraestructura",
+  "CCTV y seguridad electrónica",
   "CCTV y seguridad",
+  "Control de acceso y automatización",
   "Control de acceso",
   "Automatización",
+  "Proyecto integral llave en mano",
   "Proyecto integral",
+  "Soporte y póliza ALFA OS",
   "Soporte",
+  "Alianza para despacho / Arquitectura",
+  "Alianza arquitectos",
   "Otro",
 ];
 
 const allowedBudgetRanges = [
   "Menos de $50,000",
+  "Menos de $150,000",
   "$50,000 – $150,000",
   "$150,000 – $500,000",
+  "$500,000 – $1,500,000",
   "Más de $500,000",
+  "Más de $1,500,000",
   "Aún no lo sé",
 ];
 

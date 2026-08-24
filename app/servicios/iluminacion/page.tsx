@@ -339,7 +339,7 @@ export default function IluminacionPage() {
               Diseñemos la experiencia de iluminación para tu proyecto.
             </h2>
             <p className="mt-4 text-base text-zinc-200">
-              Coordinamos directamente con tu arquitecto, diseñador de interiores o equipo de obra. Solicita un diagnóstico en Guadalajara, Zapopan o cualquier punto de México.
+              Coordinamos directamente con tu arquitecto, diseñador de interiores o equipo de obra. Solicita un diagnóstico técnico exclusivo en la Zona Metropolitana de Guadalajara (Zapopan, Guadalajara y zonas residenciales).
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
