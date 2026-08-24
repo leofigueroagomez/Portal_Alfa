@@ -6,6 +6,7 @@ import {
   parsePositiveInteger,
   requireWorkOrderRole,
 } from "@/lib/apiAuth";
+import { validateImageMagicBytes } from "@/lib/imageValidation";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
@@ -170,11 +171,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
     const path = `project-deliveries/${projectId}/${deliveryId}/${timestamp}-${index}-${safeName || `evidence.${getExtension(file)}`}`;
     const bytes = Buffer.from(await file.arrayBuffer());
+    const validation = validateImageMagicBytes(bytes);
+
+    if (!validation.ok) {
+      errors.push({ fileName: file.name, error: validation.error });
+      continue;
+    }
+
     const { error: uploadError } = await supabase.storage
       .from("project-photos")
       .upload(path, bytes, {
         cacheControl: "3600",
-        contentType: file.type || "image/jpeg",
+        contentType: validation.detectedMime,
         upsert: false,
       });
 

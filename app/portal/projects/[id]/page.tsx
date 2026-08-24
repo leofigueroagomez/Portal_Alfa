@@ -79,10 +79,6 @@ type ApprovedQuote = {
   grand_total?: number | null;
 };
 
-type QuoteGroupApproval = {
-  approved_quote_id: number | null;
-};
-
 type ClientVisibleDocument = {
   id: number;
   name: string | null;
@@ -171,7 +167,7 @@ export default async function ClientPortalProjectPage({
     { data: deliveries },
     { data: warranties },
     { data: documents },
-    { data: quoteGroupApprovals },
+    { data: approvedQuotes },
     { data: authorizedPlans },
   ] = await Promise.all([
     supabase
@@ -215,10 +211,13 @@ export default async function ClientPortalProjectPage({
       .select("token, document_type, project_delivery_id, project_warranty_id, quote_id, document_id, project_invoice_id, file_format")
       .eq("client_project_id", project.id)
       .is("expires_at", null),
-    adminSupabase
-      .from("quote_groups")
-      .select("approved_quote_id")
-      .not("approved_quote_id", "is", null),
+    supabase
+      .from("quotes")
+      .select("id, quote_number, created_at, total_mxn, grand_total")
+      .eq("client_project_id", project.id)
+      .eq("status", "approved")
+      .order("created_at", { ascending: false })
+      .limit(1),
     adminSupabase
       .from("documents")
       .select("id, name, file_url, created_at, type, document_type, is_client_visible")
@@ -234,19 +233,6 @@ export default async function ClientPortalProjectPage({
   const deliveryList = (deliveries || []) as Delivery[];
   const warrantyList = (warranties || []) as Warranty[];
   const documentList = (documents || []) as PublicDocument[];
-  const approvedQuoteIds = ((quoteGroupApprovals || []) as QuoteGroupApproval[])
-    .map((group) => group.approved_quote_id)
-    .filter((quoteId): quoteId is number => typeof quoteId === "number");
-  const { data: approvedQuotes } = approvedQuoteIds.length
-    ? await adminSupabase
-        .from("quotes")
-        .select("id, quote_number, created_at, total_mxn, grand_total")
-        .in("id", approvedQuoteIds)
-        .eq("client_project_id", project.id)
-        .eq("status", "approved")
-        .order("created_at", { ascending: false })
-        .limit(1)
-    : { data: [] };
   const approvedQuote = ((approvedQuotes || []) as ApprovedQuote[])[0] || null;
   const authorizedPlanList = (authorizedPlans || []) as ClientVisibleDocument[];
   const generatedDocuments: PublicDocument[] = [];

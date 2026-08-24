@@ -1,0 +1,8 @@
+⨯ The requested resource isn't a valid image for /projects/rack-panduit.jpeg received null
+⨯ The requested resource isn't a valid image for /projects/audio-hifi-bw-mcintosh.jpeg received null
+⨯ The requested resource isn't a valid image for /projects/residencia-premium.jpeg received null
+⨯ The requested resource isn't a valid image for /projects/estudio-hifi.jpeg received null
+[browser] Falta imagen de proyecto: /projects/rack-panduit.jpeg (file://C:/Users/Leo Figueroa/Desktop/alfa-portal/.next/dev/static/chunks/node_modules_next_dist_115brz8._.js:2477:13)
+[browser] Falta imagen de proyecto: /projects/audio-hifi-bw-mcintosh.jpeg (file://C:/Users/Leo Figueroa/Desktop/alfa-portal/.next/dev/static/chunks/node_modules_next_dist_115brz8._.js:2477:13)
+[browser] Falta imagen de proyecto: /projects/residencia-premium.jpeg (file://C:/Users/Leo Figueroa/Desktop/alfa-portal/.next/dev/static/chunks/node_modules_next_dist_115brz8._.js:2477:13)
+[browser] Falta imagen de proyecto: /projects/estudio-hifi.jpeg (file://C:/Users/Leo Figueroa/Desktop/alfa-portal/.next/dev/static/chunks/node_modules_next_dist_115brz8._.js:2477:13)

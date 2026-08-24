@@ -31,8 +31,11 @@ type PublicDocumentAuditInput = {
 
 function hashIp(value: string | null) {
   if (!value || value === "unknown") return null;
-  // TODO: Replace with a keyed HMAC if a shared audit salt is added to production env.
-  return crypto.createHash("sha256").update(value).digest("hex");
+  const salt =
+    process.env.AUDIT_IP_SALT ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    "alfa-audit-default-salt";
+  return crypto.createHmac("sha256", salt).update(value).digest("hex");
 }
 
 function getClientIp(request?: Request) {

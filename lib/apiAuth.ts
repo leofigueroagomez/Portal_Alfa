@@ -20,7 +20,8 @@ const notificationRoles = new Set([
   "project_manager",
 ]);
 
-const rateLimitBuckets = new Map<string, { count: number; resetAt: number }>();
+import { checkMemoryRateLimit, checkRateLimit } from "@/lib/rateLimit";
+export { checkRateLimit };
 
 export function createRequestId() {
   return crypto.randomUUID();
@@ -243,21 +244,7 @@ export function getClientIp(request: Request) {
 }
 
 export function checkBasicRateLimit(key: string, limit = 30, windowMs = 60_000) {
-  // TODO: Replace this best-effort in-memory guard with shared Redis/Vercel KV/edge rate limiting.
-  const now = Date.now();
-  const bucket = rateLimitBuckets.get(key);
-
-  if (!bucket || bucket.resetAt <= now) {
-    rateLimitBuckets.set(key, { count: 1, resetAt: now + windowMs });
-    return true;
-  }
-
-  if (bucket.count >= limit) {
-    return false;
-  }
-
-  bucket.count += 1;
-  return true;
+  return checkMemoryRateLimit(key, limit, windowMs);
 }
 
 export function logApiError(requestId: string, message: string, error: unknown) {
