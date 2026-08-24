@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 
 const WHATSAPP_PHONE =
-  process.env.NEXT_PUBLIC_WHATSAPP_PHONE || "523310000000";
+  process.env.NEXT_PUBLIC_WHATSAPP_PHONE || "523318574884";
 
 const experienceAreas = [
   {

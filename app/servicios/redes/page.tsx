@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   },
 };
 
-const WHATSAPP_PHONE = process.env.NEXT_PUBLIC_WHATSAPP_PHONE || "523310000000";
+const WHATSAPP_PHONE = process.env.NEXT_PUBLIC_WHATSAPP_PHONE || "523318574884";
 
 const whatsappUrl = `https://wa.me/${WHATSAPP_PHONE}?text=${encodeURIComponent(
   "Hola ALFA, me interesa solicitar un diagnóstico para un proyecto de Redes, Cableado Estructurado o WiFi profesional."

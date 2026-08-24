@@ -304,7 +304,7 @@ export default function AudioVideoPage() {
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
             <a
-              href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_PHONE || "523310000000"}?text=${encodeURIComponent(
+              href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_PHONE || "523318574884"}?text=${encodeURIComponent(
                 "Hola ALFA, me interesa solicitar un diagnóstico para un proyecto de Audio y Video Profesional."
               )}`}
               target="_blank"
