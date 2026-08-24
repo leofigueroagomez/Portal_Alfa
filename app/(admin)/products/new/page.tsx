@@ -8,6 +8,10 @@ import {
   SatUnitSelect,
   TaxObjectSelect,
 } from "@/components/SatCatalogSelect";
+import {
+  findDuplicateProduct,
+  formatDuplicateProductMessage,
+} from "@/lib/productDuplicates";
 
 type TaxonomyOption = {
   id: number;
@@ -215,6 +219,22 @@ export default function NewProductPage() {
   }
 
   async function handleSave() {
+    if (!form.image_url.trim()) {
+      alert("Adjunta una foto real del producto antes de darlo de alta.");
+      return;
+    }
+
+    const duplicate = await findDuplicateProduct(supabase, {
+      brand: form.brand,
+      model: form.model,
+      sku: form.sku,
+    });
+
+    if (duplicate) {
+      alert(formatDuplicateProductMessage(duplicate));
+      return;
+    }
+
     setLoading(true);
     setSuccessMessage("");
 

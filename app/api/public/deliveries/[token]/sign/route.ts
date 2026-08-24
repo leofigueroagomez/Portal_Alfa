@@ -25,6 +25,8 @@ export async function POST(
       signatureDataUrl,
       signerName,
       signerRole,
+      signerEmail,
+      signerPhone,
       ineFrontDataUrl,
       ineBackDataUrl,
       geolocation,
@@ -45,6 +47,20 @@ export async function POST(
       );
     }
 
+    if (!signerEmail || typeof signerEmail !== "string" || !signerEmail.includes("@")) {
+      return NextResponse.json(
+        { error: "Un correo electrónico válido es obligatorio para el envío de su carta de garantía y avisos." },
+        { status: 400 }
+      );
+    }
+
+    if (!signerPhone || typeof signerPhone !== "string" || signerPhone.trim().length < 8) {
+      return NextResponse.json(
+        { error: "Un teléfono móvil / WhatsApp válido es obligatorio para el envío de su garantía." },
+        { status: 400 }
+      );
+    }
+
     if (!privacyConsentAccepted) {
       return NextResponse.json(
         { error: "Es necesario aceptar el consentimiento de privacidad y tratamiento de datos." },
@@ -57,6 +73,8 @@ export async function POST(
       signatureDataUrl,
       signerName: signerName.trim(),
       signerRole: typeof signerRole === "string" ? signerRole.trim() : null,
+      signerEmail: signerEmail.trim(),
+      signerPhone: signerPhone.trim(),
       ineFrontDataUrl: typeof ineFrontDataUrl === "string" ? ineFrontDataUrl : null,
       ineBackDataUrl: typeof ineBackDataUrl === "string" ? ineBackDataUrl : null,
       geolocation: geolocation && typeof geolocation.latitude === "number" && typeof geolocation.longitude === "number"

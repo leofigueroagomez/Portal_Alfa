@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Edit, FileText, Printer, Wrench } from "lucide-react";
+import { ArrowLeft, Download, Edit, FileText, Wrench } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import {
   formatServiceDate,
@@ -8,6 +8,8 @@ import {
 } from "@/lib/serviceReports";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import SendServiceCompletedEmailButton from "./SendServiceCompletedEmailButton";
+import { getServiceDispatchContext } from "./actions";
+import ServiceCollectionPanel from "./ServiceCollectionPanel";
 
 type ServiceReport = {
   id: number;
@@ -29,6 +31,20 @@ type ServiceReport = {
   labor_sale_mxn: number | null;
   status: string | null;
   completed_at: string | null;
+  payment_status: string | null;
+  paid_at: string | null;
+  payment_method: string | null;
+  payment_reference: string | null;
+  client_signer_name: string | null;
+  client_signer_email: string | null;
+  client_signer_phone: string | null;
+  client_signed_at: string | null;
+  client_signature_image_url: string | null;
+  client_signature_ip: string | null;
+  client_ine_front_url: string | null;
+  client_ine_back_url: string | null;
+  last_payment_reminder_sent_at: string | null;
+  payment_reminders_count: number | null;
   service_email_sent_at: string | null;
   service_email_sent_to: string | null;
   service_email_status: string | null;
@@ -54,13 +70,17 @@ export default async function ServiceDetailPage({
 }) {
   const supabase = await createSupabaseServerClient();
   const { id } = await params;
-  const { data: report, error } = await supabase
-    .from("service_reports")
-    .select(
-      "*, clients(name), client_projects(name), quotes:related_quote_id(quote_number)"
-    )
-    .eq("id", id)
-    .maybeSingle();
+
+  const [{ data: report, error }, dispatchContext] = await Promise.all([
+    supabase
+      .from("service_reports")
+      .select(
+        "*, clients(name, company_name, email, phone), client_projects(name), quotes:related_quote_id(quote_number)"
+      )
+      .eq("id", id)
+      .maybeSingle(),
+    getServiceDispatchContext(Number(id)),
+  ]);
 
   if (error || !report) {
     return (
@@ -82,16 +102,25 @@ export default async function ServiceDetailPage({
     .select("id, image_url, caption, sort_order")
     .eq("service_report_id", id)
     .order("sort_order", { ascending: true });
+
   const photos = await Promise.all(
     ((rawPhotos || []) as Omit<ServicePhoto, "displayUrl">[]).map(async (photo) => ({
       ...photo,
       displayUrl: await resolveServicePhotoUrl(supabase.storage, photo.image_url),
     }))
   );
+
+  const [clientSignatureUrl, ineFrontUrl, ineBackUrl] = await Promise.all([
+    resolveServicePhotoUrl(supabase.storage, reportData.client_signature_image_url),
+    resolveServicePhotoUrl(supabase.storage, reportData.client_ine_front_url),
+    resolveServicePhotoUrl(supabase.storage, reportData.client_ine_back_url),
+  ]);
+
   const quoteUrl = `/quotes/new?clientId=${reportData.client_id || ""}&projectId=${
     reportData.client_project_id || ""
   }&serviceReportId=${reportData.id}`;
   const isCompleted = reportData.status === "completed";
+  const isSigned = Boolean(reportData.client_signed_at);
 
   return (
     <main className="min-h-screen bg-[#0B0D0F] p-4 text-white md:p-8 xl:p-10">
@@ -100,31 +129,49 @@ export default async function ServiceDetailPage({
         Volver a servicios
       </Link>
 
-      <section className="mb-10 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+      <section className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
-          <p className="mb-3 text-sm tracking-[0.3em] text-[#9E1B32]">
-            {reportData.service_number || `SERV-${String(reportData.id).padStart(4, "0")}`}
-          </p>
+          <div className="mb-3 flex items-center gap-3">
+            <p className="text-sm tracking-[0.3em] text-[#9E1B32]">
+              {reportData.service_number || `SERV-${String(reportData.id).padStart(4, "0")}`}
+            </p>
+            <span
+              className={`inline-flex rounded-full border px-3 py-0.5 text-xs font-semibold ${
+                reportData.payment_status === "paid"
+                  ? "border-[#1F7A4D] bg-[#143D2A] text-[#8CE0B6]"
+                  : isSigned
+                    ? "border-[#614620] bg-[#322514] text-[#F4C66A]"
+                    : "border-[#2A2A30] bg-[#1C1D22] text-[#B3B3B8]"
+              }`}
+            >
+              {reportData.payment_status === "paid"
+                ? "Pagado"
+                : isSigned
+                  ? "Pendiente de Pago"
+                  : "Borrador / Sin Firma"}
+            </span>
+          </div>
           <h1 className="text-3xl font-bold sm:text-4xl">Reporte de servicio</h1>
-          <p className="mt-3 text-[#B3B3B8]">
-            {reportData.clients?.name || "Sin cliente"} /{" "}
-            {reportData.client_projects?.name || "Sin proyecto"}
+          <p className="mt-2 text-[#B3B3B8]">
+            {dispatchContext.clientName} / {reportData.client_projects?.name || "Sin proyecto"}
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <Link
-            href={`/services/${id}/print`}
-            className="inline-flex items-center gap-2 rounded-xl border border-[#2A2A30] bg-[#222228] px-5 py-3 font-semibold text-[#B3B3B8] hover:text-white"
+          <a
+            href={`/api/services/${id}/pdf`}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 rounded-xl bg-[#9E1B32] px-5 py-3 font-semibold text-white hover:bg-[#B91C3C] shadow-lg"
           >
-            <Printer size={18} />
-            Ver reporte tecnico
-          </Link>
+            <Download size={18} />
+            Descargar PDF Oficial
+          </a>
           <Link
             href={`/services/${id}/proposal`}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#9E1B32] px-5 py-3 font-semibold hover:bg-[#B91C3C]"
+            className="inline-flex items-center gap-2 rounded-xl border border-[#2A2A30] bg-[#151518] px-5 py-3 font-semibold text-white hover:bg-[#222228]"
           >
             <FileText size={18} />
-            Ver propuesta de reparacion
+            Ver propuesta
           </Link>
           {isCompleted ? (
             <SendServiceCompletedEmailButton
@@ -151,55 +198,108 @@ export default async function ServiceDetailPage({
         </div>
       </section>
 
+      {/* Módulo de Cobranza y Despacho Multicanal */}
+      <div className="mb-8">
+        <ServiceCollectionPanel
+          serviceId={Number(id)}
+          serviceNumber={reportData.service_number || `SERV-${String(reportData.id).padStart(4, "0")}`}
+          clientName={dispatchContext.clientName}
+          totalMxn={reportData.labor_sale_mxn || 0}
+          paymentStatus={reportData.payment_status || "pending_payment"}
+          paidAt={reportData.paid_at}
+          paymentMethod={reportData.payment_method}
+          paymentReference={reportData.payment_reference}
+          isSigned={isSigned}
+          signerName={reportData.client_signer_name}
+          signedAt={reportData.client_signed_at}
+          recipientEmail={dispatchContext.recipientEmail}
+          recipientPhone={dispatchContext.recipientPhone}
+          publicUrl={dispatchContext.publicUrl}
+          waSignUrl={dispatchContext.waSignUrl}
+          waSignText={dispatchContext.waSignText}
+          waCollectUrl={dispatchContext.waCollectUrl}
+          waCollectText={dispatchContext.waCollectText}
+          remindersCount={reportData.payment_reminders_count || 0}
+          lastReminderSentAt={reportData.last_payment_reminder_sent_at}
+        />
+      </div>
+
       <section className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-4">
         <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5">
-          <p className="text-sm text-[#B3B3B8]">Fecha</p>
+          <p className="text-sm text-[#B3B3B8]">Fecha de Servicio</p>
           <p className="mt-2 text-xl font-semibold">{formatServiceDate(reportData.service_date)}</p>
         </div>
         <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5">
-          <p className="text-sm text-[#B3B3B8]">Tecnico</p>
+          <p className="text-sm text-[#B3B3B8]">Técnico Responsable</p>
           <p className="mt-2 text-xl font-semibold">{reportData.performed_by_name || "-"}</p>
         </div>
         <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5">
-          <p className="text-sm text-[#B3B3B8]">Solucion</p>
+          <p className="text-sm text-[#B3B3B8]">Resultado Técnico</p>
           <p className="mt-2 text-xl font-semibold">{getSolutionLabel(reportData.solution_status)}</p>
         </div>
         <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5">
-          <p className="text-sm text-[#B3B3B8]">Cargo cliente</p>
+          <p className="text-sm text-[#B3B3B8]">Total a Cobrar</p>
           <p className="mt-2 text-xl font-semibold text-[#8CE0B6]">
             {formatCurrency(reportData.labor_sale_mxn, "MXN")}
           </p>
         </div>
       </section>
 
-      {isCompleted ? (
-        <section className="mb-8 rounded-2xl border border-[#1F1F24] bg-[#151518] p-5 sm:p-6">
-          <h2 className="mb-3 text-2xl font-semibold">Correo al cliente</h2>
-          {reportData.service_email_status === "sent" ? (
-            <p className="text-[#8CE0B6]">
-              Enviado a {reportData.service_email_sent_to || "cliente"} el{" "}
-              {formatServiceDate(reportData.service_email_sent_at)}.
-            </p>
-          ) : reportData.service_email_status === "error" ? (
-            <p className="text-[#F28B82]">
-              Error al enviar: {reportData.service_email_error || "Sin detalle"}
-            </p>
-          ) : (
-            <p className="text-[#B3B3B8]">Aun no se ha enviado el correo de servicio.</p>
-          )}
+      {/* Evidencia Legal y Firma si está firmado */}
+      {isSigned && (
+        <section className="mb-8 rounded-2xl border border-[#1F7A4D]/40 bg-[#12221A] p-5 sm:p-6 space-y-4">
+          <h2 className="text-lg font-bold text-white">Constancia de Firma y Recepción Legal</h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 text-xs">
+            <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+              <span className="text-[#8E8E93]">Nombre del Firmante:</span>
+              <p className="mt-1 font-bold text-white">{reportData.client_signer_name}</p>
+              <p className="text-[11px] text-[#B3B3B8]">Correo: {reportData.client_signer_email}</p>
+              <p className="text-[11px] text-[#B3B3B8]">Tel: {reportData.client_signer_phone}</p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+              <span className="text-[#8E8E93]">Firma Digital Capturada:</span>
+              {clientSignatureUrl ? (
+                <div className="mt-1 bg-black/50 p-2 rounded-lg border border-white/10">
+                  <img src={clientSignatureUrl} alt="Firma" className="h-14 object-contain mx-auto" />
+                </div>
+              ) : (
+                <p className="mt-1 text-white">Firma registrada</p>
+              )}
+            </div>
+            <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+              <span className="text-[#8E8E93]">Identificación Oficial (INE):</span>
+              {ineFrontUrl ? (
+                <div className="mt-1 flex gap-2">
+                  <a href={ineFrontUrl} target="_blank" rel="noreferrer" className="text-[#8CE0B6] underline">
+                    Ver Frente
+                  </a>
+                  {ineBackUrl && (
+                    <a href={ineBackUrl} target="_blank" rel="noreferrer" className="text-[#8CE0B6] underline">
+                      Ver Reverso
+                    </a>
+                  )}
+                </div>
+              ) : (
+                <p className="mt-1 text-[#77777D]">Sin foto de INE adjunta</p>
+              )}
+              <p className="mt-2 text-[10px] text-[#77777D]">
+                IP de origen: {reportData.client_signature_ip || "Registrada"}
+              </p>
+            </div>
+          </div>
         </section>
-      ) : null}
+      )}
 
       <section className="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-2">
         <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5 sm:p-6">
-          <h2 className="mb-4 text-2xl font-semibold">Diagnostico</h2>
+          <h2 className="mb-4 text-2xl font-semibold">Diagnóstico</h2>
           <p className="mb-4 whitespace-pre-line text-[#B3B3B8]">{reportData.background || "Sin antecedentes"}</p>
-          <p className="whitespace-pre-line">{reportData.diagnosis || "Sin diagnostico"}</p>
+          <p className="whitespace-pre-line">{reportData.diagnosis || "Sin diagnóstico"}</p>
         </div>
         <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5 sm:p-6">
-          <h2 className="mb-4 text-2xl font-semibold">Solucion</h2>
+          <h2 className="mb-4 text-2xl font-semibold">Solución y Trabajos</h2>
           <p className="whitespace-pre-line text-[#B3B3B8]">
-            {reportData.solution_description || "Sin descripcion"}
+            {reportData.solution_description || "Sin descripción"}
           </p>
           <h3 className="mb-3 mt-6 text-xl font-semibold">Recomendaciones</h3>
           <p className="whitespace-pre-line text-[#B3B3B8]">
@@ -216,7 +316,7 @@ export default async function ServiceDetailPage({
               <p className="mt-2 whitespace-pre-line">{reportData.required_parts_notes || "Sin notas"}</p>
               {reportData.related_quote_id ? (
                 <p className="mt-2 text-sm">
-                  Cotizacion relacionada: {reportData.quotes?.quote_number || `#${reportData.related_quote_id}`}
+                  Cotización relacionada: {reportData.quotes?.quote_number || `#${reportData.related_quote_id}`}
                 </p>
               ) : null}
             </div>
@@ -227,14 +327,14 @@ export default async function ServiceDetailPage({
                   className="inline-flex w-fit items-center gap-2 rounded-xl bg-[#9E1B32] px-5 py-3 font-semibold text-white hover:bg-[#B91C3C]"
                 >
                   <FileText size={18} />
-                  Ver propuesta de reparacion
+                  Ver propuesta de reparación
                 </Link>
                 <Link
                   href={`/quotes/${reportData.related_quote_id}`}
                   className="inline-flex w-fit items-center gap-2 rounded-xl border border-[#2A2A30] bg-[#222228] px-5 py-3 font-semibold text-[#B3B3B8] hover:text-white"
                 >
                   <FileText size={18} />
-                  Ver cotizacion interna
+                  Ver cotización interna
                 </Link>
               </div>
             ) : (
@@ -243,7 +343,7 @@ export default async function ServiceDetailPage({
                 className="inline-flex w-fit items-center gap-2 rounded-xl bg-[#9E1B32] px-5 py-3 font-semibold text-white hover:bg-[#B91C3C]"
               >
                 <FileText size={18} />
-                Crear cotizacion interna de refacciones
+                Crear cotización interna de refacciones
               </Link>
             )}
           </div>
@@ -251,9 +351,9 @@ export default async function ServiceDetailPage({
       ) : null}
 
       <section className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-5 sm:p-6">
-        <h2 className="mb-5 text-2xl font-semibold">Evidencia fotografica</h2>
+        <h2 className="mb-5 text-2xl font-semibold">Evidencias Fotográficas</h2>
         {photos.length === 0 ? (
-          <p className="text-[#77777D]">Sin fotos.</p>
+          <p className="text-[#77777D]">Sin fotos registradas.</p>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {photos.map((photo) => (

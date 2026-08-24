@@ -3,9 +3,14 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/services/supabase";
 import { formatCurrency } from "@/lib/format";
+import {
+  findDuplicateProduct,
+  formatDuplicateProductMessage,
+} from "@/lib/productDuplicates";
 
 type Product = {
   id: number;
+  sku: string | null;
   brand: string;
   model: string;
   name: string;
@@ -20,6 +25,8 @@ type Product = {
   labor_unit_sale_price: number;
   is_favorite: boolean | null;
   partner_discount_eligible: boolean | null;
+  created_at?: string | null;
+  cost_updated_at?: string | null;
 };
 
 type TaxonomyOption = {
@@ -160,6 +167,21 @@ export default function QuickCreateProductButton({
       return;
     }
 
+    if (!form.image_url.trim()) {
+      alert("Adjunta una foto real del producto antes de darlo de alta.");
+      return;
+    }
+
+    const duplicate = await findDuplicateProduct(supabase, {
+      brand: form.brand,
+      model: form.model,
+    });
+
+    if (duplicate) {
+      alert(formatDuplicateProductMessage(duplicate));
+      return;
+    }
+
     setSaving(true);
 
     const { data, error } = await supabase
@@ -193,7 +215,7 @@ export default function QuickCreateProductButton({
         is_active: true,
       })
       .select(
-        "id, brand, model, name, category, category_id, image_url, cost_price, cost_currency, calculated_sale_price, sale_currency, labor_unit_cost, labor_unit_sale_price, is_favorite, partner_discount_eligible"
+        "id, sku, brand, model, name, category, category_id, image_url, cost_price, cost_currency, calculated_sale_price, sale_currency, labor_unit_cost, labor_unit_sale_price, is_favorite, partner_discount_eligible, created_at, cost_updated_at"
       )
       .single();
 

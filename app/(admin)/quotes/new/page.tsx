@@ -8,6 +8,10 @@ import { supabase } from "@/services/supabase";
 import { formatCurrency, formatNumber } from "@/lib/format";
 import { getMexicoDate } from "@/lib/mexicoDate";
 import {
+  getProductAgeInDays,
+  isProductCostStale,
+} from "@/lib/productFreshness";
+import {
   createLegacyLaborActivity,
   getItemLaborCostTotal,
   getItemLaborSaleTotal,
@@ -38,6 +42,7 @@ import QuickCreateProductButton from "../QuickCreateProductButton";
 
 type Product = {
   id: number;
+  sku: string | null;
   brand: string;
   model: string;
   name: string;
@@ -52,6 +57,8 @@ type Product = {
   labor_unit_sale_price: number;
   is_favorite: boolean | null;
   partner_discount_eligible: boolean | null;
+  created_at?: string | null;
+  cost_updated_at?: string | null;
   product_categories?: {
     name: string | null;
   } | null;
@@ -511,6 +518,15 @@ export default function NewQuotePage() {
       return;
     }
 
+    if (isProductCostStale(product.cost_updated_at)) {
+      const days = getProductAgeInDays(product.cost_updated_at);
+      alert(
+        `${product.brand} ${product.model} tiene un costo sin verificar desde hace ${days} dias. ` +
+          `Actualiza el costo del producto en el catalogo antes de poder cotizarlo.`
+      );
+      return;
+    }
+
     expandSection(activeSectionId);
 
     setSections((current) =>
@@ -851,16 +867,17 @@ export default function NewQuotePage() {
   }
 
   const filteredProducts = products.filter((product) => {
-    const query = search.toLowerCase();
+    const query = search.trim().toLowerCase();
     const productTags =
       product.product_tag_assignments
         ?.map((assignment) => assignment.product_tags)
         .filter(Boolean) || [];
 
     const matchesSearch =
-      product.brand?.toLowerCase().includes(query) ||
-      product.model?.toLowerCase().includes(query) ||
-      product.name?.toLowerCase().includes(query);
+      (product.brand || "").trim().toLowerCase().includes(query) ||
+      (product.model || "").trim().toLowerCase().includes(query) ||
+      (product.name || "").trim().toLowerCase().includes(query) ||
+      (product.sku || "").trim().toLowerCase().includes(query);
 
     const matchesCategory =
       !categoryFilter || String(product.category_id || "") === categoryFilter;
@@ -2169,6 +2186,11 @@ export default function NewQuotePage() {
                           Favorito
                         </span>
                       ) : null}
+                      {isProductCostStale(product.cost_updated_at) ? (
+                        <span className="rounded-full bg-[#3B2116] px-2 py-1 text-xs text-[#F4A66A]">
+                          Costo sin verificar hace {getProductAgeInDays(product.cost_updated_at)} dias
+                        </span>
+                      ) : null}
                     </div>
 
                     <p className="text-[#B3B3B8]">
@@ -2351,6 +2373,11 @@ export default function NewQuotePage() {
                             product.sale_currency
                           )}
                         </p>
+                        {isProductCostStale(product.cost_updated_at) ? (
+                          <p className="mt-1 text-xs text-[#F4A66A]">
+                            Costo sin verificar hace {getProductAgeInDays(product.cost_updated_at)} dias
+                          </p>
+                        ) : null}
                       </div>
 
                       <button

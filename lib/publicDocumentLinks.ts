@@ -7,7 +7,8 @@ import type { PublicDocumentLink } from "@/lib/publicDocuments";
 type PublicDocumentType = PublicDocumentLink["document_type"];
 
 type PublicDocumentLinkInput = {
-  clientProjectId: number;
+  clientProjectId?: number | null;
+  serviceReportId?: number | null;
   documentType: PublicDocumentType;
   projectDeliveryId?: number | null;
   projectWarrantyId?: number | null;
@@ -19,6 +20,7 @@ type PublicDocumentLinkInput = {
 
 type IdentityFilterQuery<T> = {
   eq(column: string, value: unknown): T;
+  is(column: string, value: null): T;
 };
 
 const fiscalDocumentTypes = new Set<PublicDocumentType>([
@@ -27,7 +29,7 @@ const fiscalDocumentTypes = new Set<PublicDocumentType>([
 ]);
 
 function getDefaultExpiresAt(documentType: PublicDocumentType) {
-  if (documentType === "project_delivery_sign") {
+  if (documentType === "project_delivery_sign" || documentType === "service_report_sign") {
     return new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString();
   }
   const days = fiscalDocumentTypes.has(documentType) ? 30 : 90;
@@ -38,6 +40,10 @@ function applyIdentityFilter<T extends IdentityFilterQuery<T>>(
   query: T,
   input: PublicDocumentLinkInput
 ) {
+  if (input.serviceReportId) {
+    return query.eq("service_report_id", input.serviceReportId);
+  }
+
   if (input.projectDeliveryId) {
     return query.eq("project_delivery_id", input.projectDeliveryId);
   }
@@ -66,15 +72,18 @@ function applyIdentityFilter<T extends IdentityFilterQuery<T>>(
 export async function getOrCreatePublicDocumentLink(input: PublicDocumentLinkInput) {
   const supabase = createSupabaseAdminClient();
   const selectFields =
-    "id, token, document_type, client_project_id, project_delivery_id, project_warranty_id, quote_id, document_id, project_invoice_id, file_format, expires_at, revoked_at, access_count, last_accessed_at";
+    "id, token, document_type, client_project_id, service_report_id, project_delivery_id, project_warranty_id, quote_id, document_id, project_invoice_id, file_format, expires_at, revoked_at, access_count, last_accessed_at";
 
-  const existingQuery = supabase
+  let existingQuery = supabase
     .from("public_document_links")
     .select(selectFields)
-    .eq("client_project_id", input.clientProjectId)
     .eq("document_type", input.documentType)
     .gt("expires_at", new Date().toISOString())
     .is("revoked_at", null);
+
+  if (input.clientProjectId) {
+    existingQuery = existingQuery.eq("client_project_id", input.clientProjectId);
+  }
 
   const existingResult = await applyIdentityFilter(
     existingQuery,
@@ -84,14 +93,17 @@ export async function getOrCreatePublicDocumentLink(input: PublicDocumentLinkInp
   let existingError = existingResult.error;
 
   if (existingError && existingError.code === "42703") {
-    const fallbackQuery = supabase
+    let fallbackQuery = supabase
       .from("public_document_links")
       .select(
         "id, token, document_type, client_project_id, project_delivery_id, project_warranty_id, quote_id, document_id, project_invoice_id, file_format, expires_at"
       )
-      .eq("client_project_id", input.clientProjectId)
       .eq("document_type", input.documentType)
       .gt("expires_at", new Date().toISOString());
+
+    if (input.clientProjectId) {
+      fallbackQuery = fallbackQuery.eq("client_project_id", input.clientProjectId);
+    }
 
     const fallback = await applyIdentityFilter(fallbackQuery, input).maybeSingle();
     existing = fallback.data as PublicDocumentLink | null;
@@ -112,7 +124,8 @@ export async function getOrCreatePublicDocumentLink(input: PublicDocumentLinkInp
     .insert({
       token,
       document_type: input.documentType,
-      client_project_id: input.clientProjectId,
+      client_project_id: input.clientProjectId || null,
+      service_report_id: input.serviceReportId || null,
       project_delivery_id: input.projectDeliveryId || null,
       project_warranty_id: input.projectWarrantyId || null,
       quote_id: input.quoteId || null,
@@ -153,5 +166,38 @@ export async function getOrCreateDeliverySigningLink(input: {
     clientProjectId: input.clientProjectId,
     projectDeliveryId: input.projectDeliveryId,
     documentType: "project_delivery_sign",
+  });
+}
+
+export async function getOrCreateWarrantyPublicLink(input: {
+  clientProjectId: number;
+  projectWarrantyId: number;
+}) {
+  return getOrCreatePublicDocumentLink({
+    clientProjectId: input.clientProjectId,
+    projectWarrantyId: input.projectWarrantyId,
+    documentType: "project_warranty",
+  });
+}
+
+export async function getOrCreateServiceSigningLink(input: {
+  serviceReportId: number;
+  clientProjectId?: number | null;
+}) {
+  return getOrCreatePublicDocumentLink({
+    serviceReportId: input.serviceReportId,
+    clientProjectId: input.clientProjectId || null,
+    documentType: "service_report_sign",
+  });
+}
+
+export async function getOrCreateServiceReportPublicLink(input: {
+  serviceReportId: number;
+  clientProjectId?: number | null;
+}) {
+  return getOrCreatePublicDocumentLink({
+    serviceReportId: input.serviceReportId,
+    clientProjectId: input.clientProjectId || null,
+    documentType: "service_report",
   });
 }

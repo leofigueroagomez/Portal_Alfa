@@ -9,6 +9,10 @@ import { formatCurrency, formatNumber } from "@/lib/format";
 import { getMexicoDate } from "@/lib/mexicoDate";
 import { syncProjectOperationalItems } from "@/lib/projectOperationalItems";
 import {
+  getProductAgeInDays,
+  isProductCostStale,
+} from "@/lib/productFreshness";
+import {
   createLegacyLaborActivity,
   getItemLaborCostTotal,
   getItemLaborSaleTotal,
@@ -42,6 +46,7 @@ import QuoteLaborActivitiesPanel from "../../QuoteLaborActivitiesPanel";
 
 type Product = {
   id: number;
+  sku: string | null;
   brand: string;
   model: string;
   name: string;
@@ -56,6 +61,8 @@ type Product = {
   labor_unit_sale_price: number;
   is_favorite: boolean | null;
   partner_discount_eligible: boolean | null;
+  created_at?: string | null;
+  cost_updated_at?: string | null;
   product_categories?: {
     name: string | null;
   } | null;
@@ -698,12 +705,15 @@ export default function EditQuotePage() {
 
               return {
                 id: item.product_id || 0,
+                sku: catalogProduct?.sku ?? null,
                 brand: item.product_brand || "",
                 model: item.product_model || "",
                 name: item.product_name || "",
                 category: null,
                 category_id: null,
                 image_url: item.product_image_url,
+                created_at: catalogProduct?.created_at ?? null,
+                cost_updated_at: catalogProduct?.cost_updated_at ?? null,
                 cost_price: catalogProduct?.cost_price ?? 0,
                 cost_currency:
                   catalogProduct?.cost_currency || item.sale_currency || "USD",
@@ -940,6 +950,15 @@ export default function EditQuotePage() {
   function addProduct(product: Product) {
     if (!activeSectionId) {
       alert("Selecciona un sistema primero");
+      return;
+    }
+
+    if (isProductCostStale(product.cost_updated_at)) {
+      const days = getProductAgeInDays(product.cost_updated_at);
+      alert(
+        `${product.brand} ${product.model} tiene un costo sin verificar desde hace ${days} dias. ` +
+          `Actualiza el costo del producto en el catalogo antes de poder cotizarlo.`
+      );
       return;
     }
 
@@ -1283,16 +1302,17 @@ export default function EditQuotePage() {
   }
 
   const filteredProducts = products.filter((product) => {
-    const query = search.toLowerCase();
+    const query = search.trim().toLowerCase();
     const productTags =
       product.product_tag_assignments
         ?.map((assignment) => assignment.product_tags)
         .filter(Boolean) || [];
 
     const matchesSearch =
-      product.brand?.toLowerCase().includes(query) ||
-      product.model?.toLowerCase().includes(query) ||
-      product.name?.toLowerCase().includes(query);
+      (product.brand || "").trim().toLowerCase().includes(query) ||
+      (product.model || "").trim().toLowerCase().includes(query) ||
+      (product.name || "").trim().toLowerCase().includes(query) ||
+      (product.sku || "").trim().toLowerCase().includes(query);
 
     const matchesCategory =
       !categoryFilter || String(product.category_id || "") === categoryFilter;
@@ -2597,6 +2617,11 @@ export default function EditQuotePage() {
                           Favorito
                         </span>
                       ) : null}
+                      {isProductCostStale(product.cost_updated_at) ? (
+                        <span className="rounded-full bg-[#3B2116] px-2 py-1 text-xs text-[#F4A66A]">
+                          Costo sin verificar hace {getProductAgeInDays(product.cost_updated_at)} dias
+                        </span>
+                      ) : null}
                     </div>
 
                     <p className="text-[#B3B3B8]">{product.name}</p>
@@ -2777,6 +2802,11 @@ export default function EditQuotePage() {
                             product.sale_currency
                           )}
                         </p>
+                        {isProductCostStale(product.cost_updated_at) ? (
+                          <p className="mt-1 text-xs text-[#F4A66A]">
+                            Costo sin verificar hace {getProductAgeInDays(product.cost_updated_at)} dias
+                          </p>
+                        ) : null}
                       </div>
 
                       <button

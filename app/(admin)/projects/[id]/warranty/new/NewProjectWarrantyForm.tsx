@@ -9,7 +9,9 @@ import { supabase } from "@/services/supabase";
 
 type Props = {
   projectId: number;
+  defaultWarrantyDate?: string;
   defaultInstalledSystems: string;
+  defaultMaintenanceCost?: number;
   defaultSupportEmail: string;
   defaultRepresentativeName: string;
 };
@@ -42,22 +44,25 @@ function reportError(step: string, error: unknown) {
 
 export default function NewProjectWarrantyForm({
   projectId,
+  defaultWarrantyDate,
   defaultInstalledSystems,
+  defaultMaintenanceCost,
   defaultSupportEmail,
   defaultRepresentativeName,
 }: Props) {
   const router = useRouter();
+  const initialDate = defaultWarrantyDate || today();
   const [saving, setSaving] = useState(false);
-  const [warrantyDate, setWarrantyDate] = useState(today());
+  const [warrantyDate, setWarrantyDate] = useState(initialDate);
   const [installedSystems, setInstalledSystems] = useState(defaultInstalledSystems);
   const [equipmentMonths, setEquipmentMonths] = useState(12);
-  const [equipmentStartDate, setEquipmentStartDate] = useState(today());
+  const [equipmentStartDate, setEquipmentStartDate] = useState(initialDate);
   const [installationMonths, setInstallationMonths] = useState(12);
-  const [installationStartDate, setInstallationStartDate] = useState(today());
+  const [installationStartDate, setInstallationStartDate] = useState(initialDate);
   const [maintenanceRequired, setMaintenanceRequired] = useState(true);
   const [maintenanceFrequencyMonths, setMaintenanceFrequencyMonths] = useState(6);
-  const [maintenanceCost, setMaintenanceCost] = useState("0");
-  const [managementIncludedUntil, setManagementIncludedUntil] = useState(addMonths(today(), 12));
+  const [maintenanceCost, setMaintenanceCost] = useState(String(defaultMaintenanceCost || 1500));
+  const [managementIncludedUntil, setManagementIncludedUntil] = useState(addMonths(initialDate, 12));
   const [requiresContractAfter, setRequiresContractAfter] = useState(true);
   const [maintenancePolicyActive, setMaintenancePolicyActive] = useState(false);
   const [maintenancePolicyReference, setMaintenancePolicyReference] = useState("");

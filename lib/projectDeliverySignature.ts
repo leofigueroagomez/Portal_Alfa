@@ -3,6 +3,7 @@ import "server-only";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 import { getPublicDocumentLink, recordPublicDocumentAccess } from "@/lib/publicDocuments";
 import { getAppBaseUrl } from "@/lib/appUrl";
+import { getProjectFinancialSummary } from "@/lib/projectFinancials";
 
 export type DeliverySigningContext = {
   isValid: boolean;
@@ -17,6 +18,8 @@ export type DeliverySigningContext = {
     siteAttendedByName: string | null;
     siteAttendedByRole: string | null;
     clientSignerName: string | null;
+    clientSignerPhone?: string | null;
+    clientSignerEmail?: string | null;
     clientSignedAt: string | null;
     alfaSignatureUrl: string | null;
     clientSignatureUrl: string | null;
@@ -137,7 +140,7 @@ export async function getDeliverySigningContext(
   const { data: delivery, error: deliveryError } = await supabase
     .from("project_deliveries")
     .select(
-      "id, delivery_date, status, delivered_to_name, delivered_to_role, delivered_by_name, observations, client_signature_image_url, alfa_signature_image_url, site_attended_by_name, site_attended_by_role, client_signer_name, client_signed_at, client_ine_front_url, client_ine_back_url, signature_latitude, signature_longitude, signature_geo_accuracy_meters, privacy_consent_accepted"
+      "id, delivery_date, status, delivered_to_name, delivered_to_role, delivered_by_name, observations, client_signature_image_url, alfa_signature_image_url, site_attended_by_name, site_attended_by_role, client_signer_name, client_signer_phone, client_signer_email, client_signed_at, client_ine_front_url, client_ine_back_url, signature_latitude, signature_longitude, signature_geo_accuracy_meters, privacy_consent_accepted"
     )
     .eq("id", deliveryId)
     .eq("client_project_id", projectId)
@@ -224,6 +227,8 @@ export async function getDeliverySigningContext(
       siteAttendedByName: delivery.site_attended_by_name,
       siteAttendedByRole: delivery.site_attended_by_role,
       clientSignerName: delivery.client_signer_name || delivery.delivered_to_name,
+      clientSignerPhone: delivery.client_signer_phone || clientData?.phone || null,
+      clientSignerEmail: delivery.client_signer_email || clientData?.email || null,
       clientSignedAt: delivery.client_signed_at,
       alfaSignatureUrl,
       clientSignatureUrl,
@@ -308,6 +313,8 @@ export type SubmitDeliverySignatureInput = {
   signatureDataUrl: string;
   signerName: string;
   signerRole?: string | null;
+  signerEmail?: string | null;
+  signerPhone?: string | null;
   ineFrontDataUrl?: string | null;
   ineBackDataUrl?: string | null;
   geolocation?: {
@@ -322,6 +329,122 @@ export type SubmitDeliverySignatureInput = {
   userAgent?: string | null;
   request?: Request;
 };
+
+async function notifyManagementOfSignedDelivery(params: {
+  projectId: number;
+  deliveryId: number;
+  clientName: string;
+  projectName: string;
+  signerName: string;
+  signerEmail: string;
+  signerPhone: string;
+  signedAt: string;
+  financialSummary: { approvedTotalMxn: number; paidTotalMxn: number; pendingTotalMxn: number };
+}) {
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.EMAIL_FROM || "ALFA OS <notificaciones@alfait.com.mx>";
+
+  if (!apiKey) {
+    console.warn("RESEND_API_KEY no configurado. Se omite notificación a Dirección.");
+    return;
+  }
+
+  const baseUrl = getAppBaseUrl();
+  const reviewUrl = `${baseUrl}/projects/${params.projectId}/warranty/new?deliveryId=${params.deliveryId}`;
+
+  const formatCurrency = (val: number) =>
+    new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(val);
+
+  const pendingFormatted = formatCurrency(params.financialSummary.pendingTotalMxn);
+  const isPendingDebt = params.financialSummary.pendingTotalMxn > 1;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #0B0D0F; color: #FFFFFF; margin: 0; padding: 20px; }
+          .container { max-width: 600px; margin: 0 auto; background-color: #151518; border-radius: 16px; border: 1px solid #2A2A30; overflow: hidden; }
+          .header { background-color: #121316; padding: 24px; border-bottom: 1px solid #2A2A30; }
+          .brand { color: #9E1B32; font-size: 11px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; }
+          .title { color: #FFFFFF; font-size: 20px; font-weight: bold; margin: 8px 0 0 0; }
+          .content { padding: 24px; }
+          .card { background-color: #1C1D22; border-radius: 12px; border: 1px solid #2A2A30; padding: 16px; margin-bottom: 16px; }
+          .status-badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; ${
+            isPendingDebt
+              ? "background-color: #351818; color: #FFB4B4; border: 1px solid #6A2A2A;"
+              : "background-color: #143D2A; color: #8CE0B6; border: 1px solid #1F7A4D;"
+          } }
+          .row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }
+          .label { color: #8E8E93; }
+          .value { color: #FFFFFF; font-weight: 600; text-align: right; }
+          .cta-btn { display: block; background-color: #9E1B32; color: #FFFFFF; text-align: center; padding: 14px 20px; border-radius: 12px; font-weight: bold; text-decoration: none; margin-top: 20px; font-size: 14px; }
+          .footer { padding: 16px 24px; background-color: #101114; color: #77777D; font-size: 11px; text-align: center; border-top: 1px solid #222228; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <div class="brand">ALFA OS • Notificación a Dirección</div>
+            <div class="title">🔔 Proyecto Entregado: ${params.projectName}</div>
+          </div>
+          <div class="content">
+            <p style="font-size: 14px; color: #D1D1D6; margin-top: 0;">
+              El cliente titular ha firmado de conformidad la recepción del proyecto. Se requiere <strong>revisión de estado de cuenta</strong> previo a la emisión y envío de la Carta de Garantía.
+            </p>
+
+            <div class="card">
+              <div style="font-size: 11px; text-transform: uppercase; color: #9E1B32; font-weight: bold; margin-bottom: 12px;">Datos de Contacto del Firmante (Posventa)</div>
+              <div class="row"><span class="label">Cliente / Titular:</span><span class="value">${params.signerName}</span></div>
+              <div class="row"><span class="label">Correo Electrónico:</span><span class="value">${params.signerEmail || "No proporcionado"}</span></div>
+              <div class="row"><span class="label">Teléfono / WhatsApp:</span><span class="value">${params.signerPhone || "No proporcionado"}</span></div>
+              <div class="row"><span class="label">Fecha y Hora de Firma:</span><span class="value">${new Date(params.signedAt).toLocaleString("es-MX")}</span></div>
+            </div>
+
+            <div class="card">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <span style="font-size: 11px; text-transform: uppercase; color: #9E1B32; font-weight: bold;">Estado de Cuenta Financiero</span>
+                <span class="status-badge">${isPendingDebt ? "⚠️ Saldo Pendiente de Cobro" : "✓ Al Corriente ($0.00)"}</span>
+              </div>
+              <div class="row"><span class="label">Total Cotizado / Aprobado:</span><span class="value">${formatCurrency(params.financialSummary.approvedTotalMxn)}</span></div>
+              <div class="row"><span class="label">Total Cobrado / Pagado:</span><span class="value">${formatCurrency(params.financialSummary.paidTotalMxn)}</span></div>
+              <div class="row" style="border-top: 1px solid #2A2A30; padding-top: 8px; margin-top: 8px;">
+                <span class="label" style="font-weight: bold; color: ${isPendingDebt ? "#FFB4B4" : "#8CE0B6"};">Saldo Pendiente:</span>
+                <span class="value" style="font-size: 16px; color: ${isPendingDebt ? "#FFB4B4" : "#8CE0B6"};">${pendingFormatted}</span>
+              </div>
+            </div>
+
+            <a href="${reviewUrl}" class="cta-btn">
+              Revisar Estado de Cuenta y Emitir Garantía →
+            </a>
+          </div>
+          <div class="footer">
+            ALFA IT • Sistema Automatizado de Posventa y Garantías
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  try {
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from,
+        to: ["direccion@alfait.com.mx"],
+        subject: `🔔 Proyecto Entregado: ${params.projectName} - ${params.clientName} (${isPendingDebt ? "Saldo Pendiente: " + pendingFormatted : "Al Corriente"})`,
+        html,
+      }),
+    });
+  } catch (err) {
+    console.error("Error enviando correo a Dirección:", err);
+  }
+}
 
 /**
  * Procesa la firma digital enviada por el cliente desde su smartphone o navegador.
@@ -428,6 +551,8 @@ export async function submitDeliverySignature(input: SubmitDeliverySignatureInpu
   const signedAt = new Date().toISOString();
   const signerName = input.signerName.trim();
   const signerRole = input.signerRole?.trim() || "Cliente Titular";
+  const signerEmail = input.signerEmail?.trim() || null;
+  const signerPhone = input.signerPhone?.trim() || null;
 
   // Actualizar project_deliveries
   const { error: updateDeliveryError } = await supabase
@@ -439,6 +564,8 @@ export async function submitDeliverySignature(input: SubmitDeliverySignatureInpu
       client_signer_name: signerName,
       delivered_to_name: signerName,
       delivered_to_role: signerRole,
+      client_signer_email: signerEmail,
+      client_signer_phone: signerPhone,
       client_signed_at: signedAt,
       client_signature_ip: input.ip || null,
       client_signature_user_agent: input.userAgent?.slice(0, 500) || null,
@@ -465,6 +592,36 @@ export async function submitDeliverySignature(input: SubmitDeliverySignatureInpu
     .update({ sales_stage: "delivered" })
     .eq("id", projectId)
     .in("sales_stage", ["won", "installed", "site_visit", "negotiation"]);
+
+  // Cargar datos para notificación a Dirección
+  const [{ data: project }, financialSummary] = await Promise.all([
+    supabase
+      .from("client_projects")
+      .select("id, name, client_id, clients(name, company_name)")
+      .eq("id", projectId)
+      .maybeSingle(),
+    getProjectFinancialSummary(supabase, projectId),
+  ]);
+
+  const clientName =
+    (project as { clients?: { name?: string; company_name?: string } | null })?.clients
+      ?.company_name ||
+    (project as { clients?: { name?: string; company_name?: string } | null })?.clients
+      ?.name ||
+    signerName;
+
+  // Enviar notificación a Dirección
+  await notifyManagementOfSignedDelivery({
+    projectId,
+    deliveryId,
+    clientName,
+    projectName: project?.name || "Proyecto",
+    signerName,
+    signerEmail: signerEmail || "",
+    signerPhone: signerPhone || "",
+    signedAt,
+    financialSummary,
+  });
 
   // Registrar auditoría
   await recordPublicDocumentAccess(

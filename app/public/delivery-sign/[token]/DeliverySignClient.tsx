@@ -115,6 +115,12 @@ export default function DeliverySignClient({ token, context }: Props) {
   const [signerRole, setSignerRole] = useState(
     delivery?.siteAttendedByRole || "Propietario / Titular"
   );
+  const [signerEmail, setSignerEmail] = useState(
+    delivery?.clientSignerEmail || client?.email || ""
+  );
+  const [signerPhone, setSignerPhone] = useState(
+    delivery?.clientSignerPhone || client?.phone || ""
+  );
   const [privacyConsentAccepted, setPrivacyConsentAccepted] = useState(false);
   const [hasDrawn, setHasDrawn] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -253,6 +259,16 @@ export default function DeliverySignClient({ token, context }: Props) {
       return;
     }
 
+    if (!signerEmail.trim() || !signerEmail.includes("@")) {
+      setSubmitError("Por favor captura un correo electrónico válido para enviarte tu carta de garantía y avisos.");
+      return;
+    }
+
+    if (!signerPhone.trim() || signerPhone.trim().length < 8) {
+      setSubmitError("Por favor captura un teléfono móvil / WhatsApp válido para enviarte tu garantía.");
+      return;
+    }
+
     if (!hasDrawn || !canvasRef.current) {
       setSubmitError("Por favor dibuja tu firma en el recuadro.");
       return;
@@ -279,6 +295,8 @@ export default function DeliverySignClient({ token, context }: Props) {
           signatureDataUrl,
           signerName: signerName.trim(),
           signerRole: signerRole.trim() || null,
+          signerEmail: signerEmail.trim(),
+          signerPhone: signerPhone.trim(),
           ineFrontDataUrl,
           ineBackDataUrl,
           geolocation,
@@ -718,7 +736,7 @@ export default function DeliverySignClient({ token, context }: Props) {
 
             {/* Paso 2: Datos del Firmante */}
             <div className="space-y-3">
-              <h4 className="text-sm font-bold text-white">2. Datos de quien firma</h4>
+              <h4 className="text-sm font-bold text-white">2. Datos de contacto y posventa (para envío de garantía)</h4>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label className="space-y-1">
                   <span className="text-xs text-[#B3B3B8]">Nombre completo conforme a INE *</span>
@@ -738,6 +756,28 @@ export default function DeliverySignClient({ token, context }: Props) {
                     value={signerRole}
                     onChange={(e) => setSignerRole(e.target.value)}
                     placeholder="Ej. Propietario, Representante Legal, etc."
+                    className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-3.5 py-2.5 text-sm text-white outline-none focus:border-[#9E1B32]"
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs text-[#B3B3B8]">Correo electrónico (para envío de garantía) *</span>
+                  <input
+                    type="email"
+                    required
+                    value={signerEmail}
+                    onChange={(e) => setSignerEmail(e.target.value)}
+                    placeholder="cliente@ejemplo.com"
+                    className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-3.5 py-2.5 text-sm text-white outline-none focus:border-[#9E1B32]"
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs text-[#B3B3B8]">Teléfono celular / WhatsApp *</span>
+                  <input
+                    type="tel"
+                    required
+                    value={signerPhone}
+                    onChange={(e) => setSignerPhone(e.target.value)}
+                    placeholder="10 dígitos (ej. 5512345678)"
                     className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-3.5 py-2.5 text-sm text-white outline-none focus:border-[#9E1B32]"
                   />
                 </label>

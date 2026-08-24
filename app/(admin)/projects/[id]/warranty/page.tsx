@@ -149,13 +149,15 @@ export default async function ProjectWarrantyPage({
                         >
                           Ver detalle
                         </Link>
-                        <Link
-                          href={`/projects/${id}/warranty/${warranty.id}/print`}
+                        <a
+                          href={`/api/projects/${id}/warranty/${warranty.id}/pdf`}
+                          target="_blank"
+                          rel="noreferrer"
                           className="inline-flex items-center gap-2 rounded-lg border border-[#2A2A30] px-3 py-2 text-xs font-semibold text-[#B3B3B8] hover:text-white"
                         >
                           <FileText size={14} />
-                          PDF
-                        </Link>
+                          Descargar PDF
+                        </a>
                       </div>
                     </td>
                   </tr>

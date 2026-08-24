@@ -352,11 +352,20 @@ export default async function ProjectDeliveryDetailPage({
         <div className="flex flex-wrap gap-3">
           <Link
             href={`/projects/${id}/deliveries/${deliveryId}/print`}
-            className="inline-flex w-fit items-center gap-2 rounded-xl bg-[#9E1B32] px-5 py-3 font-semibold hover:bg-[#B91C3C]"
+            className="inline-flex w-fit items-center gap-2 rounded-xl border border-[#2A2A30] bg-[#151518] px-5 py-3 font-semibold text-white hover:bg-[#222228]"
           >
             <FileText size={18} />
             PDF de entrega
           </Link>
+          {isSigned && (
+            <Link
+              href={latestWarranty ? `/projects/${id}/warranty/${latestWarranty.id}` : `/projects/${id}/warranty/new`}
+              className="inline-flex w-fit items-center gap-2 rounded-xl bg-[#9E1B32] px-5 py-3 font-semibold text-white hover:bg-[#B91C3C] shadow-lg"
+            >
+              <ShieldCheck size={18} />
+              {latestWarranty ? "Ver Carta de Garantía" : "Emitir Carta de Garantía"}
+            </Link>
+          )}
         </div>
       </section>
 

@@ -42,6 +42,16 @@ export default async function PublicDocumentPage({
       href: `/public/documents/${token}/pdf`,
       label: "Abrir PDF",
     },
+    service_report: {
+      title: "Reporte de servicio técnico",
+      href: `/public/documents/${token}/pdf`,
+      label: "Abrir PDF",
+    },
+    service_report_sign: {
+      title: "Revisión y firma de servicio",
+      href: `/public/service-sign/${token}`,
+      label: "Revisar y firmar",
+    },
     approved_quote: {
       title: "Cotizacion autorizada",
       href: `/public/documents/${token}/quote`,

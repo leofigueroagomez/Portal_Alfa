@@ -612,30 +612,32 @@ export function WarrantyLetterPdfDocument({
   const clientName = client?.company_name || client?.name || "Cliente";
   const projectName = project?.name || "Proyecto";
   const supportEmail = warranty.support_email || "soporte@alfait.com";
-  const representativeName = warranty.alfa_representative_name || "ALFA IT";
+  const representativeName = warranty.alfa_representative_name || "Ingeniería y Operaciones ALFA IT";
   const nextMaintenanceDate = addMonths(
     warranty.installation_warranty_start_date || warranty.warranty_date,
-    warranty.preventive_maintenance_frequency_months
+    warranty.preventive_maintenance_frequency_months || 6
   );
-  const maintenanceFrequency = warranty.preventive_maintenance_frequency_months || 6;
+  const maintenanceCost = warranty.preventive_maintenance_cost_mxn || 1500;
 
   return (
     <Document>
       <Page size="LETTER" style={styles.warrantyPage}>
+        {/* Encabezado Corporativo de Lujo */}
         <View style={styles.warrantyHeader}>
           <View>
             {logoSrc ? <Image src={logoSrc} style={styles.warrantyLogo} /> : <Text style={styles.brand}>ALFA IT</Text>}
-            <Text style={styles.warrantyEyebrow}>Carta de garantia</Text>
+            <Text style={styles.warrantyEyebrow}>Carta de Garantía y Póliza de Servicio</Text>
           </View>
           <View style={styles.warrantyRightHeader}>
-            <Text>Fecha: {formatDate(warranty.warranty_date)}</Text>
+            <Text>Fecha de Emisión: {formatDate(warranty.warranty_date)}</Text>
             <Text style={styles.warrantyFolio}>Folio GAR-{String(warranty.id).padStart(4, "0")}</Text>
           </View>
         </View>
 
+        {/* Resumen de Proyecto y Cliente */}
         <View style={styles.warrantyGrid}>
           <View style={styles.warrantyCard}>
-            <Text style={styles.warrantyLabel}>Cliente</Text>
+            <Text style={styles.warrantyLabel}>Cliente Titular</Text>
             <Text style={styles.warrantyValue}>{clientName}</Text>
           </View>
           <View style={styles.warrantyCard}>
@@ -645,21 +647,20 @@ export function WarrantyLetterPdfDocument({
           </View>
         </View>
 
+        {/* Alcance y Sistemas Instalados */}
         <View style={styles.warrantyIntro}>
           <Text style={styles.warrantyParagraph}>
-            Por medio de la presente, ALFA IT hace constar las condiciones de garantia
-            aplicables al proyecto indicado, conforme a los sistemas instalados,
-            alcances ejecutados y fecha de entrega registrada.
+            Por medio de la presente, <strong>ALFA IT</strong> certifica y extiende la garantía oficial correspondiente al proyecto <strong>{projectName}</strong>, amparando los alcances técnicos ejecutados, equipos suministrados y servicios de ingeniería instalados conforme a los más altos estándares de la industria.
           </Text>
           <View style={styles.warrantySystemsBox}>
-            <Text style={styles.warrantyClauseTitle}>Sistemas instalados</Text>
+            <Text style={styles.warrantyClauseTitle}>Sistemas y Alcances con Cobertura</Text>
             {installedSystems.length === 0 ? (
-              <Text style={styles.warrantyMuted}>Sin sistemas registrados.</Text>
+              <Text style={styles.warrantyMuted}>Sistemas instalados conforme a memoria técnica y cotización autorizada.</Text>
             ) : (
               <View style={styles.warrantySystemsGrid}>
                 {installedSystems.map((system) => (
                   <Text key={system} style={styles.warrantySystemItem}>
-                    - {system}
+                    • {system}
                   </Text>
                 ))}
               </View>
@@ -667,75 +668,50 @@ export function WarrantyLetterPdfDocument({
           </View>
         </View>
 
+        {/* 1. Vigencia y Cobertura (1 Año) */}
         <View style={styles.warrantySection}>
-          <Text style={styles.warrantySectionTitle}>1. Garantia de Equipos</Text>
+          <Text style={styles.warrantySectionTitle}>1. Vigencia de Garantía (12 Meses)</Text>
           <Text style={styles.warrantyParagraph}>
-            Los equipos suministrados por ALFA IT cuentan con una garantia de{" "}
-            {warranty.equipment_warranty_months || 0} meses, vigente del{" "}
-            {formatDate(warranty.equipment_warranty_start_date)} al{" "}
-            {formatDate(warranty.equipment_warranty_end_date)}. Esta garantia se
-            limita a fallas atribuibles a defectos de fabricacion o funcionamiento
-            del equipo, conforme a las condiciones del fabricante.
+            La presente garantía cuenta con una vigencia total de <strong>1 año (12 meses)</strong> a partir de la fecha de entrega formal del proyecto, vigente del <strong>{formatDate(warranty.installation_warranty_start_date || warranty.warranty_date)}</strong> al <strong>{formatDate(warranty.installation_warranty_end_date || addMonths(warranty.warranty_date, 12))}</strong>.
           </Text>
+          <Text style={[styles.warrantyParagraph, { marginTop: 4 }]}>
+            • <strong>Garantía de Equipos:</strong> Cobertura contra defectos de fabricación conforme a las políticas del fabricante. La gestión y tramitación ante fabricante por parte de ALFA IT está 100% incluida durante el primer año.
+          </Text>
+          <Text style={[styles.warrantyParagraph, { marginTop: 3 }]}>
+            • <strong>Garantía de Instalación y Mano de Obra:</strong> Cobertura integral sobre conexionado, fijación, configuración técnica y calibración realizada por ALFA IT.
+          </Text>
+        </View>
+
+        {/* 2. Condición de Mantenimiento Preventivo (Cláusula de Anulación) */}
+        <View style={styles.warrantySection}>
+          <Text style={styles.warrantySectionTitle}>2. Mantenimiento Preventivo Semestral (Condición Indispensable)</Text>
           <View style={styles.warrantyClause}>
-            <Text style={styles.warrantyClauseTitle}>Clausula de Gestion de Garantia en Equipos</Text>
-            <Text style={styles.warrantyParagraph}>
-              La gestion de garantia por parte de ALFA IT estara incluida unicamente
-              durante el primer ano contado a partir de la fecha de entrega.
+            <Text style={[styles.warrantyClauseTitle, { color: "#9E1B32" }]}>
+              Cláusula Obligatoria de Mantenimiento Cada 6 Meses
             </Text>
-            {warranty.maintenance_policy_active ? (
-              <Text style={styles.warrantyParagraph}>
-                Al existir una poliza de mantenimiento vigente
-                {warranty.maintenance_policy_reference
-                  ? ` (${warranty.maintenance_policy_reference})`
-                  : ""}
-                , la gestion continuara incluida mientras dicha poliza se mantenga activa.
+            <Text style={[styles.warrantyParagraph, { fontWeight: 700 }]}>
+              Para conservar la plena validez y vigencia de la presente garantía, es condición obligatoria e indispensable realizar el servicio de mantenimiento preventivo cada 6 (seis) meses con personal técnico certificado de ALFA IT.
+            </Text>
+            <Text style={[styles.warrantyParagraph, { marginTop: 4, color: "#30343B" }]}>
+              La falta, retraso u omisión en la realización del mantenimiento preventivo semestral, así como la intervención de los equipos por terceros no autorizados, anulará de forma automática e irrevocable la cobertura de garantía de instalación y servicio.
+            </Text>
+            <View style={{ marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: "#E1DDD5", flexDirection: "row", justifyContent: "space-between" }}>
+              <Text style={{ fontSize: 8.5, fontWeight: 700 }}>
+                Costo fijado por servicio de mantenimiento semestral: {formatMoney(maintenanceCost)} MXN (+ IVA)
               </Text>
-            ) : (
-              <Text style={styles.warrantyParagraph}>
-                Si no existe poliza de mantenimiento vigente, las visitas y mano de obra
-                seran cobradas conforme a las tarifas vigentes de ALFA IT.
+              <Text style={{ fontSize: 8.5, color: "#555963" }}>
+                Próximo mantenimiento sugerido: {formatDate(nextMaintenanceDate)}
               </Text>
-            )}
+            </View>
           </View>
         </View>
 
-        <View style={styles.warrantySection}>
-          <Text style={styles.warrantySectionTitle}>2. Garantia de Instalacion</Text>
-          <Text style={styles.warrantyParagraph}>
-            La instalacion realizada por ALFA IT cuenta con una garantia de{" "}
-            {warranty.installation_warranty_months || 0} meses, vigente del{" "}
-            {formatDate(warranty.installation_warranty_start_date)} al{" "}
-            {formatDate(warranty.installation_warranty_end_date)}. Esta garantia cubre
-            mano de obra relacionada directamente con la instalacion ejecutada, siempre
-            que los equipos y sistemas no hayan sido intervenidos, reubicados, modificados
-            o manipulados por terceros.
-          </Text>
-          {warranty.preventive_maintenance_required ? (
-            <Text style={styles.warrantyParagraph}>
-              Para conservar el funcionamiento correcto de los sistemas, se requiere
-              mantenimiento preventivo cada {maintenanceFrequency} meses.
-              El costo registrado de mantenimiento es {formatMoney(warranty.preventive_maintenance_cost_mxn)}.
-              El proximo mantenimiento sugerido es {formatDate(nextMaintenanceDate)}.
-            </Text>
-          ) : (
-            <Text style={styles.warrantyParagraph}>
-              No se registraron requisitos obligatorios de mantenimiento preventivo para esta carta.
-            </Text>
-          )}
-        </View>
-
+        {/* 3. Reclamos y Firmas */}
         <View style={styles.warrantyClosingBlock} wrap={false}>
           <View style={styles.warrantySection}>
-            <Text style={styles.warrantySectionTitle}>3. Procedimiento de Reclamo</Text>
+            <Text style={styles.warrantySectionTitle}>3. Asistencia Técnica y Reportes</Text>
             <Text style={styles.warrantyParagraph}>
-              Cualquier solicitud de garantia debera reportarse al correo {supportEmail},
-              indicando cliente, proyecto, descripcion de la falla, evidencia fotografica
-              o en video y datos de contacto para coordinacion de revision tecnica.
-
-              La gestión de garantía por parte de ALFA IT estará incluida únicamente durante el primer año contado a partir de la fecha de entrega.
-              Al no existir una poliza de mantenimiento vigente, las visitas tecnicas y mano de obra requeridas para la gestion posterior al primer año seran cobradas
-              conforme a las tarifas vigentes de ALFA IT.
+              Para soporte o hacer válida su garantía, comuníquese a <strong>{supportEmail}</strong> indicando número de proyecto y folio de garantía.
             </Text>
           </View>
 

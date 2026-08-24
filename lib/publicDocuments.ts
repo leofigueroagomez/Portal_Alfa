@@ -8,13 +8,16 @@ export type PublicDocumentLink = {
     | "project_delivery"
     | "project_delivery_sign"
     | "project_warranty"
+    | "service_report"
+    | "service_report_sign"
     | "approved_quote"
     | "authorized_plan"
     | "project_invoice_pdf"
     | "project_invoice_xml";
-  client_project_id: number;
+  client_project_id: number | null;
   project_delivery_id: number | null;
   project_warranty_id: number | null;
+  service_report_id?: number | null;
   quote_id: number | null;
   document_id: number | null;
   project_invoice_id: number | null;

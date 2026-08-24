@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/services/supabase";
 import { formatCurrency } from "@/lib/format";
@@ -10,6 +10,10 @@ import {
   SatUnitSelect,
   TaxObjectSelect,
 } from "@/components/SatCatalogSelect";
+import {
+  findDuplicateProduct,
+  formatDuplicateProductMessage,
+} from "@/lib/productDuplicates";
 
 type TaxonomyOption = {
   id: number;
@@ -89,6 +93,11 @@ export default function EditProductPage() {
   const [categories, setCategories] = useState<TaxonomyOption[]>([]);
   const [tags, setTags] = useState<TaxonomyOption[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
+  const originalCostRef = useRef<{
+    cost_price: number;
+    cost_currency: string;
+  } | null>(null);
+  const [costUpdatedAt, setCostUpdatedAt] = useState<string | null>(null);
   const laborUnitSalePrice =
     (Number(form.labor_unit_cost) || 0) * LABOR_MULTIPLIER;
 
@@ -189,6 +198,11 @@ export default function EditProductPage() {
       }
 
       const data = productResult.data;
+      originalCostRef.current = {
+        cost_price: Number(data.cost_price || 0),
+        cost_currency: data.cost_currency || "USD",
+      };
+      setCostUpdatedAt(data.cost_updated_at || null);
       setForm({
         sku: data.sku || "",
         brand: data.brand || "",
@@ -274,6 +288,23 @@ export default function EditProductPage() {
   }
 
   async function handleSave() {
+    if (!form.image_url.trim()) {
+      alert("Adjunta una foto real del producto antes de guardar.");
+      return;
+    }
+
+    const duplicate = await findDuplicateProduct(supabase, {
+      brand: form.brand,
+      model: form.model,
+      sku: form.sku,
+      excludeId: productId,
+    });
+
+    if (duplicate) {
+      alert(formatDuplicateProductMessage(duplicate));
+      return;
+    }
+
     setSaving(true);
 
     const fiscalErrors = await getFiscalErrors();
@@ -283,6 +314,12 @@ export default function EditProductPage() {
       reportError("validar datos SAT", { message: fiscalErrors.join(" ") });
       return;
     }
+
+    const newCostPrice = Number(form.cost_price) || 0;
+    const costChanged =
+      !originalCostRef.current ||
+      originalCostRef.current.cost_price !== newCostPrice ||
+      originalCostRef.current.cost_currency !== form.cost_currency;
 
     const { data: updatedProduct, error } = await supabase
       .from("products")
@@ -296,8 +333,9 @@ export default function EditProductPage() {
         supplier: form.supplier,
         description: form.description,
         image_url: form.image_url,
-        cost_price: Number(form.cost_price) || 0,
+        cost_price: newCostPrice,
         cost_currency: form.cost_currency,
+        ...(costChanged ? { cost_updated_at: new Date().toISOString() } : {}),
         pricing_method: form.pricing_method,
         target_margin: Number(form.target_margin) || 0,
         public_price: Number(form.public_price) || 0,
@@ -329,6 +367,15 @@ export default function EditProductPage() {
         error || { message: "Supabase no devolvio producto actualizado" }
       );
       return;
+    }
+
+    if (costChanged) {
+      const now = new Date().toISOString();
+      originalCostRef.current = {
+        cost_price: newCostPrice,
+        cost_currency: form.cost_currency,
+      };
+      setCostUpdatedAt(now);
     }
 
     const { error: deleteTagsError } = await supabase
@@ -427,6 +474,11 @@ export default function EditProductPage() {
                 <option>USD</option>
                 <option>MXN</option>
               </select>
+              <p className="flex items-center rounded-xl bg-[#1A1A1F] px-4 py-2 text-xs text-[#77777D]">
+                {costUpdatedAt
+                  ? `Costo verificado: ${new Date(costUpdatedAt).toLocaleDateString("es-MX")}`
+                  : "Sin fecha de verificacion de costo"}
+              </p>
               <select className="bg-[#222228] rounded-xl p-4 outline-none" value={form.pricing_method} onChange={(e) => updateField("pricing_method", e.target.value)}>
                 <option value="target_margin">Margen objetivo</option>
                 <option value="public_price">Precio publico</option>
