@@ -3,6 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, useState } from "react";
+import { trackEvent } from "@/lib/analytics";
+import { getStoredAttribution } from "@/lib/utmTracking";
 import {
   ArrowRight,
   Building2,
@@ -314,8 +316,10 @@ export default function PublicLanding() {
     event.preventDefault();
     setSubmitState("sending");
 
+    const attribution = getStoredAttribution();
     const payload = {
       ...form,
+      attribution,
       source: "Landing Web",
       status: "nuevo",
     };
@@ -328,6 +332,16 @@ export default function PublicLanding() {
       });
 
       if (!response.ok) throw new Error("Lead request failed");
+
+      trackEvent("generate_lead", {
+        customer_type: form.customerType,
+        interest: form.interest || "General",
+        budget_range: form.budgetRange || "No especificado",
+        service: form.service,
+        source: "Landing Web",
+        utm_source: attribution.utm_source,
+        utm_campaign: attribution.utm_campaign,
+      });
 
       setForm(initialForm);
       setSubmitState("success");
@@ -534,6 +548,12 @@ export default function PublicLanding() {
                 href={whatsappUrl}
                 target="_blank"
                 rel="noreferrer"
+                onClick={() =>
+                  trackEvent("click_whatsapp", {
+                    service: "home",
+                    placement: "hero",
+                  })
+                }
                 className="inline-flex items-center justify-center gap-2 rounded border border-white/15 px-6 py-3 text-sm font-semibold text-white transition hover:border-[#B84A5A] hover:bg-white/5"
               >
                 <Phone className="h-4 w-4" aria-hidden="true" />
@@ -1112,6 +1132,12 @@ export default function PublicLanding() {
                 href={whatsappUrl}
                 target="_blank"
                 rel="noreferrer"
+                onClick={() =>
+                  trackEvent("click_whatsapp", {
+                    service: "home",
+                    placement: "form_diagnostic",
+                  })
+                }
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded border border-white/15 px-6 py-3 text-sm font-semibold text-white transition hover:border-[#B84A5A] hover:bg-white/5"
               >
                 <Phone className="h-4 w-4" aria-hidden="true" />
@@ -1231,6 +1257,12 @@ export default function PublicLanding() {
                   href={whatsappUrl}
                   target="_blank"
                   rel="noreferrer"
+                  onClick={() =>
+                    trackEvent("click_whatsapp", {
+                      service: "home",
+                      placement: "footer",
+                    })
+                  }
                   className="transition hover:text-white"
                 >
                   WhatsApp Directo

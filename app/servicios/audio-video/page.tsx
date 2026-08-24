@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Phone } from "lucide-react";
 import FaqAccordion, { FaqItem } from "@/components/FaqAccordion";
+import WhatsAppLeadButton from "@/components/WhatsAppLeadButton";
 
 export const metadata: Metadata = {
   title: "Audio y Video Profesional | ALFA High End Services",
@@ -303,17 +304,17 @@ export default function AudioVideoPage() {
               Solicitar diagnóstico
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
-            <a
+            <WhatsAppLeadButton
               href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_PHONE || "523318574884"}?text=${encodeURIComponent(
                 "Hola ALFA, me interesa solicitar un diagnóstico para un proyecto de Audio y Video Profesional."
               )}`}
-              target="_blank"
-              rel="noreferrer"
+              service="audio_video"
+              placement="cta_section"
               className="inline-flex min-h-12 items-center justify-center gap-2 border border-white/20 px-6 text-sm font-semibold text-white transition hover:bg-white/10"
             >
               <Phone className="h-4 w-4" />
               WhatsApp
-            </a>
+            </WhatsAppLeadButton>
           </div>
         </div>
       </section>

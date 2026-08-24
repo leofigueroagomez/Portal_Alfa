@@ -2,15 +2,15 @@ import type { NextConfig } from "next";
 
 const cspHeader = `
   default-src 'self';
-  script-src 'self' 'unsafe-eval' 'unsafe-inline' https://challenges.cloudflare.com;
+  script-src 'self' 'unsafe-eval' 'unsafe-inline' https://challenges.cloudflare.com https://www.googletagmanager.com https://www.google-analytics.com https://connect.facebook.net;
   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-  img-src 'self' blob: data: https://*.supabase.co;
+  img-src 'self' blob: data: https://*.supabase.co https://www.google-analytics.com https://www.googletagmanager.com https://www.facebook.com;
   font-src 'self' data: https://fonts.gstatic.com;
   object-src 'none';
   base-uri 'self';
   form-action 'self';
-  frame-src 'self' https://challenges.cloudflare.com;
-  connect-src 'self' https://*.supabase.co https://api.facturama.com.mx https://apisandbox.facturama.com.mx https://challenges.cloudflare.com https://api.resend.com;
+  frame-src 'self' https://challenges.cloudflare.com https://www.googletagmanager.com;
+  connect-src 'self' https://*.supabase.co https://api.facturama.com.mx https://apisandbox.facturama.com.mx https://challenges.cloudflare.com https://api.resend.com https://www.google-analytics.com https://analytics.google.com https://region1.google-analytics.com https://*.google-analytics.com https://www.facebook.com;
 `
   .replace(/\s{2,}/g, " ")
   .trim();

@@ -124,6 +124,23 @@ export async function POST(request: Request) {
     }
   }
 
+  const rawAttribution =
+    body?.attribution && typeof body.attribution === "object"
+      ? body.attribution
+      : {};
+
+  const attribution = {
+    utm_source: String(rawAttribution.utm_source || "").trim().slice(0, 100) || undefined,
+    utm_medium: String(rawAttribution.utm_medium || "").trim().slice(0, 100) || undefined,
+    utm_campaign: String(rawAttribution.utm_campaign || "").trim().slice(0, 150) || undefined,
+    utm_term: String(rawAttribution.utm_term || "").trim().slice(0, 150) || undefined,
+    utm_content: String(rawAttribution.utm_content || "").trim().slice(0, 150) || undefined,
+    gclid: String(rawAttribution.gclid || "").trim().slice(0, 150) || undefined,
+    fbclid: String(rawAttribution.fbclid || "").trim().slice(0, 150) || undefined,
+    referrer: String(rawAttribution.referrer || "").trim().slice(0, 500) || undefined,
+    landing_page: String(rawAttribution.landing_page || "").trim().slice(0, 500) || undefined,
+  };
+
   const lead = {
     name: String(body?.name || "").trim().slice(0, 120),
     customerType: String(body?.customerType || "").trim().slice(0, 50),
@@ -136,6 +153,7 @@ export async function POST(request: Request) {
     timeline: String(body?.timeline || "").trim().slice(0, 100),
     source: normalizeSource(String(body?.source || "Landing Web").trim().slice(0, 100)),
     status: String(body?.status || "nuevo").trim(),
+    attribution,
   };
 
   if (!lead.name || !lead.phone || !lead.service) {

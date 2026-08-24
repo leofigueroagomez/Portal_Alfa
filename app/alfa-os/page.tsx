@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, ClipboardCheck, Camera, FileStack, Wrench, Shield, Lock, Phone } from "lucide-react";
 import FaqAccordion, { FaqItem } from "@/components/FaqAccordion";
+import WhatsAppLeadButton from "@/components/WhatsAppLeadButton";
 
 export const metadata: Metadata = {
   title: "ALFA OS | Seguimiento Transparente de Proyectos Tecnológicos",
@@ -272,15 +273,15 @@ export default function AlfaOsPage() {
               Solicitar diagnóstico
               <ArrowRight className="h-4 w-4" />
             </Link>
-            <a
+            <WhatsAppLeadButton
               href={whatsappUrl}
-              target="_blank"
-              rel="noreferrer"
+              service="alfa_os"
+              placement="cta_section"
               className="inline-flex min-h-12 items-center justify-center gap-2 rounded border border-white/20 px-6 text-sm font-semibold text-white transition hover:bg-white/10"
             >
               <Phone className="h-4 w-4" />
               WhatsApp
-            </a>
+            </WhatsAppLeadButton>
           </div>
         </div>
       </section>

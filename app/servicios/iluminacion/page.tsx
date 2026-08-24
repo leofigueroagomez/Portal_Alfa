@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, Lightbulb, Sparkles, SunDim, Sliders, Layers, ShieldCheck, Phone } from "lucide-react";
 import FaqAccordion, { FaqItem } from "@/components/FaqAccordion";
+import WhatsAppLeadButton from "@/components/WhatsAppLeadButton";
 
 export const metadata: Metadata = {
   title: "Control de Iluminación Arquitectónica y Persianas | Lutron & Shelly | ALFA",
@@ -193,15 +194,15 @@ export default function IluminacionPage() {
                 Solicitar asesoría en iluminación
                 <ArrowRight className="h-4 w-4" />
               </Link>
-              <a
+              <WhatsAppLeadButton
                 href={whatsappUrl}
-                target="_blank"
-                rel="noreferrer"
+                service="iluminacion"
+                placement="hero"
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded border border-white/15 px-6 text-sm font-semibold text-white transition hover:border-[#B84A5A] hover:bg-white/5"
               >
                 <Phone className="h-4 w-4" />
                 WhatsApp Directo
-              </a>
+              </WhatsAppLeadButton>
             </div>
           </div>
         </div>
@@ -349,15 +350,15 @@ export default function IluminacionPage() {
               Solicitar diagnóstico
               <ArrowRight className="h-4 w-4" />
             </Link>
-            <a
+            <WhatsAppLeadButton
               href={whatsappUrl}
-              target="_blank"
-              rel="noreferrer"
+              service="iluminacion"
+              placement="cta_section"
               className="inline-flex min-h-12 items-center justify-center gap-2 rounded border border-white/20 px-6 text-sm font-semibold text-white transition hover:bg-white/10"
             >
               <Phone className="h-4 w-4" />
               WhatsApp
-            </a>
+            </WhatsAppLeadButton>
           </div>
         </div>
       </section>
