@@ -1,20 +1,20 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, ShieldCheck, Camera, Eye, HardDrive, Lock, Phone } from "lucide-react";
+import { ArrowRight, CheckCircle2, Lightbulb, Sparkles, SunDim, Sliders, Layers, ShieldCheck, Phone } from "lucide-react";
 import FaqAccordion, { FaqItem } from "@/components/FaqAccordion";
 
 export const metadata: Metadata = {
-  title: "CCTV y Cámaras de Seguridad IP | ALFA High End Services",
+  title: "Control de Iluminación Arquitectónica y Persianas | Lutron & Shelly | ALFA",
   description:
-    "Diseño e instalación de CCTV, cámaras de seguridad IP, videovigilancia perimetral inteligente y monitoreo en tiempo real para residencias y empresas en Guadalajara y Zapopan.",
+    "Especialistas en control de iluminación Lutron (HomeWorks / RadioRA 3), botoneras de diseño Palladiom y Alisse, persianas motorizadas ultra silenciosas y automatización Shelly para residencias de alto nivel.",
   alternates: {
-    canonical: "/servicios/cctv",
+    canonical: "/servicios/iluminacion",
   },
   openGraph: {
-    title: "CCTV y Cámaras de Seguridad IP | ALFA High End Services",
+    title: "Control de Iluminación Arquitectónica y Persianas | Lutron & Shelly | ALFA",
     description:
-      "Sistemas de videovigilancia de alta gama: cámaras 4K, visión nocturna a color y analítica inteligente para residencias y empresas.",
+      "Transformamos espacios a través de la luz: sistemas Lutron y distribución oficial Shelly para residencias que exigen perfección.",
     type: "website",
   },
 };
@@ -22,120 +22,118 @@ export const metadata: Metadata = {
 const WHATSAPP_PHONE = process.env.NEXT_PUBLIC_WHATSAPP_PHONE || "523310000000";
 
 const whatsappUrl = `https://wa.me/${WHATSAPP_PHONE}?text=${encodeURIComponent(
-  "Hola ALFA, me interesa solicitar un diagnóstico para un proyecto de CCTV y Cámaras de Seguridad."
+  "Hola ALFA, me interesa solicitar un diagnóstico para un proyecto de Control de Iluminación Arquitectónica y Automatización (Lutron / Shelly)."
 )}`;
 
 const experienceCards = [
   {
-    title: "Cámaras IP 4K y Visión Nocturna",
-    desc: "Resolución ultra nítida con tecnología ColorVu para capturar detalles a color incluso en completa oscuridad.",
-    icon: Camera,
+    title: "Escenas de Iluminación y Confort",
+    desc: "Atenuación suave y profunda (hasta 0.1%) con transiciones imperceptibles. Configura ambientes únicos con una sola pulsación.",
+    icon: SunDim,
   },
   {
-    title: "Analítica Perimetral con IA",
-    desc: "Detección inteligente de cruce de línea y clasificación de personas y vehículos, eliminando falsas alarmas.",
-    icon: Eye,
+    title: "Botoneras y Teclados de Autor",
+    desc: "Lutron Palladiom, Alisse y Sunnata en acabados metálicos cepillados y cristal. Elimina las filas de apagadores plásticos convencionales.",
+    icon: Sliders,
   },
   {
-    title: "Almacenamiento Local y Redundante",
-    desc: "Grabadores NVR de alta capacidad con discos duros grado vigilancia para semanas continuas de grabación.",
-    icon: HardDrive,
+    title: "Persianas Motorizadas Ultra Silenciosas",
+    desc: "Sincronización milimétrica para control solar, protección de muebles y obras de arte, y privacidad total con telas exclusivas.",
+    icon: Layers,
   },
   {
-    title: "Visualización Remota Segura",
-    desc: "Acceso instantáneo desde iPhone, Android o computadoras con transmisión encriptada de punto a punto.",
-    icon: Lock,
+    title: "Distribución Internacional Shelly",
+    desc: "Representación y distribución oficial de soluciones Shelly para automatización inteligente modular y monitoreo energético.",
+    icon: Sparkles,
   },
   {
-    title: "Integración con Alarma y Acceso",
-    desc: "Sinergia total entre cámaras, sensores perimetrales DSC, iluminación disuasiva y chapas electrónicas.",
+    title: "Iluminación Circadiana y Tunable White",
+    desc: "Luz que cambia dinámicamente de temperatura de color a lo largo del día para sincronizarse con tu ritmo biológico natural.",
+    icon: Lightbulb,
+  },
+  {
+    title: "Ingeniería Documentada en ALFA OS",
+    desc: "Cálculo de cargas, tableros centralizados, planos unifilares y programación respaldada en la nube para soporte de por vida.",
     icon: ShieldCheck,
-  },
-  {
-    title: "Evidencias y Soporte ALFA OS",
-    desc: "Planos de ubicación de cámaras, historial de servicio y gestión de garantías en nuestra plataforma.",
-    icon: CheckCircle2,
   },
 ];
 
 const solutions = [
   {
-    title: "Residencial de Alta Gama",
-    desc: "Protección perimetral e interior con cámaras estéticamente integradas a la arquitectura sin cables visibles.",
+    title: "Residencias de Alto Nivel & Villas",
+    desc: "La iluminación es el elemento que realza los acabados, las texturas y la arquitectura de tu hogar, elevando el confort diario a un estándar de hospitalidad de ultra lujo.",
     items: [
-      "Cámaras discretas empotradas o minidomos.",
-      "Visión nocturna a color en jardines y accesos.",
-      "Notificaciones instantáneas de detección a tu celular.",
-      "Privacidad protegida: control absoluto sobre quién tiene acceso.",
+      "Tableros centralizados Lutron HomeWorks QSX / RadioRA 3.",
+      "Teclados grabados personalizados con retroiluminación inteligente.",
+      "Escenas automáticas: Bienvenida, Cena, Noche, Fiesta y Salida.",
+      "Integración invisible con audio, video y seguridad.",
     ],
   },
   {
-    title: "Corporativo y Comercial",
-    desc: "Monitoreo continuo para recepción, áreas operativas, salas de juntas, estacionamientos y puntos de cobro.",
+    title: "Penthouses & Desarrollos de Lujo",
+    desc: "Control integral de ventanales monumentales de doble altura y áreas sociales con persianas motorizadas y circuitos de luz regulados con precisión.",
     items: [
-      "Cámaras de 360° (Fisheye) y domos antivandálicos IK10.",
-      "Monitoreo centralizado para guardias o empresas de seguridad.",
-      "Conteo de personas y mapas de calor para retail.",
-      "Respaldo de video para auditorías y control interno.",
+      "Persianas Lutron Palladiom sin cables a la vista.",
+      "Aprovechamiento térmico automático según la posición del sol.",
+      "Control de áreas sociales y terrazas con escenas personalizadas.",
+      "Operación desde teclados de pared, smartphone o comandos discretos.",
     ],
   },
   {
-    title: "Industrial y Perímetros Críticos",
-    desc: "Sistemas robustos de videovigilancia para naves industriales, patios de maniobra y bardas perimetrales extensas.",
+    title: "Corporativo & Hospitality Premium",
+    desc: "Espacios de trabajo, salas de consejo y restaurantes de alta gama donde la iluminación debe transmitir exclusividad y operar con absoluta confiabilidad.",
     items: [
-      "Cámaras térmicas para detección perimetral a larga distancia.",
-      "Domos PTZ motorizados con zoom óptico 32x y seguimiento automático.",
-      "Enlaces inalámbricos o fibra óptica para cámaras remotas.",
-      "Gabinetes NEMA para intemperie con respaldo UPS.",
+      "Atenuación programada por horarios para ambientación impecable.",
+      "Monitoreo y eficiencia energética en tiempo real con Shelly.",
+      "Manejo intuitivo para personal sin necesidad de capacitación técnica.",
+      "Cero mantenimiento correctivo con tecnología de estado sólido.",
     ],
   },
 ];
 
 const brands = [
-  { name: "Hikvision", src: "/logos/brands/hikvision.png", className: "max-h-14 max-w-[82%]" },
-  { name: "DSC", src: "/logos/brands/dsc.png", className: "max-h-14 max-w-[76%]" },
-  { name: "Ubiquiti", src: "/logos/brands/ubiquiti.png", className: "max-h-10 max-w-[46%] scale-[1.8]" },
-  { name: "LinkedPro", src: "/logos/brands/linkedpro.png", className: "max-h-12 max-w-[78%]" },
+  { name: "Lutron", src: "/logos/brands/lutron.png", className: "max-h-14 max-w-[80%]" },
+  { name: "Shelly", src: "/logos/brands/shelly.png", className: "max-h-12 max-w-[80%]" },
 ];
 
 const faqItems: FaqItem[] = [
   {
-    question: "¿Es seguro ver mis cámaras de seguridad por internet?",
+    question: "¿Por qué el control de iluminación representa el núcleo de la inversión en proyectos de alto nivel?",
     answer:
-      "Totalmente. En ALFA no utilizamos configuraciones inseguras de puertos abiertos. Implementamos autenticación de dos factores (2FA), contraseñas robustas y cifrado de extremo a extremo para que únicamente tú y las personas autorizadas puedan ver las transmisiones en vivo y grabaciones.",
+      "En residencias de alto nivel, la iluminación ya no se limita a 'encender o apagar focos'. Representa la columna vertebral del diseño interior, la calidez del espacio y el confort diario. Un sistema centralizado Lutron reemplaza decenas de apagadores visibles por botoneras elegantes de autor, protege acabados y obras de arte con persianas automáticas, y asegura que cada espacio luzca exactamente como fue concebido por el arquitecto.",
   },
   {
-    question: "¿Qué pasa con la grabación si se corta el internet o la energía eléctrica?",
+    question: "¿Qué diferencia existe entre Lutron y los sistemas domóticos convencionales?",
     answer:
-      "Las cámaras y el NVR continúan grabando localmente sin interrupción aunque se corte el internet. Para cortes de energía, integramos sistemas de respaldo UPS que mantienen el sistema operando durante horas.",
+      "Lutron es el estándar mundial indiscutible en iluminación de lujo. A diferencia de soluciones de consumo que dependen de WiFi inestable o nubes comerciales, Lutron opera con protocolos propietarios de ultra baja latencia (Clear Connect), atenuación analógica y digital perfecta sin parpadeos (flicker-free), y acabados en metales sólidos diseñados para durar décadas.",
   },
   {
-    question: "¿Cuánto tiempo de grabación puedo almacenar?",
+    question: "¿Cuál es el papel de Shelly en el catálogo de ALFA?",
     answer:
-      "Depende de tus requerimientos y el número de cámaras. Calculamos el almacenamiento para ofrecer desde 15 hasta 60+ días de grabación continua o por evento inteligente con discos duros diseñados para operación 24/7.",
+      "Contamos con la distribución internacional oficial de Shelly, una marca europea líder en automatización modular y monitoreo de energía. Shelly complementa proyectos que requieren versatilidad, integración de sensores y control inteligente accesible con protocolos abiertos y alta confiabilidad técnica.",
   },
   {
-    question: "¿Cómo cuidan la estética de la casa durante la instalación?",
+    question: "¿En qué etapa del proyecto se debe diseñar el sistema de iluminación?",
     answer:
-      "Nuestros ingenieros cuidan minuciosamente las trayectorias de cableado para ocultar cualquier línea visible, coordinando con plafones, tuberías ocultas y seleccionando cámaras que armonicen con el diseño arquitectónico de tu inmueble.",
+      "Recomendamos intervenir durante el anteproyecto o etapa de diseño eléctrico y plafonería. Esto nos permite centralizar las cargas en tableros técnicos, coordinar nichos de persianas con el interiorista y eliminar cajas de apagadores innecesarias en los muros principales.",
   },
 ];
 
-export default function CctvPage() {
+export default function IluminacionPage() {
   return (
     <main className="min-h-screen bg-[#0F0F0F] text-white">
       {/* Hero Section */}
-      <section className="relative min-h-[88vh] overflow-hidden bg-[#0A0A0A]">
+      <section className="relative min-h-[90vh] overflow-hidden bg-[#0A0A0A]">
         <Image
           src="/projects/residencia-premium.jpeg"
-          alt="Sistema de seguridad electrónica y videovigilancia ALFA"
+          alt="Control de iluminación arquitectónica Lutron por ALFA"
           fill
           priority
           sizes="100vw"
-          className="object-cover opacity-30"
+          className="object-cover opacity-35"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/75 to-black/35" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0F0F0F] via-transparent to-black/40" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/80 to-black/40" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0F0F0F] via-transparent to-black/50" />
 
         {/* Header Bar */}
         <div className="relative mx-auto flex max-w-7xl items-center justify-between px-5 py-6 sm:px-8 lg:px-12 border-b border-white/10">
@@ -175,24 +173,24 @@ export default function CctvPage() {
         </div>
 
         {/* Hero Content */}
-        <div className="relative mx-auto flex min-h-[calc(88vh-80px)] max-w-7xl flex-col justify-center px-5 py-16 sm:px-8 lg:px-12">
+        <div className="relative mx-auto flex min-h-[calc(90vh-80px)] max-w-7xl flex-col justify-center px-5 py-16 sm:px-8 lg:px-12">
           <div className="max-w-3xl">
             <p className="inline-flex items-center gap-2 border border-[#B84A5A]/40 bg-[#7A1F2B]/20 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.24em] text-[#F0B8C0]">
-              <ShieldCheck className="h-4 w-4" />
-              Seguridad Electrónica & CCTV
+              <Sparkles className="h-4 w-4" />
+              Lutron & Shelly | Arquitectura de Luz
             </p>
-            <h1 className="mt-6 text-4xl font-semibold leading-tight text-white sm:text-5xl lg:text-6xl">
-              Cámaras y videovigilancia inteligente para proteger lo que más importa.
+            <h1 className="mt-6 text-4xl font-semibold leading-[1.08] text-white sm:text-5xl lg:text-6xl">
+              La luz como elemento arquitectónico. Control sin concesiones.
             </h1>
             <p className="mt-6 max-w-2xl text-base leading-8 text-zinc-300 sm:text-lg">
-              Sistemas de videovigilancia IP de alta resolución, detección perimetral con inteligencia artificial y visualización remota ultrasegura para residencias de alta gama y corporativos.
+              Diseñamos e implementamos sistemas de control de iluminación Lutron y Shelly para residencias y espacios que exigen precisión, estética de autor y un nivel de confort absoluto.
             </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <Link
                 href="/#diagnostico"
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded bg-[#7A1F2B] px-6 text-sm font-semibold text-white transition hover:bg-[#5A1320]"
               >
-                Solicitar diagnóstico de seguridad
+                Solicitar asesoría en iluminación
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <a
@@ -215,14 +213,14 @@ export default function CctvPage() {
           <div className="grid gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#7A1F2B]">
-                Criterio de Seguridad
+                Filosofía de Iluminación
               </p>
               <h2 className="mt-4 text-3xl font-semibold sm:text-4xl">
-                Tranquilidad total con tecnología de grado profesional.
+                Donde la tecnología desaparece y el diseño toma el protagonismo.
               </h2>
             </div>
             <p className="text-base leading-8 text-zinc-700 sm:text-lg">
-              La videovigilancia moderna va más allá de solo grabar imágenes: se trata de prevenir intrusiones antes de que ocurran mediante analítica inteligente, calidad óptica superior y una interfaz intuitiva en tu mano.
+              En los proyectos más exigentes, la iluminación representa el núcleo de la experiencia y la mayor inversión en tecnología. Sustituimos paneles de apagadores por teclados de autor, regulamos la luz con precisión milimétrica y creamos atmósferas que realzan cada espacio.
             </p>
           </div>
 
@@ -253,10 +251,10 @@ export default function CctvPage() {
         <div className="mx-auto max-w-7xl">
           <div className="max-w-3xl">
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#B84A5A]">
-              Cobertura a tu Medida
+              Aplicaciones de Alto Nivel
             </p>
             <h2 className="mt-4 text-3xl font-semibold sm:text-4xl text-white">
-              Sistemas de videovigilancia diseñados por entorno.
+              Sistemas diseñados a la medida de tu arquitectura.
             </h2>
           </div>
 
@@ -293,28 +291,28 @@ export default function CctvPage() {
         <div className="mx-auto max-w-7xl">
           <div className="text-center max-w-3xl mx-auto">
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#7A1F2B]">
-              Partners Tecnológicos
+              Distribución & Certificación
             </p>
             <h2 className="mt-4 text-3xl font-semibold sm:text-4xl">
-              Fabricantes líderes en seguridad electrónica.
+              El respaldo de los líderes globales en iluminación.
             </h2>
             <p className="mt-4 text-base text-zinc-600">
-              Garantizamos compatibilidad, soporte técnico y equipos originales respaldados por garantía de fábrica.
+              Integradores certificados en Lutron y distribuidores internacionales autorizados de Shelly.
             </p>
           </div>
 
-          <div className="mt-12 grid grid-cols-2 gap-4 md:grid-cols-4 max-w-4xl mx-auto">
+          <div className="mt-12 grid grid-cols-2 gap-6 max-w-2xl mx-auto">
             {brands.map((brand) => (
               <div
                 key={brand.name}
-                className="flex h-28 items-center justify-center rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm transition hover:border-[#7A1F2B]"
+                className="flex h-32 items-center justify-center rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm transition hover:border-[#7A1F2B]"
               >
                 <Image
                   src={brand.src}
                   alt={brand.name}
-                  width={200}
-                  height={80}
-                  className={`${brand.className} h-auto w-auto object-contain opacity-80 grayscale transition hover:opacity-100 hover:grayscale-0`}
+                  width={220}
+                  height={90}
+                  className={`${brand.className} h-auto w-auto object-contain opacity-85 grayscale transition hover:opacity-100 hover:grayscale-0`}
                 />
               </div>
             ))}
@@ -324,8 +322,8 @@ export default function CctvPage() {
 
       {/* FAQs */}
       <FaqAccordion
-        title="Preguntas Frecuentes sobre CCTV y Seguridad"
-        eyebrow="Resolviendo dudas"
+        title="Preguntas Frecuentes sobre Iluminación Lutron y Shelly"
+        eyebrow="Criterio e Inversión"
         items={faqItems}
       />
 
@@ -337,10 +335,10 @@ export default function CctvPage() {
               Siguiente paso
             </p>
             <h2 className="mt-4 text-3xl font-semibold sm:text-4xl">
-              Protege tu propiedad con un sistema diseñado para durar.
+              Diseñemos la experiencia de iluminación para tu proyecto.
             </h2>
             <p className="mt-4 text-base text-zinc-200">
-              Solicita una evaluación técnica de tu inmueble en Guadalajara o Zapopan sin compromiso.
+              Coordinamos directamente con tu arquitecto, diseñador de interiores o equipo de obra. Solicita un diagnóstico en Guadalajara, Zapopan o cualquier punto de México.
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
@@ -381,14 +379,14 @@ export default function CctvPage() {
             <Link href="/" className="hover:text-zinc-300 transition">
               Inicio
             </Link>
-            <Link href="/servicios/iluminacion" className="hover:text-zinc-300 transition text-[#F0B8C0]">
-              Iluminación (Lutron)
-            </Link>
             <Link href="/servicios/audio-video" className="hover:text-zinc-300 transition">
               Audio & Video
             </Link>
             <Link href="/servicios/redes" className="hover:text-zinc-300 transition">
               Redes
+            </Link>
+            <Link href="/servicios/cctv" className="hover:text-zinc-300 transition">
+              CCTV
             </Link>
             <Link href="/servicios/control-de-acceso" className="hover:text-zinc-300 transition">
               Control de Acceso

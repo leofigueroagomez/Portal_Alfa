@@ -68,6 +68,16 @@ const organizationJsonLd = {
         "@type": "Offer",
         itemOffered: {
           "@type": "Service",
+          name: "Control de Iluminación Arquitectónica y Persianas",
+          url: `${siteUrl}/servicios/iluminacion`,
+          description:
+            "Sistemas de control de iluminación Lutron (HomeWorks / RadioRA 3), botoneras de diseño Palladiom y automatización inteligente Shelly.",
+        },
+      },
+      {
+        "@type": "Offer",
+        itemOffered: {
+          "@type": "Service",
           name: "Audio y Video Profesional",
           url: `${siteUrl}/servicios/audio-video`,
           description:

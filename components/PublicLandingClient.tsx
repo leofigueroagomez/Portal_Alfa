@@ -8,9 +8,13 @@ import {
   Building2,
   Camera,
   CheckCircle2,
+  ChevronDown,
   ClipboardCheck,
   FileStack,
   Headphones,
+  KeyRound,
+  Lightbulb,
+  Menu,
   MessageCircle,
   MonitorSpeaker,
   Network,
@@ -18,7 +22,9 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
+  SunDim,
   Wrench,
+  X,
 } from "lucide-react";
 
 const WHATSAPP_PHONE =
@@ -26,44 +32,102 @@ const WHATSAPP_PHONE =
 
 const experienceAreas = [
   {
-    title: "Residencial",
-    copy: "Integración de audio, video, redes, seguridad y automatización para hogares que exigen desempeño, estética y soporte confiable.",
+    title: "Residencial de Alta Gama",
+    copy: "Control de iluminación arquitectónica, persianas motorizadas, audio de referencia y redes para residencias que exigen estética impecable y confort absoluto.",
   },
   {
-    title: "Comercial / Corporativo",
-    copy: "Soluciones para espacios de trabajo, retail, salas de juntas, operación diaria y atención a clientes con tecnología estable.",
+    title: "Corporativo & Hospitality",
+    copy: "Salas de consejo, espacios de trabajo, restaurantes y hoteles con tecnología estable, gestión energética y operación intuitiva.",
   },
   {
-    title: "Industrial",
-    copy: "Infraestructura, seguridad, monitoreo y soporte para entornos donde la continuidad y la trazabilidad son críticas.",
+    title: "Industrial & Infraestructura",
+    copy: "Cableado estructurado, centros de cómputo, seguridad electrónica y soporte donde la continuidad operativa y la trazabilidad son críticas.",
   },
 ];
 
 const highEndSolutions = [
   {
+    title: "Iluminación arquitectónica & control",
+    highlight: "Lutron & Shelly",
+    badge: "Sistema Insignia",
+    icon: SunDim,
+    href: "/servicios/iluminacion",
+    desc: "Escenas de confort, botoneras de diseño Palladiom y persianas ultra silenciosas.",
+  },
+  {
     title: "Audio y video profesional",
+    highlight: "Bowers & Wilkins · McIntosh · Sonos",
     icon: MonitorSpeaker,
     href: "/servicios/audio-video",
+    desc: "Sistemas Hi-Fi acústicamente calibrados, salas de juntas y cine en casa.",
   },
   {
-    title: "Infraestructura tecnológica",
+    title: "Infraestructura & redes de alta velocidad",
+    highlight: "Panduit · Ubiquiti · Ruijie",
     icon: Network,
     href: "/servicios/redes",
+    desc: "WiFi empresarial sin zonas muertas, cableado Cat6A/Fibra y racks organizados.",
   },
   {
-    title: "Seguridad electrónica",
+    title: "Seguridad electrónica & CCTV",
+    highlight: "Hikvision · DSC · UniFi Protect",
     icon: ShieldCheck,
     href: "/servicios/cctv",
+    desc: "Cámaras 4K, visión nocturna a color y analítica perimetral con IA.",
   },
   {
-    title: "Automatización y control",
+    title: "Control de acceso & automatización",
+    highlight: "Lutron · Hikvision · Grandstream",
     icon: SlidersHorizontal,
     href: "/servicios/control-de-acceso",
+    desc: "Intercomunicadores IP, cerraduras biométricas y control vehicular.",
   },
   {
-    title: "Soporte especializado",
+    title: "ALFA OS (Gestión de proyectos)",
+    highlight: "Plataforma Propietaria",
     icon: Headphones,
     href: "/alfa-os",
+    desc: "Seguimiento en tiempo real, bitácora fotográfica de obra y soporte postventa.",
+  },
+];
+
+const navSystems = [
+  {
+    title: "Iluminación Arquitectónica & Persianas",
+    subtitle: "Lutron HomeWorks, RadioRA 3 y Shelly",
+    href: "/servicios/iluminacion",
+    icon: SunDim,
+    badge: "Insignia",
+  },
+  {
+    title: "Audio de Referencia & Home Cinema",
+    subtitle: "McIntosh, Bowers & Wilkins, Sonos",
+    href: "/servicios/audio-video",
+    icon: MonitorSpeaker,
+  },
+  {
+    title: "Redes e Infraestructura de Alta Velocidad",
+    subtitle: "WiFi profesional, cableado Cat6A y racks",
+    href: "/servicios/redes",
+    icon: Network,
+  },
+  {
+    title: "CCTV & Seguridad Inteligente",
+    subtitle: "Videovigilancia 4K y analítica perimetral IA",
+    href: "/servicios/cctv",
+    icon: ShieldCheck,
+  },
+  {
+    title: "Control de Acceso & Automatización",
+    subtitle: "Intercomunicación IP y cerraduras digitales",
+    href: "/servicios/control-de-acceso",
+    icon: SlidersHorizontal,
+  },
+  {
+    title: "ALFA OS (Seguimiento de Proyectos)",
+    subtitle: "Plataforma cliente, evidencias y garantías",
+    href: "/alfa-os",
+    icon: Headphones,
   },
 ];
 
@@ -78,83 +142,47 @@ const projectGallery = [
   {
     title: "Residencia Premium",
     description:
-      "Audio, video y automatización integrados desde la etapa de diseño.",
+      "Iluminación Lutron, audio de referencia y automatización integrados desde anteproyecto.",
     src: "/projects/residencia-premium.jpeg",
   },
   {
     title: "Home Cinema",
     description:
-      "Experiencias audiovisuales diseñadas para disfrutarse en casa.",
+      "Experiencias audiovisuales de nivel cinematográfico diseñadas para disfrutarse en casa.",
     src: "/projects/cine-bw-yamaha.jpeg",
   },
   {
     title: "Audio de Referencia",
     description:
-      "Sistemas de alto desempeño para quienes buscan una experiencia excepcional.",
+      "Sistemas de alto desempeño para quienes buscan una experiencia acústica excepcional.",
     src: "/projects/audio-hifi-bw-mcintosh.jpeg",
   },
   {
     title: "Espacios de Escucha",
     description:
-      "Integración entre diseño interior y reproducción musical de alto nivel.",
+      "Integración perfecta entre diseño interior y reproducción musical de alto nivel.",
     src: "/projects/estudio-hifi.jpeg",
   },
   {
     title: "Infraestructura Tecnológica",
     description:
-      "La base invisible que permite que todo funcione de forma confiable.",
+      "La base invisible que permite que todos los sistemas funcionen con máxima confiabilidad.",
     src: "/projects/rack-panduit.jpeg",
   },
 ];
 
 const brandLogos = [
   {
-    name: "LinkedPro",
-    src: "/logos/brands/linkedpro.png",
-    category: "Infraestructura",
-    logoClassName: "max-h-12 max-w-[78%]",
-  },
-  {
-    name: "Panduit",
-    src: "/logos/brands/panduit.png",
-    category: "Infraestructura",
-    logoClassName: "max-h-11 max-w-[78%]",
-  },
-  {
     name: "Lutron",
     src: "/logos/brands/lutron.png",
-    category: "Infraestructura",
+    category: "Control e iluminación",
     logoClassName: "max-h-14 max-w-[76%]",
   },
   {
-    name: "Ruijie",
-    src: "/logos/brands/ruijie.png",
-    category: "Infraestructura",
+    name: "Shelly",
+    src: "/logos/brands/shelly.png",
+    category: "Distribución internacional",
     logoClassName: "max-h-12 max-w-[78%]",
-  },
-  {
-    name: "Ubiquiti",
-    src: "/logos/brands/ubiquiti.png",
-    category: "Conectividad",
-    logoClassName: "max-h-10 max-w-[46%] scale-[2]",
-  },
-  {
-    name: "Grandstream",
-    src: "/logos/brands/grandstream.png",
-    category: "Conectividad",
-    logoClassName: "max-h-14 max-w-[84%] scale-110",
-  },
-  {
-    name: "Hikvision",
-    src: "/logos/brands/hikvision.png",
-    category: "Seguridad",
-    logoClassName: "max-h-14 max-w-[82%]",
-  },
-  {
-    name: "DSC",
-    src: "/logos/brands/dsc.png",
-    category: "Seguridad",
-    logoClassName: "max-h-14 max-w-[76%]",
   },
   {
     name: "Sonos",
@@ -169,9 +197,57 @@ const brandLogos = [
     logoClassName: "max-h-11 max-w-[67%] scale-125",
   },
   {
+    name: "Bowers & Wilkins",
+    src: "/logos/brands/bowers-wilkins.png",
+    category: "Experiencias audiovisuales",
+    logoClassName: "max-h-12 max-w-[78%]",
+  },
+  {
+    name: "Panduit",
+    src: "/logos/brands/panduit.png",
+    category: "Infraestructura",
+    logoClassName: "max-h-11 max-w-[78%]",
+  },
+  {
+    name: "Ubiquiti",
+    src: "/logos/brands/ubiquiti.png",
+    category: "Conectividad",
+    logoClassName: "max-h-10 max-w-[46%] scale-[2]",
+  },
+  {
+    name: "Hikvision",
+    src: "/logos/brands/hikvision.png",
+    category: "Seguridad",
+    logoClassName: "max-h-14 max-w-[82%]",
+  },
+  {
+    name: "DSC",
+    src: "/logos/brands/dsc.png",
+    category: "Seguridad",
+    logoClassName: "max-h-14 max-w-[76%]",
+  },
+  {
+    name: "Ruijie",
+    src: "/logos/brands/ruijie.png",
+    category: "Infraestructura",
+    logoClassName: "max-h-12 max-w-[78%]",
+  },
+  {
+    name: "LinkedPro",
+    src: "/logos/brands/linkedpro.png",
+    category: "Infraestructura",
+    logoClassName: "max-h-12 max-w-[78%]",
+  },
+  {
+    name: "Grandstream",
+    src: "/logos/brands/grandstream.png",
+    category: "Conectividad",
+    logoClassName: "max-h-14 max-w-[84%] scale-110",
+  },
+  {
     name: "Panamax",
     src: "/logos/brands/panamax.png",
-    category: "Experiencias audiovisuales",
+    category: "Protección de energía",
     logoClassName: "max-h-14 max-w-[80%]",
   },
 ];
@@ -184,20 +260,21 @@ const processSteps = [
 ];
 
 const interestOptions = [
-  "Audio y video",
-  "Redes e infraestructura",
-  "CCTV y seguridad",
-  "Control de acceso",
-  "Automatización",
-  "Soporte",
+  "Iluminación y persianas (Lutron / Shelly)",
+  "Audio de referencia y video profesional",
+  "Redes e infraestructura de alta velocidad",
+  "CCTV y seguridad electrónica",
+  "Control de acceso y automatización",
+  "Proyecto integral llave en mano",
+  "Soporte y póliza ALFA OS",
   "Otro",
 ];
 
 const budgetRangeOptions = [
-  "Menos de $50,000",
-  "$50,000 – $150,000",
+  "Menos de $150,000",
   "$150,000 – $500,000",
-  "Más de $500,000",
+  "$500,000 – $1,500,000",
+  "Más de $1,500,000",
   "Aún no lo sé",
 ];
 
@@ -225,6 +302,8 @@ type SubmitState = "idle" | "sending" | "success" | "error";
 export default function PublicLanding() {
   const [form, setForm] = useState(initialForm);
   const [submitState, setSubmitState] = useState<SubmitState>("idle");
+  const [isServicesMenuOpen, setIsServicesMenuOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const updateField = (field: keyof typeof initialForm, value: string) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -283,9 +362,9 @@ export default function PublicLanding() {
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#0F0F0F] text-white">
-      <section className="relative border-b border-white/10 px-5 py-6 sm:px-8 lg:px-12">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_10%,rgba(184,74,90,0.24),transparent_30%),radial-gradient(circle_at_86%_2%,rgba(122,31,43,0.25),transparent_28%)]" />
-        <div className="relative mx-auto flex max-w-7xl items-center justify-between gap-4">
+      {/* Header Bar */}
+      <header className="relative border-b border-white/10 px-5 py-5 sm:px-8 lg:px-12 z-40 bg-[#0F0F0F]">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
           <Link href="/" className="flex items-center gap-3">
             <Image
               src="/logo-alfa.png"
@@ -293,34 +372,77 @@ export default function PublicLanding() {
               width={160}
               height={80}
               priority
-              className="h-12 w-auto object-contain"
+              className="h-11 w-auto object-contain"
             />
-            <span className="hidden text-sm font-semibold uppercase tracking-[0.24em] text-zinc-300 sm:block">
+            <span className="hidden text-xs font-semibold uppercase tracking-[0.24em] text-zinc-300 sm:block">
               High End Services
             </span>
           </Link>
-          <div className="flex items-center gap-2 sm:gap-3">
-            <Link
-              href="/servicios/audio-video"
-              className="hidden rounded border border-white/10 px-3.5 py-2 text-xs font-medium uppercase tracking-wider text-zinc-300 transition hover:border-[#B84A5A] hover:text-white lg:inline-flex"
-            >
-              Audio & Video
-            </Link>
-            <Link
-              href="/servicios/redes"
-              className="hidden rounded border border-white/10 px-3.5 py-2 text-xs font-medium uppercase tracking-wider text-zinc-300 transition hover:border-[#B84A5A] hover:text-white xl:inline-flex"
-            >
-              Redes
-            </Link>
+
+          {/* Desktop Navigation */}
+          <nav className="hidden items-center gap-2 lg:flex">
+            {/* Services Dropdown */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsServicesMenuOpen(!isServicesMenuOpen)}
+                onMouseEnter={() => setIsServicesMenuOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded border border-white/10 px-3.5 py-2 text-xs font-medium uppercase tracking-wider text-zinc-200 transition hover:border-[#B84A5A] hover:text-white"
+              >
+                <span>Sistemas & Soluciones</span>
+                <ChevronDown className={`h-3.5 w-3.5 text-[#B84A5A] transition-transform ${isServicesMenuOpen ? "rotate-180" : ""}`} />
+              </button>
+
+              {isServicesMenuOpen ? (
+                <div
+                  onMouseLeave={() => setIsServicesMenuOpen(false)}
+                  className="absolute left-0 top-full mt-2 w-80 rounded-2xl border border-white/15 bg-[#141414] p-3 shadow-2xl backdrop-blur z-50 animate-in fade-in zoom-in-95 duration-150"
+                >
+                  <div className="space-y-1">
+                    {navSystems.map((sys) => {
+                      const Icon = sys.icon;
+                      return (
+                        <Link
+                          key={sys.title}
+                          href={sys.href}
+                          onClick={() => setIsServicesMenuOpen(false)}
+                          className="flex items-start gap-3 rounded-xl p-2.5 transition hover:bg-white/[0.06]"
+                        >
+                          <div className="rounded-lg border border-white/10 bg-white/[0.04] p-2 text-[#B84A5A] shrink-0 mt-0.5">
+                            <Icon className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="text-xs font-semibold text-white">
+                                {sys.title}
+                              </p>
+                              {sys.badge ? (
+                                <span className="rounded bg-[#7A1F2B] px-1.5 py-0.5 text-[9px] font-bold text-white uppercase">
+                                  {sys.badge}
+                                </span>
+                              ) : null}
+                            </div>
+                            <p className="text-[11px] text-zinc-400 mt-0.5">
+                              {sys.subtitle}
+                            </p>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
             <Link
               href="/alfa-os"
-              className="hidden rounded border border-white/10 px-3.5 py-2 text-xs font-medium uppercase tracking-wider text-zinc-300 transition hover:border-[#B84A5A] hover:text-white md:inline-flex"
+              className="rounded border border-white/10 px-3.5 py-2 text-xs font-medium uppercase tracking-wider text-zinc-300 transition hover:border-[#B84A5A] hover:text-white"
             >
               ALFA OS
             </Link>
             <a
               href="#diagnostico"
-              className="hidden rounded border border-white/15 px-3.5 py-2 text-xs font-medium uppercase tracking-wider text-zinc-200 transition hover:border-[#B84A5A] hover:text-white sm:inline-flex"
+              className="rounded border border-white/15 px-3.5 py-2 text-xs font-medium uppercase tracking-wider text-zinc-200 transition hover:border-[#B84A5A] hover:text-white"
             >
               Diagnóstico
             </a>
@@ -330,26 +452,75 @@ export default function PublicLanding() {
             >
               Portal
             </Link>
-          </div>
-        </div>
-      </section>
+          </nav>
 
-      <section className="relative px-5 py-16 sm:px-8 sm:py-20 lg:px-12">
-        <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.08),transparent_28%),radial-gradient(circle_at_72%_42%,rgba(122,31,43,0.38),transparent_32%)]" />
-        <div className="relative mx-auto grid max-w-7xl items-center gap-12 lg:grid-cols-[1.04fr_0.96fr]">
-          <div>
-            <p className="mb-5 inline-flex items-center gap-2 border border-[#B84A5A]/40 bg-[#7A1F2B]/20 px-3 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-[#F0B8C0]">
-              <Sparkles className="h-4 w-4" aria-hidden="true" />
-              ALFA High End Services
+          {/* Mobile Menu Toggle Button */}
+          <button
+            type="button"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="flex items-center justify-center rounded border border-white/15 p-2 text-white transition hover:border-[#B84A5A] lg:hidden"
+            aria-label="Abrir menú"
+          >
+            {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
+
+        {/* Mobile Navigation Drawer */}
+        {isMobileMenuOpen ? (
+          <div className="mt-4 border-t border-white/10 pt-4 lg:hidden">
+            <p className="px-2 text-[10px] font-bold uppercase tracking-[0.24em] text-[#B84A5A] mb-2">
+              Sistemas Especializados
             </p>
-            <h1 className="max-w-4xl text-4xl font-semibold leading-tight text-white sm:text-5xl lg:text-6xl">
-              Soluciones tecnológicas llave en mano para residencias y empresas
-              que exigen resultados.
+            <div className="space-y-1">
+              {navSystems.map((sys) => {
+                const Icon = sys.icon;
+                return (
+                  <Link
+                    key={sys.title}
+                    href={sys.href}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-zinc-200 hover:bg-white/5"
+                  >
+                    <Icon className="h-4 w-4 text-[#B84A5A]" />
+                    <span className="font-medium">{sys.title}</span>
+                  </Link>
+                );
+              })}
+            </div>
+            <div className="mt-4 flex flex-col gap-2 border-t border-white/10 pt-4">
+              <a
+                href="#diagnostico"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center justify-center rounded bg-white/5 py-2.5 text-xs font-semibold uppercase tracking-wider text-white"
+              >
+                Solicitar diagnóstico
+              </a>
+              <Link
+                href="/login"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center justify-center rounded bg-[#7A1F2B] py-2.5 text-xs font-semibold uppercase tracking-wider text-white"
+              >
+                Acceso Portal
+              </Link>
+            </div>
+          </div>
+        ) : null}
+      </header>
+
+      {/* Hero Section */}
+      <section className="relative px-5 py-16 sm:px-8 sm:py-24 lg:px-12">
+        <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.08),transparent_28%),radial-gradient(circle_at_72%_42%,rgba(122,31,43,0.38),transparent_32%)]" />
+        <div className="relative mx-auto grid max-w-7xl items-center gap-12 lg:grid-cols-[1.08fr_0.92fr]">
+          <div>
+            <p className="mb-5 inline-flex items-center gap-2 border border-[#B84A5A]/40 bg-[#7A1F2B]/20 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.24em] text-[#F0B8C0]">
+              <Sparkles className="h-4 w-4" aria-hidden="true" />
+              Lutron · McIntosh · Bowers & Wilkins · Panduit
+            </p>
+            <h1 className="max-w-4xl text-4xl font-semibold leading-[1.08] text-white sm:text-5xl lg:text-6xl">
+              Ingeniería e integración tecnológica para proyectos que no admiten concesiones.
             </h1>
             <p className="mt-6 max-w-3xl text-base leading-8 text-zinc-300 sm:text-lg">
-              Redes estables, audio premium, videovigilancia, automatización y
-              soporte especializado. Un solo proveedor, una sola
-              responsabilidad.
+              Especialistas en control de iluminación Lutron, audio de referencia, infraestructura de red y seguridad crítica. Proyectos llave en mano con seguimiento transparente en ALFA OS.
             </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <a
@@ -366,7 +537,7 @@ export default function PublicLanding() {
                 className="inline-flex items-center justify-center gap-2 rounded border border-white/15 px-6 py-3 text-sm font-semibold text-white transition hover:border-[#B84A5A] hover:bg-white/5"
               >
                 <Phone className="h-4 w-4" aria-hidden="true" />
-                WhatsApp
+                WhatsApp Directo
               </a>
             </div>
           </div>
@@ -458,49 +629,49 @@ export default function PublicLanding() {
         </div>
       </section>
 
-      <section className="border-y border-white/10 bg-[#151515] px-5 py-16 sm:px-8 lg:px-12">
+      <section className="border-y border-white/10 bg-[#151515] px-5 py-20 sm:px-8 lg:px-12">
         <div className="mx-auto max-w-7xl">
           <SectionHeader
-            eyebrow="Soluciones High End"
-            title="Diseñamos sistemas integrados para espacios que no pueden fallar."
+            eyebrow="Sistemas de Especialidad"
+            title="Diseñados e integrados para residencias y espacios que no admiten fallas."
           />
-          <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {highEndSolutions.map((solution) => {
               const Icon = solution.icon;
-              const content = (
-                <>
-                  <Icon className="h-7 w-7 text-[#B84A5A]" aria-hidden="true" />
-                  <h3 className="mt-8 text-base font-semibold">
-                    {solution.title}
-                  </h3>
-                  {solution.href ? (
-                    <span className="mt-5 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#F0B8C0]">
-                      Conocer servicio
-                      <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-                    </span>
-                  ) : null}
-                </>
-              );
-
-              if (solution.href) {
-                return (
-                  <Link
-                    key={solution.title}
-                    href={solution.href}
-                    className="group min-h-40 border border-white/10 bg-[#0F0F0F] p-5 transition duration-[250ms] ease-in-out hover:-translate-y-0.5 hover:border-[#B84A5A] hover:bg-white/[0.04]"
-                  >
-                    {content}
-                  </Link>
-                );
-              }
-
               return (
-                <div
+                <Link
                   key={solution.title}
-                  className="min-h-40 border border-white/10 bg-[#0F0F0F] p-5"
+                  href={solution.href}
+                  className="group relative flex flex-col justify-between rounded-2xl border border-white/10 bg-[#0F0F0F] p-7 transition duration-[250ms] ease-in-out hover:-translate-y-1 hover:border-[#B84A5A] hover:bg-white/[0.04] hover:shadow-xl hover:shadow-black/40"
                 >
-                  {content}
-                </div>
+                  <div>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-[#B84A5A] transition group-hover:bg-[#7A1F2B] group-hover:text-white">
+                        <Icon className="h-6 w-6" aria-hidden="true" />
+                      </div>
+                      {solution.badge ? (
+                        <span className="rounded-full border border-[#B84A5A]/50 bg-[#7A1F2B]/30 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[#F0B8C0]">
+                          {solution.badge}
+                        </span>
+                      ) : null}
+                    </div>
+
+                    <p className="mt-5 text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                      {solution.highlight}
+                    </p>
+                    <h3 className="mt-2 text-xl font-semibold text-white">
+                      {solution.title}
+                    </h3>
+                    <p className="mt-3 text-sm leading-relaxed text-zinc-400">
+                      {solution.desc}
+                    </p>
+                  </div>
+
+                  <span className="mt-6 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#F0B8C0] transition group-hover:text-white">
+                    Explorar sistema
+                    <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" aria-hidden="true" />
+                  </span>
+                </Link>
               );
             })}
           </div>
@@ -989,6 +1160,15 @@ export default function PublicLanding() {
               Soluciones
             </p>
             <ul className="mt-4 space-y-2.5 text-sm text-zinc-400">
+              <li>
+                <Link
+                  href="/servicios/iluminacion"
+                  className="transition hover:text-white flex items-center gap-2"
+                >
+                  <span>Iluminación Arquitectónica (Lutron)</span>
+                  <span className="text-[10px] text-[#F0B8C0] bg-[#7A1F2B]/40 px-1.5 py-0.2 rounded font-semibold">Top</span>
+                </Link>
+              </li>
               <li>
                 <Link
                   href="/servicios/audio-video"

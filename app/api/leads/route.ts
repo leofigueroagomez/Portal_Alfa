@@ -17,11 +17,15 @@ const allowedCustomerTypes = [
 ];
 
 const allowedInterests = [
+  "Iluminación y persianas (Lutron / Shelly)",
+  "Iluminación arquitectónica",
   "Audio y video",
+  "Audio de referencia",
   "Redes e infraestructura",
   "CCTV y seguridad",
   "Control de acceso",
   "Automatización",
+  "Proyecto integral",
   "Soporte",
   "Otro",
 ];
