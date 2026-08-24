@@ -31,7 +31,12 @@ function clean(value: unknown) {
 }
 
 function isValidEmail(value: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  return (
+    typeof value === "string" &&
+    value.length <= 254 &&
+    !/[\r\n]/.test(value) &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+  );
 }
 
 async function sendResendEmail(input: {

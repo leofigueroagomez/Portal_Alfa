@@ -24,6 +24,8 @@ const internalRoutes = [
   "/notifications",
   "/product-categories",
   "/product-tags",
+  "/director-dashboard",
+  "/commercial-partners",
 ];
 
 function matchesRoute(pathname: string, routes: string[]) {
@@ -144,5 +146,7 @@ export const config = {
     "/notifications/:path*",
     "/product-categories/:path*",
     "/product-tags/:path*",
+    "/director-dashboard/:path*",
+    "/commercial-partners/:path*",
   ],
 };

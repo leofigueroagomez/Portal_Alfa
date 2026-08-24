@@ -1,4 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
+import {
+  checkBasicRateLimit,
+  createRequestId,
+  getClientIp,
+  logApiError,
+} from "@/lib/apiAuth";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 
@@ -91,9 +97,9 @@ function accentVariants(value: string) {
     for (const prefix of prefixes) {
       for (const option of options) {
         variants.add(`${prefix}${option}`);
-        if (variants.size >= 50) break;
+        if (variants.size >= 10) break;
       }
-      if (variants.size >= 50) break;
+      if (variants.size >= 10) break;
     }
   }
 
@@ -130,11 +136,21 @@ export async function handleSatCatalogSearch(
   request: NextRequest,
   kind: CatalogKind
 ) {
+  const requestId = createRequestId();
+  const clientIp = getClientIp(request);
+
+  if (!checkBasicRateLimit(`sat-catalog:${clientIp}`, 30, 60_000)) {
+    return NextResponse.json(
+      { error: "Demasiadas solicitudes. Intenta de nuevo más tarde.", items: [], requestId },
+      { status: 429 }
+    );
+  }
+
   const config = configs[kind];
   const params = request.nextUrl.searchParams;
-  const code = params.get("code")?.trim();
-  const queryText = params.get("q")?.trim() || "";
-  const personType = params.get("person_type");
+  const code = params.get("code")?.trim().slice(0, 30);
+  const queryText = (params.get("q")?.trim() || "").slice(0, 80);
+  const personType = params.get("person_type")?.trim().slice(0, 20) || null;
   const supabase = await createCatalogClient();
 
   if (code) {
@@ -145,7 +161,11 @@ export async function handleSatCatalogSearch(
       .limit(1);
 
     if (error) {
-      return NextResponse.json({ error: error.message, items: [] }, { status: 500 });
+      logApiError(requestId, `SAT catalog code lookup failed for table ${config.table}`, error);
+      return NextResponse.json(
+        { error: "No fue posible buscar en el catálogo.", items: [], requestId },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ items: data || [] });
@@ -189,7 +209,11 @@ export async function handleSatCatalogSearch(
   const error = results.find((result) => result.error)?.error;
 
   if (error) {
-    return NextResponse.json({ error: error.message, items: [] }, { status: 500 });
+    logApiError(requestId, `SAT catalog text search failed for table ${config.table}`, error);
+    return NextResponse.json(
+      { error: "No fue posible buscar en el catálogo.", items: [], requestId },
+      { status: 500 }
+    );
   }
 
   const rows = results.flatMap(
