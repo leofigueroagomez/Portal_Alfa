@@ -7,9 +7,19 @@ import {
   resolveServicePhotoUrl,
 } from "@/lib/serviceReports";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
+import type { FiscalClientData } from "@/lib/fiscalData";
 import SendServiceCompletedEmailButton from "./SendServiceCompletedEmailButton";
 import { getServiceDispatchContext } from "./actions";
 import ServiceCollectionPanel from "./ServiceCollectionPanel";
+import InvoiceForm from "@/app/(admin)/invoices/InvoiceForm";
+import { canManageUsers } from "@/lib/permissions";
+import { getCurrentUserProfile } from "@/services/profile";
+
+type ProjectInvoiceSummary = {
+  id: number;
+  internal_folio: string | null;
+  status: string | null;
+};
 
 type ServiceReport = {
   id: number;
@@ -104,6 +114,41 @@ export default async function ServiceDetailPage({
   }
 
   const reportData = report as ServiceReport;
+
+  const [profile, fiscalClientResult, projectResult, existingInvoicesResult] =
+    await Promise.all([
+      getCurrentUserProfile(),
+      reportData.client_id
+        ? supabase
+            .from("clients")
+            .select(
+              "id, name, tax_rfc, tax_business_name, tax_regime, default_cfdi_use, fiscal_regime, cfdi_use, tax_zip_code, billing_email, phone"
+            )
+            .eq("id", reportData.client_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      reportData.client_project_id
+        ? supabase
+            .from("client_projects")
+            .select("id, client_id, name")
+            .eq("id", reportData.client_project_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      supabase
+        .from("project_invoices")
+        .select("id, internal_folio, status")
+        .eq("source_service_report_id", id)
+        .order("created_at", { ascending: false }),
+    ]);
+
+  const fiscalClient = fiscalClientResult.data as FiscalClientData | null;
+  const invoiceProject = projectResult.data as
+    | { id: number; client_id: number | null; name: string | null }
+    | null;
+  const existingInvoices = (existingInvoicesResult.data ||
+    []) as ProjectInvoiceSummary[];
+  const canInvoiceService = Boolean(fiscalClient && invoiceProject);
+
   const { data: rawPhotos } = await supabase
     .from("service_report_photos")
     .select("id, image_url, caption, sort_order")
@@ -195,6 +240,29 @@ export default async function ServiceDetailPage({
               Editar refacciones
             </Link>
           ) : null}
+          {canInvoiceService && fiscalClient && invoiceProject ? (
+            <InvoiceForm
+              clients={[fiscalClient]}
+              projects={[invoiceProject]}
+              defaultProjectId={invoiceProject.id}
+              defaultClientId={fiscalClient.id}
+              allowManual={canManageUsers(profile?.role)}
+              triggerLabel="Facturar servicio"
+              defaultServiceReport={{
+                id: reportData.id,
+                serviceNumber: reportData.service_number,
+                laborSaleMxn: Number(reportData.labor_sale_mxn || 0),
+                solutionDescription: reportData.solution_description,
+              }}
+            />
+          ) : (
+            <span
+              title="Vincula un cliente y proyecto a este servicio antes de poder facturarlo."
+              className="inline-flex items-center gap-2 rounded-xl border border-[#2A2A30] bg-[#151518] px-5 py-3 font-semibold text-[#77777D]"
+            >
+              Facturar servicio
+            </span>
+          )}
           <Link
             href={`/services/${id}/edit`}
             className="inline-flex items-center gap-2 rounded-xl border border-[#2A2A30] bg-[#222228] px-5 py-3 font-semibold text-[#B3B3B8] hover:text-white"
@@ -264,6 +332,29 @@ export default async function ServiceDetailPage({
           </p>
         </div>
       </section>
+
+      {existingInvoices.length > 0 ? (
+        <section className="mb-8 rounded-2xl border border-[#1F1F24] bg-[#151518] p-5">
+          <p className="mb-3 text-sm font-semibold text-[#B3B3B8]">
+            Facturas generadas para este servicio
+          </p>
+          <div className="flex flex-wrap gap-3">
+            {existingInvoices.map((invoice) => (
+              <Link
+                key={invoice.id}
+                href={
+                  reportData.client_project_id
+                    ? `/projects/${reportData.client_project_id}/invoices`
+                    : "/invoices"
+                }
+                className="rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-2 text-sm text-[#B3B3B8] hover:text-white"
+              >
+                {invoice.internal_folio || `Factura #${invoice.id}`} — {invoice.status || "draft"}
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {/* Evidencia Legal y Firma si está firmado */}
       {isSigned && (

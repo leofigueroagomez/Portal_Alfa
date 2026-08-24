@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Plus, X } from "lucide-react";
 import ClientFiscalDataModal from "@/components/ClientFiscalDataModal";
 import ProductFiscalDataModal from "@/components/ProductFiscalDataModal";
+import { SatProductServiceSelect, SatUnitSelect } from "@/components/SatCatalogSelect";
 import {
   formatMissingFiscalFields,
   getMissingFiscalFields,
@@ -45,12 +46,21 @@ type Project = {
   name: string | null;
 };
 
+type SourceServiceReport = {
+  id: number;
+  serviceNumber: string | null;
+  laborSaleMxn: number;
+  solutionDescription: string | null;
+};
+
 type Props = {
   clients: FiscalClientData[];
   projects: Project[];
   defaultProjectId?: number;
   defaultClientId?: number | null;
   allowManual?: boolean;
+  defaultServiceReport?: SourceServiceReport | null;
+  triggerLabel?: string;
 };
 
 type InvoiceSourceType = "quote" | "advance" | "partial" | "balance" | "service" | "manual";
@@ -424,7 +434,7 @@ const sourceOptions: { value: InvoiceSourceType; label: string; enabled: boolean
   { value: "advance", label: "Anticipo", enabled: false },
   { value: "partial", label: "Parcialidad", enabled: false },
   { value: "balance", label: "Saldo", enabled: false },
-  { value: "service", label: "Servicio", enabled: false },
+  { value: "service", label: "Servicio", enabled: true },
   { value: "manual", label: "Manual interno solo admin", enabled: true },
 ];
 
@@ -434,6 +444,8 @@ export default function InvoiceForm({
   defaultProjectId,
   defaultClientId,
   allowManual = false,
+  defaultServiceReport = null,
+  triggerLabel = "Nueva factura",
 }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -442,12 +454,20 @@ export default function InvoiceForm({
   const [projectId, setProjectId] = useState(String(defaultProjectId || ""));
   const [clientId, setClientId] = useState(String(defaultClientId || ""));
   const [invoiceDate, setInvoiceDate] = useState(today());
-  const [sourceType, setSourceType] = useState<InvoiceSourceType>("quote");
+  const [sourceType, setSourceType] = useState<InvoiceSourceType>(
+    defaultServiceReport ? "service" : "quote"
+  );
   const [quoteId, setQuoteId] = useState("");
   const [approvedQuotes, setApprovedQuotes] = useState<ApprovedQuote[]>([]);
   const [quoteItems, setQuoteItems] = useState<QuoteItem[]>([]);
   const [manualSubtotal, setManualSubtotal] = useState("");
   const [manualIva, setManualIva] = useState("");
+  const [serviceAmountMxn, setServiceAmountMxn] = useState(
+    String(defaultServiceReport?.laborSaleMxn ?? "")
+  );
+  const [serviceSatProductCode, setServiceSatProductCode] = useState("81161700");
+  const [serviceSatUnitCode, setServiceSatUnitCode] = useState("E48");
+  const [serviceSatUnitName, setServiceSatUnitName] = useState("Unidad de servicio");
   const [paymentMethodCode, setPaymentMethodCode] = useState<PaymentMethodCode>("PUE");
   const [paymentFormCode, setPaymentFormCode] = useState("03");
   const [paymentFormQuery, setPaymentFormQuery] = useState("");
@@ -475,6 +495,43 @@ export default function InvoiceForm({
     : [];
 
   const concepts = useMemo(() => {
+    if (sourceType === "service" && defaultServiceReport) {
+      const grossAmount = roundMoney(Number(serviceAmountMxn) || 0);
+      const iva = getIvaFromTaxBase(grossAmount);
+      const conceptKey = `service-${defaultServiceReport.id}`;
+      const commercialDescription =
+        defaultServiceReport.solutionDescription?.trim() ||
+        `Servicio tecnico ${defaultServiceReport.serviceNumber || ""}`.trim();
+      const fiscalDescription =
+        descriptionOverrides[conceptKey] ??
+        sanitizeCfdiDescription(commercialDescription).slice(
+          0,
+          CFDI_DESCRIPTION_MAX_LENGTH
+        );
+
+      return [
+        {
+          source_quote_item_id: null,
+          product_id: null,
+          commercial_description: commercialDescription,
+          description: fiscalDescription,
+          quantity: 1,
+          unit_price_mxn: grossAmount,
+          subtotal_mxn: grossAmount,
+          gross_amount_mxn: grossAmount,
+          discount_mxn: 0,
+          net_amount_mxn: grossAmount,
+          iva_mxn: iva,
+          total_mxn: roundMoney(grossAmount + iva),
+          sat_product_service_code: serviceSatProductCode,
+          sat_unit_code: serviceSatUnitCode,
+          sat_unit_name: serviceSatUnitName,
+          fiscal_object: "02",
+          sort_order: 0,
+        },
+      ] as InvoiceConcept[];
+    }
+
     if (sourceType !== "quote" || !selectedQuote) return [] as InvoiceConcept[];
 
     const grossAmounts = quoteItems.map((item) =>
@@ -538,7 +595,17 @@ export default function InvoiceForm({
         sort_order: Number(item.sort_order ?? index),
       };
     });
-  }, [descriptionOverrides, quoteItems, selectedQuote, sourceType]);
+  }, [
+    descriptionOverrides,
+    quoteItems,
+    selectedQuote,
+    sourceType,
+    defaultServiceReport,
+    serviceAmountMxn,
+    serviceSatProductCode,
+    serviceSatUnitCode,
+    serviceSatUnitName,
+  ]);
 
   const invalidCfdiDescriptions = useMemo(
     () =>
@@ -868,7 +935,7 @@ export default function InvoiceForm({
       return;
     }
 
-    if (sourceType !== "quote" && sourceType !== "manual") {
+    if (!["quote", "manual", "service"].includes(sourceType)) {
       setErrorMessage("Este origen esta preparado para una siguiente fase.");
       return;
     }
@@ -883,12 +950,28 @@ export default function InvoiceForm({
       return;
     }
 
-    if (sourceType === "quote" && concepts.length === 0) {
+    if (sourceType === "service" && !defaultServiceReport) {
+      setErrorMessage("No hay un servicio de origen para esta factura.");
+      return;
+    }
+
+    if (
+      sourceType === "service" &&
+      (!serviceSatProductCode || !serviceSatUnitCode)
+    ) {
+      setErrorMessage("Selecciona el codigo SAT de producto/servicio y de unidad.");
+      return;
+    }
+
+    if ((sourceType === "quote" || sourceType === "service") && concepts.length === 0) {
       setErrorMessage("No se encontraron conceptos facturables.");
       return;
     }
 
-    if (sourceType === "quote" && invalidCfdiDescriptions.length > 0) {
+    if (
+      (sourceType === "quote" || sourceType === "service") &&
+      invalidCfdiDescriptions.length > 0
+    ) {
       setErrorMessage("Estos conceptos requieren correccion para facturar.");
       setCfdiDescriptionModalOpen(true);
       return;
@@ -1000,6 +1083,10 @@ export default function InvoiceForm({
         client_id: Number(clientId),
         source_type: sourceType,
         source_quote_id: sourceType === "quote" ? Number(quoteId) : null,
+        source_service_report_id:
+          sourceType === "service" && defaultServiceReport
+            ? defaultServiceReport.id
+            : null,
         invoice_date: invoiceDate,
         subtotal_mxn: subtotalValue,
         discount_mxn: discountValue,
@@ -1055,7 +1142,7 @@ export default function InvoiceForm({
     }
 
     const itemsToInsert =
-      sourceType === "quote"
+      sourceType === "quote" || sourceType === "service"
         ? concepts.map((item) => ({
             project_invoice_id: invoice.id,
             source_quote_item_id: item.source_quote_item_id,
@@ -1112,11 +1199,15 @@ export default function InvoiceForm({
     setProjectId(String(defaultProjectId || ""));
     setClientId(String(defaultClientId || ""));
     setInvoiceDate(today());
-    setSourceType("quote");
+    setSourceType(defaultServiceReport ? "service" : "quote");
     setQuoteId("");
     setQuoteItems([]);
     setManualSubtotal("");
     setManualIva("");
+    setServiceAmountMxn(String(defaultServiceReport?.laborSaleMxn ?? ""));
+    setServiceSatProductCode("81161700");
+    setServiceSatUnitCode("E48");
+    setServiceSatUnitName("Unidad de servicio");
     setPaymentMethodCode("PUE");
     setPaymentFormCode("03");
     setPaymentFormQuery("");
@@ -1131,7 +1222,7 @@ export default function InvoiceForm({
         className="inline-flex w-fit items-center gap-2 rounded-xl bg-[#9E1B32] px-5 py-3 font-semibold text-white hover:bg-[#B91C3C]"
       >
         <Plus size={18} />
-        Nueva factura
+        {triggerLabel}
       </button>
 
       {open ? (
@@ -1222,6 +1313,10 @@ export default function InvoiceForm({
                 >
                   {sourceOptions
                     .filter((option) => option.value !== "manual" || allowManual)
+                    .filter(
+                      (option) =>
+                        option.value !== "service" || Boolean(defaultServiceReport)
+                    )
                     .map((option) => (
                       <option key={option.value} value={option.value} disabled={!option.enabled}>
                         {option.label}
@@ -1283,6 +1378,76 @@ export default function InvoiceForm({
                 </>
               ) : null}
             </div>
+
+            {sourceType === "service" && defaultServiceReport ? (
+              <section className="mt-6 rounded-2xl border border-[#2A2A30] bg-[#101114] p-4 space-y-4">
+                <h3 className="text-xl font-semibold">
+                  Servicio {defaultServiceReport.serviceNumber || `#${defaultServiceReport.id}`}
+                </h3>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <label className="space-y-2">
+                    <span className="text-sm text-[#B3B3B8]">Monto a facturar (sin IVA)</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none"
+                      value={serviceAmountMxn}
+                      onChange={(event) => setServiceAmountMxn(event.target.value)}
+                    />
+                  </label>
+
+                  <div className="space-y-2">
+                    <span className="text-sm text-[#B3B3B8]">Total con IVA</span>
+                    <p className="rounded-xl border border-[#2A2A30] bg-[#1A1A1F] px-4 py-3 font-semibold">
+                      {formatCurrency(
+                        concepts[0]?.total_mxn ?? Number(serviceAmountMxn || 0) * 1.16,
+                        "MXN"
+                      )}
+                    </p>
+                  </div>
+
+                  <SatProductServiceSelect
+                    label="Codigo SAT producto/servicio"
+                    value={serviceSatProductCode}
+                    onChange={setServiceSatProductCode}
+                  />
+
+                  <SatUnitSelect
+                    label="Codigo SAT unidad"
+                    value={serviceSatUnitCode}
+                    onChange={(value, unitName) => {
+                      setServiceSatUnitCode(value);
+                      setServiceSatUnitName(unitName || "");
+                    }}
+                  />
+                </div>
+
+                <label className="block space-y-2">
+                  <span className="text-sm text-[#B3B3B8]">
+                    Concepto de la factura (descriptivo del servicio)
+                  </span>
+                  <textarea
+                    className="min-h-24 w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 text-sm outline-none"
+                    value={concepts[0]?.description || ""}
+                    onChange={(event) =>
+                      setDescriptionOverrides((current) => ({
+                        ...current,
+                        [`service-${defaultServiceReport.id}`]: event.target.value,
+                      }))
+                    }
+                    maxLength={CFDI_DESCRIPTION_MAX_LENGTH}
+                  />
+                  <p className="text-xs text-[#77777D]">
+                    Se propone a partir de la solucion registrada en el reporte de
+                    servicio. Editalo si necesitas un texto mas claro para el
+                    cliente ({(concepts[0]?.description || "").length}/
+                    {CFDI_DESCRIPTION_MAX_LENGTH}).
+                  </p>
+                </label>
+              </section>
+            ) : null}
 
             <section className="mt-6 rounded-2xl border border-[#2A2A30] bg-[#101114] p-4">
               <h3 className="text-xl font-semibold">Condiciones de pago CFDI</h3>
