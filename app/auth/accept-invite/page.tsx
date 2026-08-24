@@ -18,7 +18,6 @@ function getHashParams() {
   if (typeof window === "undefined") {
     return new URLSearchParams();
   }
-
   return new URLSearchParams(window.location.hash.replace(/^#/, ""));
 }
 
@@ -26,7 +25,6 @@ function getSearchParams() {
   if (typeof window === "undefined") {
     return new URLSearchParams();
   }
-
   return new URLSearchParams(window.location.search);
 }
 
@@ -44,72 +42,118 @@ export default function AcceptInvitePage() {
   );
 
   useEffect(() => {
+    let isMounted = true;
+
     async function acceptInviteSession() {
       try {
         const hashParams = getHashParams();
         const searchParams = getSearchParams();
 
+        // Extraer parámetros de hash o query
         const accessToken = hashParams.get("access_token") || searchParams.get("access_token");
         const refreshToken = hashParams.get("refresh_token") || searchParams.get("refresh_token");
         const code = searchParams.get("code");
-        const tokenHash = searchParams.get("token_hash");
-        const type = hashParams.get("type") || searchParams.get("type");
+        const tokenHash = searchParams.get("token_hash") || searchParams.get("token");
+        const type = searchParams.get("type") || hashParams.get("type") || "invite";
+        const errorDesc = hashParams.get("error_description") || searchParams.get("error_description");
 
-        // 1. Si hay código PKCE de Supabase
-        if (code) {
-          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-          if (!error && data.session) {
-            setUserEmail(data.user?.email || null);
-            setState("ready");
-            return;
+        // 1. Si Supabase devolvió un error explícito en el hash
+        if (errorDesc) {
+          const cleanDesc = decodeURIComponent(errorDesc.replace(/\+/g, " "));
+          if (isMounted) {
+            setMessage(`Enlace no válido: ${cleanDesc}`);
+            setState("invalid");
           }
+          return;
         }
 
-        // 2. Si hay token hash de verificación
-        if (tokenHash && type) {
+        // 2. Si viene el token_hash directo (Enlace protegido contra robots de WhatsApp)
+        if (tokenHash) {
           const { data, error } = await supabase.auth.verifyOtp({
             token_hash: tokenHash,
-            type: type as any,
+            type: (type as any) || "invite",
           });
-          if (!error && data.session) {
-            setUserEmail(data.user?.email || null);
-            setState("ready");
+
+          if (!error && data?.session?.user) {
+            if (isMounted) {
+              setUserEmail(data.session.user.email || null);
+              window.history.replaceState(null, "", "/auth/accept-invite");
+              setState("ready");
+            }
             return;
           }
         }
 
-        // 3. Si hay tokens de acceso en el hash de redirección de Supabase
+        // 3. Si viene código de autorización PKCE
+        if (code) {
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+          if (!error && data?.session?.user) {
+            if (isMounted) {
+              setUserEmail(data.session.user.email || null);
+              window.history.replaceState(null, "", "/auth/accept-invite");
+              setState("ready");
+            }
+            return;
+          }
+        }
+
+        // 4. Si vienen tokens de acceso en el hash (redirección clásica de Supabase)
         if (accessToken && refreshToken) {
           const { data, error } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
           });
 
-          if (!error && data.session) {
-            setUserEmail(data.user?.email || null);
-            window.history.replaceState(null, "", "/auth/accept-invite");
-            setState("ready");
+          if (!error && data?.session?.user) {
+            if (isMounted) {
+              setUserEmail(data.session.user.email || null);
+              window.history.replaceState(null, "", "/auth/accept-invite");
+              setState("ready");
+            }
             return;
           }
         }
 
-        // 4. Verificar si ya existe una sesión activa
+        // 5. Verificar si ya existe una sesión activa persistida
         const { data: sessionData } = await supabase.auth.getSession();
-        if (sessionData.session?.user) {
-          setUserEmail(sessionData.session.user.email || null);
-          setState("ready");
+        if (sessionData?.session?.user) {
+          if (isMounted) {
+            setUserEmail(sessionData.session.user.email || null);
+            setState("ready");
+          }
           return;
         }
 
-        setMessage("El enlace de acceso o invitación no es válido o ha expirado. Solicita uno nuevo por WhatsApp.");
-        setState("invalid");
+        if (isMounted) {
+          setMessage("El enlace de acceso o invitación no es válido o ha expirado. Solicita uno nuevo por WhatsApp.");
+          setState("invalid");
+        }
       } catch (err: any) {
-        setMessage(err?.message || "Error al procesar el enlace de invitación.");
-        setState("invalid");
+        if (isMounted) {
+          setMessage(err?.message || "Error al procesar la invitación.");
+          setState("invalid");
+        }
       }
     }
 
+    // Escuchar también eventos de cambio de estado de autenticación
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user && (event === "SIGNED_IN" || event === "PASSWORD_RECOVERY" || event === "INITIAL_SESSION")) {
+        if (isMounted) {
+          setUserEmail(session.user.email || null);
+          setState("ready");
+        }
+      }
+    });
+
     acceptInviteSession();
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -176,13 +220,13 @@ export default function AcceptInvitePage() {
                 Cuenta vinculada a: <strong className="text-white">{userEmail}</strong>.
               </>
             ) : null}{" "}
-            Define tu clave para acceder a tus servicios asignados, órdenes y convenios en ALFA OS.
+            Define tu contraseña personal para acceder a tus servicios asignados, órdenes y convenios en ALFA OS.
           </p>
 
           {state === "checking" ? (
             <div className="mt-8 flex items-center gap-3 rounded-xl border border-white/10 bg-[#101115] p-4 text-sm text-white/62">
               <Loader2 className="h-4 w-4 animate-spin text-[#E08A96]" />
-              Validando enlace de acceso...
+              Validando enlace de acceso seguro...
             </div>
           ) : null}
 
@@ -190,7 +234,7 @@ export default function AcceptInvitePage() {
             <div className="mt-8 space-y-3 rounded-xl border border-[#E05062]/35 bg-[#9E1B32]/14 p-4 text-sm text-[#FFB3BE]">
               <p>{message || "El enlace de invitación no es válido o ha expirado."}</p>
               <p className="text-xs text-white/60">
-                Pide al administrador que te reenvíe el enlace de activación por WhatsApp.
+                Pide al administrador que te genere un nuevo enlace por WhatsApp.
               </p>
             </div>
           ) : null}

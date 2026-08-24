@@ -305,7 +305,11 @@ export async function generateContractorWhatsAppLinkAction(
     });
 
     if (error) throw new Error(`Error de autenticación: ${error.message}`);
-    linkUrl = data.properties.action_link;
+    
+    // Usar token_hash directo para proteger el enlace contra prefetches de WhatsApp
+    const tokenHash = data.properties.hashed_token;
+    const verificationType = data.properties.verification_type || "invite";
+    linkUrl = `${appBaseUrl}/auth/accept-invite?token_hash=${encodeURIComponent(tokenHash)}&type=${encodeURIComponent(verificationType)}`;
 
     await ensureContractorProfile(data.user.id, email, fullName, true);
     
@@ -342,9 +346,14 @@ export async function generateContractorWhatsAppLinkAction(
         email,
         options: { redirectTo: `${appBaseUrl}/auth/accept-invite` },
       });
-      linkUrl = magic.data?.properties?.action_link || `${appBaseUrl}/login`;
+      if (magic.error) throw new Error(`Error de autenticación: ${magic.error.message}`);
+      const tokenHash = magic.data.properties.hashed_token;
+      const verificationType = magic.data.properties.verification_type || "magiclink";
+      linkUrl = `${appBaseUrl}/auth/accept-invite?token_hash=${encodeURIComponent(tokenHash)}&type=${encodeURIComponent(verificationType)}`;
     } else {
-      linkUrl = data.properties.action_link;
+      const tokenHash = data.properties.hashed_token;
+      const verificationType = data.properties.verification_type || "recovery";
+      linkUrl = `${appBaseUrl}/auth/accept-invite?token_hash=${encodeURIComponent(tokenHash)}&type=${encodeURIComponent(verificationType)}`;
     }
 
     await ensureContractorProfile(existing.id, email, fullName, false);
