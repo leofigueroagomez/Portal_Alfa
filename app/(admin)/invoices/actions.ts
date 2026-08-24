@@ -844,3 +844,58 @@ export async function stampProjectInvoice(
     };
   }
 }
+
+export type DeleteDraftInvoiceResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+export async function deleteDraftInvoice(
+  invoiceId: number
+): Promise<DeleteDraftInvoiceResult> {
+  try {
+    const profile = await getCurrentUserProfile();
+
+    if (!profile?.is_active || !canViewFinancials(profile.role)) {
+      throw new Error("No tienes permisos para eliminar facturas.");
+    }
+
+    const supabase = createSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from("project_invoices")
+      .select("id, client_project_id, status, facturama_id")
+      .eq("id", invoiceId)
+      .maybeSingle();
+
+    if (error) throw new Error(`Error leyendo factura: ${error.message}`);
+    if (!data) throw new Error("Factura no encontrada.");
+
+    if (data.status !== "draft" || data.facturama_id) {
+      throw new Error(
+        "Solo se pueden eliminar borradores que no se han timbrado."
+      );
+    }
+
+    const { error: deleteError } = await supabase
+      .from("project_invoices")
+      .delete()
+      .eq("id", invoiceId)
+      .eq("status", "draft")
+      .is("facturama_id", null);
+
+    if (deleteError) {
+      throw new Error(`Error eliminando borrador: ${deleteError.message}`);
+    }
+
+    revalidatePath("/invoices");
+    if (data.client_project_id) {
+      revalidatePath(`/projects/${data.client_project_id}/invoices`);
+    }
+
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Error desconocido.",
+    };
+  }
+}

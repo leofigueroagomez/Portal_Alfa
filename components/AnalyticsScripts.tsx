@@ -13,6 +13,8 @@ export default function AnalyticsScripts() {
     initAttribution();
   }, []);
 
+  const googleAdsId = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID;
+
   return (
     <>
       {/* 1. Google Tag Manager (GTM) */}
@@ -42,24 +44,23 @@ export default function AnalyticsScripts() {
         </>
       ) : null}
 
-      {/* 2. Google Analytics 4 (GA4) Direct Fallback if GTM not used */}
-      {!gtmId && gaId ? (
+      {/* 2. Google Analytics 4 (GA4) & Google Ads Tag */}
+      {!gtmId && (gaId || googleAdsId) ? (
         <>
           <Script
-            src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}
+            src={`https://www.googletagmanager.com/gtag/js?id=${gaId || googleAdsId}`}
             strategy="afterInteractive"
           />
           <Script
-            id="ga4-init"
+            id="gtag-init"
             strategy="afterInteractive"
             dangerouslySetInnerHTML={{
               __html: `
                 window.dataLayer = window.dataLayer || [];
                 function gtag(){dataLayer.push(arguments);}
                 gtag('js', new Date());
-                gtag('config', '${gaId}', {
-                  page_path: window.location.pathname,
-                });
+                ${gaId ? `gtag('config', '${gaId}', { page_path: window.location.pathname });` : ""}
+                ${googleAdsId ? `gtag('config', '${googleAdsId}');` : ""}
               `,
             }}
           />

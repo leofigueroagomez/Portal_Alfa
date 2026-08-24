@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Landmark, ReceiptText } from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { getCurrentUserProfile } from "@/services/profile";
@@ -11,24 +10,17 @@ import {
 } from "@/lib/facturama";
 import {
   getCurrentMonthRange,
-  getInvoiceRelation,
-  getInvoicePaymentFormLabel,
-  getInvoicePaymentMethodLabel,
   getInvoiceTotal,
-  invoiceStatusClasses,
-  invoiceStatusLabels,
   isCollectedStatus,
   isInvoicedStatus,
   isReceivableStatus,
-  normalizeInvoiceStatus,
   type ProjectInvoice,
 } from "@/lib/invoices";
 import type { FiscalClientData } from "@/lib/fiscalData";
 import { satBillingProviders } from "@/lib/satBillingProviders";
 import InvoiceForm from "./InvoiceForm";
-import InvoiceFileLinks, { type FiscalDocumentEmailLog } from "./InvoiceFileLinks";
-import InvoiceStatusSelect from "./InvoiceStatusSelect";
-import StampInvoiceButton from "./StampInvoiceButton";
+import { type FiscalDocumentEmailLog } from "./InvoiceFileLinks";
+import InvoicesTableClient from "./InvoicesTableClient";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -46,11 +38,6 @@ type Quote = {
   total_mxn: number | null;
   grand_total: number | null;
 };
-
-function formatDate(value: string | null | undefined) {
-  if (!value) return "Sin fecha";
-  return new Date(value).toLocaleDateString("es-MX");
-}
 
 function getQuoteTotal(quote: Quote) {
   return Number(quote.total_mxn ?? quote.grand_total ?? 0);
@@ -125,11 +112,10 @@ export default async function InvoicesPage() {
   const invoiceEmailLogs = invoiceEmailLogsResult.error
     ? []
     : ((invoiceEmailLogsResult.data || []) as FiscalDocumentEmailLog[]);
-  const emailLogsByInvoice = new Map<number, FiscalDocumentEmailLog[]>();
+  const emailLogsByInvoice: Record<number, FiscalDocumentEmailLog[]> = {};
   for (const log of invoiceEmailLogs) {
-    const current = emailLogsByInvoice.get(Number(log.document_id)) || [];
-    current.push(log);
-    emailLogsByInvoice.set(Number(log.document_id), current);
+    const key = Number(log.document_id);
+    emailLogsByInvoice[key] = [...(emailLogsByInvoice[key] || []), log];
   }
   const { start, end } = getCurrentMonthRange();
 
@@ -249,115 +235,13 @@ export default async function InvoicesPage() {
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-2xl border border-[#1F1F24] bg-[#151518]">
-        <div className="overflow-x-auto">
-          <div className="grid min-w-[1500px] grid-cols-[130px_130px_1fr_1fr_130px_150px_140px_150px_170px_130px] gap-4 border-b border-[#2A2A30] px-5 py-4 text-sm font-semibold text-[#B3B3B8]">
-            <p>Folio</p>
-            <p>Fecha</p>
-            <p>Cliente</p>
-            <p>Proyecto</p>
-            <p>Total</p>
-            <p>Pago CFDI</p>
-            <p>Estado</p>
-            <p>Actualizar</p>
-            <p>{facturamaEnv === "production" ? "CFDI" : "Sandbox"}</p>
-            <p>Archivos</p>
-          </div>
-
-          {invoices.length === 0 ? (
-            <div className="p-8 text-[#77777D]">Aun no hay facturas internas.</div>
-          ) : (
-            <div className="min-w-[1500px] divide-y divide-[#2A2A30]">
-              {invoices.map((invoice) => {
-                const status = normalizeInvoiceStatus(invoice.status);
-                const client = getInvoiceRelation(invoice.clients);
-                const project = getInvoiceRelation(invoice.client_projects);
-                return (
-                  <div
-                    key={invoice.id}
-                    className="grid grid-cols-[130px_130px_1fr_1fr_130px_150px_140px_150px_170px_130px] gap-4 px-5 py-4 text-sm"
-                  >
-                    <div>
-                      <p className="font-semibold text-[#9E1B32]">
-                        {invoice.internal_folio || `FAC-${String(invoice.id).padStart(4, "0")}`}
-                      </p>
-                      <p className="mt-1 text-xs text-[#77777D]">ID #{invoice.id}</p>
-                    </div>
-                    <p>{formatDate(invoice.invoice_date)}</p>
-                    <p>
-                      {client?.name || "Sin cliente"}
-                      {client?.tax_rfc ? (
-                        <span className="mt-1 block text-xs text-[#77777D]">
-                          {client.tax_rfc}
-                        </span>
-                      ) : null}
-                    </p>
-                    <Link
-                      href={`/projects/${invoice.client_project_id}/invoices`}
-                      className="text-[#D7A8FF] hover:text-white"
-                    >
-                      {project?.name || "Sin proyecto"}
-                    </Link>
-                    <p className="font-semibold">
-                      {formatCurrency(getInvoiceTotal(invoice), "MXN")}
-                    </p>
-                    <div className="space-y-1 text-xs text-[#B3B3B8]">
-                      <p className="font-semibold text-white">
-                        {getInvoicePaymentMethodLabel(invoice)}
-                      </p>
-                      <p>{getInvoicePaymentFormLabel(invoice)}</p>
-                      {invoice.requires_payment_complement ? (
-                        <span className="inline-flex rounded-full border border-[#614620] bg-[#322514] px-2 py-1 text-[#F4C66A]">
-                          Requiere complemento de pago
-                        </span>
-                      ) : null}
-                      {invoice.payment_complement_status === "pending" &&
-                      normalizeInvoiceStatus(invoice.status) === "issued" ? (
-                        <p className="text-[#F4C66A]">
-                          Complemento de pago pendiente.
-                        </p>
-                      ) : null}
-                    </div>
-                    <span
-                      className={`inline-flex h-fit w-fit rounded-full border px-3 py-1 text-xs ${invoiceStatusClasses[status]}`}
-                    >
-                      {invoiceStatusLabels[status]}
-                    </span>
-                    <InvoiceStatusSelect
-                      invoiceId={invoice.id}
-                      currentStatus={invoice.status}
-                    />
-                    <StampInvoiceButton
-                      invoiceId={invoice.id}
-                      status={invoice.status}
-                      facturamaId={invoice.facturama_id}
-                      client={client}
-                      sandboxNotice={sandboxReceiverNotice}
-                      facturamaEnv={facturamaEnv}
-                      facturamaProductionEnabled={facturamaProductionEnabled}
-                    />
-                    <InvoiceFileLinks
-                      invoiceId={invoice.id}
-                      documentType="invoice"
-                      documentId={invoice.id}
-                      documentLabel="Factura"
-                      folio={invoice.internal_folio}
-                      clientName={client?.name || client?.tax_business_name || null}
-                      billingEmail={client?.billing_email || null}
-                      xmlUrl={invoice.xml_url}
-                      pdfUrl={invoice.pdf_url}
-                      satUuid={invoice.sat_uuid}
-                      facturamaId={invoice.facturama_id}
-                      status={invoice.status}
-                      emailLogs={emailLogsByInvoice.get(invoice.id) || []}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </section>
+      <InvoicesTableClient
+        invoices={invoices}
+        emailLogsByInvoice={emailLogsByInvoice}
+        facturamaEnv={facturamaEnv}
+        sandboxReceiverNotice={sandboxReceiverNotice}
+        facturamaProductionEnabled={facturamaProductionEnabled}
+      />
     </main>
   );
 }

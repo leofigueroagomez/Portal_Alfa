@@ -43,9 +43,20 @@ export function trackEvent(
       });
     }
 
-    // 2. Google Analytics 4 (gtag)
+    // 2. Google Analytics 4 (gtag) & Google Ads Conversions
     if (typeof window.gtag === "function") {
       window.gtag("event", eventName, params);
+
+      const googleAdsId = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID;
+      const leadConversionLabel = process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_LABEL;
+
+      if (googleAdsId && leadConversionLabel && eventName === "generate_lead") {
+        window.gtag("event", "conversion", {
+          send_to: `${googleAdsId}/${leadConversionLabel}`,
+          value: params.budget_range || 1.0,
+          currency: "MXN",
+        });
+      }
     }
 
     // 3. Meta Pixel (fbq)
