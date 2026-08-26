@@ -46,6 +46,7 @@ import QuoteItemAreaDistributionModal from "../QuoteItemAreaDistributionModal";
 import ReplaceQuoteItemModal from "../ReplaceQuoteItemModal";
 import QuoteLaborActivitiesPanel from "../QuoteLaborActivitiesPanel";
 import QuickCreateProductButton from "../QuickCreateProductButton";
+import ClientSearchSelect from "@/components/ClientSearchSelect";
 
 type Product = {
   id: number;
@@ -81,6 +82,7 @@ type Client = {
   id: number;
   client_number: number | null;
   name: string | null;
+  company_name?: string | null;
 };
 
 type ClientProject = {
@@ -403,8 +405,8 @@ export default function NewQuotePage() {
     async function loadClients() {
       const { data, error } = await supabase
         .from("clients")
-        .select("id, client_number, name")
-        .order("client_number", { ascending: true });
+        .select("id, client_number, name, company_name")
+        .order("name", { ascending: true });
 
       if (error) {
         console.error("Error cargando clientes:", error);
@@ -1839,19 +1841,15 @@ export default function NewQuotePage() {
         </h2>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <select
-            className="bg-[#222228] border border-[#2A2A30] rounded-xl px-4 py-3 outline-none"
+          <ClientSearchSelect
+            clients={clients}
             value={selectedClientId}
-            onChange={(e) => setSelectedClientId(e.target.value)}
-          >
-            <option value="">Seleccionar cliente</option>
-            {clients.map((client) => (
-              <option key={client.id} value={client.id}>
-                {String(client.client_number || "").padStart(3, "0")} -{" "}
-                {client.name || "Sin nombre"}
-              </option>
-            ))}
-          </select>
+            onChange={(clientId) => {
+              setSelectedClientId(clientId);
+              setSelectedClientProjectId("");
+            }}
+            placeholder="Buscar cliente por nombre o número..."
+          />
 
           <select
             className="bg-[#222228] border border-[#2A2A30] rounded-xl px-4 py-3 outline-none disabled:text-[#77777D]"

@@ -50,6 +50,7 @@ import QuoteDiagnosticContextEditor from "../../QuoteDiagnosticContextEditor";
 import QuoteItemAreaDistributionModal from "../../QuoteItemAreaDistributionModal";
 import ReplaceQuoteItemModal from "../../ReplaceQuoteItemModal";
 import QuoteLaborActivitiesPanel from "../../QuoteLaborActivitiesPanel";
+import ClientSearchSelect from "@/components/ClientSearchSelect";
 
 type Product = {
   id: number;
@@ -193,6 +194,7 @@ type Client = {
   id: number;
   client_number: number | null;
   name: string | null;
+  company_name?: string | null;
 };
 
 type CommercialPartner = {
@@ -536,8 +538,8 @@ export default function EditQuotePage() {
           .order("brand", { ascending: true }),
         supabase
           .from("clients")
-          .select("id, client_number, name")
-          .order("client_number", { ascending: true }),
+          .select("id, client_number, name, company_name")
+          .order("name", { ascending: true }),
         supabase
           .from("client_projects")
           .select("id, client_id, project_number, name, sales_stage")
@@ -2271,25 +2273,18 @@ export default function EditQuotePage() {
         </div>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <label className="space-y-2">
+          <div className="space-y-2">
             <span className="text-sm text-[#B3B3B8]">Cliente</span>
-            <select
-              className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none"
+            <ClientSearchSelect
+              clients={clients}
               value={selectedClientId}
-              onChange={(event) => {
-                setSelectedClientId(event.target.value);
+              onChange={(clientId) => {
+                setSelectedClientId(clientId);
                 setSelectedClientProjectId("");
               }}
-            >
-              <option value="">Sin cliente</option>
-              {clients.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {String(client.client_number || "").padStart(3, "0")} -{" "}
-                  {client.name || "Sin nombre"}
-                </option>
-              ))}
-            </select>
-          </label>
+              placeholder="Buscar cliente por nombre o número..."
+            />
+          </div>
 
           <label className="space-y-2">
             <span className="text-sm text-[#B3B3B8]">Proyecto</span>

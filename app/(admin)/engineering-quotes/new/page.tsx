@@ -10,11 +10,13 @@ import {
   defaultRequirements,
   engineeringSystems,
 } from "../constants";
+import ClientSearchSelect from "@/components/ClientSearchSelect";
 
 type Client = {
   id: number;
   client_number: number | null;
   name: string | null;
+  company_name?: string | null;
 };
 
 type ClientProject = {
@@ -105,8 +107,8 @@ export default function NewEngineeringQuotePage() {
     async function loadClients() {
       const { data, error } = await supabase
         .from("clients")
-        .select("id, client_number, name")
-        .order("client_number", { ascending: true });
+        .select("id, client_number, name, company_name")
+        .order("name", { ascending: true });
 
       if (error) {
         reportError("cargar clientes", error);
@@ -225,19 +227,15 @@ export default function NewEngineeringQuotePage() {
           <div className="rounded-2xl border border-[#1F1F24] bg-[#151518] p-6">
             <h2 className="mb-6 text-2xl font-semibold">Cliente y proyecto</h2>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <select
-                className="rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none"
+              <ClientSearchSelect
+                clients={clients}
                 value={selectedClientId}
-                onChange={(event) => setSelectedClientId(event.target.value)}
-              >
-                <option value="">Seleccionar cliente</option>
-                {clients.map((client) => (
-                  <option key={client.id} value={client.id}>
-                    {String(client.client_number || "").padStart(3, "0")} -{" "}
-                    {client.name || "Sin nombre"}
-                  </option>
-                ))}
-              </select>
+                onChange={(clientId) => {
+                  setSelectedClientId(clientId);
+                  setSelectedProjectId("");
+                }}
+                placeholder="Buscar cliente por nombre o número..."
+              />
 
               <select
                 className="rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none disabled:text-[#77777D]"
