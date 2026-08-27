@@ -70,68 +70,68 @@ RRSTW4BSW,LUTRON RADIORA 3,"Teclado de escenas Sunnata de 4 botones con barra lu
 RRSTW4BWH,LUTRON RADIORA 3,"Teclado de escenas Sunnata de 4 botones, comunicación Clear Connect, acabado Blanco brillante, RadioRA 3",402.50,384.61,239.25,39112403,"Teclado de pared Sunnata de 4 botones de escena independientes, barras LED indicadoras, comunicación Clear Connect Type X, acabado Blanco brillante, RadioRA 3."
 ST6ANSPB,LUTRON RADIORA 3,"Interruptor de pared Sunnata on/off sin regulación, 6 A iluminación / 3 A motor, acabado Pebble, RadioRA 3",164.89,164.89,102.57,39112403,"Interruptor de pared Sunnata de encendido/apagado, conmuta 6 A iluminación o 3 A motor/ventilador, luz indicadora MyLevel, acabado Pebble, RadioRA 3."`;
 
-const IMAGES = {
-  PROC3_KIT: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=1000&q=85',
-  PROC3_CW: 'https://images.unsplash.com/photo-1558002038-1055907df827?auto=format&fit=crop&w=1000&q=85',
+const LOCAL_IMAGES = {
+  PROC3_KIT: '/products/lutron/proc3-kit.jpg',
+  PROC3_CW: '/products/lutron/proc3-cw.jpg',
 
-  DIMMER_WHITE: 'https://images.unsplash.com/photo-1558002038-1055907df827?auto=format&fit=crop&w=1000&q=85',
-  DIMMER_MIDNIGHT: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1000&q=85',
-  DIMMER_DEEP_SEA: 'https://images.unsplash.com/photo-1507089947368-19c1da9775ae?auto=format&fit=crop&w=1000&q=85',
-  DIMMER_PEBBLE: 'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1000&q=85',
-  DIMMER_SNOW: 'https://images.unsplash.com/photo-1513506003901-1e6a229e2d15?auto=format&fit=crop&w=1000&q=85',
-  DIMMER_TRUFFLE: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=1000&q=85',
+  DIMMER_WHITE: '/products/lutron/dimmer-white.jpg',
+  DIMMER_MIDNIGHT: '/products/lutron/dimmer-midnight.jpg',
+  DIMMER_DEEP_SEA: '/products/lutron/dimmer-deep-sea.jpg',
+  DIMMER_PEBBLE: '/products/lutron/dimmer-pebble.jpg',
+  DIMMER_SNOW: '/products/lutron/dimmer-snow.jpg',
+  DIMMER_TRUFFLE: '/products/lutron/dimmer-truffle.jpg',
 
-  KEYPAD_WHITE: 'https://images.unsplash.com/photo-1558002038-1055907df827?auto=format&fit=crop&w=1000&q=85',
-  KEYPAD_MIDNIGHT: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1000&q=85',
-  KEYPAD_PEBBLE: 'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1000&q=85',
-  KEYPAD_SNOW: 'https://images.unsplash.com/photo-1513506003901-1e6a229e2d15?auto=format&fit=crop&w=1000&q=85',
-  KEYPAD_ALMOND: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=1000&q=85',
+  KEYPAD_WHITE: '/products/lutron/keypad-white.jpg',
+  KEYPAD_MIDNIGHT: '/products/lutron/keypad-midnight.jpg',
+  KEYPAD_PEBBLE: '/products/lutron/keypad-pebble.jpg',
+  KEYPAD_SNOW: '/products/lutron/keypad-snow.jpg',
+  KEYPAD_ALMOND: '/products/lutron/keypad-almond.jpg',
 
-  LUMARIS_TAPE: 'https://images.unsplash.com/photo-1565814636199-ae8133055c1c?auto=format&fit=crop&w=1000&q=85',
-  LUMARIS_KIT: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=1000&q=85',
-  LUMARIS_DOWNLIGHT: 'https://images.unsplash.com/photo-1540518614846-7ede433c4ef0?auto=format&fit=crop&w=1000&q=85',
-  LUMARIS_CONTROLLER: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=1000&q=85',
+  LUMARIS_TAPE: '/products/lutron/lumaris-tape.jpg',
+  LUMARIS_KIT: '/products/lutron/lumaris-kit.jpg',
+  LUMARIS_DOWNLIGHT: '/products/lutron/lumaris-downlight.jpg',
+  LUMARIS_CONTROLLER: '/products/lutron/lumaris-controller.jpg',
 
-  FAN_CONTROL: 'https://images.unsplash.com/photo-1583847268964-b28dc8f51f92?auto=format&fit=crop&w=1000&q=85',
-  HARDWARE: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=1000&q=85',
+  FAN_CONTROL: '/products/lutron/fan-control.jpg',
+  HARDWARE: '/products/lutron/hardware.jpg',
 };
 
 function getAestheticImage(model, name) {
   const m = (model || '').toUpperCase();
 
   // Processors
-  if (m.includes('PROC3KIT')) return IMAGES.PROC3_KIT;
-  if (m.includes('PROC3')) return IMAGES.PROC3_CW;
+  if (m.includes('PROC3KIT')) return LOCAL_IMAGES.PROC3_KIT;
+  if (m.includes('PROC3')) return LOCAL_IMAGES.PROC3_CW;
 
   // Downlights
-  if (m.includes('RRLCD')) return IMAGES.LUMARIS_DOWNLIGHT;
+  if (m.includes('RRLCD')) return LOCAL_IMAGES.LUMARIS_DOWNLIGHT;
 
   // Lumaris Tape / Kits
-  if (m.includes('RRLTLK')) return IMAGES.LUMARIS_KIT;
-  if (m.includes('LUT05') || m.includes('LUT30')) return IMAGES.LUMARIS_TAPE;
-  if (m.includes('RRLTW') || m.includes('LUPH3')) return IMAGES.LUMARIS_CONTROLLER;
-  if (m.includes('LUBP') || m.includes('LUCK') || m.includes('LUMK') || m.includes('LUWK')) return IMAGES.HARDWARE;
+  if (m.includes('RRLTLK')) return LOCAL_IMAGES.LUMARIS_KIT;
+  if (m.includes('LUT05') || m.includes('LUT30')) return LOCAL_IMAGES.LUMARIS_TAPE;
+  if (m.includes('RRLTW') || m.includes('LUPH3')) return LOCAL_IMAGES.LUMARIS_CONTROLLER;
+  if (m.includes('LUBP') || m.includes('LUCK') || m.includes('LUMK') || m.includes('LUWK')) return LOCAL_IMAGES.HARDWARE;
 
   // Fan Controls
-  if (m.includes('STANF')) return IMAGES.FAN_CONTROL;
+  if (m.includes('STANF')) return LOCAL_IMAGES.FAN_CONTROL;
 
   // Keypads
   if (m.includes('STW') || m.includes('STHN')) {
-    if (m.endsWith('MN') || m.endsWith('BL')) return IMAGES.KEYPAD_MIDNIGHT;
-    if (m.endsWith('PB')) return IMAGES.KEYPAD_PEBBLE;
-    if (m.endsWith('SW')) return IMAGES.KEYPAD_SNOW;
-    if (m.endsWith('LA')) return IMAGES.KEYPAD_ALMOND;
-    return IMAGES.KEYPAD_WHITE;
+    if (m.endsWith('MN') || m.endsWith('BL')) return LOCAL_IMAGES.KEYPAD_MIDNIGHT;
+    if (m.endsWith('PB')) return LOCAL_IMAGES.KEYPAD_PEBBLE;
+    if (m.endsWith('SW')) return LOCAL_IMAGES.KEYPAD_SNOW;
+    if (m.endsWith('LA')) return LOCAL_IMAGES.KEYPAD_ALMOND;
+    return LOCAL_IMAGES.KEYPAD_WHITE;
   }
 
   // Dimmers & Switches
-  if (m.endsWith('MN') || m.endsWith('BL')) return IMAGES.DIMMER_MIDNIGHT;
-  if (m.endsWith('DE')) return IMAGES.DIMMER_DEEP_SEA;
-  if (m.endsWith('PB')) return IMAGES.DIMMER_PEBBLE;
-  if (m.endsWith('SW')) return IMAGES.DIMMER_SNOW;
-  if (m.endsWith('TF') || m.endsWith('TP')) return IMAGES.DIMMER_TRUFFLE;
+  if (m.endsWith('MN') || m.endsWith('BL')) return LOCAL_IMAGES.DIMMER_MIDNIGHT;
+  if (m.endsWith('DE')) return LOCAL_IMAGES.DIMMER_DEEP_SEA;
+  if (m.endsWith('PB')) return LOCAL_IMAGES.DIMMER_PEBBLE;
+  if (m.endsWith('SW')) return LOCAL_IMAGES.DIMMER_SNOW;
+  if (m.endsWith('TF') || m.endsWith('TP')) return LOCAL_IMAGES.DIMMER_TRUFFLE;
 
-  return IMAGES.DIMMER_WHITE;
+  return LOCAL_IMAGES.DIMMER_WHITE;
 }
 
 function slugify(text) {
@@ -321,4 +321,4 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = ${JSON.stringify(mapped
 
 const outputPath = path.join(__dirname, '..', 'lib', 'catalogData.ts');
 fs.writeFileSync(outputPath, fileContent, 'utf8');
-console.log('Successfully regenerated catalogData.ts with aesthetic photography for ' + mapped.length + ' products');
+console.log('Successfully updated catalogData.ts with local public storage images for ' + mapped.length + ' products');
