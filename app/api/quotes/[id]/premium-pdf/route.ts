@@ -123,7 +123,11 @@ export async function GET(
     const clientPart = slugifyFilenamePart(
       snapshot.client.companyName || snapshot.client.name
     );
-    const brandingSuffix = branding ? "-Aliado" : "";
+    const brandingSuffix = branding
+      ? "-Aliado"
+      : snapshot.quote.isPartnerQuote
+        ? "-ALFA"
+        : "";
     const filename = [
       "Cotizacion",
       quoteNumberPart,

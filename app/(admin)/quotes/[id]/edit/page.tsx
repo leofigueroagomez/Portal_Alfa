@@ -277,6 +277,7 @@ export default function EditQuotePage() {
   const searchParams = useSearchParams();
   const autoRefreshTriggeredRef = useRef(false);
   const redirectToPrintAfterSaveRef = useRef(false);
+  const printBrandingRef = useRef<string | null>(null);
 
   const [quote, setQuote] = useState<Quote | null>(null);
   const [canAdminEditApproved, setCanAdminEditApproved] = useState(false);
@@ -904,9 +905,16 @@ export default function EditQuotePage() {
 
       if (redirectToPrintAfterSaveRef.current) {
         redirectToPrintAfterSaveRef.current = false;
-        window.location.href = quote?.is_partner_quote
-          ? `/api/quotes/${quoteId}/premium-pdf?branding=partner`
-          : `/api/quotes/${quoteId}/premium-pdf`;
+        const requestedBranding = printBrandingRef.current;
+        const pdfUrl =
+          requestedBranding === "partner"
+            ? `/api/quotes/${quoteId}/premium-pdf?branding=partner`
+            : requestedBranding === "alfa"
+              ? `/api/quotes/${quoteId}/premium-pdf`
+              : quote?.is_partner_quote
+                ? `/api/quotes/${quoteId}/premium-pdf?branding=partner`
+                : `/api/quotes/${quoteId}/premium-pdf`;
+        window.location.href = pdfUrl;
       }
     })();
   }, [pendingAutoSaveAfterRateRefresh]);
@@ -922,6 +930,7 @@ export default function EditQuotePage() {
 
     if (!isEditableNow) return;
 
+    printBrandingRef.current = searchParams.get("branding");
     autoRefreshTriggeredRef.current = true;
     redirectToPrintAfterSaveRef.current = true;
     router.replace(`/quotes/${quoteId}/edit`);

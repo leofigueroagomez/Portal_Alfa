@@ -210,14 +210,42 @@ function buildFinancialRows(
   ];
 
   if (!branding?.hidePartnerDiscount && displayTotals.partnerTotalDiscountMxn > 0) {
-    rows.push([
-      "Descuento aliado",
-      `-${money(displayTotals.partnerTotalDiscountMxn, "MXN")}`,
-    ]);
+    if (
+      displayTotals.partnerEquipmentDiscountMxn > 0 &&
+      displayTotals.partnerLaborDiscountMxn > 0
+    ) {
+      rows.push([
+        "Descuento aliado equipos",
+        `-${money(displayTotals.partnerEquipmentDiscountMxn, "MXN")}`,
+      ]);
+      rows.push([
+        "Descuento aliado mano de obra",
+        `-${money(displayTotals.partnerLaborDiscountMxn, "MXN")}`,
+      ]);
+    } else if (displayTotals.partnerEquipmentDiscountMxn > 0) {
+      rows.push([
+        "Descuento aliado equipos",
+        `-${money(displayTotals.partnerEquipmentDiscountMxn, "MXN")}`,
+      ]);
+    } else if (displayTotals.partnerLaborDiscountMxn > 0) {
+      rows.push([
+        "Descuento aliado mano de obra",
+        `-${money(displayTotals.partnerLaborDiscountMxn, "MXN")}`,
+      ]);
+    } else {
+      rows.push([
+        "Descuento aliado",
+        `-${money(displayTotals.partnerTotalDiscountMxn, "MXN")}`,
+      ]);
+    }
   }
 
   if (displayTotals.discountMxn > 0) {
-    rows.push(["Descuento", `-${money(displayTotals.discountMxn, "MXN")}`]);
+    const discountLabel =
+      !branding?.hidePartnerDiscount && displayTotals.partnerTotalDiscountMxn > 0
+        ? "Descuento adicional"
+        : "Descuento";
+    rows.push([discountLabel, `-${money(displayTotals.discountMxn, "MXN")}`]);
   }
 
   rows.push(

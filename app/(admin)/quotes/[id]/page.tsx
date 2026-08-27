@@ -522,6 +522,7 @@ export default async function QuoteDetailPage({
             <PrintQuoteButton
               quoteId={quoteData.id}
               isPartnerQuote={Boolean(quoteData.is_partner_quote)}
+              commercialPartnerName={commercialPartner?.commercial_name || null}
               canGeneratePartnerPrint={canGeneratePartnerPrint}
               partnerMissingReason={partnerMissingReason}
               canRefreshRate={

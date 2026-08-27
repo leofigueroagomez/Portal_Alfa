@@ -24,6 +24,8 @@ export type QuotePdfSnapshot = {
     createdAt: string | null;
     notes: string | null;
     validityText: string | null;
+    isPartnerQuote?: boolean;
+    commercialPartnerId?: number | null;
   };
   client: {
     name: string | null;
@@ -150,6 +152,8 @@ type QuoteRow = {
   indirect_cost_percent?: NumericLike;
   indirect_cost_mxn?: NumericLike;
   misc_total_mxn?: NumericLike;
+  is_partner_quote?: boolean | null;
+  commercial_partner_id?: number | null;
   partner_equipment_discount_mxn?: NumericLike;
   partner_labor_discount_mxn?: NumericLike;
   partner_total_discount_mxn?: NumericLike;
@@ -449,7 +453,7 @@ export async function getQuotePdfSnapshot(
   let { data: quote, error: quoteError } = await supabase
     .from("quotes")
     .select(
-      "id, quote_number, status, currency, client_id, client_project_id, equipment_total, labor_total, grand_total, discount_amount_mxn, indirect_cost_percent, indirect_cost_mxn, misc_total_mxn, partner_equipment_discount_mxn, partner_labor_discount_mxn, partner_total_discount_mxn, subtotal_mxn, taxable_base_mxn, iva_mxn, total_mxn, exchange_rate, exchange_rate_source, exchange_rate_date, includes_travel_expenses_detail, travel_fuel_mxn, travel_tolls_mxn, travel_food_mxn, travel_total_mxn, notes, include_diagnostic_context, created_at"
+      "id, quote_number, status, currency, client_id, client_project_id, equipment_total, labor_total, grand_total, discount_amount_mxn, indirect_cost_percent, indirect_cost_mxn, misc_total_mxn, is_partner_quote, commercial_partner_id, partner_equipment_discount_mxn, partner_labor_discount_mxn, partner_total_discount_mxn, subtotal_mxn, taxable_base_mxn, iva_mxn, total_mxn, exchange_rate, exchange_rate_source, exchange_rate_date, includes_travel_expenses_detail, travel_fuel_mxn, travel_tolls_mxn, travel_food_mxn, travel_total_mxn, notes, include_diagnostic_context, created_at"
     )
     .eq("id", quoteId)
     .maybeSingle<QuoteRow>();
@@ -458,7 +462,7 @@ export async function getQuotePdfSnapshot(
     const fallback = await supabase
       .from("quotes")
       .select(
-        "id, quote_number, status, currency, client_id, client_project_id, equipment_total, labor_total, grand_total, discount_amount_mxn, indirect_cost_percent, indirect_cost_mxn, misc_total_mxn, partner_equipment_discount_mxn, partner_labor_discount_mxn, partner_total_discount_mxn, subtotal_mxn, taxable_base_mxn, iva_mxn, total_mxn, exchange_rate, exchange_rate_source, exchange_rate_date, includes_travel_expenses_detail, travel_fuel_mxn, travel_tolls_mxn, travel_food_mxn, travel_total_mxn, notes, created_at"
+        "id, quote_number, status, currency, client_id, client_project_id, equipment_total, labor_total, grand_total, discount_amount_mxn, indirect_cost_percent, indirect_cost_mxn, misc_total_mxn, is_partner_quote, commercial_partner_id, partner_equipment_discount_mxn, partner_labor_discount_mxn, partner_total_discount_mxn, subtotal_mxn, taxable_base_mxn, iva_mxn, total_mxn, exchange_rate, exchange_rate_source, exchange_rate_date, includes_travel_expenses_detail, travel_fuel_mxn, travel_tolls_mxn, travel_food_mxn, travel_total_mxn, notes, created_at"
       )
       .eq("id", quoteId)
       .maybeSingle<QuoteRow>();
@@ -824,6 +828,8 @@ export async function getQuotePdfSnapshot(
       createdAt: quote.created_at,
       notes: quote.notes || null,
       validityText: null,
+      isPartnerQuote: Boolean(quote.is_partner_quote),
+      commercialPartnerId: quote.commercial_partner_id || null,
     },
     client: {
       name: client?.name || null,
