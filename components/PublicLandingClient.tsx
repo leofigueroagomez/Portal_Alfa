@@ -450,6 +450,12 @@ export default function PublicLanding() {
             </div>
 
             <Link
+              href="/marcas"
+              className="rounded border border-white/10 px-3.5 py-2 text-xs font-medium uppercase tracking-wider text-zinc-300 transition hover:border-[#B84A5A] hover:text-white"
+            >
+              Marcas
+            </Link>
+            <Link
               href="/alfa-os"
               className="rounded border border-white/10 px-3.5 py-2 text-xs font-medium uppercase tracking-wider text-zinc-300 transition hover:border-[#B84A5A] hover:text-white"
             >
@@ -509,6 +515,14 @@ export default function PublicLanding() {
               })}
             </div>
             <div className="mt-4 flex flex-col gap-2 border-t border-white/10 pt-4">
+              <Link
+                href="/marcas"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center justify-between rounded-lg px-3 py-2 text-sm text-zinc-200 hover:bg-white/5"
+              >
+                <span>Catálogo de Marcas & Equipos</span>
+                <ArrowRight className="h-4 w-4 text-[#B84A5A]" />
+              </Link>
               <Link
                 href="/alfa-os"
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -738,21 +752,29 @@ export default function PublicLanding() {
           </div>
 
           <div className="mt-10 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-            {brandLogos.map((brand) => (
-              <div
-                key={brand.name}
-                className="group flex h-28 items-center justify-center overflow-hidden rounded-[24px] border border-black/[0.08] bg-white p-6 shadow-sm shadow-black/[0.03] transition duration-[250ms] ease-in-out hover:-translate-y-0.5 hover:border-[#7A1F2B] sm:h-32"
-              >
-                <Image
-                  src={brand.src}
-                  alt={brand.name}
-                  width={220}
-                  height={90}
-                  title={brand.category}
-                  className={`${brand.logoClassName} h-auto w-auto object-contain opacity-[.85] grayscale transition duration-[250ms] ease-in-out group-hover:opacity-100 group-hover:grayscale-0`}
-                />
-              </div>
-            ))}
+            {brandLogos.map((brand) => {
+              const brandHref =
+                brand.name.toLowerCase() === "lutron"
+                  ? "/marcas/lutron"
+                  : "/marcas";
+
+              return (
+                <Link
+                  key={brand.name}
+                  href={brandHref}
+                  className="group flex h-28 items-center justify-center overflow-hidden rounded-[24px] border border-black/[0.08] bg-white p-6 shadow-sm shadow-black/[0.03] transition duration-[250ms] ease-in-out hover:-translate-y-0.5 hover:border-[#7A1F2B] sm:h-32"
+                >
+                  <Image
+                    src={brand.src}
+                    alt={brand.name}
+                    width={220}
+                    height={90}
+                    title={brand.category}
+                    className={`${brand.logoClassName} h-auto w-auto object-contain opacity-[.85] grayscale transition duration-[250ms] ease-in-out group-hover:opacity-100 group-hover:grayscale-0`}
+                  />
+                </Link>
+              );
+            })}
           </div>
 
           <p className="mt-8 max-w-3xl text-sm leading-7 text-zinc-600">

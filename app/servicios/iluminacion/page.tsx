@@ -304,19 +304,30 @@ export default function IluminacionPage() {
 
           <div className="mt-12 grid grid-cols-2 gap-6 max-w-2xl mx-auto">
             {brands.map((brand) => (
-              <div
+              <Link
                 key={brand.name}
-                className="flex h-32 items-center justify-center rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm transition hover:border-[#7A1F2B]"
+                href={brand.name.toLowerCase() === "lutron" ? "/marcas/lutron" : "/marcas"}
+                className="group flex h-32 items-center justify-center rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm transition hover:border-[#7A1F2B] hover:shadow-md"
               >
                 <Image
                   src={brand.src}
                   alt={brand.name}
                   width={220}
                   height={90}
-                  className={`${brand.className} h-auto w-auto object-contain opacity-85 grayscale transition hover:opacity-100 hover:grayscale-0`}
+                  className={`${brand.className} h-auto w-auto object-contain opacity-85 grayscale transition group-hover:opacity-100 group-hover:grayscale-0`}
                 />
-              </div>
+              </Link>
             ))}
+          </div>
+
+          <div className="mt-8 text-center">
+            <Link
+              href="/marcas/lutron"
+              className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#7A1F2B] hover:text-[#5A1320] transition bg-zinc-100 px-5 py-2.5 rounded-full border border-zinc-200 hover:border-[#7A1F2B]/40"
+            >
+              <span>Explorar catálogo completo de modelos Lutron RadioRA 3</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
           </div>
         </div>
       </section>
