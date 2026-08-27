@@ -84,6 +84,7 @@ type SourceQuote = {
   id: number;
   quote_group_id: number;
   quote_base_number: string | null;
+  client_id?: number | null;
   client_project_id?: number | null;
   currency: string | null;
   equipment_total: number | null;
@@ -94,6 +95,9 @@ type SourceQuote = {
   discount_type?: string | null;
   discount_percent?: number | null;
   discount_amount_mxn?: number | null;
+  indirect_cost_percent?: number | null;
+  indirect_cost_mxn?: number | null;
+  misc_total_mxn?: number | null;
   includes_travel_expenses_detail?: boolean | null;
   travel_fuel_mxn?: number | null;
   travel_tolls_mxn?: number | null;
@@ -157,7 +161,7 @@ export default function CreateQuoteVersionButton({
     let { data: quote, error: quoteError } = (await supabase
       .from("quotes")
       .select(
-        "id, quote_group_id, quote_base_number, client_project_id, currency, equipment_total, labor_total, tax_total, discount_total, grand_total, discount_type, discount_percent, discount_amount_mxn, includes_travel_expenses_detail, travel_fuel_mxn, travel_tolls_mxn, travel_food_mxn, travel_total_mxn, is_partner_quote, commercial_partner_id, partner_equipment_discount_percent, partner_labor_discount_percent, partner_equipment_discount_mxn, partner_labor_discount_mxn, partner_total_discount_mxn, subtotal_mxn, taxable_base_mxn, iva_mxn, total_mxn, exchange_rate, exchange_rate_source, exchange_rate_date, notes, include_diagnostic_context"
+        "id, quote_group_id, quote_base_number, client_id, client_project_id, currency, equipment_total, labor_total, tax_total, discount_total, grand_total, discount_type, discount_percent, discount_amount_mxn, indirect_cost_percent, indirect_cost_mxn, misc_total_mxn, includes_travel_expenses_detail, travel_fuel_mxn, travel_tolls_mxn, travel_food_mxn, travel_total_mxn, is_partner_quote, commercial_partner_id, partner_equipment_discount_percent, partner_labor_discount_percent, partner_equipment_discount_mxn, partner_labor_discount_mxn, partner_total_discount_mxn, subtotal_mxn, taxable_base_mxn, iva_mxn, total_mxn, exchange_rate, exchange_rate_source, exchange_rate_date, notes, include_diagnostic_context"
       )
       .eq("id", quoteId)
       .single()) as {
@@ -173,12 +177,15 @@ export default function CreateQuoteVersionButton({
         quoteError.message.includes("include_diagnostic_context") ||
         quoteError.message.includes("is_partner_quote") ||
         quoteError.message.includes("commercial_partner_id") ||
+        quoteError.message.includes("indirect_cost_percent") ||
+        quoteError.message.includes("indirect_cost_mxn") ||
+        quoteError.message.includes("misc_total_mxn") ||
         quoteError.message.includes("total_mxn"))
     ) {
       const fallback = (await supabase
         .from("quotes")
         .select(
-          "id, quote_group_id, quote_base_number, client_project_id, currency, equipment_total, labor_total, tax_total, discount_total, grand_total, exchange_rate"
+          "id, quote_group_id, quote_base_number, client_id, client_project_id, currency, equipment_total, labor_total, tax_total, discount_total, grand_total, exchange_rate"
         )
         .eq("id", quoteId)
         .single()) as {
@@ -330,7 +337,8 @@ export default function CreateQuoteVersionButton({
       version: nextVersion,
       quote_number: `${quoteBaseNumber}-V${nextVersion}`,
       parent_quote_id: quoteId,
-      client_project_id: quote.client_project_id,
+      client_id: quote.client_id || null,
+      client_project_id: quote.client_project_id || null,
       status: "draft",
       is_latest: true,
       currency: quote.currency,
@@ -342,6 +350,9 @@ export default function CreateQuoteVersionButton({
       discount_type: quote.discount_type,
       discount_percent: quote.discount_percent,
       discount_amount_mxn: quote.discount_amount_mxn,
+      indirect_cost_percent: quote.indirect_cost_percent,
+      indirect_cost_mxn: quote.indirect_cost_mxn,
+      misc_total_mxn: quote.misc_total_mxn,
       includes_travel_expenses_detail: quote.includes_travel_expenses_detail,
       travel_fuel_mxn: quote.travel_fuel_mxn,
       travel_tolls_mxn: quote.travel_tolls_mxn,
@@ -380,6 +391,10 @@ export default function CreateQuoteVersionButton({
         newQuoteResult.error.message.includes("notes") ||
         newQuoteResult.error.message.includes("include_diagnostic_context") ||
         newQuoteResult.error.message.includes("is_partner_quote") ||
+        newQuoteResult.error.message.includes("commercial_partner_id") ||
+        newQuoteResult.error.message.includes("indirect_cost_percent") ||
+        newQuoteResult.error.message.includes("indirect_cost_mxn") ||
+        newQuoteResult.error.message.includes("misc_total_mxn") ||
         newQuoteResult.error.message.includes("total_mxn"))
     ) {
       const {
@@ -389,6 +404,9 @@ export default function CreateQuoteVersionButton({
         discount_type,
         discount_percent,
         discount_amount_mxn,
+        indirect_cost_percent,
+        indirect_cost_mxn,
+        misc_total_mxn,
         includes_travel_expenses_detail,
         travel_fuel_mxn,
         travel_tolls_mxn,

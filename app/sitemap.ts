@@ -1,13 +1,14 @@
 import type { MetadataRoute } from "next";
+import { STATIC_BRANDS, STATIC_CATALOG_PRODUCTS } from "@/lib/catalogData";
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = (
     process.env.NEXT_PUBLIC_SITE_URL || "https://www.alfait.com.mx"
   ).replace(/\/+$/, "");
 
   const currentDate = new Date().toISOString();
 
-  return [
+  const staticPages: MetadataRoute.Sitemap = [
     {
       url: `${baseUrl}/`,
       lastModified: currentDate,
@@ -57,10 +58,34 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.9,
     },
     {
+      url: `${baseUrl}/marcas`,
+      lastModified: currentDate,
+      changeFrequency: "weekly",
+      priority: 0.95,
+    },
+    {
       url: `${baseUrl}/aviso-de-privacidad`,
       lastModified: currentDate,
       changeFrequency: "yearly",
       priority: 0.3,
     },
   ];
+
+  // Brand URLs
+  const brandPages: MetadataRoute.Sitemap = STATIC_BRANDS.map((brand) => ({
+    url: `${baseUrl}/marcas/${brand.slug}`,
+    lastModified: currentDate,
+    changeFrequency: "weekly",
+    priority: 0.9,
+  }));
+
+  // Product URLs (Lutron RadioRA 3 & others)
+  const productPages: MetadataRoute.Sitemap = STATIC_CATALOG_PRODUCTS.map((prod) => ({
+    url: `${baseUrl}/marcas/${prod.brand_slug}/${prod.slug}`,
+    lastModified: currentDate,
+    changeFrequency: "weekly",
+    priority: 0.85,
+  }));
+
+  return [...staticPages, ...brandPages, ...productPages];
 }
