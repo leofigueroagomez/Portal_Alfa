@@ -87,41 +87,41 @@ export default async function MarcasPage() {
 
       {/* Brands Grid */}
       <section className="px-5 py-16 sm:px-8 sm:py-24 lg:px-12">
-        <div className="mx-auto max-w-7xl">
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+        <div className="mx-auto max-w-5xl">
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-1 lg:grid-cols-1 max-w-2xl mx-auto">
             {brands.map((brand) => (
               <div
                 key={brand.id}
-                className="group relative flex flex-col justify-between rounded-2xl border border-white/10 bg-[#121216] p-8 transition duration-300 hover:border-[#9E1B32]/50 hover:bg-[#16161B] hover:shadow-2xl hover:shadow-[#9E1B32]/10"
+                className="group relative flex flex-col justify-between rounded-2xl border border-white/10 bg-[#121216] p-8 sm:p-10 transition duration-300 hover:border-[#9E1B32]/50 hover:bg-[#16161B] hover:shadow-2xl hover:shadow-[#9E1B32]/10"
               >
                 <div>
-                  <div className="flex items-center justify-between mb-6">
-                    <span className="text-2xl font-bold tracking-tight text-white font-serif">
+                  <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                    <span className="text-3xl font-bold tracking-tight text-white font-serif">
                       {brand.name}
                     </span>
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#E07A8B] bg-[#9E1B32]/15 px-2.5 py-1 rounded-md border border-[#9E1B32]/30">
-                      <ShieldCheck className="h-3 w-3" />
-                      {brand.authorized_partner_tier || "Distribuidor Oficial"}
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#E07A8B] bg-[#9E1B32]/15 px-3 py-1.5 rounded-md border border-[#9E1B32]/30">
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                      {brand.authorized_partner_tier || "Distribuidor e Integrador Oficial"}
                     </span>
                   </div>
 
-                  <p className="text-sm font-medium text-zinc-300 mb-4">
+                  <p className="text-base font-medium text-zinc-200 mb-4">
                     {brand.tagline}
                   </p>
 
-                  <p className="text-xs text-zinc-400 leading-relaxed line-clamp-3 mb-6">
+                  <p className="text-sm text-zinc-400 leading-relaxed mb-6 font-light">
                     {brand.description}
                   </p>
 
                   <div className="space-y-2 mb-8">
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
-                      Especialidades:
+                      Ecosistemas y Líneas Disponibles:
                     </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {brand.focus_areas.slice(0, 4).map((area, idx) => (
+                    <div className="flex flex-wrap gap-2">
+                      {brand.focus_areas.map((area, idx) => (
                         <span
                           key={idx}
-                          className="text-[11px] bg-white/5 border border-white/10 px-2.5 py-1 rounded text-zinc-300"
+                          className="text-xs bg-white/5 border border-white/10 px-3 py-1 rounded-md text-zinc-300"
                         >
                           {area}
                         </span>
@@ -132,9 +132,9 @@ export default async function MarcasPage() {
 
                 <Link
                   href={`/marcas/${brand.slug}`}
-                  className="mt-4 flex items-center justify-between rounded-xl bg-white/5 group-hover:bg-[#9E1B32] border border-white/10 group-hover:border-[#9E1B32] px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-white transition duration-200"
+                  className="mt-4 flex items-center justify-between rounded-xl bg-white/5 group-hover:bg-[#9E1B32] border border-white/10 group-hover:border-[#9E1B32] px-6 py-4 text-xs font-semibold uppercase tracking-wider text-white transition duration-200 shadow-md"
                 >
-                  <span>Explorar Catálogo {brand.name}</span>
+                  <span>Explorar Catálogo y Modelos {brand.name} (67 equipos)</span>
                   <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
                 </Link>
               </div>

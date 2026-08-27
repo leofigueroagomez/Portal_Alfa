@@ -34,44 +34,6 @@ export const STATIC_BRANDS: Brand[] = [
     is_active: true,
     sort_order: 1,
   },
-  {
-    id: 2,
-    name: "Sonos",
-    slug: "sonos",
-    tagline: "Audio Multiroom de Alta Fidelidad para Residencias",
-    description:
-      "El sistema de sonido inalámbrico multiroom por excelencia. Diseñado para llenar cada espacio de tu hogar con audio brillante y control intuitivo.",
-    logo_url: "/logos/brands/sonos.png",
-    hero_image_url: "/projects/residencia-premium.jpeg",
-    website_url: "https://www.sonos.com",
-    origin_country: "Estados Unidos",
-    focus_areas: ["Audio Multiroom", "Home Theater", "Sonos Amp", "Arquitectura Acústica"],
-    authorized_partner_tier: "Integrador Certificado",
-    seo_title: "Sonos México | Audio Multiroom y Sistemas Residenciales | ALFA",
-    seo_description: "Integración profesional de sistemas de audio Sonos en México.",
-    seo_keywords: ["Sonos Mexico", "Sonos Amp", "Sonos Arc", "Audio multiroom"],
-    is_active: true,
-    sort_order: 2,
-  },
-  {
-    id: 3,
-    name: "Shelly",
-    slug: "shelly",
-    tagline: "Automatización Modular y Monitoreo Energético Europeo",
-    description:
-      "Soluciones profesionales de automatización modular, medición energética y control inteligente con estándares de ingeniería europeos.",
-    logo_url: "/logos/brands/shelly.png",
-    hero_image_url: "/projects/residencia-premium.jpeg",
-    website_url: "https://www.shelly.com",
-    origin_country: "Unión Europea",
-    focus_areas: ["Automatización Modular", "Monitoreo Eléctrico", "Relays WiFi/Zigbee"],
-    authorized_partner_tier: "Distribuidor Internacional Oficial",
-    seo_title: "Shelly México | Distribución Oficial y Automatización | ALFA",
-    seo_description: "Distribución oficial de módulos y relevadores Shelly en México con respaldo ALFA.",
-    seo_keywords: ["Shelly Mexico", "Shelly distribuidor", "Automatizacion Shelly"],
-    is_active: true,
-    sort_order: 3,
-  },
 ];
 
 export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
@@ -117,8 +79,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.934Z",
-    "updated_at": "2026-08-27T22:38:26.934Z"
+    "created_at": "2026-08-27T23:10:57.317Z",
+    "updated_at": "2026-08-27T23:10:57.317Z"
   },
   {
     "id": 101,
@@ -162,8 +124,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.934Z",
-    "updated_at": "2026-08-27T22:38:26.934Z"
+    "created_at": "2026-08-27T23:10:57.317Z",
+    "updated_at": "2026-08-27T23:10:57.317Z"
   },
   {
     "id": 102,
@@ -207,8 +169,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.934Z",
-    "updated_at": "2026-08-27T22:38:26.934Z"
+    "created_at": "2026-08-27T23:10:57.317Z",
+    "updated_at": "2026-08-27T23:10:57.317Z"
   },
   {
     "id": 103,
@@ -252,8 +214,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.934Z",
-    "updated_at": "2026-08-27T22:38:26.934Z"
+    "created_at": "2026-08-27T23:10:57.317Z",
+    "updated_at": "2026-08-27T23:10:57.317Z"
   },
   {
     "id": 104,
@@ -297,8 +259,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.317Z",
+    "updated_at": "2026-08-27T23:10:57.317Z"
   },
   {
     "id": 105,
@@ -342,8 +304,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.317Z",
+    "updated_at": "2026-08-27T23:10:57.317Z"
   },
   {
     "id": 106,
@@ -387,8 +349,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.317Z",
+    "updated_at": "2026-08-27T23:10:57.317Z"
   },
   {
     "id": 107,
@@ -432,8 +394,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.317Z",
+    "updated_at": "2026-08-27T23:10:57.317Z"
   },
   {
     "id": 108,
@@ -477,8 +439,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.317Z",
+    "updated_at": "2026-08-27T23:10:57.317Z"
   },
   {
     "id": 109,
@@ -522,8 +484,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.317Z",
+    "updated_at": "2026-08-27T23:10:57.317Z"
   },
   {
     "id": 110,
@@ -567,8 +529,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.317Z",
+    "updated_at": "2026-08-27T23:10:57.317Z"
   },
   {
     "id": 111,
@@ -612,8 +574,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.317Z",
+    "updated_at": "2026-08-27T23:10:57.317Z"
   },
   {
     "id": 112,
@@ -657,8 +619,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.317Z",
+    "updated_at": "2026-08-27T23:10:57.317Z"
   },
   {
     "id": 113,
@@ -702,8 +664,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.317Z",
+    "updated_at": "2026-08-27T23:10:57.317Z"
   },
   {
     "id": 114,
@@ -747,8 +709,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.317Z",
+    "updated_at": "2026-08-27T23:10:57.317Z"
   },
   {
     "id": 115,
@@ -792,8 +754,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.317Z",
+    "updated_at": "2026-08-27T23:10:57.317Z"
   },
   {
     "id": 116,
@@ -837,8 +799,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.317Z",
+    "updated_at": "2026-08-27T23:10:57.317Z"
   },
   {
     "id": 117,
@@ -882,8 +844,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.317Z",
+    "updated_at": "2026-08-27T23:10:57.317Z"
   },
   {
     "id": 118,
@@ -927,8 +889,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.317Z",
+    "updated_at": "2026-08-27T23:10:57.317Z"
   },
   {
     "id": 119,
@@ -972,8 +934,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.317Z",
+    "updated_at": "2026-08-27T23:10:57.317Z"
   },
   {
     "id": 120,
@@ -1017,8 +979,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.317Z",
+    "updated_at": "2026-08-27T23:10:57.317Z"
   },
   {
     "id": 121,
@@ -1062,8 +1024,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.317Z",
+    "updated_at": "2026-08-27T23:10:57.317Z"
   },
   {
     "id": 122,
@@ -1107,8 +1069,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.317Z",
+    "updated_at": "2026-08-27T23:10:57.317Z"
   },
   {
     "id": 123,
@@ -1152,8 +1114,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.317Z",
+    "updated_at": "2026-08-27T23:10:57.317Z"
   },
   {
     "id": 124,
@@ -1197,8 +1159,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.317Z",
+    "updated_at": "2026-08-27T23:10:57.317Z"
   },
   {
     "id": 125,
@@ -1242,8 +1204,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.317Z",
+    "updated_at": "2026-08-27T23:10:57.317Z"
   },
   {
     "id": 126,
@@ -1287,8 +1249,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.317Z",
+    "updated_at": "2026-08-27T23:10:57.317Z"
   },
   {
     "id": 127,
@@ -1332,8 +1294,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.317Z",
+    "updated_at": "2026-08-27T23:10:57.317Z"
   },
   {
     "id": 128,
@@ -1377,8 +1339,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.317Z",
+    "updated_at": "2026-08-27T23:10:57.317Z"
   },
   {
     "id": 129,
@@ -1422,8 +1384,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.317Z",
+    "updated_at": "2026-08-27T23:10:57.317Z"
   },
   {
     "id": 130,
@@ -1467,8 +1429,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.317Z",
+    "updated_at": "2026-08-27T23:10:57.317Z"
   },
   {
     "id": 131,
@@ -1512,8 +1474,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   },
   {
     "id": 132,
@@ -1557,8 +1519,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   },
   {
     "id": 133,
@@ -1602,8 +1564,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   },
   {
     "id": 134,
@@ -1647,8 +1609,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   },
   {
     "id": 135,
@@ -1692,8 +1654,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   },
   {
     "id": 136,
@@ -1737,8 +1699,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   },
   {
     "id": 137,
@@ -1782,8 +1744,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   },
   {
     "id": 138,
@@ -1827,8 +1789,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   },
   {
     "id": 139,
@@ -1872,8 +1834,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   },
   {
     "id": 140,
@@ -1917,8 +1879,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   },
   {
     "id": 141,
@@ -1962,8 +1924,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   },
   {
     "id": 142,
@@ -2007,8 +1969,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   },
   {
     "id": 143,
@@ -2052,8 +2014,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   },
   {
     "id": 144,
@@ -2097,8 +2059,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   },
   {
     "id": 145,
@@ -2142,8 +2104,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   },
   {
     "id": 146,
@@ -2187,8 +2149,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   },
   {
     "id": 147,
@@ -2232,8 +2194,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   },
   {
     "id": 148,
@@ -2277,8 +2239,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   },
   {
     "id": 149,
@@ -2322,8 +2284,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   },
   {
     "id": 150,
@@ -2367,8 +2329,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   },
   {
     "id": 151,
@@ -2412,8 +2374,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   },
   {
     "id": 152,
@@ -2457,8 +2419,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   },
   {
     "id": 153,
@@ -2502,8 +2464,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   },
   {
     "id": 154,
@@ -2547,8 +2509,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   },
   {
     "id": 155,
@@ -2592,8 +2554,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   },
   {
     "id": 156,
@@ -2637,8 +2599,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   },
   {
     "id": 157,
@@ -2682,8 +2644,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   },
   {
     "id": 158,
@@ -2727,8 +2689,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   },
   {
     "id": 159,
@@ -2772,8 +2734,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   },
   {
     "id": 160,
@@ -2817,8 +2779,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   },
   {
     "id": 161,
@@ -2862,8 +2824,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   },
   {
     "id": 162,
@@ -2907,8 +2869,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   },
   {
     "id": 163,
@@ -2952,8 +2914,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   },
   {
     "id": 164,
@@ -2997,8 +2959,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   },
   {
     "id": 165,
@@ -3042,8 +3004,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   },
   {
     "id": 166,
@@ -3087,7 +3049,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:38:26.935Z",
-    "updated_at": "2026-08-27T22:38:26.935Z"
+    "created_at": "2026-08-27T23:10:57.318Z",
+    "updated_at": "2026-08-27T23:10:57.318Z"
   }
 ];
