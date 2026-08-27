@@ -178,20 +178,23 @@ export default function BrandCatalogClient({ brand, products }: Props) {
               >
                 <div>
                   {/* Image container */}
-                  <div className="relative aspect-square w-full rounded-xl bg-white/[0.03] border border-white/5 p-4 flex items-center justify-center overflow-hidden mb-4 group-hover:bg-white/[0.06] transition">
+                  <div className="relative aspect-square w-full rounded-xl bg-gradient-to-b from-white/[0.06] to-black/40 border border-white/10 p-2 flex items-center justify-center overflow-hidden mb-4 group-hover:border-[#9E1B32]/40 transition duration-300">
                     {product.image_url ? (
                       <img
                         src={product.image_url}
                         alt={`${product.brand_name} ${product.model}`}
-                        className="max-h-full max-w-full object-contain transition duration-300 group-hover:scale-105"
+                        referrerPolicy="no-referrer"
+                        className="h-full w-full object-cover rounded-lg transition duration-500 group-hover:scale-105"
                         loading="lazy"
                       />
                     ) : (
-                      <span className="text-xs text-zinc-600">Sin imagen disponible</span>
+                      <div className="flex h-full w-full items-center justify-center bg-[#18181D] text-xs text-zinc-600 rounded-lg">
+                        Fotografía en calibración
+                      </div>
                     )}
 
                     <div className="absolute top-2.5 left-2.5">
-                      <span className="rounded bg-black/70 backdrop-blur-md px-2 py-0.5 text-[10px] font-bold font-mono tracking-wider text-zinc-300 border border-white/10">
+                      <span className="rounded-md bg-black/80 backdrop-blur-md px-2 py-0.5 text-[10px] font-bold font-mono tracking-wider text-zinc-200 border border-white/15">
                         {product.model}
                       </span>
                     </div>

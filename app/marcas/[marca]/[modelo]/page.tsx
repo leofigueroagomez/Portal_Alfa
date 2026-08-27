@@ -170,19 +170,22 @@ export default async function ProductDetailPage({ params }: Props) {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
             {/* Left: Product Image */}
             <div className="lg:col-span-5 space-y-4">
-              <div className="relative aspect-square w-full rounded-2xl bg-[#121216] border border-white/10 p-8 flex items-center justify-center overflow-hidden shadow-2xl">
+              <div className="relative aspect-square w-full rounded-2xl bg-gradient-to-b from-white/[0.08] to-black/60 border border-white/10 p-4 flex items-center justify-center overflow-hidden shadow-2xl">
                 {product.image_url ? (
                   <img
                     src={product.image_url}
                     alt={`${product.brand_name} ${product.model}`}
-                    className="max-h-full max-w-full object-contain"
+                    referrerPolicy="no-referrer"
+                    className="h-full w-full object-cover rounded-xl shadow-inner transition duration-500 hover:scale-105"
                   />
                 ) : (
-                  <span className="text-zinc-600">Fotografía oficial no disponible</span>
+                  <div className="flex h-full w-full items-center justify-center bg-[#18181D] text-xs text-zinc-600 rounded-xl">
+                    Fotografía en calibración
+                  </div>
                 )}
 
                 <div className="absolute top-4 left-4">
-                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#E07A8B] bg-[#9E1B32]/20 px-3 py-1 rounded-md border border-[#9E1B32]/40 backdrop-blur-md">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#E07A8B] bg-black/80 px-3 py-1 rounded-md border border-[#9E1B32]/40 backdrop-blur-md">
                     <ShieldCheck className="h-3.5 w-3.5" />
                     Equipo Genuino {product.brand_name}
                   </span>
@@ -317,16 +320,17 @@ export default async function ProductDetailPage({ params }: Props) {
                     className="group rounded-2xl border border-white/10 bg-[#121216] p-4 transition duration-300 hover:border-[#9E1B32]/50 hover:bg-[#16161B] flex flex-col justify-between"
                   >
                     <div>
-                      <div className="aspect-square w-full rounded-xl bg-white/[0.03] p-3 flex items-center justify-center mb-3">
+                      <div className="aspect-square w-full rounded-xl bg-gradient-to-b from-white/[0.06] to-black/40 border border-white/5 p-2 flex items-center justify-center overflow-hidden mb-3">
                         {rel.image_url ? (
                           <img
                             src={rel.image_url}
                             alt={rel.model || ""}
-                            className="max-h-full max-w-full object-contain group-hover:scale-105 transition"
+                            referrerPolicy="no-referrer"
+                            className="h-full w-full object-cover rounded-lg group-hover:scale-105 transition duration-500"
                             loading="lazy"
                           />
                         ) : (
-                          <span className="text-xs text-zinc-600">Sin foto</span>
+                          <span className="text-xs text-zinc-600">Fotografía en calibración</span>
                         )}
                       </div>
                       <span className="text-[10px] font-mono text-zinc-400 font-bold">
