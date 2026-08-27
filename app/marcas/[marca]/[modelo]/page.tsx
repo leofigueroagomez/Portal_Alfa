@@ -19,6 +19,7 @@ import {
   generateCatalogBreadcrumbJsonLd,
 } from "@/lib/catalog";
 import ProductQuoteModal from "./ProductQuoteModal";
+import ProductDetailImage from "./ProductDetailImage";
 
 type Props = {
   params: Promise<{ marca: string; modelo: string }>;
@@ -170,27 +171,11 @@ export default async function ProductDetailPage({ params }: Props) {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
             {/* Left: Product Image */}
             <div className="lg:col-span-5 space-y-4">
-              <div className="relative aspect-square w-full rounded-2xl bg-gradient-to-b from-white/[0.08] to-black/60 border border-white/10 p-4 flex items-center justify-center overflow-hidden shadow-2xl">
-                {product.image_url ? (
-                  <img
-                    src={product.image_url}
-                    alt={`${product.brand_name} ${product.model}`}
-                    referrerPolicy="no-referrer"
-                    className="h-full w-full object-cover rounded-xl shadow-inner transition duration-500 hover:scale-105"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-[#18181D] text-xs text-zinc-600 rounded-xl">
-                    Fotografía en calibración
-                  </div>
-                )}
-
-                <div className="absolute top-4 left-4">
-                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#E07A8B] bg-black/80 px-3 py-1 rounded-md border border-[#9E1B32]/40 backdrop-blur-md">
-                    <ShieldCheck className="h-3.5 w-3.5" />
-                    Equipo Genuino {product.brand_name}
-                  </span>
-                </div>
-              </div>
+              <ProductDetailImage
+                src={product.image_url || `/products/lutron/${(product.model || '').toLowerCase()}.png`}
+                alt={`${product.brand_name} ${product.model}`}
+                brandName={product.brand_name}
+              />
 
               {/* Service Badges */}
               <div className="grid grid-cols-2 gap-3">

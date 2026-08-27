@@ -90,7 +90,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Juego de 3 adaptadores de barril a terminal, accesorio de alimentación del sistema Lutron Tape Light para tira LED. Permite conectar fuente de poder directamente a terminales Lumaris sin cortar cables ni soldar.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/hardware.jpg",
+    "image_url": "/products/lutron/lubp1.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "LUBP1",
@@ -117,8 +117,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.220Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.934Z",
+    "updated_at": "2026-08-27T22:38:26.934Z"
   },
   {
     "id": 101,
@@ -135,7 +135,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Conectores wire-to-tape de 3 pines para unión sin soldadura de cable con segmentos de tira LED tunable white Lutron en RadioRA 3 y HomeWorks QSX.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/hardware.jpg",
+    "image_url": "/products/lutron/luck1tw.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "LUCK1TW",
@@ -162,8 +162,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.934Z",
+    "updated_at": "2026-08-27T22:38:26.934Z"
   },
   {
     "id": 102,
@@ -180,7 +180,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Paquete de 20 clips de montaje superficial de 10 mm para fijar tira LED tunable white Lutron directamente sobre superficies.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/hardware.jpg",
+    "image_url": "/products/lutron/lumk1.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "LUMK1",
@@ -207,8 +207,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.934Z",
+    "updated_at": "2026-08-27T22:38:26.934Z"
   },
   {
     "id": 103,
@@ -225,7 +225,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Interfaz de alimentación cableada de 120-277 V a 24 V, energiza hasta 3 controladores inalámbricos Lumaris y hasta 15 m de tira LED.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/lumaris-controller.jpg",
+    "image_url": "/products/lutron/luph3a.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "LUPH3A",
@@ -252,8 +252,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.934Z",
+    "updated_at": "2026-08-27T22:38:26.934Z"
   },
   {
     "id": 104,
@@ -270,7 +270,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Cinta de luz blanca ajustable Lumaris de 2 canales (2500K a 5000K), carrete de 5 m, 24 V CD, 200 lm/pie, CRI 90+.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/lumaris-tape.jpg",
+    "image_url": "/products/lutron/lut05dl.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "LUT05DL",
@@ -297,8 +297,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 105,
@@ -315,7 +315,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Cinta LED Lumaris blanco cálido ajustable de 1800K a 3000K, carrete de 5 m, 24 V CD, 200 lm/pie, CRI 90+.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/lumaris-tape.jpg",
+    "image_url": "/products/lutron/lut05sw.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "LUT05SW",
@@ -342,8 +342,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 106,
@@ -360,7 +360,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Cinta LED Lumaris luz de día ajustable (2500K-5000K), carrete de 30 m para recorridos largos, 24 V CD, CRI 90+.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/lumaris-tape.jpg",
+    "image_url": "/products/lutron/lut30dl.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "LUT30DL",
@@ -387,8 +387,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 107,
@@ -405,7 +405,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Cinta LED Lumaris blanco cálido ajustable de 1800K a 3000K, carrete de 30 m para recorridos largos, 24 V CD, CRI 90+.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/lumaris-tape.jpg",
+    "image_url": "/products/lutron/lut30sw.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "LUT30SW",
@@ -432,8 +432,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 108,
@@ -450,7 +450,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Cable de 3 conductores 22 AWG (15.2 m) para cableado entre controlador inalámbrico y tira LED tunable white Lutron Tape Light.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/hardware.jpg",
+    "image_url": "/products/lutron/luwk1tw.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "LUWK1TW",
@@ -477,8 +477,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 109,
@@ -495,7 +495,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Downlight empotrable canless de 4 pulgadas con luz blanca ajustable (1800K a 4000K), 8.5 W, 800 lúmenes, atenuación continua hasta 0.1%, RF Type X.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/lumaris-downlight.jpg",
+    "image_url": "/products/lutron/rrlcd4whtw.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRLCD4WHTW",
@@ -522,8 +522,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 110,
@@ -540,7 +540,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Downlight empotrable canless de 6 pulgadas con luz blanca ajustable (1800K a 4000K), 8.5 W, 800 lúmenes, atenuación sin parpadeo hasta 0.1%, RF Type X.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/lumaris-downlight.jpg",
+    "image_url": "/products/lutron/rrlcd6whtw.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRLCD6WHTW",
@@ -567,8 +567,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 111,
@@ -585,7 +585,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Kit completo nativo de RadioRA 3: tira LED de 5 m blanco ajustable (2500K-5000K), controlador inalámbrico con drivers integrados, fuente de poder y conectores.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/lumaris-kit.jpg",
+    "image_url": "/products/lutron/rrltlkdl.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRLTLKDL",
@@ -612,8 +612,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 112,
@@ -630,7 +630,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Kit completo nativo RadioRA 3: tira LED de 5 m blanco cálido (1800K-3000K), controlador inalámbrico con drivers integrados, fuente de poder y accesorios.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/lumaris-kit.jpg",
+    "image_url": "/products/lutron/rrltlksw.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRLTLKSW",
@@ -657,8 +657,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 113,
@@ -675,7 +675,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Controlador inalámbrico Lumaris de 2 canales para tiras LED ajustables en RadioRA 3, tecnología Clear Connect Type X, carga máxima 32 W, atenuación a 0.1%.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/lumaris-controller.jpg",
+    "image_url": "/products/lutron/rrltwclwh.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRLTWCLWH",
@@ -702,8 +702,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 114,
@@ -720,7 +720,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Controlador inalámbrico Lumaris con fuente de alimentación directa incluida (100-240 V CA a 24 V), soporte hasta 32 W de carga, Clear Connect Type X.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/lumaris-controller.jpg",
+    "image_url": "/products/lutron/rrltwcwh.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRLTWCWH",
@@ -747,8 +747,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 115,
@@ -765,7 +765,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Procesador central hub RadioRA 3 con adaptadores de montaje empotrado y caja de conexión, alimentación PoE, gestión de hasta 100 dispositivos Type X y 95 Type A.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/proc3-cw.jpg",
+    "image_url": "/products/lutron/rrproc3cw.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRPROC3CW",
@@ -792,8 +792,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 116,
@@ -810,7 +810,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Kit procesador central RadioRA 3 completo: procesador, inyector PoE, adaptador de repisa y cables de red. Hasta 100 dispositivos Type X y 95 Type A por procesador.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/proc3-kit.jpg",
+    "image_url": "/products/lutron/rrproc3kit.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRPROC3KIT",
@@ -837,8 +837,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 117,
@@ -855,7 +855,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Apagador inteligente Sunnata on/off de pared con neutro, conmuta 8 A en iluminación o 5.8 A en motor, acabado satinado Deep Sea, RF Clear Connect Type X.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/dimmer-deep-sea.jpg",
+    "image_url": "/products/lutron/rrst8ansde.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRST8ANSDE",
@@ -882,8 +882,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 118,
@@ -900,7 +900,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Apagador electrónico Sunnata de pared con neutro, 8 A de carga de iluminación o 1/4 HP motor, acabado negro Midnight satinado, RF Clear Connect Type X.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/dimmer-midnight.jpg",
+    "image_url": "/products/lutron/rrst8ansmn.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRST8ANSMN",
@@ -927,8 +927,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 119,
@@ -945,7 +945,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Apagador inteligente Sunnata táctil de pared con neutro, 8 A iluminación, 5.8 A motor, acabado satinado Pebble, barra LED localizadora, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/dimmer-pebble.jpg",
+    "image_url": "/products/lutron/rrst8anspb.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRST8ANSPB",
@@ -972,8 +972,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 120,
@@ -990,7 +990,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Interruptor Sunnata táctil on/off con barra de luz indicadora, 8 A iluminación, 5.8 A motor, acabado satinado Nieve (Snow), RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/dimmer-snow.jpg",
+    "image_url": "/products/lutron/rrst8anssw.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRST8ANSSW",
@@ -1017,8 +1017,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 121,
@@ -1035,7 +1035,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Apagador inteligente Sunnata on/off de pared con neutro, 8 A iluminación o 1/4 HP motor, acabado satinado Taupe, barra LED con MyLevel, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/dimmer-truffle.jpg",
+    "image_url": "/products/lutron/rrst8anstp.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRST8ANSTP",
@@ -1062,8 +1062,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 122,
@@ -1080,7 +1080,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Apagador electrónico Sunnata on/off de pared con neutro, 8 A iluminación, 1/4 HP motor, acabado blanco brillante, RF Clear Connect Type X.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/dimmer-white.jpg",
+    "image_url": "/products/lutron/rrst8answh.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRST8ANSWH",
@@ -1107,8 +1107,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 123,
@@ -1125,7 +1125,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Control de ventilador Sunnata táctil de 4 velocidades silenciosas para motores de CA de hasta 1.5 A, barra de luz interactiva, acabado Pebble, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/fan-control.jpg",
+    "image_url": "/products/lutron/rrstanfpb.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTANFPB",
@@ -1152,8 +1152,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 124,
@@ -1170,7 +1170,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Control de ventilador de techo Sunnata de 4 velocidades silenciosas para motor de CA de hasta 1.5 A, barra de luz localizadora, acabado Blanco, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/fan-control.jpg",
+    "image_url": "/products/lutron/rrstanfwh.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTANFWH",
@@ -1197,8 +1197,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 125,
@@ -1215,7 +1215,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Botonera híbrida Sunnata de 2 botones con atenuador integrado (150 W LED / 450 W Inc), carátulas intercambiables, acabado Negro, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/keypad-midnight.jpg",
+    "image_url": "/products/lutron/rrsthn2bbl.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTHN2BBL",
@@ -1242,8 +1242,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 126,
@@ -1260,7 +1260,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Botonera híbrida Sunnata de 2 botones con dimmer integrado para control de carga directa y escenas en RadioRA 3, acabado Blanco brillante.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/keypad-white.jpg",
+    "image_url": "/products/lutron/rrsthn2bwh.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTHN2BWH",
@@ -1287,8 +1287,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 127,
@@ -1305,7 +1305,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Botonera híbrida Sunnata de 3 botones de escena más control subir/bajar con atenuador de carga integrado, acabado Negro, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/keypad-midnight.jpg",
+    "image_url": "/products/lutron/rrsthn3rlbl.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTHN3RLBL",
@@ -1332,8 +1332,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 128,
@@ -1350,7 +1350,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Botonera híbrida Sunnata de 3 botones de escena más subir/bajar con dimmer integrado para carga de 120 V, acabado Almendra claro, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/keypad-almond.jpg",
+    "image_url": "/products/lutron/rrsthn3rlla.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTHN3RLLA",
@@ -1377,8 +1377,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 129,
@@ -1395,7 +1395,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Botonera híbrida Sunnata de pared con 3 botones de escena y barra subir/bajar con atenuador de carga integrado, acabado Midnight, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/keypad-midnight.jpg",
+    "image_url": "/products/lutron/rrsthn3rlmn.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTHN3RLMN",
@@ -1422,8 +1422,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 130,
@@ -1440,7 +1440,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Botonera híbrida Sunnata de 3 escenas + subir/bajar con atenuador integrado para no requerir chalupa adicional, acabado Nieve (Snow), RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/keypad-snow.jpg",
+    "image_url": "/products/lutron/rrsthn3rlsw.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTHN3RLSW",
@@ -1467,8 +1467,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 131,
@@ -1485,7 +1485,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Botonera híbrida Sunnata de 3 botones de escena + subir/bajar con atenuador integrado de 120 V, acabado Blanco brillante, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/keypad-white.jpg",
+    "image_url": "/products/lutron/rrsthn3rlwh.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTHN3RLWH",
@@ -1512,8 +1512,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 132,
@@ -1530,7 +1530,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Botonera híbrida Sunnata de 4 botones con dimmer de carga integrado para remodelaciones, grabado retroiluminado, acabado Negro brillante.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/keypad-midnight.jpg",
+    "image_url": "/products/lutron/rrsthn4bbl.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTHN4BBL",
@@ -1557,8 +1557,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 133,
@@ -1575,7 +1575,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Botonera híbrida Sunnata de 4 botones de escena con dimmer integrado, botones retroiluminados personalizables, acabado Midnight, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/keypad-midnight.jpg",
+    "image_url": "/products/lutron/rrsthn4bmn.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTHN4BMN",
@@ -1602,8 +1602,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 134,
@@ -1620,7 +1620,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Teclado híbrido Sunnata RF de 4 botones con atenuador integrado, barras LED retroiluminadas, acabado satinado Pebble, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/keypad-pebble.jpg",
+    "image_url": "/products/lutron/rrsthn4bpb.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTHN4BPB",
@@ -1647,8 +1647,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 135,
@@ -1665,7 +1665,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Botonera híbrida Sunnata de 4 botones con dimmer integrado para activación de escenas y ajuste fino, acabado Nieve (Snow), RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/keypad-snow.jpg",
+    "image_url": "/products/lutron/rrsthn4bsw.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTHN4BSW",
@@ -1692,8 +1692,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 136,
@@ -1710,7 +1710,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Botonera híbrida Sunnata de 4 botones de escena con atenuador cableado integrado, acabado satinado color Truffle, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/keypad-white.jpg",
+    "image_url": "/products/lutron/rrsthn4btf.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTHN4BTF",
@@ -1737,8 +1737,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 137,
@@ -1755,7 +1755,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Botonera híbrida Sunnata de 4 botones con dimmer integrado para activar escenas y controlar iluminación en RadioRA 3, acabado Blanco brillante.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/keypad-white.jpg",
+    "image_url": "/products/lutron/rrsthn4bwh.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTHN4BWH",
@@ -1782,8 +1782,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 138,
@@ -1800,7 +1800,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Atenuador táctil Sunnata PRO LED+ con neutro, barra de luz interactiva con MyLevel, 250 W LED o 500 W Inc/Hal/ELV, acabado Deep Sea, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/dimmer-deep-sea.jpg",
+    "image_url": "/products/lutron/rrstpronde.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTPRONDE",
@@ -1827,8 +1827,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 139,
@@ -1845,7 +1845,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Atenuador táctil Sunnata Pro LED+ de pared con neutro, barra deslizante de luz, 250 W LED / 500 W Inc, acabado negro Midnight, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/dimmer-midnight.jpg",
+    "image_url": "/products/lutron/rrstpronmn.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTPRONMN",
@@ -1872,8 +1872,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 140,
@@ -1890,7 +1890,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Atenuador táctil Sunnata Pro con neutro, tecnología RTISS de compensación de voltaje, 250 W LED / 500 W Inc, acabado Pebble, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/dimmer-pebble.jpg",
+    "image_url": "/products/lutron/rrstpronpb.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTPRONPB",
@@ -1917,8 +1917,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 141,
@@ -1935,7 +1935,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Atenuador táctil Sunnata Pro LED+ de pared con neutro, atenuación suave y silenciosa, 250 W LED / 500 W Inc, acabado Nieve (Snow), RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/dimmer-snow.jpg",
+    "image_url": "/products/lutron/rrstpronsw.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTPRONSW",
@@ -1962,8 +1962,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 142,
@@ -1980,7 +1980,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Atenuador táctil Sunnata Pro con neutro, control táctil con barra interactiva, 250 W LED / 500 W Inc/Hal/ELV, acabado satinado Trufa, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/dimmer-truffle.jpg",
+    "image_url": "/products/lutron/rrstprontf.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTPRONTF",
@@ -2007,8 +2007,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 143,
@@ -2025,7 +2025,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Atenuador táctil Sunnata Pro LED+ de pared con neutro, barra deslizante interactiva, 250 W LED / 500 W Inc/Hal/ELV, acabado Blanco brillante, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/dimmer-white.jpg",
+    "image_url": "/products/lutron/rrstpronwh.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTPRONWH",
@@ -2052,8 +2052,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 144,
@@ -2070,7 +2070,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Atenuador auxiliar compañero para control de atenuación multilocación (3 vías o escalera) emparejado con dimmer principal Sunnata, acabado Negro.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/dimmer-midnight.jpg",
+    "image_url": "/products/lutron/rrstrdbl.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTRDBL",
@@ -2097,8 +2097,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 145,
@@ -2115,7 +2115,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Atenuador auxiliar compañero cableado para control multipunto de dimmer principal Sunnata LED+, acabado negro mate Midnight, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/dimmer-midnight.jpg",
+    "image_url": "/products/lutron/rrstrdmn.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTRDMN",
@@ -2142,8 +2142,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 146,
@@ -2160,7 +2160,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Atenuador auxiliar companion para dimmer principal Sunnata en pasillos y escaleras, no requiere neutro local, acabado Pebble, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/dimmer-pebble.jpg",
+    "image_url": "/products/lutron/rrstrdpb.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTRDPB",
@@ -2187,8 +2187,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 147,
@@ -2205,7 +2205,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Atenuador auxiliar companion para dimmer principal Sunnata, control de hasta 5 puntos en escaleras y pasillos, acabado Blanco brillante, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/dimmer-white.jpg",
+    "image_url": "/products/lutron/rrstrdwh.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTRDWH",
@@ -2232,8 +2232,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 148,
@@ -2250,7 +2250,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Apagador auxiliar compañero cableado para switch principal Sunnata RF (RRST-8ANS), hasta 4 auxiliares por circuito, acabado Midnight, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/dimmer-midnight.jpg",
+    "image_url": "/products/lutron/rrstrsmn.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTRSMN",
@@ -2277,8 +2277,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 149,
@@ -2295,7 +2295,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Apagador auxiliar companion para switch principal Sunnata, retardo de apagado 30 s, no requiere neutro local, acabado Pebble, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/dimmer-pebble.jpg",
+    "image_url": "/products/lutron/rrstrspb.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTRSPB",
@@ -2322,8 +2322,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 150,
@@ -2340,7 +2340,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Apagador auxiliar compañero cableado para switch principal Sunnata RF, control desde múltiples puntos, acabado blanco mate Nieve (Snow), RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/dimmer-snow.jpg",
+    "image_url": "/products/lutron/rrstrssw.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTRSSW",
@@ -2367,8 +2367,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 151,
@@ -2385,7 +2385,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Apagador auxiliar companion para switch principal Sunnata, sincronización de luz indicadora, sin requerir neutro, acabado Satin Taupe, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/dimmer-truffle.jpg",
+    "image_url": "/products/lutron/rrstrstp.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTRSTP",
@@ -2412,8 +2412,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 152,
@@ -2430,7 +2430,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Apagador auxiliar compañero cableado para switch principal Sunnata RF, hasta 4 auxiliares por circuito, acabado blanco brillante, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/dimmer-white.jpg",
+    "image_url": "/products/lutron/rrstrswh.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTRSWH",
@@ -2457,8 +2457,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 153,
@@ -2475,7 +2475,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Teclado de pared Sunnata RF de 2 botones para activación de escenas completas de iluminación y persianas, barra luminosa, acabado Midnight, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/keypad-midnight.jpg",
+    "image_url": "/products/lutron/rrstw2bmn.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTW2BMN",
@@ -2502,8 +2502,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 154,
@@ -2520,7 +2520,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Botonera de pared Sunnata de 2 botones programables para escenas, RF Clear Connect Type X a 2.4 GHz, barras LED indicadoras, acabado Pebble, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/keypad-pebble.jpg",
+    "image_url": "/products/lutron/rrstw2bpb.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTW2BPB",
@@ -2547,8 +2547,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 155,
@@ -2565,7 +2565,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Teclado Sunnata RF de 2 botones para pares de escenas (Bienvenido/Lejos), control de grupos de iluminación y audio, acabado Nieve (Snow), RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/keypad-snow.jpg",
+    "image_url": "/products/lutron/rrstw2bsw.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTW2BSW",
@@ -2592,8 +2592,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 156,
@@ -2610,7 +2610,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Teclado de pared Sunnata RF de 2 botones de escena con barra luminosa localizadora, comunicación Clear Connect Type X, acabado Blanco brillante, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/keypad-white.jpg",
+    "image_url": "/products/lutron/rrstw2bwh.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTW2BWH",
@@ -2637,8 +2637,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 157,
@@ -2655,7 +2655,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Botonera Sunnata de pared con 3 botones de escena programables más control subir/bajar para ajuste fino, 120-277 V, acabado Almendra claro, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/keypad-almond.jpg",
+    "image_url": "/products/lutron/rrstw3rlla.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTW3RLLA",
@@ -2682,8 +2682,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 158,
@@ -2700,7 +2700,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Teclado de pared Sunnata de 3 botones de escena más subir/bajar, barras LED indicadoras por botón, 120-277 V, acabado satinado Midnight, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/keypad-midnight.jpg",
+    "image_url": "/products/lutron/rrstw3rlmn.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTW3RLMN",
@@ -2727,8 +2727,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 159,
@@ -2745,7 +2745,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Botonera Sunnata de 3 botones de escena más subir/bajar, comunicación RF Clear Connect Type X, barras LED de estado, acabado Pebble, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/keypad-pebble.jpg",
+    "image_url": "/products/lutron/rrstw3rlpb.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTW3RLPB",
@@ -2772,8 +2772,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 160,
@@ -2790,7 +2790,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Teclado inalámbrico Sunnata RF de 3 botones para escenas más subir/bajar para ajuste de intensidad, acabado Nieve (Snow), RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/keypad-snow.jpg",
+    "image_url": "/products/lutron/rrstw3rlsw.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTW3RLSW",
@@ -2817,8 +2817,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 161,
@@ -2835,7 +2835,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Teclado de pared Sunnata de 3 botones de escena más subir/bajar, barras LED indicadoras, comunicación Clear Connect Type X, acabado Blanco brillante, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/keypad-white.jpg",
+    "image_url": "/products/lutron/rrstw3rlwh.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTW3RLWH",
@@ -2862,8 +2862,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 162,
@@ -2880,7 +2880,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Teclado de pared Sunnata de 4 botones de escena independientes, barras LED indicadoras, 120-277 V, acabado satinado Midnight, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/keypad-midnight.jpg",
+    "image_url": "/products/lutron/rrstw4bmn.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTW4BMN",
@@ -2907,8 +2907,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 163,
@@ -2925,7 +2925,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Botonera Sunnata inalámbrica de 4 botones para activación de escenas predefinidas, RF Clear Connect Type X a 2.4 GHz, acabado Pebble, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/keypad-pebble.jpg",
+    "image_url": "/products/lutron/rrstw4bpb.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTW4BPB",
@@ -2952,8 +2952,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 164,
@@ -2970,7 +2970,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Teclado Sunnata de 4 botones para escenas independientes (Despertar/Cocinar/Cenar/Apagar), barra luminosa localizadora, acabado Nieve, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/keypad-snow.jpg",
+    "image_url": "/products/lutron/rrstw4bsw.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTW4BSW",
@@ -2997,8 +2997,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 165,
@@ -3015,7 +3015,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Teclado de pared Sunnata de 4 botones de escena independientes, barras LED indicadoras, comunicación Clear Connect Type X, acabado Blanco brillante, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/keypad-white.jpg",
+    "image_url": "/products/lutron/rrstw4bwh.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "RRSTW4BWH",
@@ -3042,8 +3042,8 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   },
   {
     "id": 166,
@@ -3060,7 +3060,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "description": "Interruptor de pared Sunnata de encendido/apagado, conmuta 6 A iluminación o 3 A motor/ventilador, luz indicadora MyLevel, acabado Pebble, RadioRA 3.",
     "category": "Control e Iluminación",
     "category_id": 1,
-    "image_url": "/products/lutron/dimmer-pebble.jpg",
+    "image_url": "/products/lutron/st6anspb.avif",
     "specifications": {
       "Sistema": "Lutron RadioRA 3",
       "Modelo Oficial": "ST6ANSPB",
@@ -3087,7 +3087,7 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
       "RadioRA 3 Mexico",
       "Lutron cotizacion"
     ],
-    "created_at": "2026-08-27T22:29:42.221Z",
-    "updated_at": "2026-08-27T22:29:42.221Z"
+    "created_at": "2026-08-27T22:38:26.935Z",
+    "updated_at": "2026-08-27T22:38:26.935Z"
   }
 ];

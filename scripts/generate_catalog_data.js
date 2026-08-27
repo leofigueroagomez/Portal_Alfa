@@ -70,68 +70,9 @@ RRSTW4BSW,LUTRON RADIORA 3,"Teclado de escenas Sunnata de 4 botones con barra lu
 RRSTW4BWH,LUTRON RADIORA 3,"Teclado de escenas Sunnata de 4 botones, comunicación Clear Connect, acabado Blanco brillante, RadioRA 3",402.50,384.61,239.25,39112403,"Teclado de pared Sunnata de 4 botones de escena independientes, barras LED indicadoras, comunicación Clear Connect Type X, acabado Blanco brillante, RadioRA 3."
 ST6ANSPB,LUTRON RADIORA 3,"Interruptor de pared Sunnata on/off sin regulación, 6 A iluminación / 3 A motor, acabado Pebble, RadioRA 3",164.89,164.89,102.57,39112403,"Interruptor de pared Sunnata de encendido/apagado, conmuta 6 A iluminación o 3 A motor/ventilador, luz indicadora MyLevel, acabado Pebble, RadioRA 3."`;
 
-const LOCAL_IMAGES = {
-  PROC3_KIT: '/products/lutron/proc3-kit.jpg',
-  PROC3_CW: '/products/lutron/proc3-cw.jpg',
-
-  DIMMER_WHITE: '/products/lutron/dimmer-white.jpg',
-  DIMMER_MIDNIGHT: '/products/lutron/dimmer-midnight.jpg',
-  DIMMER_DEEP_SEA: '/products/lutron/dimmer-deep-sea.jpg',
-  DIMMER_PEBBLE: '/products/lutron/dimmer-pebble.jpg',
-  DIMMER_SNOW: '/products/lutron/dimmer-snow.jpg',
-  DIMMER_TRUFFLE: '/products/lutron/dimmer-truffle.jpg',
-
-  KEYPAD_WHITE: '/products/lutron/keypad-white.jpg',
-  KEYPAD_MIDNIGHT: '/products/lutron/keypad-midnight.jpg',
-  KEYPAD_PEBBLE: '/products/lutron/keypad-pebble.jpg',
-  KEYPAD_SNOW: '/products/lutron/keypad-snow.jpg',
-  KEYPAD_ALMOND: '/products/lutron/keypad-almond.jpg',
-
-  LUMARIS_TAPE: '/products/lutron/lumaris-tape.jpg',
-  LUMARIS_KIT: '/products/lutron/lumaris-kit.jpg',
-  LUMARIS_DOWNLIGHT: '/products/lutron/lumaris-downlight.jpg',
-  LUMARIS_CONTROLLER: '/products/lutron/lumaris-controller.jpg',
-
-  FAN_CONTROL: '/products/lutron/fan-control.jpg',
-  HARDWARE: '/products/lutron/hardware.jpg',
-};
-
-function getAestheticImage(model, name) {
-  const m = (model || '').toUpperCase();
-
-  // Processors
-  if (m.includes('PROC3KIT')) return LOCAL_IMAGES.PROC3_KIT;
-  if (m.includes('PROC3')) return LOCAL_IMAGES.PROC3_CW;
-
-  // Downlights
-  if (m.includes('RRLCD')) return LOCAL_IMAGES.LUMARIS_DOWNLIGHT;
-
-  // Lumaris Tape / Kits
-  if (m.includes('RRLTLK')) return LOCAL_IMAGES.LUMARIS_KIT;
-  if (m.includes('LUT05') || m.includes('LUT30')) return LOCAL_IMAGES.LUMARIS_TAPE;
-  if (m.includes('RRLTW') || m.includes('LUPH3')) return LOCAL_IMAGES.LUMARIS_CONTROLLER;
-  if (m.includes('LUBP') || m.includes('LUCK') || m.includes('LUMK') || m.includes('LUWK')) return LOCAL_IMAGES.HARDWARE;
-
-  // Fan Controls
-  if (m.includes('STANF')) return LOCAL_IMAGES.FAN_CONTROL;
-
-  // Keypads
-  if (m.includes('STW') || m.includes('STHN')) {
-    if (m.endsWith('MN') || m.endsWith('BL')) return LOCAL_IMAGES.KEYPAD_MIDNIGHT;
-    if (m.endsWith('PB')) return LOCAL_IMAGES.KEYPAD_PEBBLE;
-    if (m.endsWith('SW')) return LOCAL_IMAGES.KEYPAD_SNOW;
-    if (m.endsWith('LA')) return LOCAL_IMAGES.KEYPAD_ALMOND;
-    return LOCAL_IMAGES.KEYPAD_WHITE;
-  }
-
-  // Dimmers & Switches
-  if (m.endsWith('MN') || m.endsWith('BL')) return LOCAL_IMAGES.DIMMER_MIDNIGHT;
-  if (m.endsWith('DE')) return LOCAL_IMAGES.DIMMER_DEEP_SEA;
-  if (m.endsWith('PB')) return LOCAL_IMAGES.DIMMER_PEBBLE;
-  if (m.endsWith('SW')) return LOCAL_IMAGES.DIMMER_SNOW;
-  if (m.endsWith('TF') || m.endsWith('TP')) return LOCAL_IMAGES.DIMMER_TRUFFLE;
-
-  return LOCAL_IMAGES.DIMMER_WHITE;
+function getProductImagePath(model) {
+  const m = (model || '').toLowerCase().trim();
+  return `/products/lutron/${m}.avif`;
 }
 
 function slugify(text) {
@@ -195,7 +136,7 @@ const mapped = products.map((p, idx) => {
   const titlePart = slugify(name.split(',')[0].slice(0, 30));
   const slug = ('lutron-radiora3-' + slugify(model) + '-' + titlePart).replace(/-+/g, '-');
   const shortDesc = p.description.slice(0, 300);
-  const imageUrl = getAestheticImage(model, name);
+  const imageUrl = getProductImagePath(model);
   const seoTitle = name.slice(0, 55) + ' (' + model + ') | Cotización México | ALFA';
   const seoDesc = 'Cotiza el modelo ' + model + ' de Lutron RadioRA 3 en México (' + name.slice(0, 80) + '). Suministro oficial, asesoría técnica e instalación con ALFA.';
 

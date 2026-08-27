@@ -184,8 +184,30 @@ export default function BrandCatalogClient({ brand, products }: Props) {
                         src={product.image_url}
                         alt={`${product.brand_name} ${product.model}`}
                         referrerPolicy="no-referrer"
-                        className="h-full w-full object-cover rounded-lg transition duration-500 group-hover:scale-105"
+                        className="h-full w-full object-contain p-2 rounded-lg transition duration-500 group-hover:scale-105"
                         loading="lazy"
+                        onError={(e) => {
+                          const target = e.currentTarget;
+                          const currentSrc = target.src;
+                          if (currentSrc.endsWith('.avif')) {
+                            target.src = currentSrc.replace(/\.avif$/, '.png');
+                          } else if (currentSrc.endsWith('.png')) {
+                            target.src = currentSrc.replace(/\.png$/, '.jpg');
+                          } else if (currentSrc.endsWith('.jpg')) {
+                            target.src = currentSrc.replace(/\.jpg$/, '.jpeg');
+                          } else if (currentSrc.endsWith('.jpeg')) {
+                            target.src = currentSrc.replace(/\.jpeg$/, '.webp');
+                          } else {
+                            target.style.display = 'none';
+                            const parent = target.parentElement;
+                            if (parent && !parent.querySelector('.placeholder-msg')) {
+                              const placeholder = document.createElement('div');
+                              placeholder.className = 'placeholder-msg flex h-full w-full items-center justify-center text-center p-3 text-[11px] text-zinc-500';
+                              placeholder.innerText = 'Foto oficial en calibración';
+                              parent.appendChild(placeholder);
+                            }
+                          }
+                        }}
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center bg-[#18181D] text-xs text-zinc-600 rounded-lg">
