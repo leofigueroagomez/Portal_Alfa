@@ -5,13 +5,17 @@ import Image from "next/image";
 import Link from "next/link";
 import { Search, SlidersHorizontal, ArrowRight, ShieldCheck, Check, Sparkles } from "lucide-react";
 import { Brand, CatalogProduct } from "@/lib/catalog";
+import { brandLineLabel, brandSearchPlaceholder } from "@/lib/catalogBrandUi";
 
 type Props = {
   brand: Brand;
   products: CatalogProduct[];
 };
 
-const CATEGORY_TABS = [
+type CategoryTab = { id: string; label: string };
+
+// Tabs curados para Lutron RadioRA 3 (agrupación por familia de producto).
+const LUTRON_TABS: CategoryTab[] = [
   { id: "all", label: "Todos los Modelos" },
   { id: "dimmers", label: "Atenuadores & Apagadores Sunnata" },
   { id: "keypads", label: "Botoneras & Teclados de Escena" },
@@ -20,9 +24,22 @@ const CATEGORY_TABS = [
   { id: "accessories", label: "Accesorios & Montaje" },
 ];
 
+// Para el resto de marcas los tabs se derivan del campo `category` de cada producto.
+function buildCategoryTabs(brand: Brand, products: CatalogProduct[]): CategoryTab[] {
+  if (brand.slug === "lutron") return LUTRON_TABS;
+  const cats: string[] = [];
+  for (const p of products) {
+    if (p.category && !cats.includes(p.category)) cats.push(p.category);
+  }
+  return [{ id: "all", label: "Todos los Modelos" }, ...cats.map((c) => ({ id: c, label: c }))];
+}
+
 export default function BrandCatalogClient({ brand, products }: Props) {
   const [search, setSearch] = useState("");
   const [selectedTab, setSelectedTab] = useState("all");
+
+  const categoryTabs = useMemo(() => buildCategoryTabs(brand, products), [brand, products]);
+  const lineLabel = brandLineLabel(brand.slug);
 
   const filteredProducts = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -40,6 +57,11 @@ export default function BrandCatalogClient({ brand, products }: Props) {
 
       // Filter by tab
       if (selectedTab === "all") return true;
+
+      // Marcas sin tabs curados: el tab es el nombre exacto de la categoría.
+      if (brand.slug !== "lutron") {
+        return p.category === selectedTab;
+      }
 
       const modelUpper = (p.model || "").toUpperCase();
       const nameUpper = (p.name || "").toUpperCase();
@@ -101,7 +123,7 @@ export default function BrandCatalogClient({ brand, products }: Props) {
 
       return true;
     });
-  }, [products, search, selectedTab]);
+  }, [products, search, selectedTab, brand.slug]);
 
   return (
     <div className="space-y-10">
@@ -112,7 +134,7 @@ export default function BrandCatalogClient({ brand, products }: Props) {
             <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
             <input
               type="text"
-              placeholder="Buscar por modelo (ej. RRPROC3KIT, Sunnata, RRSTPRONWH)..."
+              placeholder={brandSearchPlaceholder(brand.slug, brand.name)}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full rounded-xl bg-white/5 border border-white/10 pl-11 pr-4 py-3 text-sm text-white placeholder-zinc-500 outline-none focus:border-[#9E1B32] transition"
@@ -126,7 +148,7 @@ export default function BrandCatalogClient({ brand, products }: Props) {
 
         {/* Tab categories */}
         <div className="mt-6 flex flex-wrap gap-2 pt-4 border-t border-white/5">
-          {CATEGORY_TABS.map((tab) => {
+          {categoryTabs.map((tab) => {
             const isActive = selectedTab === tab.id;
             return (
               <button
@@ -225,7 +247,12 @@ export default function BrandCatalogClient({ brand, products }: Props) {
                   {/* Product Details */}
                   <div className="mb-2">
                     <span className="text-[10px] uppercase font-semibold tracking-wider text-[#E07A8B]">
-                      {product.brand_name} • RadioRA 3
+                      {product.brand_name}
+                      {lineLabel
+                        ? ` • ${lineLabel}`
+                        : product.category
+                        ? ` • ${product.category}`
+                        : ""}
                     </span>
                     <h3 className="mt-1 text-sm font-semibold text-white leading-snug line-clamp-2 group-hover:text-white">
                       {product.name}
@@ -239,7 +266,7 @@ export default function BrandCatalogClient({ brand, products }: Props) {
                   <div className="space-y-1.5 mb-4">
                     <div className="flex items-center gap-1.5 text-[11px] text-zinc-300">
                       <Check className="h-3.5 w-3.5 text-[#E07A8B] shrink-0" />
-                      <span>Garantía Oficial Lutron México</span>
+                      <span>Garantía Oficial {product.brand_name} México</span>
                     </div>
                     <div className="flex items-center gap-1.5 text-[11px] text-zinc-300">
                       <Check className="h-3.5 w-3.5 text-[#E07A8B] shrink-0" />

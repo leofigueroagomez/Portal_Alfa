@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, Sparkles, ShieldCheck } from "lucide-react";
-import { getPublicBrands } from "@/lib/catalog";
+import { getPublicBrands, getPublicBrandProducts } from "@/lib/catalog";
 
 const siteUrl = (
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.alfait.com.mx"
@@ -27,6 +27,16 @@ export const metadata: Metadata = {
 
 export default async function MarcasPage() {
   const brands = await getPublicBrands();
+  const productCounts = await Promise.all(
+    brands.map((brand) => getPublicBrandProducts(brand.slug))
+  );
+  const countByBrandId = new Map(
+    brands.map((brand, idx) => [brand.id, productCounts[idx].length])
+  );
+  const gridClass =
+    brands.length > 1
+      ? "md:grid-cols-2 max-w-5xl"
+      : "md:grid-cols-1 lg:grid-cols-1 max-w-2xl";
 
   return (
     <main className="min-h-screen bg-[#0A0A0C] text-white">
@@ -88,7 +98,7 @@ export default async function MarcasPage() {
       {/* Brands Grid */}
       <section className="px-5 py-16 sm:px-8 sm:py-24 lg:px-12">
         <div className="mx-auto max-w-5xl">
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-1 lg:grid-cols-1 max-w-2xl mx-auto">
+          <div className={`grid grid-cols-1 gap-8 mx-auto ${gridClass}`}>
             {brands.map((brand) => (
               <div
                 key={brand.id}
@@ -134,7 +144,12 @@ export default async function MarcasPage() {
                   href={`/marcas/${brand.slug}`}
                   className="mt-4 flex items-center justify-between rounded-xl bg-white/5 group-hover:bg-[#9E1B32] border border-white/10 group-hover:border-[#9E1B32] px-6 py-4 text-xs font-semibold uppercase tracking-wider text-white transition duration-200 shadow-md"
                 >
-                  <span>Explorar Catálogo y Modelos {brand.name} (67 equipos)</span>
+                  <span>
+                    Explorar Catálogo y Modelos {brand.name}
+                    {countByBrandId.get(brand.id)
+                      ? ` (${countByBrandId.get(brand.id)} equipos)`
+                      : ""}
+                  </span>
                   <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
                 </Link>
               </div>
@@ -150,15 +165,18 @@ export default async function MarcasPage() {
             ¿Requieres especificación para un proyecto arquitectónico?
           </h2>
           <p className="text-zinc-400 text-sm sm:text-base max-w-2xl mx-auto mb-8 font-light">
-            Nuestro equipo de ingeniería diseña el cálculo de cargas, unifilares y selección de botoneras y persianas para despachos y clientes finales.
+            Nuestro equipo de ingeniería diseña, especifica e integra sistemas de iluminación, audio, video y control para despachos de arquitectura, interioristas y clientes finales.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
-            <Link
-              href="/marcas/lutron"
-              className="rounded-xl bg-[#9E1B32] hover:bg-[#B91C3C] px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-white transition shadow-lg shadow-[#9E1B32]/20"
-            >
-              Ver Catálogo Lutron RadioRA 3
-            </Link>
+            {brands.map((brand) => (
+              <Link
+                key={brand.id}
+                href={`/marcas/${brand.slug}`}
+                className="rounded-xl bg-[#9E1B32] hover:bg-[#B91C3C] px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-white transition shadow-lg shadow-[#9E1B32]/20"
+              >
+                Ver Catálogo {brand.name}
+              </Link>
+            ))}
             <a
               href="https://wa.me/523318574884?text=Hola%20ALFA,%20me%20interesa%20asesoría%20técnica%20para%20un%20proyecto%20de%20iluminación%20y%20automatización."
               target="_blank"

@@ -72,7 +72,7 @@ ST6ANSPB,LUTRON RADIORA 3,"Interruptor de pared Sunnata on/off sin regulación, 
 
 function getProductImagePath(model) {
   const m = (model || '').toLowerCase().trim();
-  return `/products/lutron/${m}.avif`;
+  return `/catalog/lutron/${m}.avif`;
 }
 
 function slugify(text) {

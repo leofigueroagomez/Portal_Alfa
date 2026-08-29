@@ -86,7 +86,9 @@ export async function getPublicBrands(): Promise<Brand[]> {
     console.error("[getPublicBrands] Error fetching brands, using fallback:", err);
   }
 
-  return STATIC_BRANDS;
+  return [...STATIC_BRANDS]
+    .filter((b) => b.is_active)
+    .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name));
 }
 
 /**
@@ -229,7 +231,15 @@ export async function getRelatedCatalogProducts(
     console.error("[getRelatedCatalogProducts] Error fetching related products, using fallback:", err);
   }
 
-  return STATIC_CATALOG_PRODUCTS.filter((p) => p.id !== productId).slice(0, limit);
+  const pool = STATIC_CATALOG_PRODUCTS.filter((p) => p.id !== productId);
+  const scoped = pool.filter((p) =>
+    brandSlug
+      ? p.brand_slug.toLowerCase() === brandSlug.toLowerCase()
+      : category
+      ? p.category === category
+      : true
+  );
+  return (scoped.length > 0 ? scoped : pool).slice(0, limit);
 }
 
 /**

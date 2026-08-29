@@ -79,7 +79,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.9,
   }));
 
-  // Product URLs (Lutron RadioRA 3 & others)
+  // Product URLs (Lutron RadioRA 3, Sonos & others)
   const productPages: MetadataRoute.Sitemap = STATIC_CATALOG_PRODUCTS.map((prod) => ({
     url: `${baseUrl}/marcas/${prod.brand_slug}/${prod.slug}`,
     lastModified: currentDate,

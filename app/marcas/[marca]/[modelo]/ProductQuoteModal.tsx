@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { CatalogProduct } from "@/lib/catalog";
+import { brandLeadInterest } from "@/lib/catalogBrandUi";
 import { Check, Send, Sparkles, X, ShieldCheck, Phone } from "lucide-react";
 
 type Props = {
@@ -46,7 +47,7 @@ export default function ProductQuoteModal({ product }: Props) {
           company: company.trim() || undefined,
           customerType,
           service: `Cotización de Producto: ${product.brand_name} ${product.model}`,
-          interest: "Iluminación y persianas (Lutron / Shelly)",
+          interest: brandLeadInterest(product.brand_slug),
           message: `${message}\n\n[Producto SKU: ${product.sku || product.model} - Slug: ${product.slug}]`,
           source: "Landing Web",
           status: "nuevo",

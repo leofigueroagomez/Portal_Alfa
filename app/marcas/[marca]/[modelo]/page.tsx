@@ -53,7 +53,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     keywords: product.seo_keywords || [
       product.brand_name,
       product.model || "",
-      "Lutron RadioRA 3",
+      `${product.brand_name} México`,
       "Cotización México",
     ],
     alternates: {
@@ -172,7 +172,13 @@ export default async function ProductDetailPage({ params }: Props) {
             {/* Left: Product Image */}
             <div className="lg:col-span-5 space-y-4">
               <ProductDetailImage
-                src={product.image_url || `/products/lutron/${(product.model || '').toLowerCase()}.png`}
+                src={
+                  product.image_url ||
+                  `/catalog/${product.brand_slug}/${(product.model || "")
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, "-")
+                    .replace(/^-+|-+$/g, "")}.avif`
+                }
                 alt={`${product.brand_name} ${product.model}`}
                 brandName={product.brand_name}
               />
@@ -195,7 +201,7 @@ export default async function ProductDetailPage({ params }: Props) {
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-xs font-bold uppercase tracking-widest text-[#E07A8B]">
-                    {product.brand_name} • {product.category || "RadioRA 3"}
+                    {product.brand_name} • {product.category || "Catálogo Oficial"}
                   </span>
                   <span className="text-xs text-zinc-600">•</span>
                   <span className="text-xs font-mono text-zinc-400">SKU: {product.sku || product.model}</span>

@@ -9,6 +9,7 @@ import {
   generateBrandJsonLd,
   generateCatalogBreadcrumbJsonLd,
 } from "@/lib/catalog";
+import { brandLineLabel, brandAdvisoryCopy } from "@/lib/catalogBrandUi";
 import BrandCatalogClient from "./BrandCatalogClient";
 
 type Props = {
@@ -66,6 +67,7 @@ export default async function BrandPage({ params }: Props) {
   }
 
   const products = await getPublicBrandProducts(brand.slug);
+  const lineLabel = brandLineLabel(brand.slug);
 
   const brandJsonLd = generateBrandJsonLd(brand, siteUrl);
   const breadcrumbJsonLd = generateCatalogBreadcrumbJsonLd([
@@ -144,7 +146,8 @@ export default async function BrandPage({ params }: Props) {
               </div>
 
               <h1 className="text-4xl sm:text-6xl font-bold font-serif text-white tracking-tight">
-                {brand.name} RadioRA 3 en México
+                {brand.name}
+                {lineLabel ? ` ${lineLabel}` : ""} en México
               </h1>
 
               <p className="mt-4 text-lg text-zinc-300 font-light leading-relaxed">
@@ -173,11 +176,13 @@ export default async function BrandPage({ params }: Props) {
                 ¿Necesitas cotizar un proyecto {brand.name}?
               </h2>
               <p className="text-xs text-zinc-400 leading-relaxed font-light">
-                Te asesoramos con la selección exacta de procesadores, botoneras Sunnata y cálculo de cargas sin costo.
+                {brandAdvisoryCopy(brand.slug)}
               </p>
               <a
                 href={`https://wa.me/523318574884?text=${encodeURIComponent(
-                  `Hola ALFA, me interesa asesoría y cotización para un proyecto con sistemas ${brand.name} (RadioRA 3).`
+                  `Hola ALFA, me interesa asesoría y cotización para un proyecto con sistemas ${brand.name}${
+                    lineLabel ? ` (${lineLabel})` : ""
+                  }.`
                 )}`}
                 target="_blank"
                 rel="noreferrer"

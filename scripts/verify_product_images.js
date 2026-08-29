@@ -12,7 +12,7 @@ const match = catalogText.match(/STATIC_CATALOG_PRODUCTS:\s*CatalogProduct\[\]\s
 const products = JSON.parse(match[1]);
 
 console.log(`Total products in catalog: ${products.length}`);
-console.log(`Total files in public/products/lutron: ${files.length}`);
+console.log(`Total files in public/catalog/lutron: ${files.length}`);
 
 // Fix typo if rsthn4btf.avif exists
 const typoFile = path.join(targetDir, 'rsthn4btf.avif');
