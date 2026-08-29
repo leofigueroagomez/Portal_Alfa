@@ -24,9 +24,23 @@ const LUTRON_TABS: CategoryTab[] = [
   { id: "accessories", label: "Accesorios & Montaje" },
 ];
 
+// Tabs curados para Sonos
+const SONOS_TABS: CategoryTab[] = [
+  { id: "all", label: "Todos los Modelos" },
+  { id: "Teatro en Casa", label: "Teatro en Casa & Barras" },
+  { id: "Bocinas Inalámbricas", label: "Bocinas Era & Five" },
+  { id: "Subwoofers", label: "Subwoofers" },
+  { id: "Amplificación y Streaming", label: "Sonos Amp & Port" },
+  { id: "Sonos Architectural", label: "Sonos Architectural (Plafón/Muro/Exterior)" },
+  { id: "Bocinas Portátiles", label: "Portátiles (Move & Roam)" },
+  { id: "Audífonos", label: "Audífonos Ace" },
+  { id: "Accesorios y Montaje", label: "Accesorios & Montaje" },
+];
+
 // Para el resto de marcas los tabs se derivan del campo `category` de cada producto.
 function buildCategoryTabs(brand: Brand, products: CatalogProduct[]): CategoryTab[] {
   if (brand.slug === "lutron") return LUTRON_TABS;
+  if (brand.slug === "sonos") return SONOS_TABS;
   const cats: string[] = [];
   for (const p of products) {
     if (p.category && !cats.includes(p.category)) cats.push(p.category);

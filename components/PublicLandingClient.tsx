@@ -753,9 +753,12 @@ export default function PublicLanding() {
 
           <div className="mt-10 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
             {brandLogos.map((brand) => {
+              const brandLower = brand.name.toLowerCase();
               const brandHref =
-                brand.name.toLowerCase() === "lutron"
+                brandLower === "lutron"
                   ? "/marcas/lutron"
+                  : brandLower === "sonos"
+                  ? "/marcas/sonos"
                   : "/marcas";
 
               return (

@@ -255,11 +255,16 @@ export default function AudioVideoPage() {
           </div>
 
           <div className="mt-12 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-            {brands.map((brand) => (
-              <div
-                key={brand.name}
-                className="flex h-28 items-center justify-center overflow-hidden border border-black/10 bg-white p-6 transition hover:border-[#7A1F2B]/40 sm:h-32"
-              >
+            {brands.map((brand) => {
+              const brandLower = brand.name.toLowerCase();
+              const href =
+                brandLower === "sonos"
+                  ? "/marcas/sonos"
+                  : brandLower === "lutron"
+                  ? "/marcas/lutron"
+                  : null;
+
+              const content = (
                 <Image
                   src={brand.src}
                   alt={brand.name}
@@ -267,8 +272,30 @@ export default function AudioVideoPage() {
                   height={90}
                   className={`${brand.className} h-auto w-auto object-contain opacity-75 grayscale transition hover:opacity-100 hover:grayscale-0`}
                 />
-              </div>
-            ))}
+              );
+
+              if (href) {
+                return (
+                  <Link
+                    key={brand.name}
+                    href={href}
+                    title={`Ver catálogo de ${brand.name}`}
+                    className="flex h-28 items-center justify-center overflow-hidden border border-black/10 bg-white p-6 transition hover:border-[#7A1F2B] hover:shadow-md sm:h-32 group"
+                  >
+                    {content}
+                  </Link>
+                );
+              }
+
+              return (
+                <div
+                  key={brand.name}
+                  className="flex h-28 items-center justify-center overflow-hidden border border-black/10 bg-white p-6 transition hover:border-[#7A1F2B]/40 sm:h-32"
+                >
+                  {content}
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -326,7 +353,10 @@ export default function AudioVideoPage() {
             <Link href="/" className="hover:text-zinc-300 transition">
               Inicio
             </Link>
-            <Link href="/servicios/iluminacion" className="hover:text-zinc-300 transition text-[#F0B8C0]">
+            <Link href="/marcas/sonos" className="hover:text-zinc-300 transition text-[#F0B8C0]">
+              Catálogo Sonos
+            </Link>
+            <Link href="/servicios/iluminacion" className="hover:text-zinc-300 transition">
               Iluminación (Lutron)
             </Link>
             <Link href="/servicios/redes" className="hover:text-zinc-300 transition">

@@ -320,12 +320,22 @@ export function generateProductJsonLd(
 ) {
   const cleanSiteUrl = siteUrl.replace(/\/+$/, "");
   const productUrl = `${cleanSiteUrl}/marcas/${product.brand_slug}/${product.slug}`;
+  const fullImageUrl = product.image_url
+    ? product.image_url.startsWith("http")
+      ? product.image_url
+      : `${cleanSiteUrl}${product.image_url}`
+    : undefined;
+  const fullBrandLogoUrl = product.brand_logo_url
+    ? product.brand_logo_url.startsWith("http")
+      ? product.brand_logo_url
+      : `${cleanSiteUrl}${product.brand_logo_url}`
+    : undefined;
 
   return {
     "@context": "https://schema.org",
     "@type": "Product",
     name: product.name || `${product.brand_name} ${product.model}`,
-    image: product.image_url ? [product.image_url] : undefined,
+    image: fullImageUrl ? [fullImageUrl] : undefined,
     description:
       product.short_description ||
       product.description ||
@@ -335,7 +345,7 @@ export function generateProductJsonLd(
     brand: {
       "@type": "Brand",
       name: product.brand_name,
-      logo: product.brand_logo_url || undefined,
+      logo: fullBrandLogoUrl || undefined,
     },
     offers: {
       "@type": "AggregateOffer",
@@ -368,13 +378,18 @@ export function generateBrandJsonLd(
 ) {
   const cleanSiteUrl = siteUrl.replace(/\/+$/, "");
   const brandUrl = `${cleanSiteUrl}/marcas/${brand.slug}`;
+  const fullBrandLogoUrl = brand.logo_url
+    ? brand.logo_url.startsWith("http")
+      ? brand.logo_url
+      : `${cleanSiteUrl}${brand.logo_url}`
+    : undefined;
 
   return {
     "@context": "https://schema.org",
     "@type": "Brand",
     name: brand.name,
     url: brandUrl,
-    logo: brand.logo_url || undefined,
+    logo: fullBrandLogoUrl || undefined,
     description: brand.description || brand.tagline || undefined,
     sameAs: brand.website_url ? [brand.website_url] : undefined,
   };

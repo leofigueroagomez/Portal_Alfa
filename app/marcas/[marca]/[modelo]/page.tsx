@@ -47,34 +47,40 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     product.short_description ||
     `Especificación y cotización oficial del equipo ${product.brand_name} ${product.model} en México. Respaldo técnico y garantía oficial con ALFA OS.`;
 
-  return {
-    title,
-    description,
-    keywords: product.seo_keywords || [
-      product.brand_name,
-      product.model || "",
-      `${product.brand_name} México`,
-      "Cotización México",
-    ],
-    alternates: {
-      canonical: `/marcas/${product.brand_slug}/${product.slug}`,
-    },
-    openGraph: {
+    const fullImageUrl = product.image_url
+      ? product.image_url.startsWith("http")
+        ? product.image_url
+        : `${siteUrl}${product.image_url}`
+      : undefined;
+
+    return {
       title,
       description,
-      url: `${siteUrl}/marcas/${product.brand_slug}/${product.slug}`,
-      siteName: "ALFA High End Services",
-      images: product.image_url ? [{ url: product.image_url }] : undefined,
-      type: "website",
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-      images: product.image_url ? [product.image_url] : undefined,
-    },
-  };
-}
+      keywords: product.seo_keywords || [
+        product.brand_name,
+        product.model || "",
+        `${product.brand_name} México`,
+        "Cotización México",
+      ],
+      alternates: {
+        canonical: `/marcas/${product.brand_slug}/${product.slug}`,
+      },
+      openGraph: {
+        title,
+        description,
+        url: `${siteUrl}/marcas/${product.brand_slug}/${product.slug}`,
+        siteName: "ALFA High End Services",
+        images: fullImageUrl ? [{ url: fullImageUrl }] : undefined,
+        type: "website",
+      },
+      twitter: {
+        card: "summary_large_image",
+        title,
+        description,
+        images: fullImageUrl ? [fullImageUrl] : undefined,
+      },
+    };
+  }
 
 export default async function ProductDetailPage({ params }: Props) {
   const { marca, modelo } = await params;
