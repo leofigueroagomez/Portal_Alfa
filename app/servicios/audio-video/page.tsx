@@ -46,20 +46,28 @@ const solutions = [
 
 const gallery = [
   {
-    title: "Residencias integradas",
-    src: "/projects/residencia-premium.jpeg",
+    title: "Salón de Audio VM",
+    src: "/portfolio/salon-de-audio-vm/hero.jpg",
+    href: "/portafolio/salon-de-audio-vm",
+    subtitle: "McIntosh MA352, Denon DP-3000NE y Bowers & Wilkins",
   },
   {
-    title: "Home Cinema",
+    title: "Home Cinema Dolby Atmos",
     src: "/projects/cine-bw-yamaha.jpeg",
+    href: "/portafolio/home-cinema-puerta-de-hierro",
+    subtitle: "Sala de cine dedicada 7.2.4 canales",
   },
   {
-    title: "Audio de referencia",
-    src: "/projects/audio-hifi-bw-mcintosh.jpeg",
+    title: "Residencias Integradas",
+    src: "/projects/residencia-premium.jpeg",
+    href: "/portafolio/residencia-country-club",
+    subtitle: "Audio multiroom y control arquitectónico",
   },
   {
-    title: "Espacios de escucha",
+    title: "Espacios de Escucha Hi-Fi",
     src: "/projects/estudio-hifi.jpeg",
+    href: "/portafolio/salon-de-audio-vm",
+    subtitle: "Calibración acústica de referencia",
   },
 ];
 
@@ -209,20 +217,30 @@ export default function AudioVideoPage() {
 
       <section id="proyectos" className="bg-[#F7F6F3] px-5 py-20 sm:px-8 lg:px-12">
         <div className="mx-auto max-w-7xl">
-          <div className="mb-10 max-w-3xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#7A1F2B]">
-              Galería
-            </p>
-            <h2 className="mt-5 text-4xl font-semibold leading-tight sm:text-5xl">
-              Proyectos que reflejan nuestra forma de trabajar.
-            </h2>
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-10">
+            <div className="max-w-3xl">
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#7A1F2B]">
+                Galería & Casos de Estudio
+              </p>
+              <h2 className="mt-5 text-4xl font-semibold leading-tight sm:text-5xl">
+                Proyectos que reflejan nuestra forma de trabajar.
+              </h2>
+            </div>
+            <Link
+              href="/portafolio"
+              className="inline-flex items-center gap-2 bg-[#7A1F2B] hover:bg-[#5A1320] px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-white transition shadow-md flex-shrink-0"
+            >
+              <span>Ver Todo el Portafolio</span>
+              <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
             {gallery.map((project, index) => (
-              <article
+              <Link
                 key={project.title}
-                className={`group relative min-h-[360px] overflow-hidden bg-[#111111] ${
+                href={project.href || "/portafolio"}
+                className={`group relative min-h-[360px] overflow-hidden bg-[#111111] block ${
                   index === 0 ? "lg:min-h-[560px]" : ""
                 }`}
               >
@@ -234,10 +252,21 @@ export default function AudioVideoPage() {
                   className="object-cover transition duration-500 ease-out group-hover:scale-[1.035]"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/86 via-black/28 to-black/0" />
-                <h3 className="absolute inset-x-0 bottom-0 p-6 text-3xl font-semibold text-white sm:p-8">
-                  {project.title}
-                </h3>
-              </article>
+                <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8">
+                  <h3 className="text-3xl font-semibold text-white group-hover:text-[#F0B8C0] transition">
+                    {project.title}
+                  </h3>
+                  {project.subtitle && (
+                    <p className="mt-2 text-sm text-zinc-300 font-light">
+                      {project.subtitle}
+                    </p>
+                  )}
+                  <div className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#F0B8C0]">
+                    <span>Ver caso de estudio</span>
+                    <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-1" />
+                  </div>
+                </div>
+              </Link>
             ))}
           </div>
         </div>

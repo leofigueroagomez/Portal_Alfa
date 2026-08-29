@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { STATIC_BRANDS, STATIC_CATALOG_PRODUCTS } from "@/lib/catalogData";
+import { STATIC_PORTFOLIO_PROJECTS } from "@/lib/portfolioData";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = (
@@ -64,6 +65,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.95,
     },
     {
+      url: `${baseUrl}/portafolio`,
+      lastModified: currentDate,
+      changeFrequency: "weekly",
+      priority: 0.95,
+    },
+    {
       url: `${baseUrl}/aviso-de-privacidad`,
       lastModified: currentDate,
       changeFrequency: "yearly",
@@ -87,5 +94,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.85,
   }));
 
-  return [...staticPages, ...brandPages, ...productPages];
+  // Portfolio Project URLs
+  const portfolioPages: MetadataRoute.Sitemap = STATIC_PORTFOLIO_PROJECTS.map((project) => ({
+    url: `${baseUrl}/portafolio/${project.slug}`,
+    lastModified: currentDate,
+    changeFrequency: "weekly",
+    priority: 0.9,
+  }));
+
+  return [...staticPages, ...brandPages, ...productPages, ...portfolioPages];
 }

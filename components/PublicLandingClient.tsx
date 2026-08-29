@@ -142,34 +142,44 @@ const alfaOsItems = [
 
 const projectGallery = [
   {
-    title: "Residencia Premium",
+    title: "Salón de Audio VM",
     description:
-      "Iluminación Lutron, audio de referencia y automatización integrados desde anteproyecto.",
+      "Escucha crítica audiófila con McIntosh MA352, tornamesa Denon DP-3000NE, Bowers & Wilkins Serie 600 y zona de billar con Sonos Amp.",
+    src: "/portfolio/salon-de-audio-vm/hero.jpg",
+    href: "/portafolio/salon-de-audio-vm",
+    category: "Audio Hi-Fi & Entretenimiento",
+  },
+  {
+    title: "Residencia Country Club",
+    description:
+      "Iluminación Lutron RadioRA 3, botoneras Sunnata y audio multiroom integrado desde anteproyecto.",
     src: "/projects/residencia-premium.jpeg",
+    href: "/portafolio/residencia-country-club",
+    category: "Residencial Integral",
   },
   {
-    title: "Home Cinema",
+    title: "Home Cinema Dolby Atmos",
     description:
-      "Experiencias audiovisuales de nivel cinematográfico diseñadas para disfrutarse en casa.",
+      "Experiencias audiovisuales 7.2.4 de nivel cinematográfico diseñadas para disfrutarse en casa.",
     src: "/projects/cine-bw-yamaha.jpeg",
-  },
-  {
-    title: "Audio de Referencia",
-    description:
-      "Sistemas de alto desempeño para quienes buscan una experiencia acústica excepcional.",
-    src: "/projects/audio-hifi-bw-mcintosh.jpeg",
+    href: "/portafolio/home-cinema-puerta-de-hierro",
+    category: "Home Cinema",
   },
   {
     title: "Espacios de Escucha",
     description:
       "Integración perfecta entre diseño interior y reproducción musical de alto nivel.",
     src: "/projects/estudio-hifi.jpeg",
+    href: "/portafolio/salon-de-audio-vm",
+    category: "Audio de Referencia",
   },
   {
     title: "Infraestructura Tecnológica",
     description:
       "La base invisible que permite que todos los sistemas funcionen con máxima confiabilidad.",
     src: "/projects/rack-panduit.jpeg",
+    href: "/portafolio",
+    category: "Infraestructura",
   },
 ];
 
@@ -450,6 +460,12 @@ export default function PublicLanding() {
             </div>
 
             <Link
+              href="/portafolio"
+              className="rounded border border-white/10 px-3.5 py-2 text-xs font-medium uppercase tracking-wider text-zinc-300 transition hover:border-[#B84A5A] hover:text-white"
+            >
+              Portafolio
+            </Link>
+            <Link
               href="/marcas"
               className="rounded border border-white/10 px-3.5 py-2 text-xs font-medium uppercase tracking-wider text-zinc-300 transition hover:border-[#B84A5A] hover:text-white"
             >
@@ -515,6 +531,14 @@ export default function PublicLanding() {
               })}
             </div>
             <div className="mt-4 flex flex-col gap-2 border-t border-white/10 pt-4">
+              <Link
+                href="/portafolio"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center justify-between rounded-lg px-3 py-2 text-sm text-zinc-200 hover:bg-white/5"
+              >
+                <span>Portafolio de Proyectos</span>
+                <ArrowRight className="h-4 w-4 text-[#B84A5A]" />
+              </Link>
               <Link
                 href="/marcas"
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -956,25 +980,35 @@ export default function PublicLanding() {
 
       <section className="bg-[#F8F7F5] px-5 py-16 text-[#0F0F0F] sm:px-8 sm:py-20 lg:px-12">
         <div className="mx-auto max-w-7xl">
-          <div className="max-w-3xl">
-            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#B84A5A]">
-              Portfolio
-            </p>
-            <h2 className="mt-4 text-3xl font-semibold sm:text-4xl">
-              Proyectos que reflejan nuestra forma de trabajar.
-            </h2>
-            <p className="mt-5 text-base leading-8 text-zinc-700">
-              Cada proyecto es una combinación de ingeniería, diseño y
-              acompañamiento. Desde residencias de alto nivel hasta
-              infraestructura tecnológica crítica.
-            </p>
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
+            <div className="max-w-3xl">
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#B84A5A]">
+                Portafolio de Proyectos
+              </p>
+              <h2 className="mt-4 text-3xl font-semibold sm:text-4xl">
+                Proyectos que reflejan nuestra forma de trabajar.
+              </h2>
+              <p className="mt-5 text-base leading-8 text-zinc-700">
+                Cada proyecto es una combinación de ingeniería, diseño y
+                acompañamiento. Desde residencias de alto nivel hasta
+                infraestructura tecnológica crítica.
+              </p>
+            </div>
+            <Link
+              href="/portafolio"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#7A1F2B] hover:bg-[#5A1320] px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-white transition shadow-lg shadow-[#7A1F2B]/20 flex-shrink-0"
+            >
+              <span>Explorar Portafolio</span>
+              <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
 
           <div className="mt-10 grid gap-4 lg:grid-cols-2">
             {projectGallery.map((project, index) => (
-              <article
+              <Link
                 key={project.title}
-                className={`group relative min-h-[360px] overflow-hidden rounded-[24px] border border-white/10 bg-[#141414] shadow-2xl shadow-black/20 ${
+                href={project.href || "/portafolio"}
+                className={`group relative min-h-[360px] overflow-hidden rounded-[24px] border border-white/10 bg-[#141414] shadow-2xl shadow-black/20 block transition duration-300 hover:border-[#7A1F2B] ${
                   index === 0 ? "lg:row-span-2 lg:min-h-[760px]" : ""
                 }`}
               >
@@ -987,25 +1021,38 @@ export default function PublicLanding() {
                       ? "(min-width: 1024px) 50vw, 100vw"
                       : "(min-width: 1024px) 50vw, 100vw"
                   }
-                  className="object-cover transition duration-[250ms] ease-in-out group-hover:scale-[1.03]"
+                  className="object-cover transition duration-500 ease-in-out group-hover:scale-[1.03]"
                   onError={() =>
                     console.warn(`Falta imagen de proyecto: ${project.src}`)
                   }
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/88 via-black/32 to-black/5" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-transparent" />
+                
+                {project.category && (
+                  <div className="absolute top-6 left-6">
+                    <span className="rounded-md bg-black/80 backdrop-blur-md px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-[#F0B8C0] border border-[#7A1F2B]/40">
+                      {project.category}
+                    </span>
+                  </div>
+                )}
+
                 <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8">
                   <h3
-                    className={`font-semibold text-white ${
+                    className={`font-semibold text-white group-hover:text-[#F0B8C0] transition ${
                       index === 0 ? "text-3xl sm:text-4xl" : "text-2xl"
                     }`}
                   >
                     {project.title}
                   </h3>
-                  <p className="mt-3 max-w-xl text-sm leading-7 text-zinc-200 sm:text-base">
+                  <p className="mt-3 max-w-xl text-sm leading-7 text-zinc-200 sm:text-base font-light">
                     {project.description}
                   </p>
+                  <div className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#F0B8C0] group-hover:text-white transition">
+                    <span>Ver Caso de Estudio</span>
+                    <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-1" />
+                  </div>
                 </div>
-              </article>
+              </Link>
             ))}
           </div>
         </div>

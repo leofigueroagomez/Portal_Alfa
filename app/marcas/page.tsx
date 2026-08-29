@@ -64,6 +64,12 @@ export default async function MarcasPage() {
               Inicio
             </Link>
             <Link
+              href="/portafolio"
+              className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400 transition hover:text-white hidden sm:block"
+            >
+              Portafolio
+            </Link>
+            <Link
               href="/servicios/iluminacion"
               className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400 transition hover:text-white hidden md:block"
             >
