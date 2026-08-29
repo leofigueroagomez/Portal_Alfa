@@ -32,8 +32,11 @@ export interface PortfolioProject {
   hero_image: string;
   summary: string;
   origin_story: string;
+  origin_heading?: string;
   challenge: string;
+  challenge_heading?: string;
   solution: string;
+  solution_heading?: string;
   results: string[];
   equipment_zones: PortfolioEquipmentZone[];
   gallery: PortfolioMediaItem[];
@@ -48,8 +51,6 @@ export interface PortfolioProject {
 export const PORTFOLIO_CATEGORIES = [
   { id: "all", label: "Todos los Proyectos" },
   { id: "audio-hifi", label: "Audio Hi-Fi & Entretenimiento" },
-  { id: "home-cinema", label: "Home Cinema" },
-  { id: "iluminacion-control", label: "Iluminación & Control Lutron" },
   { id: "residencial", label: "Residencial Integral" },
 ];
 
@@ -186,99 +187,228 @@ export const STATIC_PORTFOLIO_PROJECTS: PortfolioProject[] = [
     ],
   },
   {
-    id: "residencia-country-club",
-    slug: "residencia-country-club",
-    title: "Residencia Country Club",
-    subtitle: "Iluminación Arquitectónica Lutron & Audio Multiroom Integral",
+    id: "casa-er",
+    slug: "casa-er",
+    title: "Casa ER",
+    subtitle:
+      "Integración Residencial Integral: Seguridad, Iluminación, Audio y Red desde la Cimentación",
     category: "Residencial Integral",
     category_slug: "residencial",
     client_type: "Residencial Privado",
     location: "Guadalajara, Jalisco",
     year: "2025",
-    hero_image: "/projects/residencia-premium.jpeg",
+    hero_image: "/portfolio/casa-er/fachada-camara.avif",
     summary:
-      "Integración de iluminación Lutron RadioRA 3 con botoneras Sunnata personalizadas, persianas motorizadas ultra silenciosas y 12 zonas de audio distribuido Sonos y Bowers & Wilkins.",
+      "Acompañamiento técnico completo —desde la cimentación hasta la entrega— de una residencia de autor proyectada por el arquitecto Jorge Luis Hernández Silva. ALFA integró videovigilancia y control de acceso Hikvision, control de iluminación con Shelly, Akubela y Alexa, audio distribuido VSSL y Tru Audio, y una red alámbrica e inalámbrica Ruijie, siempre bajo una misma premisa: que la arquitectura destaque y la tecnología se adapte.",
+    origin_heading: "Un Proyecto Concebido en Obra Gris",
     origin_story:
-      "Colaboración con despacho de arquitectura de autor desde etapa de proyecto para concebir una vivienda donde toda la tecnología estuviera completamente oculta en muros y plafones.",
+      "ALFA se sumó a Casa ER cuando la construcción apenas estaba en cimentación, trabajando de la mano del arquitecto Jorge Luis Hernández Silva —reconocido despacho de Guadalajara— y de la constructora. Esta incorporación temprana permitió planear canalizaciones, registros y previsiones eléctricas y de datos antes de colar y aplanar, evitando adecuaciones posteriores y garantizando que cada cámara, panel, bocina y punto de red quedara exactamente donde el diseño lo pedía. Durante todo el proceso se asesoró al cliente para encontrar una solución acorde al presupuesto asignado, sin sacrificar sus expectativas de confort y control.",
+    challenge_heading: "Cuatro Sistemas, una Sola Arquitectura",
     challenge:
-      "Coordinar más de 80 circuitos de iluminación LED cálida y tiras Lumaris con persianas de gran formato en doble altura.",
+      "Coordinar cuatro ecosistemas —seguridad, iluminación, audio y red— sobre una obra en proceso, respetando un lenguaje arquitectónico exigente de concreto aparente, madera y aplanados finos, y ajustándose al presupuesto que el cliente tenía definido sin renunciar a nada de lo que esperaba del proyecto.",
+    solution_heading: "Ingeniería Coordinada de Principio a Fin",
     solution:
-      "Procesadores Lutron RadioRA 3 PoE centralizados en rack, botoneras Sunnata en acabados Midnight y Snow, y audio arquitectónico de plafón.",
+      "Se desarrolló un proyecto ejecutivo por sistema, integrado al calendario de obra:\n\n1. Videovigilancia y Control de Acceso (Hikvision): cámaras bullet ColorVu de perfil bajo ubicadas en aleros y en las juntas entre materiales para pasar desapercibidas, videoportero IP de villa con lector de tarjetas empotrado a ras del muro de madera y grabación centralizada en NVR.\n\n2. Control de Iluminación y Escenas (Shelly + Akubela + Alexa): la inteligencia se resolvió con módulos Shelly ocultos en registros y detrás de los apagadores de diseño, gobernados desde paneles de pared Akubela HyPanel montados a ras sobre el concreto aparente y por voz con Amazon Alexa. Escenas de iluminación completas sin llenar los muros de teclados.\n\n3. Audio Distribuido (VSSL + Tru Audio): amplificación multi-zona con streaming VSSL en rack, alimentando bocinas arquitectónicas Tru Audio empotradas en plafón, muro y exterior, calibradas para una cobertura uniforme y discreta en las áreas sociales y la terraza.\n\n4. Infraestructura de Red (Ruijie): backbone alámbrico e inalámbrico Ruijie Reyee con switches PoE administrables y puntos de acceso Wi-Fi de alta densidad, dando soporte estable a todos los sistemas y a la vida digital de la familia.",
     results: [
-      "Ambientes lumínicos automáticos sincronizados con el ritmo circadiano.",
-      "Control de persianas y escenas desde teclados grabados con láser y app ALFA OS.",
+      "Incorporación desde la cimentación: previsiones y canalizaciones resueltas antes de acabados, sin obra correctiva.",
+      "Dispositivos de perfil bajo integrados a la paleta de concreto, madera y aplanados: la tecnología no compite con la arquitectura.",
+      "Control de iluminación por escenas, aplicación y voz con Alexa, con la inteligencia Shelly oculta a la vista.",
+      "Audio distribuido VSSL y Tru Audio en interior y exterior, y cobertura Wi-Fi Ruijie estable en toda la casa.",
+      "Solución dimensionada al presupuesto asignado por el cliente, con asesoría continua y satisfacción completa a la entrega.",
     ],
     equipment_zones: [
       {
-        zoneName: "Control Lumínico",
-        description: "Ecosistema Lutron RadioRA 3.",
+        zoneName: "Videovigilancia y Control de Acceso",
+        description:
+          "Perímetro y accesos monitoreados con equipo Hikvision de perfil bajo.",
         equipment: [
-          { brand: "Lutron", model: "RadioRA 3", role: "Procesadores & Dimmers Sunnata" },
-          { brand: "Lutron", model: "Lumaris", role: "Tiras LED Tunable White" },
+          {
+            brand: "Hikvision",
+            model: "Cámaras Bullet ColorVu",
+            role: "Videovigilancia perimetral a color las 24 horas",
+            highlight:
+              "Formato compacto y acabado negro que se funde con aleros y juntas de material",
+          },
+          {
+            brand: "Hikvision",
+            model: "Videoportero IP de Villa",
+            role: "Estación de puerta con audio/video y lector de tarjetas RFID",
+            highlight:
+              "Empotrado a ras del muro de madera, sin cajas ni marcos expuestos",
+          },
+          {
+            brand: "Hikvision",
+            model: "NVR / Grabador de Red",
+            role: "Grabación y almacenamiento centralizado con acceso remoto",
+            highlight: "Consulta desde aplicación móvil y estaciones interiores",
+          },
+        ],
+      },
+      {
+        zoneName: "Control de Iluminación y Escenas",
+        description:
+          "Inteligencia Shelly oculta, gobernada por paneles Akubela y voz Alexa.",
+        equipment: [
+          {
+            brand: "Shelly",
+            model: "Módulos Pro / Plus",
+            role: "Relevación y atenuación de circuitos en registros y cajas",
+            highlight: "La automatización vive dentro del muro, no sobre él",
+          },
+          {
+            brand: "Akubela",
+            model: "HyPanel",
+            role: "Panel de pared inteligente para escenas, clima e intercom",
+            highlight:
+              "Montaje a ras sobre concreto aparente, una sola pieza por zona",
+          },
+          {
+            brand: "Amazon",
+            model: "Alexa",
+            role: "Control por voz de escenas y zonas de iluminación",
+            highlight: "Operación manos libres integrada al resto de la casa",
+          },
+        ],
+      },
+      {
+        zoneName: "Audio Distribuido",
+        description:
+          "Amplificación multi-zona con streaming y bocinas arquitectónicas ocultas.",
+        equipment: [
+          {
+            brand: "VSSL",
+            model: "Amplificador Multi-Zona con Streaming",
+            role: "Distribución de audio por zonas desde rack central",
+            highlight: "AirPlay, streaming directo y control por aplicación",
+          },
+          {
+            brand: "Tru Audio",
+            model: "Bocinas Arquitectónicas",
+            role: "Altavoces empotrados de plafón, muro y exterior",
+            highlight: "Rejillas al ras y sin marco para desaparecer en el acabado",
+          },
+        ],
+      },
+      {
+        zoneName: "Infraestructura de Red",
+        description:
+          "Backbone alámbrico e inalámbrico que soporta todos los sistemas.",
+        equipment: [
+          {
+            brand: "Ruijie",
+            model: "Reyee — Gateway y Switches PoE",
+            role: "Enrutamiento y conmutación administrable con alimentación PoE",
+            highlight:
+              "Alimentación y datos para cámaras, paneles y APs por un solo cable",
+          },
+          {
+            brand: "Ruijie",
+            model: "Access Points Wi-Fi",
+            role: "Cobertura inalámbrica de alta densidad en toda la residencia",
+            highlight: "Roaming continuo entre planta baja, planta alta y exterior",
+          },
         ],
       },
     ],
     gallery: [
       {
         type: "image",
-        url: "/projects/residencia-premium.jpeg",
-        caption: "Integración arquitectónica de iluminación y audio en estancia principal.",
+        url: "/portfolio/casa-er/fachada-camara.avif",
+        caption:
+          "Fachada de concreto, madera y aplanado fino: la cámara bullet Hikvision se integra bajo el alero sin romper la composición.",
         isHero: true,
       },
-    ],
-    tags: ["Lutron", "RadioRA 3", "Sunnata", "Sonos", "Bowers & Wilkins", "Residencial"],
-    is_featured: false,
-    seo_title: "Residencia Country Club | Iluminación Lutron y Audio Multiroom | ALFA",
-    seo_description:
-      "Proyecto de iluminación arquitectónica Lutron y audio multiroom integrado en Guadalajara por ALFA High End Services.",
-    seo_keywords: ["Lutron Guadalajara", "RadioRA 3 residencia", "Automatizacion lujo"],
-  },
-  {
-    id: "home-cinema-puerta-de-hierro",
-    slug: "home-cinema-puerta-de-hierro",
-    title: "Cine Residencial Dolby Atmos",
-    subtitle: "Sala de Cine Privada 7.2.4 de Alta Referencia",
-    category: "Home Cinema",
-    category_slug: "home-cinema",
-    client_type: "Residencial Privado",
-    location: "Zapopan, Jalisco",
-    year: "2025",
-    hero_image: "/projects/cine-bw-yamaha.jpeg",
-    summary:
-      "Sala de cine dedicada con configuración inmersiva 7.2.4 Dolby Atmos, altavoces empotrados de alta potencia, doble subwoofer calibrado y control de iluminación para escenas de proyección.",
-    origin_story:
-      "El cliente deseaba una sala cinematográfica privada para disfrutar películas familiares y eventos deportivos con acústica de nivel sala comercial de estreno.",
-    challenge:
-      "Tratamiento acústico para eliminar reflexiones primarias y control de aislamiento para no transmitir frecuencias bajas a recámaras contiguas.",
-    solution:
-      "Panelizado acústico absorbente y difusor oculto bajo tela acústica tensada, altavoces Bowers & Wilkins y procesador multicanal con calibración Dirac Live.",
-    results: [
-      "Inmersión 3D Dolby Atmos con precisión posicional absoluta.",
-      "Control de un solo toque: 'Ver Película' atenúa luces, baja pantalla y enciende proyectores.",
-    ],
-    equipment_zones: [
       {
-        zoneName: "Audio Cinematográfico",
-        description: "Configuración 7.2.4 canales.",
-        equipment: [
-          { brand: "Bowers & Wilkins", model: "Architectural Cinema", role: "Altavoces LCR y Surround" },
-          { brand: "Panamax", model: "M5400-PM", role: "Acondicionador de energía" },
-        ],
+        type: "video",
+        url: "/portfolio/casa-er/video-audio-techo-exterior.mp4",
+        caption:
+          "Recorrido del audio distribuido Tru Audio empotrado en techo y áreas exteriores.",
       },
-    ],
-    gallery: [
       {
         type: "image",
-        url: "/projects/cine-bw-yamaha.jpeg",
-        caption: "Sala de cine residencial con iluminación indirecta y butacas ergonómicas.",
-        isHero: true,
+        url: "/portfolio/casa-er/panel-escenas-concreto.avif",
+        caption:
+          "Panel de pared Akubela HyPanel montado a ras sobre concreto aparente para controlar escenas de iluminación y clima.",
+      },
+      {
+        type: "image",
+        url: "/portfolio/casa-er/videoportero-muro-madera.avif",
+        caption:
+          "Videoportero IP Hikvision empotrado en el muro de madera del acceso principal.",
+      },
+      {
+        type: "image",
+        url: "/portfolio/casa-er/videoportero-detalle.avif",
+        caption:
+          "Detalle del videoportero de villa con cámara gran angular y lector de tarjetas para control de acceso.",
+      },
+      {
+        type: "video",
+        url: "/portfolio/casa-er/video-panel-control.mp4",
+        caption: "Operación del panel de control de iluminación empotrado en muro.",
+      },
+      {
+        type: "image",
+        url: "/portfolio/casa-er/camara-bala-detalle.avif",
+        caption:
+          "Cámara bullet Hikvision ColorVu en acabado negro sobre aplanado texturizado.",
+      },
+      {
+        type: "image",
+        url: "/portfolio/casa-er/camara-madera-stucco.avif",
+        caption:
+          "Cámara ubicada en la junta entre el aplanado y la madera para minimizar su presencia visual.",
+      },
+      {
+        type: "video",
+        url: "/portfolio/casa-er/video-audio-bocinas-muro.mp4",
+        caption: "Bocinas Tru Audio empotradas en muro, integradas al acabado.",
+      },
+      {
+        type: "video",
+        url: "/portfolio/casa-er/video-audio-bocinas-plafon.mp4",
+        caption: "Bocinas de plafón Tru Audio con rejilla al ras en el área social.",
+      },
+      {
+        type: "image",
+        url: "/portfolio/casa-er/apagador-negro-madera.avif",
+        caption:
+          "Apagador de diseño en negro, al ras del muro de madera, con la inteligencia Shelly detrás del muro.",
+      },
+      {
+        type: "image",
+        url: "/portfolio/casa-er/apagador-blanco-muro.avif",
+        caption:
+          "Donde la iluminación no requería automatización, apagadores sin tornillos que desaparecen en el muro.",
       },
     ],
-    tags: ["Home Cinema", "Dolby Atmos", "Bowers & Wilkins", "Panamax", "Zapopan"],
-    is_featured: false,
-    seo_title: "Cine Residencial Dolby Atmos | Sala de Cine Privada en Zapopan | ALFA",
+    video_url: "/portfolio/casa-er/video-audio-techo-exterior.mp4",
+    tags: [
+      "Hikvision",
+      "Shelly",
+      "Akubela",
+      "Alexa",
+      "VSSL",
+      "Tru Audio",
+      "Ruijie",
+      "CCTV",
+      "Control de Acceso",
+      "Residencial",
+      "Guadalajara",
+    ],
+    is_featured: true,
+    seo_title:
+      "Casa ER | Integración Residencial: Hikvision, Shelly, VSSL y Ruijie | ALFA",
     seo_description:
-      "Diseño acústico e integración de sala de cine dedicada 7.2.4 Dolby Atmos en Zapopan por ALFA High End Services.",
-    seo_keywords: ["Cine en casa Guadalajara", "Dolby Atmos residencial", "Home theater Zapopan"],
+      "Caso de estudio Casa ER en Guadalajara: acompañamiento desde cimentación junto al arquitecto Jorge Luis Hernández Silva. Videovigilancia y control de acceso Hikvision, iluminación Shelly + Akubela + Alexa, audio VSSL y Tru Audio, y red Ruijie.",
+    seo_keywords: [
+      "Integración residencial Guadalajara",
+      "Hikvision control de acceso Guadalajara",
+      "Shelly Akubela Alexa",
+      "VSSL Tru Audio México",
+      "Ruijie Reyee residencial",
+      "Domótica Guadalajara",
+      "ALFA casos de éxito",
+    ],
   },
 ];

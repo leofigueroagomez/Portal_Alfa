@@ -29,7 +29,15 @@ El objetivo de `/portafolio` y sus casos de estudio individuales (`/portafolio/[
 
 ---
 
-## 3. Reglas de Medios y Almacenamiento
+## 3. Reglas Críticas y de Integridad de Información
+
+> [!CAUTION]
+> **REGLA DE ORO: NUNCA CREAR NI PUBLICAR PROYECTOS FICTICIOS O PLACEHOLDERS.**
+> Solo se deben dar de alta y mostrar en el sitio proyectos 100% reales confirmados explícitamente por el usuario, con sus marcas, modelos y contexto auténtico. Queda estrictamente prohibido inventar casos de estudio, clientes, ubicaciones o equipamientos ficticios.
+
+---
+
+## 4. Reglas de Medios y Almacenamiento
 
 1. **Ubicación de Fotos y Video:**
    - Todo proyecto de portafolio debe almacenar sus medios en:

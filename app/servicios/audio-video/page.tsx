@@ -51,24 +51,6 @@ const gallery = [
     href: "/portafolio/salon-de-audio-vm",
     subtitle: "McIntosh MA352, Denon DP-3000NE y Bowers & Wilkins",
   },
-  {
-    title: "Home Cinema Dolby Atmos",
-    src: "/projects/cine-bw-yamaha.jpeg",
-    href: "/portafolio/home-cinema-puerta-de-hierro",
-    subtitle: "Sala de cine dedicada 7.2.4 canales",
-  },
-  {
-    title: "Residencias Integradas",
-    src: "/projects/residencia-premium.jpeg",
-    href: "/portafolio/residencia-country-club",
-    subtitle: "Audio multiroom y control arquitectónico",
-  },
-  {
-    title: "Espacios de Escucha Hi-Fi",
-    src: "/projects/estudio-hifi.jpeg",
-    href: "/portafolio/salon-de-audio-vm",
-    subtitle: "Calibración acústica de referencia",
-  },
 ];
 
 const brands = [

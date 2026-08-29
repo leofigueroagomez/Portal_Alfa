@@ -21,24 +21,28 @@ export default function PortfolioDirectoryClient({ projects }: Props) {
   return (
     <div className="space-y-12">
       {/* Category Tabs */}
-      <div className="flex items-center justify-start sm:justify-center overflow-x-auto pb-2 scrollbar-none gap-2">
-        {PORTFOLIO_CATEGORIES.map((cat) => (
-          <button
-            key={cat.id}
-            onClick={() => setSelectedCategory(cat.id)}
-            className={`flex-shrink-0 rounded-xl px-4 py-2.5 text-xs font-semibold uppercase tracking-wider transition ${
-              selectedCategory === cat.id
-                ? "bg-[#9E1B32] text-white shadow-lg shadow-[#9E1B32]/30"
-                : "bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white border border-white/5"
-            }`}
-          >
-            {cat.label}
-          </button>
-        ))}
-      </div>
+      {PORTFOLIO_CATEGORIES.length > 1 && (
+        <div className="flex items-center justify-start sm:justify-center overflow-x-auto pb-2 scrollbar-none gap-2">
+          {PORTFOLIO_CATEGORIES.map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => setSelectedCategory(cat.id)}
+              className={`flex-shrink-0 rounded-xl px-4 py-2.5 text-xs font-semibold uppercase tracking-wider transition ${
+                selectedCategory === cat.id
+                  ? "bg-[#9E1B32] text-white shadow-lg shadow-[#9E1B32]/30"
+                  : "bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white border border-white/5"
+              }`}
+            >
+              {cat.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Projects Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 ${
+        filteredProjects.length === 1 ? "max-w-xl mx-auto" : ""
+      }`}>
         {filteredProjects.map((project) => {
           const hasVideo = project.gallery.some((g) => g.type === "video");
 

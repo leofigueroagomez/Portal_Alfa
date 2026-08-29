@@ -149,38 +149,6 @@ const projectGallery = [
     href: "/portafolio/salon-de-audio-vm",
     category: "Audio Hi-Fi & Entretenimiento",
   },
-  {
-    title: "Residencia Country Club",
-    description:
-      "Iluminación Lutron RadioRA 3, botoneras Sunnata y audio multiroom integrado desde anteproyecto.",
-    src: "/projects/residencia-premium.jpeg",
-    href: "/portafolio/residencia-country-club",
-    category: "Residencial Integral",
-  },
-  {
-    title: "Home Cinema Dolby Atmos",
-    description:
-      "Experiencias audiovisuales 7.2.4 de nivel cinematográfico diseñadas para disfrutarse en casa.",
-    src: "/projects/cine-bw-yamaha.jpeg",
-    href: "/portafolio/home-cinema-puerta-de-hierro",
-    category: "Home Cinema",
-  },
-  {
-    title: "Espacios de Escucha",
-    description:
-      "Integración perfecta entre diseño interior y reproducción musical de alto nivel.",
-    src: "/projects/estudio-hifi.jpeg",
-    href: "/portafolio/salon-de-audio-vm",
-    category: "Audio de Referencia",
-  },
-  {
-    title: "Infraestructura Tecnológica",
-    description:
-      "La base invisible que permite que todos los sistemas funcionen con máxima confiabilidad.",
-    src: "/projects/rack-panduit.jpeg",
-    href: "/portafolio",
-    category: "Infraestructura",
-  },
 ];
 
 const brandLogos = [
@@ -1003,30 +971,24 @@ export default function PublicLanding() {
             </Link>
           </div>
 
-          <div className="mt-10 grid gap-4 lg:grid-cols-2">
-            {projectGallery.map((project, index) => (
+          <div className="mt-10">
+            {projectGallery.map((project) => (
               <Link
                 key={project.title}
                 href={project.href || "/portafolio"}
-                className={`group relative min-h-[360px] overflow-hidden rounded-[24px] border border-white/10 bg-[#141414] shadow-2xl shadow-black/20 block transition duration-300 hover:border-[#7A1F2B] ${
-                  index === 0 ? "lg:row-span-2 lg:min-h-[760px]" : ""
-                }`}
+                className="group relative min-h-[440px] sm:min-h-[520px] overflow-hidden rounded-[24px] border border-white/10 bg-[#141414] shadow-2xl shadow-black/20 block transition duration-300 hover:border-[#7A1F2B]"
               >
                 <Image
                   src={project.src}
                   alt={project.title}
                   fill
-                  sizes={
-                    index === 0
-                      ? "(min-width: 1024px) 50vw, 100vw"
-                      : "(min-width: 1024px) 50vw, 100vw"
-                  }
+                  sizes="100vw"
                   className="object-cover transition duration-500 ease-in-out group-hover:scale-[1.03]"
                   onError={() =>
                     console.warn(`Falta imagen de proyecto: ${project.src}`)
                   }
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
                 
                 {project.category && (
                   <div className="absolute top-6 left-6">
@@ -1036,19 +998,15 @@ export default function PublicLanding() {
                   </div>
                 )}
 
-                <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8">
-                  <h3
-                    className={`font-semibold text-white group-hover:text-[#F0B8C0] transition ${
-                      index === 0 ? "text-3xl sm:text-4xl" : "text-2xl"
-                    }`}
-                  >
+                <div className="absolute inset-x-0 bottom-0 p-6 sm:p-10">
+                  <h3 className="text-3xl sm:text-4xl font-semibold text-white group-hover:text-[#F0B8C0] transition">
                     {project.title}
                   </h3>
-                  <p className="mt-3 max-w-xl text-sm leading-7 text-zinc-200 sm:text-base font-light">
+                  <p className="mt-3 max-w-2xl text-sm leading-7 text-zinc-200 sm:text-base font-light">
                     {project.description}
                   </p>
-                  <div className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#F0B8C0] group-hover:text-white transition">
-                    <span>Ver Caso de Estudio</span>
+                  <div className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#7A1F2B] group-hover:bg-[#5A1320] px-5 py-2.5 text-xs font-semibold uppercase tracking-wider text-white transition shadow-lg shadow-[#7A1F2B]/25">
+                    <span>Explorar Caso de Estudio</span>
                     <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-1" />
                   </div>
                 </div>

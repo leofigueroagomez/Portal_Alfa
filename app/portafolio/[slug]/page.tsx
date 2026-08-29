@@ -243,7 +243,7 @@ export default async function ProjectDetailPage({ params }: Props) {
                   El Origen del Proyecto
                 </span>
                 <h3 className="text-2xl font-bold font-serif text-white">
-                  La Experiencia de un Referente Compartido
+                  {project.origin_heading || "La Experiencia de un Referente Compartido"}
                 </h3>
                 <p className="text-base text-zinc-300 font-light leading-relaxed">
                   {project.origin_story}
@@ -257,7 +257,7 @@ export default async function ProjectDetailPage({ params }: Props) {
                     El Desafío Técnico
                   </span>
                   <h4 className="text-lg font-bold font-serif text-white">
-                    Armonía Acústica Dual
+                    {project.challenge_heading || "Armonía Acústica Dual"}
                   </h4>
                   <p className="text-sm text-zinc-400 font-light leading-relaxed">
                     {project.challenge}
@@ -269,7 +269,7 @@ export default async function ProjectDetailPage({ params }: Props) {
                     La Solución de Ingeniería
                   </span>
                   <h4 className="text-lg font-bold font-serif text-white">
-                    Dos Zonas Calibradas
+                    {project.solution_heading || "Dos Zonas Calibradas"}
                   </h4>
                   <p className="text-sm text-zinc-400 font-light leading-relaxed whitespace-pre-line">
                     {project.solution}
