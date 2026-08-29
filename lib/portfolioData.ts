@@ -361,11 +361,6 @@ export const STATIC_PORTFOLIO_PROJECTS: PortfolioProject[] = [
       },
       {
         type: "video",
-        url: "/portfolio/casa-er/video-audio-bocinas-muro.mp4",
-        caption: "Bocinas Tru Audio empotradas en muro, integradas al acabado.",
-      },
-      {
-        type: "video",
         url: "/portfolio/casa-er/video-audio-bocinas-plafon.mp4",
         caption: "Bocinas de plafón Tru Audio con rejilla al ras en el área social.",
       },

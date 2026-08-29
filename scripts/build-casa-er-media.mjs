@@ -35,8 +35,7 @@ for (const f of photos) {
 const videos = {
   "video-audio-techo-exterior.mp4":
     "CasaRuvalaba_Audio_Bocina_VideoBocinaEmpotradasTechoYExterior_01.mp4",
-  "video-audio-bocinas-muro.mp4":
-    "CasaRuvalaba_Audio_Bocina_VideoBocinaEmpotradasEnMuro_01.MOV",
+  // "video-audio-bocinas-muro.mp4": descartado por indicación del cliente.
   "video-audio-bocinas-plafon.mp4":
     "CasaRuvalaba_Audio_Bocina_VideoBocinaEmpotradasPlafon_01.MOV",
   "video-panel-control.mp4":
