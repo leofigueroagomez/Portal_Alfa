@@ -238,6 +238,106 @@ export async function syncProjectOperationalItems(
     if (staleUpdateError) throw staleUpdateError;
   }
 
+  // Adopta partidas operativas huerfanas antes de crear nuevas.
+  // Cuando una cotizacion aprobada se edita, sus quote_items se borran y se recrean
+  // con IDs nuevos (app/(admin)/quotes/[id]/edit/page.tsx). El FK
+  // project_operational_items.source_quote_item_id -> quote_items(id) es ON DELETE SET NULL,
+  // asi que las partidas operativas existentes quedan con source_quote_item_id = NULL y se
+  // vuelven invisibles para la limpieza de arriba (que exige source_quote_item_id no nulo).
+  // Sin esto, cada edicion genera un juego paralelo de partidas y las cantidades requeridas
+  // se duplican en Compras (bug proyecto 48).
+  const {
+    data: existingLinkedRows,
+    error: existingLinkedError,
+  } = await supabase
+    .from("project_operational_items")
+    .select("id, source_quote_item_id")
+    .eq("client_project_id", projectId)
+    .in("source_quote_item_id", items.map((item) => item.id))
+    .neq("status", "deleted");
+
+  if (existingLinkedError) throw existingLinkedError;
+
+  const alreadyLinkedQuoteItemIds = new Set(
+    ((existingLinkedRows || []) as { source_quote_item_id: number | null }[])
+      .map((item) => item.source_quote_item_id)
+      .filter(Boolean) as number[]
+  );
+  const quoteItemsMissingOperationalItem = items.filter(
+    (item) => !alreadyLinkedQuoteItemIds.has(item.id)
+  );
+
+  if (quoteItemsMissingOperationalItem.length > 0) {
+    const { data: orphanRows, error: orphanError } = await supabase
+      .from("project_operational_items")
+      .select("id, product_id, product_brand, product_model, product_name")
+      .eq("client_project_id", projectId)
+      .eq("change_origin", "quote_seed")
+      .is("source_quote_item_id", null)
+      .neq("status", "deleted");
+
+    if (orphanError) throw orphanError;
+
+    const descriptorKey = (
+      brand: string | null,
+      model: string | null,
+      name: string | null
+    ) =>
+      [brand, model, name]
+        .map((value) => (value || "").trim().toLowerCase())
+        .join("|");
+    const orphansByProductId = new Map<number, number[]>();
+    const orphansByDescriptor = new Map<string, number[]>();
+
+    for (const orphan of (orphanRows || []) as {
+      id: number;
+      product_id: number | null;
+      product_brand: string | null;
+      product_model: string | null;
+      product_name: string | null;
+    }[]) {
+      if (orphan.product_id) {
+        const pool = orphansByProductId.get(orphan.product_id) || [];
+        pool.push(orphan.id);
+        orphansByProductId.set(orphan.product_id, pool);
+      } else {
+        const key = descriptorKey(
+          orphan.product_brand,
+          orphan.product_model,
+          orphan.product_name
+        );
+        const pool = orphansByDescriptor.get(key) || [];
+        pool.push(orphan.id);
+        orphansByDescriptor.set(key, pool);
+      }
+    }
+
+    for (const item of quoteItemsMissingOperationalItem) {
+      const pool = item.product_id
+        ? orphansByProductId.get(item.product_id)
+        : orphansByDescriptor.get(
+            descriptorKey(item.product_brand, item.product_model, item.product_name)
+          );
+      const orphanId = pool && pool.shift();
+      if (!orphanId) continue;
+
+      const quote = quoteById.get(item.quote_id);
+      const { error: adoptError } = await supabase
+        .from("project_operational_items")
+        .update({
+          source_quote_id: item.quote_id,
+          source_quote_item_id: item.id,
+          exchange_rate: quote?.exchange_rate ?? null,
+          status: "active",
+          updated_by_user_id: userId || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", orphanId);
+
+      if (adoptError) throw adoptError;
+    }
+  }
+
   const { data: existingItems, error: existingError } = await supabase
     .from("project_operational_items")
     .select("id, source_quote_item_id, status, change_origin")
