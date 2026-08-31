@@ -566,9 +566,19 @@ export async function stampProjectInvoice(
       fiscalRegimes: (regimesResult.data || []) as FiscalCatalogItem[],
       cfdiUses: (cfdiUsesResult.data || []) as FiscalCatalogItem[],
     };
-    const missingFiscalFields = sandboxReceiver
+    const missingFiscalFieldsRaw = sandboxReceiver
       ? getSandboxMissingFiscalFields(receiver, fiscalCatalogs)
       : getMissingFiscalFields(client, fiscalCatalogs);
+    // El uso de CFDI puede venir de la propia factura (project_invoices.cfdi_use),
+    // no solo de la ficha del cliente. Si el receptor ya trae un uso valido y
+    // activo, no bloqueamos por "Uso CFDI" faltante en el cliente; su validez la
+    // confirma getReceiverValidationErrors mas abajo.
+    const invoiceCfdiUseIsValid = fiscalCatalogs.cfdiUses.some(
+      (item) => item.code === receiver.cfdiUse && item.is_active
+    );
+    const missingFiscalFields = invoiceCfdiUseIsValid
+      ? missingFiscalFieldsRaw.filter((field) => !field.startsWith("Uso CFDI"))
+      : missingFiscalFieldsRaw;
 
     if (missingFiscalFields.length > 0) {
       throw new Error(
