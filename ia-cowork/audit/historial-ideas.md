@@ -165,6 +165,27 @@ history:
   - 2026-08-31 | Leo | aprobado
 ```
 
+```yaml
+id: IA-20260901-004
+author: Claude
+type: plan
+status: accepted
+owner: Claude (lider), Antigravity (G1), Codex (G2), Leo
+history:
+  - 2026-09-01 | Leo | aprobo Sprint G completo ("todas las cosas") y sumo a Codex al equipo
+  - 2026-09-01 | Claude | plan Sprint G (ALFA OS Movil + Cotizacion Asistida) en ia-cowork/roadmap/sprint-G-alfa-movil-cotizacion-asistida.md
+```
+
+```yaml
+id: DECISION-IA-20260901-001
+author: Claude
+type: decision
+status: accepted
+owner: Claude (coordina), Antigravity (G1), Codex (G2)
+history:
+  - 2026-09-01 | Claude | reparto Sprint G entre 3 IAs + tickets G1 (Antigravity) y G2 (Codex) con contrato y definicion de listo
+```
+
 ## Regla de auditoría
 
 - toda idea debe dejar rastro

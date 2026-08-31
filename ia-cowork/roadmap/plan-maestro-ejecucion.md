@@ -63,6 +63,14 @@ Prioridad = (impacto para Leo) × (cierra un lazo) ÷ (riesgo de romper algo).
 | E4 | Auto-recálculo nocturno de totales `INT-09` | Antigravity IA-004 | Antigravity (tras E2) | Medio |
 | F1 | Talleres diarios de reglas de ingeniería → `docs/ai/engineering-rules/*` | Plan maestro | Leo + Claude | — |
 | F2 | Sensores `ING-*` contra el catálogo de reglas | Plan maestro | Claude | Medio |
+| G1 | **ALFA OS Móvil:** cascarón PWA + navegación inferior + pantallas de lectura mobile-first | Leo 2026-09-01 | Antigravity + Claude (review) | Bajo |
+| G2 | `lib/quotes/draftBuilder.ts` — motor de precios de cotización en servidor + pruebas golden | Leo 2026-09-01 | Claude (diseño) + Codex (implementación) | Medio |
+| G3 | `quote_templates` + flujo móvil "elegir plantilla → ajustar → borrador" | Leo 2026-09-01 | Claude + Leo (define plantillas) | Bajo |
+| G4 | Voz/texto → intención → borrador de cotización (Siri Shortcut → endpoint → 1 llamada + herramientas) | Leo 2026-09-01 | Claude | Medio |
+| G5 | `quote_draft_revisions` — diff propuesto vs aprobado; alimenta G4, plantillas y reglas ING | Leo 2026-09-01 | Claude | Bajo |
+| G6 | Insignia "listo para autorizar" por tipo de cotización, con F2 como red de seguridad de ingeniería | Leo 2026-09-01 | Claude + Leo | Medio |
+
+Detalle de G: `ia-cowork/roadmap/sprint-G-alfa-movil-cotizacion-asistida.md`.
 
 ---
 
@@ -92,16 +100,24 @@ Cada sprint es una unidad entregable que no rompe lo anterior.
 
 ### Sprint F — Ingeniería asistida (en paralelo, al ritmo de Leo)
 `F1` talleres → `F2` sensores ING-*. No bloquea nada; arranca cuando Leo agende el primer taller.
+**F es el poste largo de G6.** Cada regla que Leo dicte sirve dos veces: sensor `ING-*` del Vigía + red de seguridad de la cotización asistida. Correr F y G acoplados.
+
+### Sprint G — ALFA OS Móvil + Cotización Asistida (aprobado 2026-09-01)
+`G1` cascarón móvil + `G2` motor de borrador en servidor (en paralelo, ya) → `G3` plantillas (alivio inmediato) → `G4` voz → borrador → `G5` captura de correcciones → `G6` "listo para autorizar" por tipo.
+**Resultado:** Leo cotiza lo simple desde el celular; con el tiempo su trabajo en cotización es *revisar y autorizar*. Detalle y curva de confianza en `sprint-G-alfa-movil-cotizacion-asistida.md`.
+**Arranque:** G1 + G2 en paralelo ya; Leo agenda el primer taller F1 esta semana; G3 en cuanto G2 esté.
 
 ---
 
 ## 5. Gobernanza
 
 1. **Toda idea vive en `ia-cowork/`** con su frontmatter de trazabilidad. Al empezar a ejecutarla: `status: in_progress` + entrada en `history`. Al terminar: `execution_status: executed` + PR enlazado.
-2. **Roles:**
-   - **Claude (líder):** mantiene este plan, hace code review de las PRs de Antigravity, ejecuta lo que toca el núcleo del runner/sensores y las correcciones de datos donde ya hay contexto profundo (Sprints A1, B1, B2, C3, C4, D, E1, E2, F2).
-   - **Antigravity:** UI de la Bandeja, sensores nuevos de dominio (VTA, SRV), auto-remediación (Sprints A2, A3, C1, C2, D3, E3, E4).
-   - **Leo:** aprueba cada sprint antes de arrancar, agenda los talleres de ingeniería, y es el único que autoriza cambios fiscales (E1) y el paso de cualquier sensor al carril `auto_aplicado`.
+2. **Roles (equipo de 4: Leo + 3 IAs):**
+   - **Claude (líder):** mantiene este plan, hace code review de todo lo que entra, escribe las especificaciones/tickets para Antigravity y Codex, y ejecuta lo que toca el núcleo del runner/sensores, la orquestación con modelos y las correcciones de datos donde ya hay contexto profundo (A1, B1, B2, C3, D, E1, E2, F2, G3, G4, G5, G6).
+   - **Antigravity:** UI (Bandeja, ALFA OS Móvil), sensores nuevos de dominio (VTA, SRV), auto-remediación (A2, A3, C1, C2, D3, E3, E4, G1).
+   - **Codex:** implementación acotada y bien especificada — refactors con pruebas, extracción de lógica a módulos de servidor, scaffolding de endpoints, pruebas golden (G2, y tickets que Claude marque como "Codex-ready"). No toma decisiones de arquitectura ni toca fiscal/RLS/auth sin spec de Claude.
+   - **Leo:** aprueba cada sprint antes de arrancar, agenda los talleres de ingeniería, define las plantillas de cotización (G3), y es el único que autoriza cambios fiscales (E1) y el paso de cualquier sensor al carril `auto_aplicado`.
+   - **Regla de handoff:** todo ticket para Antigravity o Codex vive en `ia-cowork/` con: objetivo, archivos, contrato de entrada/salida, "definición de listo", y qué NO tocar. Claude revisa antes de merge.
 3. **Reglas duras:**
    - Todo cambio de estructura → migración revisable en `sql/` + reflejo en `docs/modules/vigia/MODULE_CONTEXT.md`.
    - Los sensores son solo lectura sobre tablas de negocio. Siempre.
