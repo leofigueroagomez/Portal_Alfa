@@ -2,7 +2,7 @@
 
 - **Autor / líder:** Claude
 - **Fecha:** 2026-09-01
-- **Estado:** PROPUESTO. Falta OK de Leo.
+- **Estado:** CODIGO COMPLETO (H1–H4) en rama `sprint-h-cancelacion-fiscal-uso-cfdi`, 2026-09-01. Migracion aplicada en prod. Falta la prueba real en sandbox Facturama con Leo (ver §5 y §8).
 - **Módulo:** Facturación (`app/(admin)/invoices/**`, `lib/facturama.ts`, `project_invoices`).
 - **Pedido de Leo (2026-09-01):**
   1. "Necesito poder realizar el proceso de cancelación de facturas — los 3 que existen: con relación, sin relación y el otro."
@@ -130,6 +130,31 @@ Estimado: H4 ~2–3 días · H3 ~2 días · H2 ~3–4 días · H1 ~1 semana. Tot
 | **Leo** | Autoriza el sprint y cada prueba fiscal; define el uso de CFDI por cliente; presente en la primera cancelación real. |
 
 **Resumen:** el grueso lo hace Claude porque es fiscal e irreversible. Codex acelera H4 y el UI de H2 con spec cerrada. Antigravity no hace falta. ChatGPT solo como revisor del procedimiento SAT.
+
+---
+
+## 8. Estado de ejecucion (2026-09-01)
+
+Todo implementado por Claude en un solo pase, rama `sprint-h-cancelacion-fiscal-uso-cfdi`.
+
+| Fase | Estado | Notas |
+| --- | --- | --- |
+| Migracion | **APLICADA en prod** (`invoice_cfdi_use_and_replacement`) | `project_invoices.cfdi_use`, `replaces_invoice_id` + indice. Aditiva. Rollback: `drop column`. Archivo espejo en `sql/20260902_invoice_cfdi_use_and_replacement.sql`. |
+| H4 uso de CFDI | **CODIGO LISTO** | Selector en `InvoiceForm` + atajo inline en el borrador + `setInvoiceCfdiUse` + timbrado lee el valor por factura. Sin dependencia de Facturama, se puede probar ya. |
+| H3 acuse + endurecer 02/03 | **CODIGO LISTO** | Ruta de descarga del acuse, badges de estado, mapeo de estatus de Facturama. Falta timbrar+cancelar una factura desechable en sandbox. |
+| H2 resolver pendiente | **CODIGO LISTO** | `checkInvoiceCancellationStatus` + boton "Consultar estado SAT". Endpoint `GET /cfdi/status` verificado en docs; falta ejercerlo contra una cancelacion real pendiente. |
+| H1 sustitucion (motivo 01) | **CODIGO LISTO** | `createReplacementInvoiceDraft` + nodo `Relations 04` + auto-UUID en la cancelacion. Falta la prueba end-to-end en sandbox (es lo mas riesgoso). |
+
+Validado: `npx tsc --noEmit` limpio, `npm run build` OK. Lint sin errores nuevos (2 preexistentes en `InvoiceForm.tsx`).
+
+**Lo que falta y necesita a Leo:**
+1. Correr el dev server con sesion de `direccion` y revisar las 4 pantallas (crear factura con G01/G03, cambiar uso en un borrador, cancelar 02, "corregir y reemplazar").
+2. En **sandbox Facturama**: timbrar una factura de prueba y cancelarla con motivo 02 y 03; confirmar acuse + `status='cancelled'`.
+3. Sustitucion: "Corregir y reemplazar" -> timbrar el sustituto -> cancelar la original con motivo 01. Confirmar la relacion 04 en el XML.
+4. Cuando 1-3 pasen en sandbox, repetir motivo 02 una vez en produccion con una factura real conocida, con Leo presente.
+5. `git merge` de la rama a `main` tras la revision.
+
+Limitacion conocida: el borrador de reemplazo copia importes y conceptos identicos; hoy no hay pantalla para editar importes de un borrador ya creado (solo el uso de CFDI y los datos fiscales del cliente). Para cambiar montos, se borra el borrador y se hace una factura nueva desde la cotizacion.
 
 ---
 

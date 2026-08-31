@@ -26,8 +26,10 @@ Gestiona facturacion interna por proyecto, facturas desde cotizacion o captura m
 | Asociar pago a factura/complemento | `app/(admin)/invoices/paymentComplementActions.ts`, `app/(admin)/projects/[id]/account-statement/ProjectPaymentForm.tsx`, `app/(admin)/projects/[id]/account-statement/EditProjectPaymentButton.tsx` | Registra pagos de proyecto en `project_payments`; complemento puede referenciar `project_payment_id`. |
 | Vista por proyecto | `app/(admin)/projects/[id]/invoices/page.tsx` | Reutiliza formulario, timbrado, archivos y panel de complementos dentro del contexto de proyecto. |
 | Portal cliente | `app/portal/page.tsx`, `app/portal/projects/[id]/page.tsx`, `app/portal/services/[id]/page.tsx`, `lib/clientPortal.ts` | Muestra facturas/saldos y documentos publicos relacionados; cualquier cambio de visibilidad es sensible. |
-| Cancelar CFDI | Pendiente de confirmar | No se encontro ruta/accion confirmada que cancele CFDI ante Facturama/SAT. Existe estado interno `cancelled`. |
-| Sincronizar/consultar estado fiscal PAC | Pendiente de confirmar | No se encontro flujo dedicado de consulta de estado fiscal remoto; se usan `status`, `facturama_id`, `sat_uuid`, `last_error` y `facturama_response`. |
+| Cancelar CFDI | `app/(admin)/invoices/CancelInvoiceButton.tsx`, `app/(admin)/invoices/actions.ts` (`cancelProjectInvoice`), `lib/facturama.ts` (`cancelFacturamaInvoice`) | Cancela el CFDI ante el SAT via Facturama (`DELETE cfdi/{id}?type=issued&motive=..&uuidReplacement=..`). Motivos 01/02/03/04. Solo rol `direccion`. Guarda `cancellation_motive`, `cancellation_status`, `cancellation_acuse_xml`, `cancelled_at`, `cancelled_by_user_id`. `status` pasa a `cancelled` solo cuando el SAT confirma de inmediato. |
+| Reemplazar factura (sustitucion, motivo 01) | `app/(admin)/invoices/ReplaceInvoiceButton.tsx`, `actions.ts` (`createReplacementInvoiceDraft`), `lib/facturama.ts` (`buildInvoicePayload` -> nodo `Relations`) | "Corregir y reemplazar": copia una factura timbrada a un borrador nuevo con `replaces_invoice_id`. Al timbrarlo agrega `Relations { Type:"04" }` al UUID original; despues se cancela la original con motivo 01. |
+| Consultar/resolver cancelacion pendiente | `app/(admin)/invoices/CancelInvoiceButton.tsx`, `actions.ts` (`checkInvoiceCancellationStatus`), `lib/facturama.ts` (`checkFacturamaCfdiSatStatus` -> `GET /cfdi/status`, `getFacturamaCfdiDetail`) | Cuando la cancelacion queda `requested` (hasta 72 h), consulta el estatus real ante el SAT y marca `status='cancelled'` si ya se cancelo. Solo rol `direccion`. |
+| Descargar acuse de cancelacion | `app/api/invoices/[id]/cancellation-acuse/route.ts` | Descarga el XML del acuse SAT desde `project_invoices.cancellation_acuse_xml`; valida auth + acceso fiscal al proyecto. |
 
 ## Responsabilidad De Archivos Clave
 
@@ -72,6 +74,9 @@ Confirmado por `sql/20260602_internal_invoicing.sql`, `sql/20260603_invoice_paym
 - Fechas/importes: `invoice_date`, `subtotal_mxn`, `discount_mxn`, `taxable_subtotal_mxn`, `iva_mxn`, `total_mxn`, legacy `subtotal`, `iva`, `total`.
 - Estado/PAC: `status`, `facturama_id`, `sat_uuid`, `xml_url`, `pdf_url`, `last_error`, `facturama_response`.
 - Pago CFDI: `payment_method_code`, `payment_form_code`, `requires_payment_complement`, `payment_complement_status`.
+- Uso CFDI por factura: `cfdi_use` (nullable; `NULL` = heredar del cliente al timbrar; se valida contra `cfdi_use_catalog` y tipo de persona).
+- Cancelacion fiscal: `cancellation_motive` (`01|02|03|04`), `cancellation_uuid_replacement`, `cancellation_status` (`requested|canceled|rejected`), `cancellation_acuse_xml` (base64), `cancelled_at`, `cancelled_by_user_id` (-> `profiles`).
+- Sustitucion: `replaces_invoice_id` (-> `project_invoices`; el sustituto que corrige una factura timbrada).
 - Auditoria: `created_at`.
 
 Confirmado por constraints SQL:
@@ -83,7 +88,9 @@ Confirmado por constraints SQL:
 - PPD exige `requires_payment_complement = true` y status de complemento `pending`, `partial` o `completed`.
 - PUE exige `requires_payment_complement = false` y `payment_complement_status = 'not_required'`.
 
-Pendiente de confirmar: si `status='cancelled'` representa cancelacion fiscal real o solo estado interno en produccion.
+`status='cancelled'` se pone SOLO cuando el SAT confirma la cancelacion (respuesta inmediata de Facturama o `checkInvoiceCancellationStatus` posterior). Una cancelacion que queda pendiente de aceptacion del receptor vive en `cancellation_status='requested'` con `status` sin tocar.
+
+Historico: hay facturas `cancelled` sin `facturama_id`/`sat_uuid` de antes de 2026-08-24 (cancelacion "interna" que nunca fue al SAT).
 
 ### `project_invoice_items`
 
@@ -235,7 +242,8 @@ Pendiente de confirmar: si `invoice_email_logs` debe mantenerse o migrarse total
 - IVA/impuestos: factura valida sumas por concepto; `fiscal_object='02'` envia IVA 16% a Facturama.
 - Factura timbrada: `stampProjectInvoice` solo acepta `status='draft'` y sin `facturama_id`.
 - Archivos fiscales: PDF/XML se descargan desde Facturama bajo demanda usando `facturama_id`; rutas requieren auth y acceso fiscal al proyecto.
-- Cancelacion fiscal: Pendiente de confirmar. No se encontro accion que cancele CFDI ante Facturama/SAT.
+- Cancelacion fiscal: `cancelProjectInvoice` (rol `direccion`) llama `DELETE cfdi/{id}` en Facturama con motivo SAT. Sustitucion (motivo 01) via `createReplacementInvoiceDraft` + relacion `04` en el timbrado. `checkInvoiceCancellationStatus` resuelve las que quedan `requested`. Endpoints Facturama verificados contra docs en vivo (2026-09-01): `DELETE cfdi/{id}?type=issued&motive=..&uuidReplacement=..`, `GET cfdi/status?uuid=&issuerRfc=&receiverRfc=&total=`, `GET cfdi/{id}?type=issued`, nodo `Relations { Type, Cfdis:[{Uuid}] }` en `POST 3/cfdis`.
+- Uso de CFDI: se timbra `resolveInvoiceCfdiUseCode(project_invoices.cfdi_use, cliente)` — el valor por factura manda sobre el del cliente.
 
 ## Archivos Que Suelen Cambiar Juntos
 
