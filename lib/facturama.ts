@@ -675,8 +675,16 @@ export async function cancelFacturamaInvoice(
   uuidReplacement?: string | null,
   env?: FacturamaEnv
 ): Promise<FacturamaCancelResult> {
-  const params = new URLSearchParams({ type: "issued", motive });
-  if (uuidReplacement) params.set("uuidReplacement", uuidReplacement);
+  // El SDK oficial de Facturama SIEMPRE manda los 3 parametros de query, y usa
+  // el literal "null" cuando no hay UUID sustituto:
+  //   DELETE /cfdi/{id}?type=issued&motive=02&uuidReplacement=null
+  // Omitir `uuidReplacement` hace que la ruta no haga match y Facturama regresa
+  // 404 con body vacio.
+  const params = new URLSearchParams({
+    type: "issued",
+    motive,
+    uuidReplacement: uuidReplacement?.trim() || "null",
+  });
 
   const response = await facturamaRequest<FacturamaCancelResponse>(
     `cfdi/${facturamaId}?${params.toString()}`,

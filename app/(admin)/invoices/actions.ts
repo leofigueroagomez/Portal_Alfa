@@ -988,6 +988,23 @@ export async function cancelProjectInvoice(
       );
     }
 
+    // El SAT no deja cancelar una factura PPD que aun tiene un complemento de
+    // pago (REP) vigente. Hay que cancelar el complemento primero.
+    const { data: liveComplements } = await supabase
+      .from("project_payment_complements")
+      .select("id, partiality_number")
+      .eq("project_invoice_id", invoiceId)
+      .in("status", ["issued", "stamped"]);
+
+    if (liveComplements && liveComplements.length > 0) {
+      const parts = liveComplements
+        .map((c) => `parcialidad ${c.partiality_number || c.id}`)
+        .join(", ");
+      throw new Error(
+        `Esta factura tiene complemento(s) de pago vigente(s) (${parts}). Cancela primero el complemento y luego la factura.`
+      );
+    }
+
     // Motivo 01: el SAT exige el UUID del CFDI que sustituye a este. Si no se
     // paso a mano, se busca una factura timbrada que ya declaro sustituir a esta
     // (replaces_invoice_id), que es el flujo "corregir y reemplazar".
