@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
+import { getExecutor, type ExecFinding } from "./executors";
 import { computeImpactTotal, type ImpactRow } from "./impact";
 import { SENSORS } from "./sensors";
 import type { FindingLane, Severity, VigiaDomain } from "./types";
@@ -40,6 +41,11 @@ export type VigiaFindingRecord = {
   decision_note: string | null;
   created_at: string;
   updated_at: string;
+  /** Correccion de 1 clic (Sprint B1). Lo llena getVigiaFindings(). */
+  executor_label: string | null;
+  can_apply: boolean;
+  can_apply_reason: string | null;
+  has_active_backup: boolean;
 };
 
 export type VigiaOverview = {
@@ -202,7 +208,65 @@ export async function getVigiaFindings(
   const { data, error } = await query;
   if (error) throw error;
 
-  return (data ?? []) as VigiaFindingRecord[];
+  const rows = (data ?? []).map((row) => ({
+    ...(row as Record<string, unknown>),
+    executor_label: null,
+    can_apply: false,
+    can_apply_reason: null,
+    has_active_backup: false,
+  })) as VigiaFindingRecord[];
+
+  return annotateExecutability(client, rows);
+}
+
+/**
+ * Para cada hallazgo cuya accion propuesta tiene un ejecutor, corre la
+ * verificacion de seguridad (canApply) y marca si hay un respaldo activo,
+ * para que la Bandeja sepa si mostrar [Autorizar y ejecutar] / [Revertir].
+ */
+async function annotateExecutability(
+  client: SupabaseClient,
+  rows: VigiaFindingRecord[],
+): Promise<VigiaFindingRecord[]> {
+  const candidates = rows.filter(
+    (row) =>
+      (row.status === "abierto" || row.status === "reconocido") &&
+      getExecutor((row.proposed_action?.type as string | undefined) ?? null),
+  );
+  if (candidates.length === 0) return rows;
+
+  const { data: backupData } = await client
+    .from("vigia_action_backups")
+    .select("finding_id")
+    .is("reverted_at", null)
+    .in(
+      "finding_id",
+      candidates.map((row) => row.id),
+    );
+  const withBackup = new Set(
+    ((backupData ?? []) as { finding_id: number | null }[])
+      .map((b) => b.finding_id)
+      .filter(Boolean) as number[],
+  );
+
+  await Promise.all(
+    candidates.map(async (row) => {
+      const executor = getExecutor(row.proposed_action?.type as string);
+      if (!executor) return;
+      row.executor_label = executor.label;
+      row.has_active_backup = withBackup.has(row.id);
+      try {
+        const check = await executor.canApply(client, row as unknown as ExecFinding);
+        row.can_apply = check.ok;
+        row.can_apply_reason = check.reason ?? null;
+      } catch (error) {
+        row.can_apply = false;
+        row.can_apply_reason = error instanceof Error ? error.message : "Error al verificar.";
+      }
+    }),
+  );
+
+  return rows;
 }
 
 export async function getVigiaAuditLogs(
