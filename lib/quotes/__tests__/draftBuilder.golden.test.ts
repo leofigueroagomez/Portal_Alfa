@@ -7,7 +7,10 @@ import {
 } from "../draftBuilder";
 
 type Row = Record<string, unknown>;
-type QueryResult = { data: Row[] | Row | null; error: null };
+type QueryResult = {
+  data: Row[] | Row | null;
+  error: { message: string } | null;
+};
 
 type ProductFixture = {
   id: number;
@@ -15,7 +18,7 @@ type ProductFixture = {
   labor_unit_sale_price: number;
 };
 
-type GoldenFixture = {
+type ReferenceFixture = {
   sourceQuoteId: number;
   sourceQuoteNumber: string;
   exchangeRate: number;
@@ -35,7 +38,7 @@ type GoldenFixture = {
   };
 };
 
-const goldenFixtures: GoldenFixture[] = [
+const referenceFixtures: ReferenceFixture[] = [
   {
     sourceQuoteId: 140,
     sourceQuoteNumber: "ALFA-0103-V1",
@@ -208,7 +211,7 @@ const goldenFixtures: GoldenFixture[] = [
 ];
 
 class FakeQuery {
-  private operation: "select" | "insert" = "select";
+  private operation: "select" | "insert" | "delete" = "select";
   private insertPayload: Row[] = [];
   private equalsFilters: Array<[string, unknown]> = [];
   private inFilters: Array<[string, unknown[]]> = [];
@@ -228,6 +231,11 @@ class FakeQuery {
   insert(payload: Row | Row[]) {
     this.operation = "insert";
     this.insertPayload = Array.isArray(payload) ? payload : [payload];
+    return this;
+  }
+
+  delete() {
+    this.operation = "delete";
     return this;
   }
 
@@ -277,7 +285,13 @@ class FakeQuery {
   private async execute(mode: "many" | "single"): Promise<QueryResult> {
     let rows: Row[];
     if (this.operation === "insert") {
+      const failure = this.database.consumeInsertFailure(this.table);
+      if (failure) {
+        return { data: null, error: { message: failure } };
+      }
       rows = this.database.insert(this.table, this.insertPayload);
+    } else if (this.operation === "delete") {
+      rows = this.database.remove(this.table, this.equalsFilters);
     } else {
       rows = this.database.read(this.table);
       for (const [field, value] of this.equalsFilters) {
@@ -302,15 +316,16 @@ class FakeQuery {
 class FakeSupabase {
   readonly rows: Record<string, Row[]>;
   private nextId = 1000;
+  private readonly insertFailures = new Map<string, string>();
 
   constructor(products: ProductFixture[]) {
     this.rows = {
       company_settings: [{ id: true, indirect_cost_percent: 0 }],
       products: products.map((product) => ({
         id: product.id,
-        brand: "Golden",
+        brand: "Referencia",
         model: `P-${product.id}`,
-        name: `Producto golden ${product.id}`,
+        name: `Producto referencia ${product.id}`,
         image_url: null,
         cost_price: product.calculated_sale_price * 0.7,
         cost_currency: "USD",
@@ -349,6 +364,54 @@ class FakeSupabase {
     this.rows[table].push(...inserted);
     return inserted;
   }
+
+  failNextInsert(table: string, message = "fallo de prueba") {
+    this.insertFailures.set(table, message);
+  }
+
+  consumeInsertFailure(table: string) {
+    const message = this.insertFailures.get(table) || null;
+    this.insertFailures.delete(table);
+    return message;
+  }
+
+  remove(table: string, filters: Array<[string, unknown]>) {
+    const removed = this.rows[table].filter((row) =>
+      filters.every(([field, value]) => row[field] === value)
+    );
+
+    if (table === "quotes") {
+      const quoteIds = new Set(removed.map((row) => row.id));
+      const sectionIds = new Set(
+        this.rows.quote_sections
+          .filter((row) => quoteIds.has(row.quote_id))
+          .map((row) => row.id)
+      );
+      const itemIds = new Set(
+        this.rows.quote_items
+          .filter((row) => quoteIds.has(row.quote_id))
+          .map((row) => row.id)
+      );
+      this.rows.quote_item_labor_activities =
+        this.rows.quote_item_labor_activities.filter(
+          (row) => !itemIds.has(row.quote_item_id)
+        );
+      this.rows.quote_items = this.rows.quote_items.filter(
+        (row) => !quoteIds.has(row.quote_id) && !sectionIds.has(row.quote_section_id)
+      );
+      this.rows.quote_sections = this.rows.quote_sections.filter(
+        (row) => !quoteIds.has(row.quote_id)
+      );
+      this.rows.quote_terms_settings = this.rows.quote_terms_settings.filter(
+        (row) => !quoteIds.has(row.quote_id)
+      );
+    }
+
+    this.rows[table] = this.rows[table].filter(
+      (row) => !filters.every(([field, value]) => row[field] === value)
+    );
+    return removed;
+  }
 }
 
 function asSupabase(fake: FakeSupabase) {
@@ -377,9 +440,9 @@ async function withExchangeRate<T>(rate: number, callback: () => Promise<T>) {
   }
 }
 
-for (const fixture of goldenFixtures) {
+for (const fixture of referenceFixtures) {
   test(
-    `golden ${fixture.sourceQuoteNumber} (#${fixture.sourceQuoteId}) cuadra al centavo`,
+    `regresion reconstruida ${fixture.sourceQuoteNumber} (#${fixture.sourceQuoteId}) cuadra al centavo`,
     async () => {
       const fake = new FakeSupabase(fixture.products);
       const input: DraftQuoteInput = {
@@ -415,7 +478,7 @@ for (const fixture of goldenFixtures) {
 }
 
 test("reutiliza el mismo borrador cuando se repite exactamente el input", async () => {
-  const fixture = goldenFixtures[1];
+  const fixture = referenceFixtures[1];
   const fake = new FakeSupabase(fixture.products);
   const input: DraftQuoteInput = {
     client_id: 9901,
@@ -495,4 +558,27 @@ test("crea una partida de mano de obra independiente con su actividad", async ()
   assert.equal(fake.rows.quote_items[0].product_id, null);
   assert.equal(fake.rows.quote_items[0].labor_total, 150);
   assert.equal(fake.rows.quote_item_labor_activities[0].labor_activity_id, 12);
+});
+
+test("limpia quote y quote_group si falla una escritura posterior", async () => {
+  const fixture = referenceFixtures[0];
+  const fake = new FakeSupabase(fixture.products);
+  fake.failNextInsert("quote_terms_settings", "terminos no disponibles");
+
+  await assert.rejects(
+    withExchangeRate(fixture.exchangeRate, () =>
+      buildDraftQuote(asSupabase(fake), {
+        client_id: 9905,
+        items: fixture.items,
+      })
+    ),
+    /No se pudieron crear los terminos de la cotizacion: terminos no disponibles/
+  );
+
+  assert.equal(fake.rows.quotes.length, 0);
+  assert.equal(fake.rows.quote_groups.length, 1);
+  assert.equal(fake.rows.quote_sections.length, 0);
+  assert.equal(fake.rows.quote_items.length, 0);
+  assert.equal(fake.rows.quote_item_labor_activities.length, 0);
+  assert.equal(fake.rows.quote_terms_settings.length, 0);
 });

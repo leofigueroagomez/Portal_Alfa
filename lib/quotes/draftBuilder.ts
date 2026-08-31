@@ -664,6 +664,39 @@ async function insertSection(
   }
 }
 
+async function cleanupPartialDraft(
+  supabase: SupabaseClient,
+  quoteId: number | null,
+  quoteGroupId: number
+) {
+  const cleanupErrors: string[] = [];
+
+  if (quoteId !== null) {
+    try {
+      const { error } = await supabase.from("quotes").delete().eq("id", quoteId);
+      if (error) cleanupErrors.push(`quote ${quoteId}: ${error.message}`);
+    } catch (error) {
+      cleanupErrors.push(
+        `quote ${quoteId}: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+
+  try {
+    const { error } = await supabase
+      .from("quote_groups")
+      .delete()
+      .eq("id", quoteGroupId);
+    if (error) cleanupErrors.push(`quote_group ${quoteGroupId}: ${error.message}`);
+  } catch (error) {
+    cleanupErrors.push(
+      `quote_group ${quoteGroupId}: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+
+  return cleanupErrors;
+}
+
 export async function buildDraftQuote(
   supabase: SupabaseClient,
   input: DraftQuoteInput
@@ -785,8 +818,9 @@ export async function buildDraftQuote(
     );
   }
 
+  const quoteGroupId = Number(quoteGroup.id);
   const quotePayload = {
-    quote_group_id: quoteGroup.id,
+    quote_group_id: quoteGroupId,
     quote_base_number: baseNumber,
     version: 1,
     quote_number: `${baseNumber}-V1`,
@@ -826,61 +860,79 @@ export async function buildDraftQuote(
     notes: parsed.notes,
     include_diagnostic_context: false,
   };
-  const { data: quote, error: quoteError } = await supabase
-    .from("quotes")
-    .insert(quotePayload)
-    .select("id")
-    .single();
-  if (quoteError || !quote) {
-    throw new DraftQuoteBuilderError(
-      `No se pudo crear la cotizacion: ${quoteError?.message || "sin respuesta"}`
-    );
-  }
+  let createdQuoteId: number | null = null;
 
-  let sectionIndex = 0;
-  if (productLines.length > 0) {
-    await insertSection(
+  try {
+    const { data: quote, error: quoteError } = await supabase
+      .from("quotes")
+      .insert(quotePayload)
+      .select("id")
+      .single();
+    if (quoteError || !quote) {
+      throw new DraftQuoteBuilderError(
+        `No se pudo crear la cotizacion: ${quoteError?.message || "sin respuesta"}`
+      );
+    }
+    createdQuoteId = Number(quote.id);
+
+    let sectionIndex = 0;
+    if (productLines.length > 0) {
+      await insertSection(
+        supabase,
+        createdQuoteId,
+        DEFAULT_SECTION_NAME,
+        sectionIndex++,
+        productLines,
+        exchangeRate.rate
+      );
+    }
+    if (laborLines.length > 0) {
+      await insertSection(
+        supabase,
+        createdQuoteId,
+        LABOR_SECTION_NAME,
+        sectionIndex,
+        laborLines,
+        exchangeRate.rate
+      );
+    }
+
+    const { error: termsError } = await supabase
+      .from("quote_terms_settings")
+      .insert({
+        quote_id: createdQuoteId,
+        payment_100_equipment: true,
+        labor_payment_mode: "50_50",
+        payment_100_advance: false,
+        is_local_guadalajara: true,
+        includes_travel_expenses: false,
+        includes_conduit: false,
+        includes_cabling: false,
+      });
+    if (termsError) {
+      throw new DraftQuoteBuilderError(
+        `No se pudieron crear los terminos de la cotizacion: ${termsError.message}`
+      );
+    }
+
+    return {
+      quote_id: createdQuoteId,
+      version: 1,
+      grand_total_mxn: totals.totalMxn,
+      warnings: [...new Set(warnings)],
+    };
+  } catch (error) {
+    const cleanupErrors = await cleanupPartialDraft(
       supabase,
-      quote.id,
-      DEFAULT_SECTION_NAME,
-      sectionIndex++,
-      productLines,
-      exchangeRate.rate
+      createdQuoteId,
+      quoteGroupId
     );
-  }
-  if (laborLines.length > 0) {
-    await insertSection(
-      supabase,
-      quote.id,
-      LABOR_SECTION_NAME,
-      sectionIndex,
-      laborLines,
-      exchangeRate.rate
-    );
-  }
+    const originalMessage = error instanceof Error ? error.message : String(error);
+    const cleanupMessage =
+      cleanupErrors.length > 0
+        ? ` Limpieza compensatoria incompleta: ${cleanupErrors.join(" | ")}.`
+        : "";
 
-  const { error: termsError } = await supabase
-    .from("quote_terms_settings")
-    .insert({
-      quote_id: quote.id,
-      payment_100_equipment: true,
-      labor_payment_mode: "50_50",
-      payment_100_advance: false,
-      is_local_guadalajara: true,
-      includes_travel_expenses: false,
-      includes_conduit: false,
-      includes_cabling: false,
-    });
-  if (termsError) {
-    throw new DraftQuoteBuilderError(
-      `No se pudieron crear los terminos de la cotizacion: ${termsError.message}`
-    );
+    throw new DraftQuoteBuilderError(`${originalMessage}${cleanupMessage}`);
   }
-
-  return {
-    quote_id: Number(quote.id),
-    version: 1,
-    grand_total_mxn: totals.totalMxn,
-    warnings: [...new Set(warnings)],
-  };
 }
