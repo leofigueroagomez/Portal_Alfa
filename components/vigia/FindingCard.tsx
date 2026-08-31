@@ -21,6 +21,7 @@ import {
   recognizeFindingAction,
   snoozeFindingAction,
   snoozeEntityAction,
+  reactivateFindingAction,
 } from "@/app/(admin)/vigia/actions";
 import DismissFindingModal from "./DismissFindingModal";
 
@@ -136,6 +137,13 @@ export default function FindingCard({ finding, onRefresh }: Props) {
     });
   }
 
+  async function handleReactivate() {
+    startTransition(async () => {
+      await reactivateFindingAction(finding.id);
+      onRefresh?.();
+    });
+  }
+
   return (
     <>
       <div className="relative overflow-hidden rounded-2xl border border-black/10 bg-white p-6 shadow-sm transition hover:border-black/20 hover:shadow-md">
@@ -159,6 +167,11 @@ export default function FindingCard({ finding, onRefresh }: Props) {
             {finding.status === "reconocido" && (
               <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-blue-700">
                 Reconocido
+              </span>
+            )}
+            {finding.status === "pospuesto" && (
+              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-800 border border-amber-200">
+                Pospuesto {finding.snooze_until ? `hasta ${new Intl.DateTimeFormat("es-MX", { dateStyle: "short" }).format(new Date(finding.snooze_until))}` : ""}
               </span>
             )}
             {finding.status === "descartado" && (
@@ -273,39 +286,53 @@ export default function FindingCard({ finding, onRefresh }: Props) {
         {finding.status !== "descartado" && finding.status !== "resuelto" && (
           <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-black/10 pt-4">
             <div className="flex flex-wrap items-center gap-2">
-              {finding.status === "abierto" && (
+              {finding.status === "pospuesto" ? (
                 <button
                   type="button"
-                  onClick={handleRecognize}
+                  onClick={handleReactivate}
                   disabled={isPending}
                   className="inline-flex items-center gap-1.5 rounded-full border border-black/15 bg-white px-3.5 py-1.5 text-xs font-semibold text-[#111111] shadow-sm transition hover:bg-black/5 disabled:opacity-50"
                 >
                   {isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-                  Reconocer
+                  Reactivar ahora
                 </button>
-              )}
+              ) : (
+                <>
+                  {finding.status === "abierto" && (
+                    <button
+                      type="button"
+                      onClick={handleRecognize}
+                      disabled={isPending}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-black/15 bg-white px-3.5 py-1.5 text-xs font-semibold text-[#111111] shadow-sm transition hover:bg-black/5 disabled:opacity-50"
+                    >
+                      {isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                      Reconocer
+                    </button>
+                  )}
 
-              <button
-                type="button"
-                onClick={() => handleSnooze(7)}
-                disabled={isPending}
-                className="inline-flex items-center gap-1.5 rounded-full border border-black/15 bg-white px-3.5 py-1.5 text-xs font-semibold text-black/70 shadow-sm transition hover:bg-black/5 hover:text-black disabled:opacity-50"
-              >
-                <Clock size={12} />
-                Posponer 7d
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSnooze(7)}
+                    disabled={isPending}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-black/15 bg-white px-3.5 py-1.5 text-xs font-semibold text-black/70 shadow-sm transition hover:bg-black/5 hover:text-black disabled:opacity-50"
+                  >
+                    <Clock size={12} />
+                    Posponer 7d
+                  </button>
 
-              {finding.entity_type === "client_project" && finding.entity_id && (
-                <button
-                  type="button"
-                  onClick={() => handleSnoozeEntity(14)}
-                  disabled={isPending}
-                  title="Silencia todos los hallazgos de este proyecto durante 14 días (ej. proyecto en pausa)"
-                  className="inline-flex items-center gap-1.5 rounded-full border border-black/15 bg-white px-3.5 py-1.5 text-xs font-semibold text-black/60 shadow-sm transition hover:bg-black/5 hover:text-black disabled:opacity-50"
-                >
-                  <BellOff size={12} />
-                  Silenciar proyecto 14d
-                </button>
+                  {finding.entity_type === "client_project" && finding.entity_id && (
+                    <button
+                      type="button"
+                      onClick={() => handleSnoozeEntity(14)}
+                      disabled={isPending}
+                      title="Silencia todos los hallazgos de este proyecto durante 14 días (ej. proyecto en pausa)"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-black/15 bg-white px-3.5 py-1.5 text-xs font-semibold text-black/60 shadow-sm transition hover:bg-black/5 hover:text-black disabled:opacity-50"
+                    >
+                      <BellOff size={12} />
+                      Silenciar proyecto 14d
+                    </button>
+                  )}
+                </>
               )}
             </div>
 

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   CheckCircle2,
+  Clock,
   Filter,
   History,
   Loader2,
@@ -29,7 +30,12 @@ type Props = {
   auditLogs: VigiaAuditRecord[];
 };
 
-type TabKey = "requiere_autorizacion" | "prestar_atencion" | "resuelto" | "archivo";
+type TabKey =
+  | "requiere_autorizacion"
+  | "prestar_atencion"
+  | "pospuesto"
+  | "resuelto"
+  | "archivo";
 
 export default function VigiaDashboard({ overview, findings, auditLogs }: Props) {
   const router = useRouter();
@@ -50,12 +56,16 @@ export default function VigiaDashboard({ overview, findings, auditLogs }: Props)
       if (f.lane !== "prestar_atencion" || (f.status !== "abierto" && f.status !== "reconocido")) {
         return false;
       }
+    } else if (currentTab === "pospuesto") {
+      if (f.status !== "pospuesto") {
+        return false;
+      }
     } else if (currentTab === "resuelto") {
       if (f.status !== "resuelto" && f.status !== "auto_aplicado") {
         return false;
       }
     } else if (currentTab === "archivo") {
-      if (f.status !== "descartado" && f.status !== "reconocido") {
+      if (f.status !== "descartado") {
         return false;
       }
     }
@@ -191,6 +201,30 @@ export default function VigiaDashboard({ overview, findings, auditLogs }: Props)
                   }`}
                 >
                   {attentionCount}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setCurrentTab("pospuesto")}
+              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition ${
+                currentTab === "pospuesto"
+                  ? "bg-[#8F6515] text-white shadow-sm"
+                  : "bg-white text-black/70 hover:bg-black/5"
+              }`}
+            >
+              <Clock size={13} />
+              <span>Pospuestos</span>
+              {overview.snoozedCount > 0 && (
+                <span
+                  className={`rounded-full px-2 py-0.2 text-[10px] ${
+                    currentTab === "pospuesto"
+                      ? "bg-white/20 text-white"
+                      : "bg-amber-100 text-amber-900"
+                  }`}
+                >
+                  {overview.snoozedCount}
                 </span>
               )}
             </button>
