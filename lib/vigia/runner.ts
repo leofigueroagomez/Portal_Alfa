@@ -239,9 +239,33 @@ export async function runVigia(
     ? SENSORS.filter((sensor) => options.sensorIds?.includes(sensor.id))
     : SENSORS;
 
+  // A2 (Antigravity): Ejecucion concurrente de sensores con Promise.allSettled en lotes
+  const BATCH_SIZE = 5;
   const results: SensorRunSummary[] = [];
-  for (const sensor of sensors) {
-    results.push(await processSensor(supabase, sensor));
+
+  for (let i = 0; i < sensors.length; i += BATCH_SIZE) {
+    const batch = sensors.slice(i, i + BATCH_SIZE);
+    const settled = await Promise.allSettled(
+      batch.map((sensor) => processSensor(supabase, sensor)),
+    );
+
+    for (let j = 0; j < settled.length; j++) {
+      const res = settled[j];
+      if (res.status === "fulfilled") {
+        results.push(res.value);
+      } else {
+        const sensor = batch[j];
+        const errorMsg = errorMessage(res.reason);
+        results.push({
+          id: sensor.id,
+          found: 0,
+          created: 0,
+          updated: 0,
+          resolved: 0,
+          error: errorMsg,
+        });
+      }
+    }
   }
 
   const { data: openRows } = await supabase

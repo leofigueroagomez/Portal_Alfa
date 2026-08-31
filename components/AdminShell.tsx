@@ -16,6 +16,7 @@ import {
   Menu,
   Package,
   PlusCircle,
+  Radar,
   ReceiptText,
   Ruler,
   Settings,
@@ -106,6 +107,7 @@ export default function AdminShell({
   ];
 
   const operationsItems: NavLink[] = [
+    { href: "/vigia", label: "El Vigía", icon: Radar },
     { href: "/projects", label: "Proyectos", icon: FolderOpen },
     { href: "/post-sale", label: "Postventa", icon: Handshake },
     {

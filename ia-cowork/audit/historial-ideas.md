@@ -31,10 +31,11 @@ history:
 id: IA-20260830-002
 author: Antigravity
 type: architecture
-status: proposed
-owner: equipo ALFA OS
+status: executed
+owner: Antigravity (UI Bandeja v1)
 history:
   - 2026-08-30 | Antigravity | created (Bandeja de Decision UI /admin/vigia con 1-click actions)
+  - 2026-08-31 | Antigravity | executed (Sprint A3 completado en app/(admin)/vigia/)
 ```
 
 ```yaml
@@ -61,10 +62,12 @@ history:
 id: IA-20260830-005
 author: Antigravity
 type: optimization
-status: proposed
-owner: Antigravity
+status: executed
+owner: Claude (A1) + Antigravity (A2)
 history:
   - 2026-08-30 | Antigravity | created (Paralelizacion runner y correcion de rollup de impacto MXN)
+  - 2026-08-31 | Claude | executed A1 (fix doble conteo rollup)
+  - 2026-08-31 | Antigravity | executed A2 (paralelizacion en lotes con Promise.allSettled)
 ```
 
 ## Registros Claude (2026-08-31)
