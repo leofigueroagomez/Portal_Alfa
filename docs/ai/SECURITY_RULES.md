@@ -44,6 +44,9 @@ Pendiente de confirmar: listado completo y actualizado de policies aplicadas en 
 - Tablas `vigia_sensor_runs`, `vigia_findings`, `vigia_audit_log`: RLS activo, unica policy `select` para `authenticated`. La escritura la hace el runner con service_role. No abrir estas tablas a escritura por RLS.
 - Endpoint `app/api/vigia/cron/daily`: auth por `CRON_SECRET` (header Bearer que Vercel manda solo, o `?key=`). No quitar el candado. El endpoint corre sensores de solo lectura y puede enviar correo (Resend), asi que su ejecucion es un cambio que envia correos.
 - Los sensores (`lib/vigia/sensors.ts`) son solo lectura sobre tablas de negocio. Nunca escribir desde un sensor.
+- Ejecutores de 1 clic (`lib/vigia/executors.ts`, `app/(admin)/vigia/execute-actions.ts`): server actions con gate de rol `admin`/`direccion`. Cada uno guarda snapshot en `vigia_action_backups` antes de tocar nada y tiene `revert()`. Si hay cualquier duda, `canApply()` se niega.
+- Investigar a fondo (`lib/vigia/investigate/*`): los playbooks son solo lectura; la unica llamada a un modelo (Claude, via `ANTHROPIC_API_KEY`) solo interpreta el expediente y **propone** — nunca escribe en la base. Server action con gate de rol `admin`/`direccion`. Tope de costo mensual (`VIGIA_INVESTIGATE_MONTHLY_CAP_USD`). No enviar el contenido de `vigia_*` ni de las tablas de negocio a ningun otro servicio; el unico destino externo es la API de Anthropic para la interpretacion y Resend para el correo.
+- Tablas `vigia_action_backups` y `vigia_investigations`: RLS activo, `select` para `authenticated`. No abrir a escritura.
 
 ## Storage
 

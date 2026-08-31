@@ -9,6 +9,9 @@ import {
 import VigiaDashboard from "@/components/vigia/VigiaDashboard";
 
 export const dynamic = "force-dynamic";
+// "Investigar a fondo" (B2) corre como server action desde esta pagina:
+// playbook + 1 llamada al modelo puede tardar 1-3 min.
+export const maxDuration = 300;
 
 export const metadata: Metadata = {
   title: "El Vigía | ALFA OS",

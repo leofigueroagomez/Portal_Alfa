@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 import { runVigia } from "@/lib/vigia/runner";
 import { renderVigiaBrief, sendVigiaBrief } from "@/lib/vigia/brief";
+import { runAutoInvestigations } from "@/lib/vigia/investigate";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -48,12 +49,20 @@ async function handleVigiaDaily(request: Request) {
       ? { sent: false, skipped: "dry run" }
       : await sendVigiaBrief(supabase, summary);
 
+    // B2: investigacion automatica de los hallazgos criticos sin diagnostico.
+    // No corre en dry run ni si solo se pidio un subconjunto de sensores.
+    const investigations =
+      dryRun || sensorIds
+        ? { attempted: 0, completed: 0, skipped: 0, results: [] }
+        : await runAutoInvestigations(supabase);
+
     return NextResponse.json({
       ok: true,
       timestamp: new Date().toISOString(),
       dryRun,
       summary,
       brief,
+      investigations,
     });
   } catch (error) {
     const message =

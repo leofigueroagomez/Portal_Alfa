@@ -34,7 +34,7 @@ Mapa real del repositorio para agentes. No asumir rutas fuera de este arbol sin 
 | `tsconfig.json` | Configuracion TypeScript. |
 | `eslint.config.mjs` | Configuracion ESLint. |
 | `postcss.config.mjs` | Configuracion CSS/PostCSS. |
-| `vercel.json` | Cron jobs de Vercel. Hoy solo el brief diario de El Vigia (`/api/vigia/cron/daily`). |
+| `vercel.json` | Cron jobs de Vercel. Hoy solo el diario de El Vigia (`/api/vigia/cron/daily`): sensores + brief + investigaciones automaticas de criticos. Plan Pro. |
 | `AGENTS.md` | Punto de entrada para agentes. |
 
 ## Rutas Administrativas Detectadas

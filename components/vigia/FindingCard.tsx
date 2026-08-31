@@ -15,6 +15,7 @@ import {
   Loader2,
   Play,
   RotateCcw,
+  Search,
   Sparkles,
   Trash2,
   Wrench,
@@ -30,6 +31,7 @@ import {
   applyFindingAction,
   revertFindingAction,
 } from "@/app/(admin)/vigia/execute-actions";
+import { investigateFindingAction } from "@/app/(admin)/vigia/investigate-actions";
 import DismissFindingModal from "./DismissFindingModal";
 
 type Props = {
@@ -180,6 +182,39 @@ export default function FindingCard({ finding, onRefresh }: Props) {
         setActionErrorMsg(res.error ?? "No se pudo revertir la corrección.");
       }
     });
+  }
+
+  const [investigating, setInvestigating] = useState(false);
+  const [investigationResult, setInvestigationResult] = useState<{
+    causaRaiz?: string;
+    explicacion?: string;
+    emailed?: boolean;
+  } | null>(null);
+  const [investigationError, setInvestigationError] = useState<string | null>(null);
+
+  async function handleInvestigate() {
+    setInvestigating(true);
+    setInvestigationError(null);
+    setInvestigationResult(null);
+    try {
+      const res = await investigateFindingAction(finding.id);
+      if (res.ok) {
+        setInvestigationResult({
+          causaRaiz: res.causaRaiz,
+          explicacion: res.explicacion,
+          emailed: res.emailed,
+        });
+        onRefresh?.();
+      } else {
+        setInvestigationError(res.error ?? "No se pudo completar la investigación.");
+      }
+    } catch (err) {
+      setInvestigationError(
+        err instanceof Error ? err.message : "La investigación falló.",
+      );
+    } finally {
+      setInvestigating(false);
+    }
   }
 
   return (
@@ -337,6 +372,60 @@ export default function FindingCard({ finding, onRefresh }: Props) {
               ) : null}
             </div>
           )
+        )}
+
+        {/* Investigar a fondo (Sprint B2) */}
+        {finding.status !== "descartado" && finding.status !== "resuelto" && (
+          <div className="mt-4 rounded-xl border border-black/10 bg-[#FBFAF8] p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="flex items-center gap-1.5 text-xs font-bold text-[#111111]">
+                  <Search size={14} className="text-[#9E1B32]" />
+                  <span>Investigar a fondo</span>
+                </div>
+                <p className="mt-1 text-xs text-black/55">
+                  El Vigía arma el expediente completo y te manda el diagnóstico de
+                  causa raíz por correo. Tarda 1–3 minutos.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleInvestigate}
+                disabled={investigating || isPending}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#9E1B32]/30 bg-white px-4 py-2 text-xs font-bold text-[#9E1B32] shadow-sm transition hover:bg-[#9E1B32]/5 disabled:opacity-50"
+              >
+                {investigating ? (
+                  <Loader2 size={13} className="animate-spin" />
+                ) : (
+                  <Search size={13} />
+                )}
+                {investigating ? "Investigando…" : "Investigar"}
+              </button>
+            </div>
+
+            {investigationResult && (
+              <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900">
+                <div className="font-semibold">
+                  Causa raíz: {investigationResult.causaRaiz}
+                </div>
+                {investigationResult.explicacion && (
+                  <p className="mt-1 text-emerald-800">
+                    {investigationResult.explicacion}
+                  </p>
+                )}
+                <p className="mt-1 text-emerald-700">
+                  {investigationResult.emailed
+                    ? "Diagnóstico completo enviado a tu correo."
+                    : "Diagnóstico guardado (no se pudo enviar el correo)."}
+                </p>
+              </div>
+            )}
+            {investigationError && (
+              <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs font-medium text-rose-900">
+                {investigationError}
+              </div>
+            )}
+          </div>
         )}
 
         {/* Nota de decision si existe */}

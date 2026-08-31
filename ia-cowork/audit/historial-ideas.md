@@ -134,6 +134,17 @@ history:
 ```
 
 ```yaml
+id: IA-20260901-002
+author: Claude
+type: feature
+status: executed
+owner: Claude
+history:
+  - 2026-09-01 | Leo | decisiones: hibrido, Vercel Pro, tope $25/mes, auto en critico, correo aparte
+  - 2026-09-01 | Claude | ejecutado B2 "Investigar a fondo" (vigia_investigations, lib/vigia/investigate/*, boton Bandeja, runAutoInvestigations en cron, docs). Pendiente prueba end-to-end en prod
+```
+
+```yaml
 id: DECISION-IA-20260831-001
 author: Claude
 type: decision

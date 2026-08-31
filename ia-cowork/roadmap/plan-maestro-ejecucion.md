@@ -49,7 +49,7 @@ Prioridad = (impacto para Leo) × (cierra un lazo) ÷ (riesgo de romper algo).
 | A2 | Paralelizar el runner con `Promise.allSettled` en lotes | Antigravity IA-005 | Antigravity | Bajo |
 | A3 | **Bandeja de Decisión `/admin/vigia` v1** — lectura + acciones no destructivas (Reconocer, Posponer, Descartar con nota, Silenciar proyecto). Índice de salud arriba. Sin ejecutores. | Antigravity IA-002 + ChatGPT IA-004 + Claude IA-20260831-004 | Antigravity (UI), Claude (review) | Medio |
 | B1 | Ejecutores de 1 clic. **Backend HECHO** (2026-09-01, `idea-IA-20260901-001.md`): tabla `vigia_action_backups`, `lib/vigia/executors.ts` (3 ejecutores con candados), `execute-actions.ts` (server actions con revertir), anotacion de ejecutabilidad en `queries.ts`. Probado contra prod. **Falta:** botones `[Autorizar y ejecutar]` / `[Revertir]` en `FindingCard.tsx` (Antigravity). | Antigravity IA-002 | Claude (backend) + Antigravity (UI) | Medio |
-| B2 | "Investigar a fondo" un hallazgo bajo demanda (patrón proyecto 48 automatizado), con tope de cómputo | Claude IA-20260831-002 | Claude | Medio |
+| ~~B2~~ | **HECHO** (2026-09-01, `idea-IA-20260901-002.md`). "Investigar a fondo": híbrido playbook determinista + 1 llamada a Claude, tope mensual $25 USD, correo aparte, automático en `severity=critico`. Tablas `vigia_investigations`. Botón en la Bandeja + `runAutoInvestigations()` en el cron. Vercel Pro + `ANTHROPIC_API_KEY` ya en prod. Playbook INT-01 + genérico. **Falta:** probar end-to-end en prod (no hay hallazgo INT-01/crítico abierto ahora mismo); playbook dedicado para INT-04. | Claude IA-20260831-002 | Claude | Medio |
 | C1 | Sensores `VTA-01/02/03` — leads desatendidos, cotizaciones dormidas de alto valor, `won` sin anticipo | Antigravity IA-003 | Antigravity | Bajo |
 | C2 | Sensores `SRV-01/02` — garantía por vencer (→ oferta de póliza), tickets de servicio estancados | Antigravity IA-003 | Antigravity | Bajo |
 | C3 | Sensores de proceso `PRC-01/02` — cotización estancada, proyecto sin avance de compra (base del score de riesgo) | Claude IA-20260831-005 | Claude | Bajo |
@@ -74,9 +74,10 @@ Cada sprint es una unidad entregable que no rompe lo anterior.
 `A1` corregir el impacto → `A2` paralelizar runner → `A3` Bandeja de Decisión v1.
 **Resultado:** Leo resuelve hallazgos desde una pantalla, con un número de "dinero en riesgo" correcto. Todavía sin ejecutores automáticos.
 
-### Sprint B — Ejecutores seguros (semana 2-3)
+### Sprint B — Ejecutores seguros (semana 2-3) — CERRADO 2026-09-01
 `B1` los 3 botones de corrección reversible → `B2` "investigar a fondo".
-**Resultado:** el Vigía pasa de "te aviso" a "te entrego la corrección lista, autorízala". Es lo que Leo pidió.
+**Resultado:** el Vigía pasa de "te aviso" a "te entrego la corrección lista, autorízala" y, cuando hace falta más contexto, "te armo el expediente y te mando el diagnóstico". Es lo que Leo pidió.
+Pendiente operativo: probar B2 end-to-end en prod con un hallazgo real (ahora mismo no hay ninguno crítico ni INT-01 abierto).
 
 ### Sprint C — Más frentes, bajo riesgo (semana 3-5)
 `C1` VTA-* → `C2` SRV-* → `C3` PRC-*. (`C4` WhatsApp crítico diferido; comunicación solo por correo por ahora.)
