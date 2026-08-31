@@ -198,6 +198,16 @@ history:
 ```
 
 ```yaml
+id: IA-20260901-007
+author: Claude
+type: calibracion
+status: executed
+owner: Claude
+history:
+  - 2026-09-01 | Claude | calibracion Sprint C (sql/20260901_vigia_calibracion_c.sql): VTA-03 15->5 (piso cotizacion aprobada >= $25k), PRC-01 6->4. Notas de lane/mensaje para Antigravity en idea-IA-20260901-007.md.
+```
+
+```yaml
 id: DECISION-IA-20260901-001
 author: Claude
 type: decision

@@ -45,6 +45,7 @@ Sensores (vistas SQL)  ->  Runner  ->  vigia_findings  ->  Brief (correo)  ->  B
 | `sql/20260901_vigia_investigations.sql` | Tabla `vigia_investigations` (expedientes + diagnostico de B2). |
 | `sql/20260901_vigia_phase1_sprint_c.sql` | Vistas VTA-01..03 (Ventas) y SRV-01..02 (Postventa/Servicios). |
 | `sql/20260901_vigia_phase1_prc.sql` | Vistas PRC-01..02 (Procesos) — proyecto ganado atorado en compras / sin base de compras. |
+| `sql/20260901_vigia_calibracion_c.sql` | Calibración: VTA-03 exige cotización aprobada ≥ $25k (15→5); PRC-01 sube piso a $5k y ≥95% pendiente (6→4). |
 | (migracion `vigia_findings_entity_label`) | `alter table vigia_findings add column entity_label text`. |
 
 Las migraciones se aplicaron a produccion via el flujo de Supabase; son **aditivas** (solo objetos nuevos `vigia_*`). No tocan ninguna tabla, columna, RLS ni dato de negocio.
@@ -99,10 +100,10 @@ Las migraciones se aplicaron a produccion via el flujo de Supabase; son **aditiv
 | CST-05 | costos_margenes | Sobrecosto acumulado de compras a nivel proyecto (rollup de CST-01). |
 | VTA-01 | ventas_pipeline | Leads nuevos desatendidos (> 24h sin primer contacto o asignación). |
 | VTA-02 | ventas_pipeline | Cotizaciones dormidas de alto valor (> $100k MXN, > 7 días en borrador/enviada). |
-| VTA-03 | ventas_pipeline | Proyectos ganados ('won') sin anticipo registrado (> 10 días). |
+| VTA-03 | ventas_pipeline | Proyecto ganado (>10d) con cotización aprobada ≥ $25k MXN y sin ningún pago/anticipo registrado. |
 | SRV-01 | postventa_servicios | Proyectos con garantía por vencer en < 45 días sin póliza de mantenimiento activa. |
 | SRV-02 | postventa_servicios | Tickets o reportes de servicio estancados (> 72h sin actualización técnica). |
-| PRC-01 | procesos | Proyecto ganado (>45d) con alcance de compra definido, ≥90% sin comprar y sin movimiento de compras en >21d. |
+| PRC-01 | procesos | Proyecto ganado (>45d), alcance de compra ≥ $5k, ≥95% sin comprar y sin movimiento de compras en >21d. |
 | PRC-02 | procesos | Proyecto ganado (>40d) con ≥5 partidas operativas y cero líneas de compra generadas (`confidence` baja → señales por confirmar). |
 
 ## Variables de entorno

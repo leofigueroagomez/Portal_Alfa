@@ -784,6 +784,8 @@ type Vta03Row = {
   created_at: string;
   age_days: number;
   total_paid_mxn: number;
+  // Calibracion 2026-09-01: solo dispara si la cotizacion aprobada vale >= $25k MXN.
+  approved_quote_mxn: number;
 };
 
 export const vta03: Sensor = {
@@ -791,7 +793,7 @@ export const vta03: Sensor = {
   domain: "ventas_pipeline",
   title: "Proyecto ganado sin anticipo registrado",
   description:
-    "Proyecto marcado como 'ganado' (won) que lleva más de 10 días sin registrar ningún pago o anticipo formal.",
+    "Proyecto ganado (>10d) con cotizacion aprobada de al menos $25,000 MXN y sin ningun pago o anticipo registrado.",
   async run({ supabase }) {
     const { data, error } = await supabase
       .from("vigia_v_vta03_won_project_missing_deposit")
@@ -801,13 +803,14 @@ export const vta03: Sensor = {
     return ((data ?? []) as Vta03Row[]).map((row) => {
       const ageDays = num(row.age_days);
       const name = text(row.name);
+      const quoteMxn = num(row.approved_quote_mxn);
       return {
         fingerprint: `VTA-03:cp:${row.client_project_id}`,
         lane: "requiere_autorizacion",
-        severity: "alto",
+        severity: quoteMxn >= 100000 ? "alto" : "medio",
         confidence: "alta",
-        title: `Proyecto ${row.client_project_id} (${name}): ganado hace ${ageDays}d sin anticipo`,
-        summary: `El proyecto '${name}' se encuentra en etapa 'Ganado', pero tras ${ageDays} días no tiene ningún pago o anticipo registrado en el sistema.`,
+        title: `Proyecto ${row.client_project_id} (${name}): ganado hace ${ageDays}d sin anticipo ($${quoteMxn.toFixed(0)} MXN)`,
+        summary: `El proyecto '${name}' esta en etapa 'Ganado' con una cotizacion aprobada de $${quoteMxn.toFixed(0)} MXN, pero tras ${ageDays} dias no tiene ningun pago o anticipo registrado. Confirmar si se cobro el anticipo.`,
         evidence: { ...row },
         entityType: "client_project",
         entityId: String(row.client_project_id),
