@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { enrichFindings } from "./enrich";
 import { SENSORS } from "./sensors";
 import type {
   RawFinding,
@@ -53,6 +54,7 @@ async function processSensor(
 
   try {
     const raw: RawFinding[] = await sensor.run({ supabase });
+    await enrichFindings(supabase, raw);
     const seen = new Set<string>();
     const nowIso = new Date().toISOString();
     let created = 0;
@@ -87,6 +89,7 @@ async function processSensor(
             impact_mxn: finding.impactMxn ?? null,
             entity_type: finding.entityType ?? null,
             entity_id: finding.entityId ?? null,
+            entity_label: finding.entityLabel ?? null,
             proposed_action: finding.proposedAction ?? null,
             run_id: runId,
           })
@@ -104,11 +107,13 @@ async function processSensor(
       }
 
       const patch: Record<string, unknown> = {
+        title: finding.title,
         summary: finding.summary,
         evidence: finding.evidence,
         severity: finding.severity,
         confidence: finding.confidence,
         impact_mxn: finding.impactMxn ?? null,
+        entity_label: finding.entityLabel ?? null,
         proposed_action: finding.proposedAction ?? null,
         last_seen_at: nowIso,
         seen_count: Number(existing.seen_count ?? 1) + 1,

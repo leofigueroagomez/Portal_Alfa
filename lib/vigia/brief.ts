@@ -16,6 +16,7 @@ type BriefFinding = {
   impact_mxn: number | null;
   entity_type: string | null;
   entity_id: string | null;
+  entity_label: string | null;
   status: string;
   first_seen_at: string;
   last_seen_at: string;
@@ -65,6 +66,9 @@ function findingRow(finding: BriefFinding): string {
   const titleHtml = link
     ? `<a href="${escapeHtml(link)}" style="color:#FFFFFF;text-decoration:none;">${escapeHtml(finding.title)}</a>`
     : escapeHtml(finding.title);
+  const context = finding.entity_label
+    ? `<div style="font-size:12px;color:#8CE0B6;margin-top:3px;">${escapeHtml(finding.entity_label)}</div>`
+    : "";
   return `
     <tr>
       <td style="padding:12px 0;border-bottom:1px solid #222228;">
@@ -72,6 +76,7 @@ function findingRow(finding: BriefFinding): string {
           ${escapeHtml(finding.sensor_id)} &middot; ${escapeHtml(LANE_LABEL[finding.lane] ?? finding.lane)}
         </div>
         <div style="font-size:14px;color:#FFFFFF;font-weight:600;margin-top:4px;">${titleHtml}</div>
+        ${context}
         <div style="font-size:13px;color:#B3B3B8;line-height:1.5;margin-top:4px;">${escapeHtml(finding.summary)}</div>
         ${impact}
       </td>
@@ -175,7 +180,7 @@ async function loadOpenFindings(supabase: SupabaseClient): Promise<BriefFinding[
   const { data, error } = await supabase
     .from("vigia_findings")
     .select(
-      "id, sensor_id, domain, lane, severity, confidence, title, summary, impact_mxn, entity_type, entity_id, status, first_seen_at, last_seen_at",
+      "id, sensor_id, domain, lane, severity, confidence, title, summary, impact_mxn, entity_type, entity_id, entity_label, status, first_seen_at, last_seen_at",
     )
     .in("status", ["abierto", "reconocido"])
     .order("impact_mxn", { ascending: true, nullsFirst: false })

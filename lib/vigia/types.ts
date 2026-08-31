@@ -28,6 +28,8 @@ export type RawFinding = {
   impactMxn?: number | null;
   entityType?: string | null;
   entityId?: string | null;
+  /** Nombre legible de la entidad; lo llena el runner via enrichFindings(). */
+  entityLabel?: string | null;
   proposedAction?: Record<string, unknown> | null;
 };
 
