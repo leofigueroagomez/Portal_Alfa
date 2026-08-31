@@ -13,6 +13,9 @@ import {
   ExternalLink,
   Info,
   Loader2,
+  Play,
+  RotateCcw,
+  Sparkles,
   Trash2,
   Wrench,
 } from "lucide-react";
@@ -23,6 +26,10 @@ import {
   snoozeEntityAction,
   reactivateFindingAction,
 } from "@/app/(admin)/vigia/actions";
+import {
+  applyFindingAction,
+  revertFindingAction,
+} from "@/app/(admin)/vigia/execute-actions";
 import DismissFindingModal from "./DismissFindingModal";
 
 type Props = {
@@ -144,6 +151,37 @@ export default function FindingCard({ finding, onRefresh }: Props) {
     });
   }
 
+  const [actionSuccessMsg, setActionSuccessMsg] = useState<string | null>(null);
+  const [actionErrorMsg, setActionErrorMsg] = useState<string | null>(null);
+
+  async function handleApplyAction() {
+    setActionErrorMsg(null);
+    setActionSuccessMsg(null);
+    startTransition(async () => {
+      const res = await applyFindingAction(finding.id);
+      if (res.ok) {
+        setActionSuccessMsg(res.summary ?? "Corrección aplicada con éxito.");
+        onRefresh?.();
+      } else {
+        setActionErrorMsg(res.error ?? "No se pudo aplicar la corrección.");
+      }
+    });
+  }
+
+  async function handleRevertAction() {
+    setActionErrorMsg(null);
+    setActionSuccessMsg(null);
+    startTransition(async () => {
+      const res = await revertFindingAction(finding.id);
+      if (res.ok) {
+        setActionSuccessMsg("Corrección revertida con éxito.");
+        onRefresh?.();
+      } else {
+        setActionErrorMsg(res.error ?? "No se pudo revertir la corrección.");
+      }
+    });
+  }
+
   return (
     <>
       <div className="relative overflow-hidden rounded-2xl border border-black/10 bg-white p-6 shadow-sm transition hover:border-black/20 hover:shadow-md">
@@ -230,22 +268,75 @@ export default function FindingCard({ finding, onRefresh }: Props) {
           </p>
         </div>
 
-        {/* Accion Propuesta (Fase 2 preview) */}
-        {finding.proposed_action && (
-          <div className="mt-4 rounded-xl border border-black/5 bg-[#F7F6F3] p-3 text-xs">
-            <div className="flex items-center gap-1.5 font-semibold text-black/90">
-              <Wrench size={13} className="text-[#9E1B32]" />
-              <span>Acción sugerida:</span>
-              <span className="font-mono text-[11px] text-black/60">
-                {String(finding.proposed_action.type || "revisión")}
-              </span>
-            </div>
-            {Boolean(finding.proposed_action.criterio) ? (
-              <p className="mt-1 text-black/60">
-                Criterio: {String(finding.proposed_action.criterio)}
-              </p>
-            ) : null}
+        {/* Mensajes de feedback de la acción de 1 clic */}
+        {actionSuccessMsg && (
+          <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-medium text-emerald-900 flex items-center gap-2">
+            <Check size={14} className="text-emerald-600 shrink-0" />
+            <span>{actionSuccessMsg}</span>
           </div>
+        )}
+        {actionErrorMsg && (
+          <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-medium text-rose-900 flex items-center gap-2">
+            <AlertTriangle size={14} className="text-rose-600 shrink-0" />
+            <span>{actionErrorMsg}</span>
+          </div>
+        )}
+
+        {/* Corrección de 1 clic (Sprint B1) */}
+        {finding.executor_label ? (
+          <div className="mt-4 rounded-xl border border-black/10 bg-white p-4 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-1.5 font-bold text-xs text-[#111111]">
+                  <Sparkles size={14} className="text-[#9E1B32]" />
+                  <span>{finding.executor_label}</span>
+                </div>
+                {finding.can_apply ? (
+                  <p className="mt-1 text-xs text-black/60">
+                    Corrección automática segura y 100% reversible. Guarda respaldo previo.
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-black/50 italic">
+                    {finding.can_apply_reason || "Corrección automática no disponible para este caso."}
+                  </p>
+                )}
+              </div>
+
+              {finding.can_apply && finding.status !== "resuelto" && (
+                <button
+                  type="button"
+                  onClick={handleApplyAction}
+                  disabled={isPending}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#9E1B32] px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#7A1F2B] disabled:opacity-50"
+                >
+                  {isPending ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : (
+                    <Play size={13} fill="currentColor" />
+                  )}
+                  Autorizar y ejecutar
+                </button>
+              )}
+            </div>
+          </div>
+        ) : (
+          /* Accion Propuesta generica si no hay ejecutor */
+          finding.proposed_action && (
+            <div className="mt-4 rounded-xl border border-black/5 bg-[#F7F6F3] p-3 text-xs">
+              <div className="flex items-center gap-1.5 font-semibold text-black/90">
+                <Wrench size={13} className="text-[#9E1B32]" />
+                <span>Acción sugerida:</span>
+                <span className="font-mono text-[11px] text-black/60">
+                  {String(finding.proposed_action.type || "revisión")}
+                </span>
+              </div>
+              {Boolean(finding.proposed_action.criterio) ? (
+                <p className="mt-1 text-black/60">
+                  Criterio: {String(finding.proposed_action.criterio)}
+                </p>
+              ) : null}
+            </div>
+          )
         )}
 
         {/* Nota de decision si existe */}
@@ -279,6 +370,29 @@ export default function FindingCard({ finding, onRefresh }: Props) {
                 {JSON.stringify(finding.evidence, null, 2)}
               </pre>
             )}
+          </div>
+        )}
+
+        {/* Revertir correccion si tiene respaldo activo */}
+        {finding.has_active_backup && (
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-black/10 pt-4">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-[#1B8053]">
+              <Check size={14} />
+              <span>Corregido automáticamente &middot; Respaldo disponible</span>
+            </div>
+            <button
+              type="button"
+              onClick={handleRevertAction}
+              disabled={isPending}
+              className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3.5 py-1.5 text-xs font-semibold text-amber-900 shadow-xs transition hover:bg-amber-100 disabled:opacity-50"
+            >
+              {isPending ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <RotateCcw size={12} />
+              )}
+              Revertir corrección
+            </button>
           </div>
         )}
 

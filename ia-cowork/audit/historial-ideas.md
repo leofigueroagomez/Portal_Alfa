@@ -123,13 +123,25 @@ history:
 ```
 
 ```yaml
+id: IA-20260901-001
+author: Claude + Antigravity
+type: feature
+status: executed
+owner: Claude (backend) + Antigravity (UI)
+history:
+  - 2026-09-01 | Claude | backend B1 entregado (framework ejecutores + 3 ejecutores + respaldos)
+  - 2026-09-01 | Antigravity | UI B1 entregada (FindingCard con botones ejecutar/revertir y feedback)
+```
+
+```yaml
 id: DECISION-IA-20260831-001
 author: Claude
 type: decision
-status: proposed
+status: executed
 owner: equipo ALFA OS
 history:
   - 2026-08-31 | Claude | created (plan maestro de ejecucion consolidado - ver ia-cowork/roadmap/plan-maestro-ejecucion.md)
+  - 2026-08-31 | Leo | aprobado
 ```
 
 ## Regla de auditoría
