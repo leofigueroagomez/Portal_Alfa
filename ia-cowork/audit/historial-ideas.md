@@ -237,6 +237,16 @@ history:
   - 2026-09-01 | Claude | Sprint G3 plantillas de cotizacion: tablas, lib/quotes/templates.ts, server actions, UI QuoteTemplatesManager. Pendiente prueba en navegador + Leo crea las plantillas.
 ```
 
+```yaml
+id: IA-20260901-010
+author: Antigravity
+type: feature
+status: executed
+owner: Antigravity
+history:
+  - 2026-09-01 | Antigravity | ejecutado G1 Polish (safe-area top, 5 col grid bottom nav) + Sprint D3 (widget ejecutivo de El Vigía en Director Dashboard).
+```
+
 ## Regla de auditoría
 
 - toda idea debe dejar rastro

@@ -56,7 +56,7 @@ Prioridad = (impacto para Leo) × (cierra un lazo) ÷ (riesgo de romper algo).
 | ~~C4~~ | ~~Canal WhatsApp solo para `severity = critico`~~ — **DIFERIDO** (2026-08-31). Por ahora la comunicación del Vigía es solo por correo. Se retoma en un sprint posterior; ver `idea-IA-20260831-006.md`. | Plan maestro + Claude IA-20260831-004/006 | Claude + Leo | Bajo |
 | D1 | Score de riesgo por proyecto `vigia_v_project_risk` + pestaña "Proyectos en riesgo" | ChatGPT IA-002 concretado en Claude IA-20260831-005 | Claude | Bajo |
 | D2 | Digest semanal (tendencia, abiertos vs resueltos, sensores ruidosos) + calibración automática | Claude IA-20260831-001 | Claude | Bajo |
-| D3 | Panel de dirección (proyectos en riesgo, tendencias, alertas activas) — pestaña de la Bandeja | ChatGPT IA-004 | Antigravity | Bajo |
+| ~~D3~~ | **HECHO** (2026-09-01): Panel ejecutivo de El Vigía integrado en `/director-dashboard` (Índice de salud, dinero en riesgo, alertas pendientes y link a Bandeja) + sincronización de navegación. | ChatGPT IA-004 + Antigravity | Antigravity | Bajo |
 | E1 | Sensores `FSC-01/02/03` — PPD sin REP a tiempo, cotización cobrada sin CFDI, CSD por caducar. **Solo alerta, read-only.** | Antigravity IA-003 | Claude + revisión de Leo | Alto (fiscal) |
 | E2 | Guardarraíles de `auto_aplicado`: simulación 2 semanas, tope diario, kill switch, veto 24h, lista blanca | Claude IA-20260831-003 | Claude | Alto |
 | E3 | Auto-captura de TC vía Banxico FIX para `INT-05` | Antigravity IA-004 | Antigravity (tras E2) | Alto |

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ArrowRight, Radar } from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { formatCurrency, formatNumber } from "@/lib/format";
 import { normalizeRole } from "@/lib/permissions";
@@ -9,6 +10,7 @@ import {
 } from "@/lib/projectPurchases";
 import { normalizeSalesStage } from "@/lib/salesStages";
 import { getCurrentInternalUserProfile } from "@/services/profile";
+import { getVigiaOverview } from "@/lib/vigia/queries";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -260,6 +262,7 @@ export default async function DirectorDashboardPage() {
       .lt("generated_at", currentMonth.nextIso)
       .in("status", ["generated", "sent"])
       .order("generated_at", { ascending: false }),
+    getVigiaOverview(supabase).catch(() => null),
   ]);
   let projectsResult = dashboardResults[0];
   const clientsResult = dashboardResults[1];
@@ -269,6 +272,7 @@ export default async function DirectorDashboardPage() {
   const purchaseEventsResult = dashboardResults[5];
   const quoteItemsResult = dashboardResults[6];
   const profitabilityReportsResult = dashboardResults[7];
+  const vigiaOverview = dashboardResults[8] as Awaited<ReturnType<typeof getVigiaOverview>> | null;
 
   if (projectsResult.error) {
     console.warn("[director-dashboard] client_projects query fallback", {
@@ -624,11 +628,77 @@ export default async function DirectorDashboardPage() {
     <main className="min-h-screen bg-[#0B0D0F] p-4 text-white md:p-8 xl:p-10">
       <section className="mb-8">
         <p className="mb-3 text-sm tracking-[0.3em] text-[#9E1B32]">ALFA OS</p>
-        <h1 className="text-3xl font-bold sm:text-4xl">Dashboard direccion</h1>
+        <h1 className="text-3xl font-bold sm:text-4xl">Dashboard dirección</h1>
         <p className="mt-3 text-[#B3B3B8]">
-          Vista ejecutiva de ventas, cobranza, compras y operacion.
+          Vista ejecutiva de ventas, cobranza, compras y operación.
         </p>
       </section>
+
+      {/* Widget Ejecutivo El Vigía (Sprint D3) */}
+      {vigiaOverview && (
+        <section className="mb-8 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-r from-[#141416] via-[#1A1A1E] to-[#141416] p-5 shadow-xl">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between border-b border-white/10 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#9E1B32]/20 text-[#9E1B32] border border-[#9E1B32]/30">
+                <Radar size={22} />
+              </div>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-base font-bold text-white">El Vigía &middot; Salud y Riesgos Operativos</h2>
+                  <span className="rounded-full bg-[#9E1B32]/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#FFB19C]">
+                    {vigiaOverview.activeSensorsCount} Sensores activos
+                  </span>
+                </div>
+                <p className="text-xs text-[#B3B3B8] mt-0.5">
+                  Diagnóstico continuo de integridad de datos, márgenes, compras y pipeline comercial.
+                </p>
+              </div>
+            </div>
+
+            <Link
+              href="/vigia"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-[#9E1B32] px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#7A1F2B] active:scale-95"
+            >
+              <span>Bandeja de Decisión</span>
+              <ArrowRight size={13} />
+            </Link>
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="rounded-xl border border-white/5 bg-white/[0.03] p-3">
+              <p className="text-[11px] font-medium text-white/50">Índice de Salud</p>
+              <p className="mt-1 text-2xl font-black text-[#8CE0B6]">
+                {vigiaOverview.integrityScore}%
+              </p>
+              <p className="mt-1 text-[10px] text-white/40">Proyectos íntegros</p>
+            </div>
+
+            <div className="rounded-xl border border-white/5 bg-white/[0.03] p-3">
+              <p className="text-[11px] font-medium text-white/50">Dinero en Riesgo</p>
+              <p className="mt-1 text-2xl font-black text-[#F4C66A]">
+                {formatCurrency(vigiaOverview.impactMxnOpen, "MXN")}
+              </p>
+              <p className="mt-1 text-[10px] text-white/40">Impacto detectado</p>
+            </div>
+
+            <div className="rounded-xl border border-white/5 bg-white/[0.03] p-3">
+              <p className="text-[11px] font-medium text-white/50">Requiere Autorización</p>
+              <p className={`mt-1 text-2xl font-black ${vigiaOverview.requiresAuthCount > 0 ? "text-[#FFB19C]" : "text-white"}`}>
+                {vigiaOverview.requiresAuthCount}
+              </p>
+              <p className="mt-1 text-[10px] text-white/40">Decisiones pendientes</p>
+            </div>
+
+            <div className="rounded-xl border border-white/5 bg-white/[0.03] p-3">
+              <p className="text-[11px] font-medium text-white/50">Prestar Atención</p>
+              <p className="mt-1 text-2xl font-black text-white">
+                {vigiaOverview.payAttentionCount}
+              </p>
+              <p className="mt-1 text-[10px] text-white/40">Señales operativas</p>
+            </div>
+          </div>
+        </section>
+      )}
 
       {queryWarnings.length > 0 ? (
         <section className="mb-8 rounded-xl border border-[#614620] bg-[#322514] p-4 text-sm text-[#F4C66A]">

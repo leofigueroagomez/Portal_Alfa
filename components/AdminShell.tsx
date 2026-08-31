@@ -174,7 +174,7 @@ export default function AdminShell({
 
   return (
     <div className="admin-shell min-h-screen bg-[#F7F6F3] text-[#111111] lg:flex">
-      <header className="mobile-admin-header no-print sticky top-0 z-40 flex items-center justify-between border-b border-black/10 bg-white/90 px-4 py-3 backdrop-blur lg:hidden">
+      <header className="mobile-admin-header no-print sticky top-0 z-40 flex items-center justify-between border-b border-black/10 bg-white/90 px-4 py-3 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] backdrop-blur lg:hidden">
         <Link
           href={directorDashboardHref}
           className="flex items-center gap-3"
@@ -211,7 +211,7 @@ export default function AdminShell({
       ) : null}
 
       <aside
-        className={`admin-sidebar no-print fixed inset-y-0 left-0 z-50 flex w-[86vw] max-w-80 flex-col border-r border-black/10 bg-[#0F0F0F] p-5 text-white shadow-2xl shadow-black/30 transition-transform duration-200 lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:w-24 lg:max-w-none lg:translate-x-0 lg:p-4 lg:shadow-none xl:w-80 xl:p-6 ${
+        className={`admin-sidebar no-print fixed inset-y-0 left-0 z-50 flex w-[86vw] max-w-80 flex-col border-r border-black/10 bg-[#0F0F0F] p-5 pt-[calc(env(safe-area-inset-top,0px)+1.25rem)] text-white shadow-2xl shadow-black/30 transition-transform duration-200 lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:w-24 lg:max-w-none lg:translate-x-0 lg:p-4 lg:shadow-none xl:w-80 xl:p-6 ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -480,40 +480,39 @@ function MobileBottomNav({
   const homeHref = ["admin", "direccion"].includes(role) ? "/director-dashboard" : "/dashboard";
   const isHomeActive = pathname === "/dashboard" || pathname === "/director-dashboard";
   const isProjectsActive = pathname === "/projects" || pathname.startsWith("/projects/");
-  const isQuotesActive = (pathname === "/quotes" || pathname.startsWith("/quotes/")) && pathname !== "/quotes/new";
   const isVigiaActive = pathname === "/vigia" || pathname.startsWith("/vigia/");
   const isNewQuoteActive = pathname === "/quotes/new";
 
   return (
     <nav
       data-admin-chrome="true"
-      className="no-print fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t border-white/10 bg-[#0F0F10]/95 px-2 py-1 text-white shadow-2xl backdrop-blur-xl lg:hidden pb-[calc(env(safe-area-inset-bottom,0px)+0.35rem)]"
+      className="no-print fixed bottom-0 left-0 right-0 z-40 grid grid-cols-5 items-center justify-items-center border-t border-white/10 bg-[#0F0F10]/95 px-1 pt-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] text-white shadow-2xl backdrop-blur-xl lg:hidden"
     >
       <Link
         href={homeHref}
-        className={`flex min-w-[54px] flex-col items-center justify-center gap-0.5 rounded-xl py-1 text-[10px] font-medium transition ${
-          isHomeActive ? "text-[#9E1B32] font-bold" : "text-white/60 hover:text-white"
+        className={`flex w-full flex-col items-center justify-center gap-1 py-1 text-[10px] font-medium transition ${
+          isHomeActive ? "text-white font-bold" : "text-white/55 hover:text-white"
         }`}
       >
-        <Gauge size={20} className={isHomeActive ? "text-[#9E1B32]" : "text-white/70"} />
+        <Gauge size={21} className={isHomeActive ? "text-[#9E1B32]" : "text-white/60"} />
         <span>Inicio</span>
       </Link>
 
       <Link
         href="/projects"
-        className={`flex min-w-[54px] flex-col items-center justify-center gap-0.5 rounded-xl py-1 text-[10px] font-medium transition ${
-          isProjectsActive ? "text-[#9E1B32] font-bold" : "text-white/60 hover:text-white"
+        className={`flex w-full flex-col items-center justify-center gap-1 py-1 text-[10px] font-medium transition ${
+          isProjectsActive ? "text-white font-bold" : "text-white/55 hover:text-white"
         }`}
       >
-        <FolderOpen size={20} className={isProjectsActive ? "text-[#9E1B32]" : "text-white/70"} />
+        <FolderOpen size={21} className={isProjectsActive ? "text-[#9E1B32]" : "text-white/60"} />
         <span>Proyectos</span>
       </Link>
 
       {/* Botón Central Destacado: Nueva Cotización */}
       <Link
         href="/quotes/new"
-        className={`-mt-3 flex h-12 w-12 flex-col items-center justify-center rounded-full bg-[#9E1B32] text-white shadow-lg shadow-[#9E1B32]/40 transition active:scale-95 ${
-          isNewQuoteActive ? "ring-2 ring-white ring-offset-2 ring-offset-black" : ""
+        className={`-mt-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#9E1B32] text-white shadow-lg shadow-[#9E1B32]/40 transition active:scale-95 ${
+          isNewQuoteActive ? "ring-2 ring-white ring-offset-2 ring-offset-[#0F0F10]" : ""
         }`}
         title="Crear Cotización"
         aria-label="Nueva Cotización"
@@ -522,27 +521,13 @@ function MobileBottomNav({
       </Link>
 
       <Link
-        href="/quotes"
-        className={`flex min-w-[54px] flex-col items-center justify-center gap-0.5 rounded-xl py-1 text-[10px] font-medium transition ${
-          isQuotesActive ? "text-[#9E1B32] font-bold" : "text-white/60 hover:text-white"
-        }`}
-      >
-        <FileText size={20} className={isQuotesActive ? "text-[#9E1B32]" : "text-white/70"} />
-        <span>Cotizar</span>
-      </Link>
-
-      <Link
         href="/vigia"
-        className={`flex min-w-[54px] flex-col items-center justify-center gap-0.5 rounded-xl py-1 text-[10px] font-medium transition ${
-          isVigiaActive ? "text-[#9E1B32] font-bold" : "text-white/60 hover:text-white"
+        className={`flex w-full flex-col items-center justify-center gap-1 py-1 text-[10px] font-medium transition ${
+          isVigiaActive ? "text-white font-bold" : "text-white/55 hover:text-white"
         }`}
       >
         <div className="relative">
-          <Radar size={20} className={isVigiaActive ? "text-[#9E1B32]" : "text-white/70"} />
-          <span className="absolute -right-1 -top-1 flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#9E1B32] opacity-75"></span>
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-[#9E1B32]"></span>
-          </span>
+          <Radar size={21} className={isVigiaActive ? "text-[#9E1B32]" : "text-white/60"} />
         </div>
         <span>El Vigía</span>
       </Link>
@@ -550,11 +535,11 @@ function MobileBottomNav({
       <button
         type="button"
         onClick={onOpenMenu}
-        className="flex min-w-[54px] flex-col items-center justify-center gap-0.5 rounded-xl py-1 text-[10px] font-medium text-white/60 transition hover:text-white"
+        className="flex w-full flex-col items-center justify-center gap-1 py-1 text-[10px] font-medium text-white/55 transition hover:text-white"
         aria-label="Abrir menú completo"
       >
         <div className="relative">
-          <Menu size={20} className="text-white/70" />
+          <Menu size={21} className="text-white/60" />
           {newLeadsCount > 0 && (
             <span className="absolute -right-1.5 -top-1 inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-[#9E1B32] px-1 text-[9px] font-bold text-white">
               {newLeadsCount}
