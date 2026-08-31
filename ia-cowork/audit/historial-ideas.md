@@ -217,6 +217,26 @@ history:
   - 2026-09-01 | Claude | reparto Sprint G entre 3 IAs + tickets G1 (Antigravity) y G2 (Codex) con contrato y definicion de listo
 ```
 
+```yaml
+id: REVIEW-Claude-20260901-001
+author: Claude
+type: review
+status: executed
+owner: Claude
+history:
+  - 2026-09-01 | Claude | code review G1 (Antigravity) + G2 (Codex): APROBADO. Verificado contra prod. Fix aplicado: quitado userScalable:false de layout.tsx. Ver ia-cowork/decisions/review-Claude-20260901-001.md
+```
+
+```yaml
+id: IA-20260901-009
+author: Claude
+type: feature
+status: executed
+owner: Claude (impl), Leo (define plantillas)
+history:
+  - 2026-09-01 | Claude | Sprint G3 plantillas de cotizacion: tablas, lib/quotes/templates.ts, server actions, UI QuoteTemplatesManager. Pendiente prueba en navegador + Leo crea las plantillas.
+```
+
 ## Regla de auditoría
 
 - toda idea debe dejar rastro

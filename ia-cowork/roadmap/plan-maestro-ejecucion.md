@@ -65,7 +65,7 @@ Prioridad = (impacto para Leo) × (cierra un lazo) ÷ (riesgo de romper algo).
 | F2 | Sensores `ING-*` contra el catálogo de reglas | Plan maestro | Claude | Medio |
 | G1 | **ALFA OS Móvil:** cascarón PWA + navegación inferior + pantallas de lectura mobile-first | Leo 2026-09-01 | Antigravity + Claude (review) | Bajo |
 | G2 | `lib/quotes/draftBuilder.ts` — motor de precios de cotización en servidor + pruebas golden | Leo 2026-09-01 | Claude (diseño) + Codex (implementación) | Medio |
-| G3 | `quote_templates` + flujo móvil "elegir plantilla → ajustar → borrador" | Leo 2026-09-01 | Claude + Leo (define plantillas) | Bajo |
+| ~~G3~~ | **HECHO** (2026-09-01, `idea-IA-20260901-009.md`): `quote_templates` + `quote_template_lines`, `lib/quotes/templates.ts`, server actions, UI `QuoteTemplatesManager` (lista + usar + editor CRUD), link en `/quotes`. Falta: prueba en navegador con sesión + Leo crea las 5–10 plantillas. | Leo 2026-09-01 | Claude + Leo (define plantillas) | Bajo |
 | G4 | Voz/texto → intención → borrador de cotización (Siri Shortcut → endpoint → 1 llamada + herramientas) | Leo 2026-09-01 | Claude | Medio |
 | G5 | `quote_draft_revisions` — diff propuesto vs aprobado; alimenta G4, plantillas y reglas ING | Leo 2026-09-01 | Claude | Bajo |
 | G6 | Insignia "listo para autorizar" por tipo de cotización, con F2 como red de seguridad de ingeniería | Leo 2026-09-01 | Claude + Leo | Medio |

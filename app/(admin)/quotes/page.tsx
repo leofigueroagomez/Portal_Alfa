@@ -156,6 +156,12 @@ export default async function QuotesPage() {
 
         <div className="flex flex-wrap gap-3">
           <Link
+            href="/quotes/templates"
+            className="rounded-xl border border-[#2A2A30] bg-[#151518] px-6 py-3 font-semibold text-[#B3B3B8] transition hover:border-[#9E1B32] hover:text-white"
+          >
+            Plantillas
+          </Link>
+          <Link
             href="/quotes/blinds"
             className="rounded-xl border border-[#2A2A30] bg-[#151518] px-6 py-3 font-semibold text-[#B3B3B8] transition hover:border-[#9E1B32] hover:text-white"
           >
