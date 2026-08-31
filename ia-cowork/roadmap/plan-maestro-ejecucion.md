@@ -45,7 +45,7 @@ Prioridad = (impacto para Leo) × (cierra un lazo) ÷ (riesgo de romper algo).
 
 | # | Item | Origen | Owner | Riesgo |
 | --- | --- | --- | --- | --- |
-| A1 | Corregir doble conteo de impacto MXN (marcar sensores rollup, excluirlos de la suma) | Antigravity IA-005 | Claude | Bajo |
+| ~~A1~~ | **HECHO** (2026-08-31, commit `6e1aa7c`) — mapa `IMPACT_ROLLUPS` en `runner.ts`; brief $7,993 → $6,088. | Antigravity IA-005 | Claude | Bajo |
 | A2 | Paralelizar el runner con `Promise.allSettled` en lotes | Antigravity IA-005 | Antigravity | Bajo |
 | A3 | **Bandeja de Decisión `/admin/vigia` v1** — lectura + acciones no destructivas (Reconocer, Posponer, Descartar con nota, Silenciar proyecto). Índice de salud arriba. Sin ejecutores. | Antigravity IA-002 + ChatGPT IA-004 + Claude IA-20260831-004 | Antigravity (UI), Claude (review) | Medio |
 | B1 | Ejecutores de 1 clic para las 3 `proposed_action` seguras y reversibles: `fusionar_linea_huerfana`, `recalcular_lineas_de_compra`, `consolidar_partidas_operativas`. Cada una: respaldo + audit + revertir. | Antigravity IA-002 | Claude (ya hice estas correcciones a mano, conozco los edge cases) | Medio |
