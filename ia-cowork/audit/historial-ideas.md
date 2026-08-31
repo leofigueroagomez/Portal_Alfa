@@ -155,6 +155,16 @@ history:
 ```
 
 ```yaml
+id: IA-20260901-004
+author: Antigravity
+type: feature
+status: executed
+owner: Antigravity
+history:
+  - 2026-09-01 | Antigravity | ejecutado Sprint G1 (cascarón PWA, manifest, service worker, viewport cover, MobileBottomNav y drawer adaptado).
+```
+
+```yaml
 id: DECISION-IA-20260831-001
 author: Claude
 type: decision

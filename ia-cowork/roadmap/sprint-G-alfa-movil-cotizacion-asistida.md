@@ -120,9 +120,7 @@ F es el poste largo de G6. Un borrador no puede llegar a "autorizar de un toque"
 
 ## 7. Backlog
 
-| # | Item | Owner | Riesgo |
-| --- | --- | --- | --- |
-| G1 | Cascarón PWA + navegación móvil + pantallas de lectura mobile-first | Antigravity + Claude | Bajo |
+| ~~G1~~ | **HECHO** (2026-09-01): Cascarón PWA (manifest.webmanifest, service worker, viewport cover, apple-web-app) + barra de navegación inferior móvil (`MobileBottomNav`) con safe-areas + drawer móvil optimizado. | Antigravity | Bajo |
 | G2 | `lib/quotes/draftBuilder.ts` — motor de precios en servidor + pruebas golden | Claude | Medio |
 | G3 | `quote_templates` + flujo móvil "elegir plantilla → ajustar → borrador" | Claude + Leo | Bajo |
 | G4 | Voz/texto → intención (Siri Shortcut → endpoint → 1 llamada + herramientas + aclaración) | Claude | Medio |

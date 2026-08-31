@@ -24,6 +24,7 @@ import {
   Users,
   UserCog,
   Wrench,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -214,7 +215,20 @@ export default function AdminShell({
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="mb-8">
+        {/* Cabecera del drawer en móvil */}
+        <div className="flex items-center justify-between pb-3 lg:hidden">
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/40">Menú ALFA OS</p>
+          <button
+            type="button"
+            onClick={() => setIsOpen(false)}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white/80 transition hover:bg-white/20"
+            aria-label="Cerrar menú"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="mb-6 lg:mb-8">
           <Link
             href={directorDashboardHref}
             onClick={() => setIsOpen(false)}
@@ -227,19 +241,19 @@ export default function AdminShell({
               width={230}
               height={110}
               priority
-              className="mx-auto h-auto w-40 object-contain lg:w-14 xl:mx-0 xl:w-48"
+              className="mx-auto h-auto w-36 object-contain lg:w-14 xl:mx-0 xl:w-48"
             />
           </Link>
 
-          <div className="mt-7 hidden border-t border-white/10 pt-5 xl:block">
+          <div className="mt-4 lg:mt-7 border-t border-white/10 pt-4 xl:block">
             <p className="truncate text-sm font-semibold text-white">{displayName}</p>
-            <p className="mt-1 text-xs uppercase tracking-[0.22em] text-white/45">
+            <p className="mt-1 text-xs uppercase tracking-[0.22em] text-[#9E1B32] font-medium">
               {roleLabel}
             </p>
           </div>
         </div>
 
-        <nav className="admin-nav no-print space-y-2">
+        <nav className="admin-nav no-print space-y-2 overflow-y-auto max-h-[calc(100vh-220px)] lg:max-h-none">
           <NavEntry
             href={directorDashboardHref}
             label="Dashboard Dirección"
@@ -284,7 +298,14 @@ export default function AdminShell({
         onNavigate={() => setIsOpen(false)}
       />
 
-      <div className="min-w-0 flex-1">{children}</div>
+      <div className="min-w-0 flex-1 pb-24 lg:pb-0">{children}</div>
+
+      <MobileBottomNav
+        pathname={pathname}
+        onOpenMenu={() => setIsOpen(true)}
+        role={role}
+        newLeadsCount={newLeadsCount}
+      />
     </div>
   );
 }
@@ -442,5 +463,106 @@ function SettingsGear({
         })}
       </div>
     </details>
+  );
+}
+
+function MobileBottomNav({
+  pathname,
+  onOpenMenu,
+  role,
+  newLeadsCount = 0,
+}: {
+  pathname: string;
+  onOpenMenu: () => void;
+  role: string;
+  newLeadsCount?: number;
+}) {
+  const homeHref = ["admin", "direccion"].includes(role) ? "/director-dashboard" : "/dashboard";
+  const isHomeActive = pathname === "/dashboard" || pathname === "/director-dashboard";
+  const isProjectsActive = pathname === "/projects" || pathname.startsWith("/projects/");
+  const isQuotesActive = (pathname === "/quotes" || pathname.startsWith("/quotes/")) && pathname !== "/quotes/new";
+  const isVigiaActive = pathname === "/vigia" || pathname.startsWith("/vigia/");
+  const isNewQuoteActive = pathname === "/quotes/new";
+
+  return (
+    <nav
+      data-admin-chrome="true"
+      className="no-print fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t border-white/10 bg-[#0F0F10]/95 px-2 py-1 text-white shadow-2xl backdrop-blur-xl lg:hidden pb-[calc(env(safe-area-inset-bottom,0px)+0.35rem)]"
+    >
+      <Link
+        href={homeHref}
+        className={`flex min-w-[54px] flex-col items-center justify-center gap-0.5 rounded-xl py-1 text-[10px] font-medium transition ${
+          isHomeActive ? "text-[#9E1B32] font-bold" : "text-white/60 hover:text-white"
+        }`}
+      >
+        <Gauge size={20} className={isHomeActive ? "text-[#9E1B32]" : "text-white/70"} />
+        <span>Inicio</span>
+      </Link>
+
+      <Link
+        href="/projects"
+        className={`flex min-w-[54px] flex-col items-center justify-center gap-0.5 rounded-xl py-1 text-[10px] font-medium transition ${
+          isProjectsActive ? "text-[#9E1B32] font-bold" : "text-white/60 hover:text-white"
+        }`}
+      >
+        <FolderOpen size={20} className={isProjectsActive ? "text-[#9E1B32]" : "text-white/70"} />
+        <span>Proyectos</span>
+      </Link>
+
+      {/* Botón Central Destacado: Nueva Cotización */}
+      <Link
+        href="/quotes/new"
+        className={`-mt-3 flex h-12 w-12 flex-col items-center justify-center rounded-full bg-[#9E1B32] text-white shadow-lg shadow-[#9E1B32]/40 transition active:scale-95 ${
+          isNewQuoteActive ? "ring-2 ring-white ring-offset-2 ring-offset-black" : ""
+        }`}
+        title="Crear Cotización"
+        aria-label="Nueva Cotización"
+      >
+        <PlusCircle size={24} />
+      </Link>
+
+      <Link
+        href="/quotes"
+        className={`flex min-w-[54px] flex-col items-center justify-center gap-0.5 rounded-xl py-1 text-[10px] font-medium transition ${
+          isQuotesActive ? "text-[#9E1B32] font-bold" : "text-white/60 hover:text-white"
+        }`}
+      >
+        <FileText size={20} className={isQuotesActive ? "text-[#9E1B32]" : "text-white/70"} />
+        <span>Cotizar</span>
+      </Link>
+
+      <Link
+        href="/vigia"
+        className={`flex min-w-[54px] flex-col items-center justify-center gap-0.5 rounded-xl py-1 text-[10px] font-medium transition ${
+          isVigiaActive ? "text-[#9E1B32] font-bold" : "text-white/60 hover:text-white"
+        }`}
+      >
+        <div className="relative">
+          <Radar size={20} className={isVigiaActive ? "text-[#9E1B32]" : "text-white/70"} />
+          <span className="absolute -right-1 -top-1 flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#9E1B32] opacity-75"></span>
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-[#9E1B32]"></span>
+          </span>
+        </div>
+        <span>El Vigía</span>
+      </Link>
+
+      <button
+        type="button"
+        onClick={onOpenMenu}
+        className="flex min-w-[54px] flex-col items-center justify-center gap-0.5 rounded-xl py-1 text-[10px] font-medium text-white/60 transition hover:text-white"
+        aria-label="Abrir menú completo"
+      >
+        <div className="relative">
+          <Menu size={20} className="text-white/70" />
+          {newLeadsCount > 0 && (
+            <span className="absolute -right-1.5 -top-1 inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-[#9E1B32] px-1 text-[9px] font-bold text-white">
+              {newLeadsCount}
+            </span>
+          )}
+        </div>
+        <span>Menú</span>
+      </button>
+    </nav>
   );
 }
