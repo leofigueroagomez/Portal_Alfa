@@ -238,13 +238,14 @@ history:
 ```
 
 ```yaml
-id: IA-20260901-010
+id: IA-20260901-011
 author: Claude
 type: feature
 status: executed
 owner: Claude
 history:
   - 2026-09-01 | Claude | Sprint G4 voz->borrador: quote_voice_drafts, lib/quotes/voiceDraft.ts (loop de herramientas sobre Claude), endpoint /api/quotes/draft-from-intent, panel /quotes/voz. Pendiente prueba en prod + Atajo de Siri de Leo.
+  - nota: renumerado de 010 a 011 por colision con el registro de Antigravity (G1 polish + D3)
 ```
 
 ```yaml
