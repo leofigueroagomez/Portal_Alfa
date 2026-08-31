@@ -145,6 +145,16 @@ history:
 ```
 
 ```yaml
+id: IA-20260901-003
+author: Antigravity
+type: feature
+status: executed
+owner: Antigravity
+history:
+  - 2026-09-01 | Antigravity | ejecutado Sprint C1 + C2 (sensores VTA-01..03 y SRV-01..02, vistas SQL, enrich, navegación UI y filtros).
+```
+
+```yaml
 id: DECISION-IA-20260831-001
 author: Claude
 type: decision

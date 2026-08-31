@@ -24,7 +24,9 @@ type BriefFinding = {
 
 const DOMAIN_LABEL: Record<string, string> = {
   integridad_datos: "Integridad de datos",
-  costos_margenes: "Costos y margenes",
+  costos_margenes: "Costos y márgenes",
+  ventas_pipeline: "Ventas y cotizaciones",
+  postventa_servicios: "Postventa y servicios",
 };
 
 const LANE_LABEL: Record<string, string> = {

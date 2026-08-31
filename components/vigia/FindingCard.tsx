@@ -108,6 +108,12 @@ function entityHref(finding: VigiaFindingRecord): string | null {
   if (finding.entity_type === "quote" && finding.entity_id) {
     return `/quotes/${finding.entity_id}`;
   }
+  if (finding.entity_type === "lead" && finding.entity_id) {
+    return `/leads`;
+  }
+  if (finding.entity_type === "service_report" && finding.entity_id) {
+    return `/services`;
+  }
   return null;
 }
 

@@ -5,7 +5,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * Ver plan: https://claude.ai/code/artifact/321f9ba1-a6ee-471a-a4e5-f05279cf74a4
  */
 
-export type VigiaDomain = "integridad_datos" | "costos_margenes";
+export type VigiaDomain =
+  | "integridad_datos"
+  | "costos_margenes"
+  | "ventas_pipeline"
+  | "postventa_servicios";
 
 export type FindingLane =
   | "auto_aplicado"

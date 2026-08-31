@@ -281,6 +281,8 @@ export default function VigiaDashboard({ overview, findings, auditLogs }: Props)
               <option value="todos">Todos los dominios</option>
               <option value="integridad_datos">Integridad de datos (INT)</option>
               <option value="costos_margenes">Costos y márgenes (CST)</option>
+              <option value="ventas_pipeline">Ventas y cotizaciones (VTA)</option>
+              <option value="postventa_servicios">Postventa y servicios (SRV)</option>
             </select>
           </div>
         </div>

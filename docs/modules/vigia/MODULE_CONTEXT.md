@@ -43,6 +43,7 @@ Sensores (vistas SQL)  ->  Runner  ->  vigia_findings  ->  Brief (correo)  ->  B
 | `sql/20260831_vigia_snooze.sql` | Columna `snooze_until` + status `pospuesto`. |
 | `sql/20260901_vigia_action_backups.sql` | Tabla `vigia_action_backups` (snapshots de los ejecutores B1). |
 | `sql/20260901_vigia_investigations.sql` | Tabla `vigia_investigations` (expedientes + diagnostico de B2). |
+| `sql/20260901_vigia_phase1_sprint_c.sql` | Vistas VTA-01..03 (Ventas) y SRV-01..02 (Postventa/Servicios). |
 | (migracion `vigia_findings_entity_label`) | `alter table vigia_findings add column entity_label text`. |
 
 Las migraciones se aplicaron a produccion via el flujo de Supabase; son **aditivas** (solo objetos nuevos `vigia_*`). No tocan ninguna tabla, columna, RLS ni dato de negocio.
@@ -62,7 +63,7 @@ Las migraciones se aplicaron a produccion via el flujo de Supabase; son **aditiv
 ## Como agregar un sensor
 
 1. **Vista de deteccion.** Nueva migracion en `sql/` con `create or replace view public.vigia_v_<id>_<slug> as ...`. La logica pesada (joins, group by, umbrales) vive en SQL para que sea revisable. La vista devuelve las columnas que el sensor necesita para armar el hallazgo. Terminar con `notify pgrst, 'reload schema';`. Aplicar la migracion.
-2. **Sensor.** En `lib/vigia/sensors.ts`, agregar un `Sensor` con `id` (`INT-XX` o `CST-XX`), `domain`, `run()` que consulta la vista y devuelve `RawFinding[]`. Registrarlo en `SENSORS[]`.
+2. **Sensor.** En `lib/vigia/sensors.ts`, agregar un `Sensor` con `id` (`INT-XX`, `CST-XX`, `VTA-XX`, `SRV-XX`), `domain`, `run()` que consulta la vista y devuelve `RawFinding[]`. Registrarlo en `SENSORS[]`.
 3. **Fingerprint.** Clave estable que identifique el mismo problema del mundo real entre corridas (ej. `INT-01:cp:48:prod:351:colision_quote_item`). Si cambia el fingerprint, el hallazgo viejo se auto-resuelve y nace uno nuevo.
 4. **Carril y confianza.** `requiere_autorizacion` si hay una accion clara que implica criterio; `prestar_atencion` si solo hay que mirar; `auto_aplicado` reservado para Fase 2. `confidence` baja manda el hallazgo a "Senales por confirmar" (seccion colapsada del brief).
 5. **Probar.** `GET /api/vigia/cron/daily?dry=1&sensors=<TU-ID>` (local o prod). Revisar `vigia_findings` y `vigia_audit_log`.
@@ -95,6 +96,11 @@ Las migraciones se aplicaron a produccion via el flujo de Supabase; son **aditiv
 | CST-03 | costos_margenes | Deriva entre el TC cotizado y el TC real al que se compro. |
 | CST-04 | costos_margenes | Producto de equipo sin costo alimentando un margen falso (excluye servicios ALFA). |
 | CST-05 | costos_margenes | Sobrecosto acumulado de compras a nivel proyecto (rollup de CST-01). |
+| VTA-01 | ventas_pipeline | Leads nuevos desatendidos (> 24h sin primer contacto o asignación). |
+| VTA-02 | ventas_pipeline | Cotizaciones dormidas de alto valor (> $100k MXN, > 7 días en borrador/enviada). |
+| VTA-03 | ventas_pipeline | Proyectos ganados ('won') sin anticipo registrado (> 10 días). |
+| SRV-01 | postventa_servicios | Proyectos con garantía por vencer en < 45 días sin póliza de mantenimiento activa. |
+| SRV-02 | postventa_servicios | Tickets o reportes de servicio estancados (> 72h sin actualización técnica). |
 
 ## Variables de entorno
 

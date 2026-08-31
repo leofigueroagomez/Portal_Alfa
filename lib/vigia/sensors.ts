@@ -668,6 +668,263 @@ export const cst05: Sensor = {
   },
 };
 
+// ---------------------------------------------------------------------------
+// VTA-01 - Leads nuevos desatendidos (> 24h)
+// ---------------------------------------------------------------------------
+type Vta01Row = {
+  lead_id: number;
+  name: string;
+  customer_type: string;
+  company: string | null;
+  phone: string;
+  service: string;
+  source: string;
+  created_at: string;
+  age_hours: number;
+};
+
+export const vta01: Sensor = {
+  id: "VTA-01",
+  domain: "ventas_pipeline",
+  title: "Leads desatendidos (> 24h)",
+  description:
+    "Prospectos ingresados en estado 'nuevo' que llevan más de 24 horas sin primer contacto ni actualización de estatus.",
+  async run({ supabase }) {
+    const { data, error } = await supabase
+      .from("vigia_v_vta01_unattended_leads")
+      .select("*");
+    if (error) throw error;
+
+    return ((data ?? []) as Vta01Row[]).map((row) => {
+      const ageHours = num(row.age_hours);
+      const sev = ageHours > 48 ? "alto" : "medio";
+      const name = text(row.name);
+      return {
+        fingerprint: `VTA-01:lead:${row.lead_id}`,
+        lane: "prestar_atencion",
+        severity: sev,
+        confidence: "alta",
+        title: `Lead desatendido (${ageHours}h): ${name} (${text(row.service)})`,
+        summary: `El lead #${row.lead_id} (${name}, canal ${text(row.source)}) ingresó hace ${ageHours} horas y sigue en estado 'nuevo' sin contactar.`,
+        evidence: { ...row },
+        entityType: "lead",
+        entityId: String(row.lead_id),
+        proposedAction: {
+          type: "contactar_lead",
+          lead_id: row.lead_id,
+          phone: row.phone,
+          criterio: "asignar a asesor comercial o cambiar a contactado/calificado",
+        },
+      } satisfies RawFinding;
+    });
+  },
+};
+
+// ---------------------------------------------------------------------------
+// VTA-02 - Cotizaciones dormidas de alto valor (> $100k MXN, > 7 días)
+// ---------------------------------------------------------------------------
+type Vta02Row = {
+  quote_id: number;
+  quote_number: string | null;
+  client_id: number | null;
+  client_project_id: number | null;
+  status: string;
+  currency: string | null;
+  grand_total: number;
+  total_mxn: number;
+  created_at: string;
+  age_days: number;
+};
+
+export const vta02: Sensor = {
+  id: "VTA-02",
+  domain: "ventas_pipeline",
+  title: "Cotización dormida de alto valor",
+  description:
+    "Cotización vigente de alto valor (> $100,000 MXN) que lleva más de 7 días en borrador o enviada sin avance hacia cierre.",
+  async run({ supabase }) {
+    const { data, error } = await supabase
+      .from("vigia_v_vta02_stale_high_value_quotes")
+      .select("*");
+    if (error) throw error;
+
+    return ((data ?? []) as Vta02Row[]).map((row) => {
+      const totalMxn = num(row.total_mxn);
+      const ageDays = num(row.age_days);
+      const qNum = text(row.quote_number) || `Cotización #${row.quote_id}`;
+      return {
+        fingerprint: `VTA-02:quote:${row.quote_id}`,
+        lane: "prestar_atencion",
+        severity: totalMxn >= 300000 ? "alto" : "medio",
+        confidence: "alta",
+        title: `${qNum}: $${totalMxn.toLocaleString("es-MX", { maximumFractionDigits: 0 })} MXN sin avance en ${ageDays} días`,
+        summary: `La cotización ${qNum} por un monto de $${totalMxn.toFixed(2)} MXN lleva ${ageDays} días en estado '${row.status}' sin registrar aprobación o cambio de etapa.`,
+        evidence: { ...row },
+        impactMxn: totalMxn,
+        entityType: "quote",
+        entityId: String(row.quote_id),
+        proposedAction: {
+          type: "dar_seguimiento_cotizacion",
+          quote_id: row.quote_id,
+          criterio: "programar llamada de seguimiento con el cliente o actualizar etapa",
+        },
+      } satisfies RawFinding;
+    });
+  },
+};
+
+// ---------------------------------------------------------------------------
+// VTA-03 - Proyectos ganados ('won') sin anticipo (> 10 días)
+// ---------------------------------------------------------------------------
+type Vta03Row = {
+  client_project_id: number;
+  name: string;
+  client_id: number;
+  sales_stage: string;
+  created_at: string;
+  age_days: number;
+  total_paid_mxn: number;
+};
+
+export const vta03: Sensor = {
+  id: "VTA-03",
+  domain: "ventas_pipeline",
+  title: "Proyecto ganado sin anticipo registrado",
+  description:
+    "Proyecto marcado como 'ganado' (won) que lleva más de 10 días sin registrar ningún pago o anticipo formal.",
+  async run({ supabase }) {
+    const { data, error } = await supabase
+      .from("vigia_v_vta03_won_project_missing_deposit")
+      .select("*");
+    if (error) throw error;
+
+    return ((data ?? []) as Vta03Row[]).map((row) => {
+      const ageDays = num(row.age_days);
+      const name = text(row.name);
+      return {
+        fingerprint: `VTA-03:cp:${row.client_project_id}`,
+        lane: "requiere_autorizacion",
+        severity: "alto",
+        confidence: "alta",
+        title: `Proyecto ${row.client_project_id} (${name}): ganado hace ${ageDays}d sin anticipo`,
+        summary: `El proyecto '${name}' se encuentra en etapa 'Ganado', pero tras ${ageDays} días no tiene ningún pago o anticipo registrado en el sistema.`,
+        evidence: { ...row },
+        entityType: "client_project",
+        entityId: String(row.client_project_id),
+        proposedAction: {
+          type: "registrar_anticipo_proyecto",
+          client_project_id: row.client_project_id,
+          criterio: "solicitar comprobante de pago al cliente o registrar anticipo en Estado de Cuenta",
+        },
+      } satisfies RawFinding;
+    });
+  },
+};
+
+// ---------------------------------------------------------------------------
+// SRV-01 - Garantías de proyecto por vencer en < 45 días
+// ---------------------------------------------------------------------------
+type Srv01Row = {
+  warranty_id: number;
+  client_project_id: number;
+  equipment_warranty_end_date: string;
+  installation_warranty_end_date: string;
+  earliest_end_date: string;
+  days_until_expiry: number;
+  installed_systems: string;
+  maintenance_policy_active: boolean;
+  support_email: string;
+};
+
+export const srv01: Sensor = {
+  id: "SRV-01",
+  domain: "postventa_servicios",
+  title: "Garantía de proyecto por vencer (oferta de póliza)",
+  description:
+    "Proyecto con garantía por vencer en menos de 45 días (o recién vencida) sin póliza de mantenimiento activa contratada.",
+  async run({ supabase }) {
+    const { data, error } = await supabase
+      .from("vigia_v_srv01_expiring_project_warranties")
+      .select("*");
+    if (error) throw error;
+
+    return ((data ?? []) as Srv01Row[]).map((row) => {
+      const daysLeft = num(row.days_until_expiry);
+      const isExpired = daysLeft < 0;
+      return {
+        fingerprint: `SRV-01:pw:${row.warranty_id}:cp:${row.client_project_id}`,
+        lane: "requiere_autorizacion",
+        severity: "medio",
+        confidence: "alta",
+        title: `Proyecto ${row.client_project_id}: garantía ${isExpired ? `venció hace ${Math.abs(daysLeft)} días` : `vence en ${daysLeft} días`} (sin póliza)`,
+        summary: `La garantía de instalación/equipo del proyecto ${row.client_project_id} finaliza el ${row.earliest_end_date}. No cuenta con póliza de mantenimiento activa; oportunidad de postventa.`,
+        evidence: { ...row },
+        entityType: "client_project",
+        entityId: String(row.client_project_id),
+        proposedAction: {
+          type: "ofrecer_poliza_mantenimiento",
+          client_project_id: row.client_project_id,
+          warranty_id: row.warranty_id,
+          criterio: "generar propuesta comercial de póliza de mantenimiento preventivo/correctivo",
+        },
+      } satisfies RawFinding;
+    });
+  },
+};
+
+// ---------------------------------------------------------------------------
+// SRV-02 - Tickets de servicio estancados (> 72h)
+// ---------------------------------------------------------------------------
+type Srv02Row = {
+  service_id: number;
+  service_number: string | null;
+  client_id: number | null;
+  client_project_id: number | null;
+  service_date: string;
+  performed_by_name: string | null;
+  diagnosis: string | null;
+  status: string;
+  solution_status: string;
+  created_at: string;
+  updated_at: string;
+  inactive_hours: number;
+};
+
+export const srv02: Sensor = {
+  id: "SRV-02",
+  domain: "postventa_servicios",
+  title: "Ticket de servicio estancado",
+  description:
+    "Reporte o ticket de servicio técnico pendiente que lleva más de 72 horas sin actualización ni conclusión.",
+  async run({ supabase }) {
+    const { data, error } = await supabase
+      .from("vigia_v_srv02_stale_service_tickets")
+      .select("*");
+    if (error) throw error;
+
+    return ((data ?? []) as Srv02Row[]).map((row) => {
+      const inactiveHours = num(row.inactive_hours);
+      const sNum = text(row.service_number) || `Servicio #${row.service_id}`;
+      return {
+        fingerprint: `SRV-02:srv:${row.service_id}`,
+        lane: "prestar_atencion",
+        severity: inactiveHours > 120 ? "alto" : "medio",
+        confidence: "alta",
+        title: `${sNum}: pendiente sin avances en ${inactiveHours} horas`,
+        summary: `El reporte de servicio técnico ${sNum} (técnico: ${text(row.performed_by_name) || "sin asignar"}) lleva ${inactiveHours}h en estado '${row.status}' sin actualización.`,
+        evidence: { ...row },
+        entityType: "service_report",
+        entityId: String(row.service_id),
+        proposedAction: {
+          type: "actualizar_ticket_servicio",
+          service_id: row.service_id,
+          criterio: "solicitar reporte técnico al técnico asignado o marcar como resuelto",
+        },
+      } satisfies RawFinding;
+    });
+  },
+};
+
 export const SENSORS: Sensor[] = [
   int01,
   int02,
@@ -684,4 +941,9 @@ export const SENSORS: Sensor[] = [
   cst03,
   cst04,
   cst05,
+  vta01,
+  vta02,
+  vta03,
+  srv01,
+  srv02,
 ];

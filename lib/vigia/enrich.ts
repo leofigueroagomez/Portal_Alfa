@@ -124,16 +124,62 @@ async function resolveQuotes(
   return map;
 }
 
+async function resolveLeads(
+  supabase: SupabaseClient,
+  ids: string[],
+): Promise<Map<string, Entry>> {
+  const map = new Map<string, Entry>();
+  const numericIds = ids.map(Number).filter((value) => Number.isFinite(value));
+  if (numericIds.length === 0) return map;
+
+  const { data, error } = await supabase
+    .from("leads")
+    .select("id, name, company")
+    .in("id", numericIds);
+  if (error) return map;
+
+  for (const row of (data ?? []) as { id: number; name: string | null; company: string | null }[]) {
+    const person = (row.name || "").trim() || `Lead ${row.id}`;
+    const comp = (row.company || "").trim();
+    const short = comp ? `${person} (${comp})` : person;
+    map.set(String(row.id), { short, label: short });
+  }
+  return map;
+}
+
+async function resolveServiceReports(
+  supabase: SupabaseClient,
+  ids: string[],
+): Promise<Map<string, Entry>> {
+  const map = new Map<string, Entry>();
+  const numericIds = ids.map(Number).filter((value) => Number.isFinite(value));
+  if (numericIds.length === 0) return map;
+
+  const { data, error } = await supabase
+    .from("service_reports")
+    .select("id, service_number")
+    .in("id", numericIds);
+  if (error) return map;
+
+  for (const row of (data ?? []) as { id: number; service_number: string | null }[]) {
+    const short = (row.service_number || "").trim() || `Servicio #${row.id}`;
+    map.set(String(row.id), { short, label: short });
+  }
+  return map;
+}
+
 export async function enrichFindings(
   supabase: SupabaseClient,
   findings: RawFinding[],
 ): Promise<void> {
   if (findings.length === 0) return;
 
-  const [projects, products, quotes] = await Promise.all([
+  const [projects, products, quotes, leads, services] = await Promise.all([
     resolveProjects(supabase, uniqueIds(findings, "client_project")),
     resolveProducts(supabase, uniqueIds(findings, "product")),
     resolveQuotes(supabase, uniqueIds(findings, "quote")),
+    resolveLeads(supabase, uniqueIds(findings, "lead")),
+    resolveServiceReports(supabase, uniqueIds(findings, "service_report")),
   ]);
 
   for (const finding of findings) {
@@ -156,6 +202,10 @@ export async function enrichFindings(
       const pattern = new RegExp(`\\b([Cc]otizacion)\\s+${finding.entityId}\\b`, "g");
       finding.title = finding.title.replace(pattern, entry.short);
       finding.summary = finding.summary.replace(pattern, entry.short);
+    } else if (finding.entityType === "lead") {
+      finding.entityLabel = leads.get(finding.entityId)?.label ?? null;
+    } else if (finding.entityType === "service_report") {
+      finding.entityLabel = services.get(finding.entityId)?.label ?? null;
     }
   }
 }
