@@ -17,6 +17,40 @@ function errorMessage(error: unknown): string {
   return typeof error === "string" ? error : JSON.stringify(error);
 }
 
+/**
+ * Sensores cuyo impacto es un rollup a nivel entidad de hallazgos mas finos.
+ * Cuando existe un hallazgo del sensor rollup para una entidad, los hallazgos
+ * de los sensores hoja de esa misma entidad NO se suman al total de impacto
+ * (ya estan contenidos en el rollup). Evita el doble conteo en `impactMxnOpen`.
+ */
+const IMPACT_ROLLUPS: Record<string, string[]> = {
+  "CST-05": ["CST-01"],
+};
+
+type ImpactRow = {
+  sensor_id: string;
+  entity_type: string | null;
+  entity_id: string | null;
+  impact_mxn: number | null;
+};
+
+function computeImpactTotal(rows: ImpactRow[]): number {
+  const coveredLeaves = new Set<string>();
+  for (const row of rows) {
+    const leaves = IMPACT_ROLLUPS[row.sensor_id];
+    if (!leaves) continue;
+    for (const leaf of leaves) {
+      coveredLeaves.add(`${leaf}|${row.entity_type ?? ""}|${row.entity_id ?? ""}`);
+    }
+  }
+
+  return rows.reduce((sum, row) => {
+    const key = `${row.sensor_id}|${row.entity_type ?? ""}|${row.entity_id ?? ""}`;
+    if (coveredLeaves.has(key)) return sum;
+    return sum + Math.abs(Number(row.impact_mxn ?? 0));
+  }, 0);
+}
+
 async function audit(
   supabase: SupabaseClient,
   eventType: string,
@@ -212,14 +246,11 @@ export async function runVigia(
 
   const { data: openRows } = await supabase
     .from("vigia_findings")
-    .select("impact_mxn")
+    .select("sensor_id, entity_type, entity_id, impact_mxn")
     .in("status", ["abierto", "reconocido"]);
 
   const openFindings = openRows?.length ?? 0;
-  const impactMxnOpen = ((openRows ?? []) as { impact_mxn: number | null }[]).reduce(
-    (sum, row) => sum + Math.abs(Number(row.impact_mxn ?? 0)),
-    0,
-  );
+  const impactMxnOpen = computeImpactTotal((openRows ?? []) as ImpactRow[]);
 
   const finishedAt = new Date().toISOString();
   const summary: VigiaRunSummary = {
