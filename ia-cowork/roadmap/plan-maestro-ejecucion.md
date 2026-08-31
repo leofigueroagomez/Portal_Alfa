@@ -53,7 +53,7 @@ Prioridad = (impacto para Leo) × (cierra un lazo) ÷ (riesgo de romper algo).
 | C1 | Sensores `VTA-01/02/03` — leads desatendidos, cotizaciones dormidas de alto valor, `won` sin anticipo | Antigravity IA-003 | Antigravity | Bajo |
 | C2 | Sensores `SRV-01/02` — garantía por vencer (→ oferta de póliza), tickets de servicio estancados | Antigravity IA-003 | Antigravity | Bajo |
 | C3 | Sensores de proceso `PRC-01/02` — cotización estancada, proyecto sin avance de compra (base del score de riesgo) | Claude IA-20260831-005 | Claude | Bajo |
-| C4 | Canal WhatsApp solo para `severity = critico` (reusa `lib/notifications.ts`; detalle de montaje en `idea-IA-20260831-006.md`) | Plan maestro + Claude IA-20260831-004/006 | Claude (código) + Leo (onboarding Meta) | Bajo |
+| ~~C4~~ | ~~Canal WhatsApp solo para `severity = critico`~~ — **DIFERIDO** (2026-08-31). Por ahora la comunicación del Vigía es solo por correo. Se retoma en un sprint posterior; ver `idea-IA-20260831-006.md`. | Plan maestro + Claude IA-20260831-004/006 | Claude + Leo | Bajo |
 | D1 | Score de riesgo por proyecto `vigia_v_project_risk` + pestaña "Proyectos en riesgo" | ChatGPT IA-002 concretado en Claude IA-20260831-005 | Claude | Bajo |
 | D2 | Digest semanal (tendencia, abiertos vs resueltos, sensores ruidosos) + calibración automática | Claude IA-20260831-001 | Claude | Bajo |
 | D3 | Panel de dirección (proyectos en riesgo, tendencias, alertas activas) — pestaña de la Bandeja | ChatGPT IA-004 | Antigravity | Bajo |
@@ -79,7 +79,7 @@ Cada sprint es una unidad entregable que no rompe lo anterior.
 **Resultado:** el Vigía pasa de "te aviso" a "te entrego la corrección lista, autorízala". Es lo que Leo pidió.
 
 ### Sprint C — Más frentes, bajo riesgo (semana 3-5)
-`C1` VTA-* → `C2` SRV-* → `C3` PRC-* → `C4` WhatsApp crítico.
+`C1` VTA-* → `C2` SRV-* → `C3` PRC-*. (`C4` WhatsApp crítico diferido; comunicación solo por correo por ahora.)
 **Resultado:** el Vigía cubre ventas, postventa y procesos, no solo compras.
 
 ### Sprint D — Síntesis para dirección (semana 5-7)
@@ -117,4 +117,4 @@ Cada sprint es una unidad entregable que no rompe lo anterior.
 Aprobado por Leo el 2026-08-31:
 - **Sprint A en marcha.** A1 (fix del doble conteo) es lo primero.
 - **Reparto Claude / Antigravity confirmado** (ver decisión `decision-IA-20260831-001.md`).
-- **WhatsApp Business autorizado a montar.** Leo arranca el onboarding de Meta en paralelo (tiene lead time); requisitos en `idea-IA-20260831-006.md`. No bloquea ningún sprint.
+- **WhatsApp diferido (2026-08-31).** Por ahora la comunicación del Vigía es solo por correo. El onboarding de Meta no arranca todavía; se retoma en un sprint posterior.
