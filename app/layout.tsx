@@ -14,8 +14,8 @@ export const viewport: Viewport = {
   themeColor: "#9E1B32",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  // Sin maximumScale/userScalable: bloquear el zoom rompe accesibilidad en el
+  // sitio publico y en ALFA OS. El look "app" ya lo da display:standalone.
   viewportFit: "cover",
 };
 

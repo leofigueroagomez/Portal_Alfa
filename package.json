@@ -9,6 +9,7 @@
     "lint": "eslint",
     "smoke:quote-blinds": "node scripts/smoke-quote-blinds.mjs",
     "test:quote-blinds": "node --experimental-strip-types --test tests/quoteBlinds.test.mjs tests/quoteBlindsPdf.test.mjs tests/quoteBlindsStorage.test.mjs",
+    "test:draft-builder": "tsx --conditions=react-server --test lib/quotes/__tests__/draftBuilder.golden.test.ts",
     "sat:import": "node scripts/import-sat-catalogs.mjs"
   },
   "dependencies": {
@@ -25,6 +26,7 @@
     "puppeteer-core": "^25.1.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "server-only": "^0.0.1",
     "stripe": "^22.5.0"
   },
   "devDependencies": {
@@ -36,6 +38,7 @@
     "eslint-config-next": "16.2.6",
     "supabase": "^2.109.0",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5",
     "vercel": "^54.9.1"
   }
