@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { enrichFindings } from "./enrich";
+import { computeImpactTotal, type ImpactRow } from "./impact";
 import { SENSORS } from "./sensors";
 import type {
   RawFinding,
@@ -18,37 +19,34 @@ function errorMessage(error: unknown): string {
 }
 
 /**
- * Sensores cuyo impacto es un rollup a nivel entidad de hallazgos mas finos.
- * Cuando existe un hallazgo del sensor rollup para una entidad, los hallazgos
- * de los sensores hoja de esa misma entidad NO se suman al total de impacto
- * (ya estan contenidos en el rollup). Evita el doble conteo en `impactMxnOpen`.
+ * Reactiva los hallazgos pospuestos cuya fecha de silencio ya vencio:
+ * vuelven a `abierto` para reaparecer en el brief y en la Bandeja.
  */
-const IMPACT_ROLLUPS: Record<string, string[]> = {
-  "CST-05": ["CST-01"],
-};
+async function reactivateExpiredSnoozes(supabase: SupabaseClient): Promise<number> {
+  const nowIso = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("vigia_findings")
+    .select("id, sensor_id, fingerprint")
+    .eq("status", "pospuesto")
+    .lte("snooze_until", nowIso);
+  if (error) throw error;
 
-type ImpactRow = {
-  sensor_id: string;
-  entity_type: string | null;
-  entity_id: string | null;
-  impact_mxn: number | null;
-};
+  const rows = (data ?? []) as { id: number; sensor_id: string; fingerprint: string }[];
+  if (rows.length === 0) return 0;
 
-function computeImpactTotal(rows: ImpactRow[]): number {
-  const coveredLeaves = new Set<string>();
+  const { error: updateError } = await supabase
+    .from("vigia_findings")
+    .update({ status: "abierto", snooze_until: null, updated_at: nowIso })
+    .in("id", rows.map((row) => row.id));
+  if (updateError) throw updateError;
+
   for (const row of rows) {
-    const leaves = IMPACT_ROLLUPS[row.sensor_id];
-    if (!leaves) continue;
-    for (const leaf of leaves) {
-      coveredLeaves.add(`${leaf}|${row.entity_type ?? ""}|${row.entity_id ?? ""}`);
-    }
+    await audit(supabase, "finding_unsnoozed", row.sensor_id, row.id, {
+      fingerprint: row.fingerprint,
+      reason: "vencio el silencio",
+    });
   }
-
-  return rows.reduce((sum, row) => {
-    const key = `${row.sensor_id}|${row.entity_type ?? ""}|${row.entity_id ?? ""}`;
-    if (coveredLeaves.has(key)) return sum;
-    return sum + Math.abs(Number(row.impact_mxn ?? 0));
-  }, 0);
+  return rows.length;
 }
 
 async function audit(
@@ -156,7 +154,8 @@ async function processSensor(
       };
 
       // Reabrir si habia sido marcado como resuelto y volvio a aparecer.
-      // Respetar "descartado": se actualiza la evidencia pero no el estado.
+      // Respetar "descartado" y "pospuesto": se actualiza la evidencia, no el estado.
+      // Los pospuestos los reactiva reactivateExpiredSnoozes() al vencer la fecha.
       if (existing.status === "resuelto") {
         patch.status = "abierto";
         patch.resolved_at = null;
@@ -239,6 +238,8 @@ export async function runVigia(
     ? SENSORS.filter((sensor) => options.sensorIds?.includes(sensor.id))
     : SENSORS;
 
+  const unsnoozed = await reactivateExpiredSnoozes(supabase);
+
   // A2 (Antigravity): Ejecucion concurrente de sensores con Promise.allSettled en lotes
   const BATCH_SIZE = 5;
   const results: SensorRunSummary[] = [];
@@ -292,6 +293,7 @@ export async function runVigia(
     open_findings: openFindings,
     new_findings: summary.newFindings,
     resolved_findings: summary.resolvedFindings,
+    unsnoozed_findings: unsnoozed,
   });
 
   return summary;

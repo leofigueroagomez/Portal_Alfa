@@ -4,13 +4,14 @@ created_at: 2026-08-31T00:00:00Z
 author: Claude
 role: IA (lider de proyecto)
 category: revision
-status: proposed
+status: partial
 module: ALFA OS / El Vigia / Bandeja de Decision
 summary: Code review del commit e5c9ac8 (Sprint A2 + A3 de Antigravity). 2 bloqueantes, 3 menores.
-owner: Claude (R1, R2-datos) + Antigravity (R2-UI, R3, R4, R5)
-execution_status: pending
+owner: Claude (R1, R2) + Antigravity (R3, R4, R5)
+execution_status: R1 y R2 hechos por Claude; R3/R4/R5 pendientes de Antigravity
 history:
   - 2026-08-31 | Claude | created (revision de e5c9ac8)
+  - 2026-08-31 | Claude | R1 y R2 EJECUTADOS. Tome tambien R2-UI (repuntar las 2 actions de snooze) para dejar la funcion entera y probada.
 ---
 
 ## Contexto
@@ -32,7 +33,25 @@ OK. Lotes de 5 con `Promise.allSettled`. La escritura por sensor sigue aislada p
 ## Veredicto
 Sprint A NO se cierra hasta resolver R1 y R2. La Bandeja no puede mostrar un numero de "dinero en riesgo" distinto al del correo, y "posponer" tiene que ocultar el hallazgo de verdad.
 
-## Plan
-1. Claude: mover `computeImpactTotal` + `IMPACT_ROLLUPS` a un modulo compartido (`lib/vigia/impact.ts`), reusarlo en runner y queries (R1). Agregar `snooze_until` a `vigia_findings` + status `pospuesto`; runner/brief/queries lo respetan (R2-datos).
-2. Antigravity: repuntar `snoozeFindingAction`/`snoozeEntityAction` al nuevo campo (R2-UI), gate de rol (R3), R4, R5.
-3. Leo: smoke test de `/vigia` en produccion una vez cerrados R1-R3.
+## Ejecucion
+
+### R1 - HECHO (Claude)
+- Nuevo `lib/vigia/impact.ts` con `computeImpactTotal` + `IMPACT_ROLLUPS`.
+- `runner.ts` y `queries.ts` lo importan; se borro la logica duplicada de `queries.ts`.
+- Bandeja y brief ahora dan el mismo numero: $6,088.39.
+- Bonus: `activeSensorsCount` ya no esta hardcodeado, usa `SENSORS.length` (R4).
+
+### R2 - HECHO (Claude, incluida la parte UI)
+- Migracion `sql/20260831_vigia_snooze.sql` (aplicada a prod): columna `snooze_until timestamptz` + estado `pospuesto` en el check.
+- `runner.ts` -> `reactivateExpiredSnoozes()` al inicio de cada corrida: los `pospuesto` vencidos vuelven a `abierto` y se auditan (`finding_unsnoozed`).
+- El brief y `queries.ts` ya excluyen los `pospuesto` (filtran por `abierto`/`reconocido`); `getVigiaOverview` agrega `snoozedCount`.
+- `app/(admin)/vigia/actions.ts` -> `snoozeFindingAction` y `snoozeEntityAction` ahora escriben `status='pospuesto'` + `snooze_until`, no texto en `decision_note`.
+- Probado contra prod: posponer un CST-05 baja el impacto de $6,088 a $3,899 y lo saca del conteo; al vencer la fecha, la corrida lo reactiva y el impacto vuelve a $6,088.
+
+### Pendiente - Antigravity
+- **R3:** gate de rol en `checkAuth()` (`admin`/`direccion`), no solo usuario interno.
+- **R5:** rate-limit en `runVigiaNowAction`.
+- (opcional) pestana "Pospuestos" en la Bandeja usando el nuevo `snoozedCount` / filtro `status='pospuesto'`.
+
+## Leo: smoke test de `/vigia`
+Una vez que Antigravity cierre R3, abrir `/vigia` en produccion y probar: renderiza, "reconocer" / "descartar con nota" / "posponer 7 dias" persisten y aparecen en la bitacora, el numero de "dinero en riesgo" coincide con el del correo.

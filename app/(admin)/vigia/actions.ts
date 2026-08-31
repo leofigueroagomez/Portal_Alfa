@@ -80,15 +80,14 @@ export async function snoozeFindingAction(
     return { ok: false, error: "Hallazgo no encontrado." };
   }
 
-  const decisionNote = `pospuesto_hasta:${snoozeUntil}${note ? ` | Motivo: ${note}` : ""}`;
-
   const { error: updateError } = await supabase
     .from("vigia_findings")
     .update({
-      status: "reconocido",
+      status: "pospuesto",
+      snooze_until: snoozeUntil,
       decided_by: profile.email || profile.full_name,
       decided_at: nowIso,
-      decision_note: decisionNote,
+      decision_note: note ? `Motivo: ${note}` : "Pospuesto por el operador",
       updated_at: nowIso,
     })
     .eq("id", findingId);
@@ -180,7 +179,9 @@ export async function snoozeEntityAction(
   const snoozeUntil = new Date(now.getTime() + days * 86400000).toISOString();
   const nowIso = now.toISOString();
 
-  const decisionNote = `entidad_silenciada_hasta:${snoozeUntil}${note ? ` | Motivo: ${note}` : ""}`;
+  const decisionNote = note
+    ? `Entidad silenciada. Motivo: ${note}`
+    : "Entidad silenciada por el operador";
 
   const { data: findings, error: fetchError } = await supabase
     .from("vigia_findings")
@@ -198,7 +199,8 @@ export async function snoozeEntityAction(
     const { error: updateError } = await supabase
       .from("vigia_findings")
       .update({
-        status: "reconocido",
+        status: "pospuesto",
+        snooze_until: snoozeUntil,
         decided_by: profile.email || profile.full_name,
         decided_at: nowIso,
         decision_note: decisionNote,

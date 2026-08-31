@@ -2,6 +2,8 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
+import { computeImpactTotal, type ImpactRow } from "./impact";
+import { SENSORS } from "./sensors";
 import type { FindingLane, Severity, VigiaDomain } from "./types";
 
 export type VigiaFindingRecord = {
@@ -20,7 +22,15 @@ export type VigiaFindingRecord = {
   entity_id: string | null;
   entity_label: string | null;
   proposed_action: Record<string, unknown> | null;
-  status: "abierto" | "reconocido" | "descartado" | "resuelto" | "auto_aplicado" | "expirado";
+  status:
+    | "abierto"
+    | "reconocido"
+    | "descartado"
+    | "resuelto"
+    | "auto_aplicado"
+    | "expirado"
+    | "pospuesto";
+  snooze_until: string | null;
   first_seen_at: string;
   last_seen_at: string;
   seen_count: number;
@@ -40,6 +50,7 @@ export type VigiaOverview = {
   recognizedCount: number;
   dismissedCount: number;
   resolvedCount: number;
+  snoozedCount: number;
   impactMxnOpen: number;
   integrityScore: number;
   activeSensorsCount: number;
@@ -56,9 +67,6 @@ export type VigiaAuditRecord = {
   payload: Record<string, unknown>;
   created_at: string;
 };
-
-// Sensores de rollup que no deben sumar su impacto monetario si ya se cuentan sus hojas individuales
-const ROLLUP_SENSORS = new Set(["CST-05"]);
 
 export async function getVigiaOverview(
   supabase?: SupabaseClient,
@@ -93,7 +101,7 @@ export async function getVigiaOverview(
   let recognizedCount = 0;
   let dismissedCount = 0;
   let resolvedCount = 0;
-  let impactMxnOpen = 0;
+  let snoozedCount = 0;
 
   for (const f of findings) {
     if (f.status === "abierto" || f.status === "reconocido") {
@@ -101,17 +109,28 @@ export async function getVigiaOverview(
       if (f.lane === "prestar_atencion") payAttentionCount++;
       if (f.lane === "auto_aplicado") autoAppliedCount++;
       if (f.status === "reconocido") recognizedCount++;
-
-      // Evitar doble conteo con sensores de rollup
-      if (!ROLLUP_SENSORS.has(f.sensor_id)) {
-        impactMxnOpen += Math.abs(Number(f.impact_mxn ?? 0));
-      }
     } else if (f.status === "descartado") {
       dismissedCount++;
     } else if (f.status === "resuelto") {
       resolvedCount++;
+    } else if (f.status === "pospuesto") {
+      snoozedCount++;
     }
   }
+
+  // Mismo calculo de impacto que el brief (evita doble conteo de rollups).
+  const impactMxnOpen = computeImpactTotal(
+    findings
+      .filter((f) => f.status === "abierto" || f.status === "reconocido")
+      .map(
+        (f): ImpactRow => ({
+          sensor_id: f.sensor_id,
+          entity_type: f.entity_type,
+          entity_id: f.entity_id,
+          impact_mxn: f.impact_mxn,
+        }),
+      ),
+  );
 
   const totalOpen = requiresAuthCount + payAttentionCount;
 
@@ -134,9 +153,10 @@ export async function getVigiaOverview(
     recognizedCount,
     dismissedCount,
     resolvedCount,
+    snoozedCount,
     impactMxnOpen,
     integrityScore,
-    activeSensorsCount: 15,
+    activeSensorsCount: SENSORS.length,
     lastRunAt: lastRunRes.data?.started_at ?? null,
     lastRunStatus: lastRunRes.data?.status ?? null,
   };
@@ -145,7 +165,13 @@ export async function getVigiaOverview(
 export async function getVigiaFindings(
   options?: {
     lane?: FindingLane | "todos";
-    status?: "abierto" | "reconocido" | "descartado" | "resuelto" | "todos";
+    status?:
+      | "abierto"
+      | "reconocido"
+      | "descartado"
+      | "resuelto"
+      | "pospuesto"
+      | "todos";
     domain?: VigiaDomain | "todos";
   },
   supabase?: SupabaseClient,
