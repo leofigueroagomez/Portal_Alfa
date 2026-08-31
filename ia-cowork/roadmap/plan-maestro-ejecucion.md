@@ -69,8 +69,13 @@ Prioridad = (impacto para Leo) × (cierra un lazo) ÷ (riesgo de romper algo).
 | ~~G4~~ | **HECHO** (2026-09-01, `idea-IA-20260901-011.md`): `quote_voice_drafts`, `lib/quotes/voiceDraft.ts` (loop de herramientas sobre Claude: buscar cliente/producto/plantilla → `crear_borrador` o `pedir_aclaracion`), endpoint `POST /api/quotes/draft-from-intent` (auth `QUOTE_VOICE_SECRET`/`CRON_SECRET` o sesión), panel `/quotes/voz` + link "Dictar". Tope mensual $15. Falta: prueba en prod + Atajo de Siri de Leo (pasos en la idea). | Leo 2026-09-01 | Claude | Medio |
 | G5 | `quote_draft_revisions` — diff propuesto vs aprobado; alimenta G4, plantillas y reglas ING | Leo 2026-09-01 | Claude | Bajo |
 | G6 | Insignia "listo para autorizar" por tipo de cotización, con F2 como red de seguridad de ingeniería | Leo 2026-09-01 | Claude + Leo | Medio |
+| H4 | Uso de CFDI (tipo de gasto) editable por factura — columna `project_invoices.cfdi_use`, selector en el form, lectura en el timbrado | Leo 2026-09-01 | Codex + Claude (review) | Bajo |
+| H3 | Probar/endurecer cancelación motivo 02 y 03 end-to-end + descarga del acuse de cancelación | Leo 2026-09-01 | Claude + Leo | Medio |
+| H2 | Resolver cancelación pendiente (`requested` 72h) — consultar estado SAT y cerrar el ciclo | Leo 2026-09-01 | Claude + Codex (UI) | Medio |
+| H1 | Sustituir factura correctamente (motivo 01 con relación 04) — flujo "corregir y reemplazar" | Leo 2026-09-01 | Claude + Leo | Medio-alto |
 
 Detalle de G: `ia-cowork/roadmap/sprint-G-alfa-movil-cotizacion-asistida.md`.
+Detalle de H: `ia-cowork/roadmap/sprint-H-cancelacion-fiscal-y-uso-cfdi.md`.
 
 ---
 
@@ -106,6 +111,10 @@ Cada sprint es una unidad entregable que no rompe lo anterior.
 `G1` cascarón móvil + `G2` motor de borrador en servidor (en paralelo, ya) → `G3` plantillas (alivio inmediato) → `G4` voz → borrador → `G5` captura de correcciones → `G6` "listo para autorizar" por tipo.
 **Resultado:** Leo cotiza lo simple desde el celular; con el tiempo su trabajo en cotización es *revisar y autorizar*. Detalle y curva de confianza en `sprint-G-alfa-movil-cotizacion-asistida.md`.
 **Arranque:** G1 + G2 en paralelo ya; Leo agenda el primer taller F1 esta semana; G3 en cuanto G2 esté.
+
+### Sprint H — Cancelación fiscal completa + Uso de CFDI editable (propuesto 2026-09-01)
+`H4` uso de CFDI editable por factura (independiente, bajo riesgo, primero) → `H3` probar/endurecer la cancelación 02/03 que ya existe + acuse → `H2` resolver la cancelación pendiente de 72h → `H1` sustituir factura con relación 04 (motivo 01).
+**Resultado:** Leo puede cancelar de verdad los 3 motivos que usa (01 con relación, 02 sin relación, 03 sin operación) desde ALFA OS, y elegir el tipo de gasto (G01/G03) por factura sin editar el cliente. Detalle en `sprint-H-cancelacion-fiscal-y-uso-cfdi.md`.
 
 ---
 
