@@ -14,14 +14,16 @@ import {
   normalizeInvoiceStatus,
   type ProjectInvoice,
 } from "@/lib/invoices";
-import type { FiscalClientData } from "@/lib/fiscalData";
+import { getCfdiUseCode, type FiscalClientData } from "@/lib/fiscalData";
 import InvoiceFileLinks, {
   type FiscalDocumentEmailLog,
 } from "@/app/(admin)/invoices/InvoiceFileLinks";
 import InvoiceStatusSelect from "@/app/(admin)/invoices/InvoiceStatusSelect";
+import InvoiceCfdiUseSelect from "@/app/(admin)/invoices/InvoiceCfdiUseSelect";
 import StampInvoiceButton from "@/app/(admin)/invoices/StampInvoiceButton";
 import DeleteDraftInvoiceButton from "@/app/(admin)/invoices/DeleteDraftInvoiceButton";
 import CancelInvoiceButton from "@/app/(admin)/invoices/CancelInvoiceButton";
+import ReplaceInvoiceButton from "@/app/(admin)/invoices/ReplaceInvoiceButton";
 import PaymentComplementPanel from "@/app/(admin)/invoices/PaymentComplementPanel";
 import type { PaymentFormCatalogItem } from "@/lib/paymentTerms";
 
@@ -72,8 +74,13 @@ function includesSearch(value: string | null | undefined, search: string) {
   return (value || "").toLowerCase().includes(search);
 }
 
+type TableInvoice = ProjectInvoice & {
+  hasAcuse?: boolean;
+  hasLiveReplacement?: boolean;
+};
+
 type Props = {
-  invoices: ProjectInvoice[];
+  invoices: TableInvoice[];
   client: FiscalClientData | null;
   paymentComplementsEnabled: boolean;
   paymentComplementsStampingEnabled: boolean;
@@ -87,6 +94,7 @@ type Props = {
   sandboxReceiverNotice: string | null;
   facturamaProductionEnabled: boolean;
   canCancel: boolean;
+  canReplace: boolean;
 };
 
 export default function ProjectInvoicesTableClient({
@@ -104,6 +112,7 @@ export default function ProjectInvoicesTableClient({
   sandboxReceiverNotice,
   facturamaProductionEnabled,
   canCancel,
+  canReplace,
 }: Props) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -282,6 +291,18 @@ export default function ProjectInvoicesTableClient({
                             Complemento de pago pendiente.
                           </p>
                         ) : null}
+                        <InvoiceCfdiUseSelect
+                          invoiceId={invoice.id}
+                          status={invoice.status}
+                          invoiceCfdiUse={invoice.cfdi_use}
+                          clientCfdiUse={getCfdiUseCode(client)}
+                          canEdit={canReplace}
+                        />
+                        {invoice.replaces_invoice_id ? (
+                          <span className="inline-flex rounded-full border border-[#3A3A42] bg-[#222228] px-2 py-1 text-[10px] text-[#B3B3B8]">
+                            Sustituye a #{invoice.replaces_invoice_id}
+                          </span>
+                        ) : null}
                       </div>
                       <span
                         className={`inline-flex h-fit w-fit rounded-full border px-3 py-1 text-xs ${invoiceStatusClasses[status]}`}
@@ -325,6 +346,15 @@ export default function ProjectInvoicesTableClient({
                           facturamaId={invoice.facturama_id}
                           internalFolio={invoice.internal_folio}
                         />
+                        <ReplaceInvoiceButton
+                          invoiceId={invoice.id}
+                          status={invoice.status}
+                          facturamaId={invoice.facturama_id}
+                          satUuid={invoice.sat_uuid}
+                          internalFolio={invoice.internal_folio}
+                          hasLiveReplacement={invoice.hasLiveReplacement}
+                          canReplace={canReplace}
+                        />
                         <CancelInvoiceButton
                           invoiceId={invoice.id}
                           status={invoice.status}
@@ -332,6 +362,9 @@ export default function ProjectInvoicesTableClient({
                           satUuid={invoice.sat_uuid}
                           internalFolio={invoice.internal_folio}
                           canCancel={canCancel}
+                          cancellationStatus={invoice.cancellation_status}
+                          cancellationMotive={invoice.cancellation_motive}
+                          hasAcuse={invoice.hasAcuse}
                         />
                       </div>
                     </div>

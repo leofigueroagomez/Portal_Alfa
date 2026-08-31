@@ -44,6 +44,12 @@ export type ProjectInvoice = {
   xml_url?: string | null;
   pdf_url?: string | null;
   sat_uuid?: string | null;
+  cfdi_use?: string | null;
+  replaces_invoice_id?: number | null;
+  cancellation_status?: string | null;
+  cancellation_motive?: string | null;
+  cancellation_acuse_xml?: string | null;
+  cancelled_at?: string | null;
   payment_method_code?: string | null;
   payment_form_code?: string | null;
   requires_payment_complement?: boolean | null;

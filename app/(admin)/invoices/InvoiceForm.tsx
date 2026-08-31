@@ -5,9 +5,15 @@ import { useRouter } from "next/navigation";
 import { Plus, X } from "lucide-react";
 import ClientFiscalDataModal from "@/components/ClientFiscalDataModal";
 import ProductFiscalDataModal from "@/components/ProductFiscalDataModal";
-import { SatProductServiceSelect, SatUnitSelect } from "@/components/SatCatalogSelect";
+import {
+  CfdiUseSelect,
+  SatProductServiceSelect,
+  SatUnitSelect,
+} from "@/components/SatCatalogSelect";
 import {
   formatMissingFiscalFields,
+  getCfdiUseCode,
+  getClientPersonType,
   getMissingFiscalFields,
   type FiscalClientData,
 } from "@/lib/fiscalData";
@@ -470,6 +476,7 @@ export default function InvoiceForm({
   const [serviceSatUnitName, setServiceSatUnitName] = useState("Unidad de servicio");
   const [paymentMethodCode, setPaymentMethodCode] = useState<PaymentMethodCode>("PUE");
   const [paymentFormCode, setPaymentFormCode] = useState("03");
+  const [cfdiUseOverride, setCfdiUseOverride] = useState<string | null>(null);
   const [paymentFormQuery, setPaymentFormQuery] = useState("");
   const [paymentForms, setPaymentForms] =
     useState<PaymentFormCatalogItem[]>(fallbackPaymentForms);
@@ -488,6 +495,8 @@ export default function InvoiceForm({
   }, [clientId, projects]);
   const selectedClient =
     clientList.find((client) => String(client.id) === clientId) || null;
+  // Uso de CFDI de esta factura: sigue al del cliente hasta que se elige otro.
+  const cfdiUse = cfdiUseOverride ?? (getCfdiUseCode(selectedClient) || "");
   const selectedQuote =
     approvedQuotes.find((quote) => String(quote.id) === quoteId) || null;
   const missingFiscalFields = clientId
@@ -1097,6 +1106,7 @@ export default function InvoiceForm({
         payment_form_code: paymentMethodCode === "PPD" ? "99" : paymentFormCode,
         requires_payment_complement: paymentComplement.requiresPaymentComplement,
         payment_complement_status: paymentComplement.paymentComplementStatus,
+        cfdi_use: cfdiUse.trim().toUpperCase() || null,
         status: "draft",
       };
       let result = await supabase
@@ -1211,6 +1221,7 @@ export default function InvoiceForm({
     setPaymentMethodCode("PUE");
     setPaymentFormCode("03");
     setPaymentFormQuery("");
+    setCfdiUseOverride(null);
     router.refresh();
   }
 
@@ -1505,6 +1516,21 @@ export default function InvoiceForm({
                     </p>
                   )}
                 </div>
+              </div>
+
+              <div className="mt-4">
+                <CfdiUseSelect
+                  label="Uso del CFDI (tipo de gasto)"
+                  value={cfdiUse}
+                  personType={getClientPersonType(selectedClient?.tax_rfc)}
+                  onChange={(value) => setCfdiUseOverride(value)}
+                />
+                <p className="mt-2 text-xs text-[#77777D]">
+                  Se propone el uso guardado en el cliente. Cambialo aqui si esta
+                  factura va con otro tipo de gasto (p. ej. G01 Adquisicion de
+                  mercancias vs G03 Gastos en general). No modifica la ficha del
+                  cliente.
+                </p>
               </div>
             </section>
 

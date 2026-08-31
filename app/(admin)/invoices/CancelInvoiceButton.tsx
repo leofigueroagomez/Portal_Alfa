@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { cancelProjectInvoice } from "./actions";
+import { cancelProjectInvoice, checkInvoiceCancellationStatus } from "./actions";
 
 type Props = {
   invoiceId: number;
@@ -11,6 +11,9 @@ type Props = {
   satUuid: string | null | undefined;
   internalFolio: string | null | undefined;
   canCancel: boolean;
+  cancellationStatus?: string | null;
+  cancellationMotive?: string | null;
+  hasAcuse?: boolean;
 };
 
 const MOTIVE_OPTIONS: { code: "01" | "02" | "03" | "04"; label: string }[] = [
@@ -36,34 +39,56 @@ export default function CancelInvoiceButton({
   satUuid,
   internalFolio,
   canCancel,
+  cancellationStatus,
+  cancellationMotive,
+  hasAcuse,
 }: Props) {
   const router = useRouter();
   const [showModal, setShowModal] = useState(false);
   const [motive, setMotive] = useState<"01" | "02" | "03" | "04">("02");
   const [uuidReplacement, setUuidReplacement] = useState("");
   const [cancelling, setCancelling] = useState(false);
+  const [checking, setChecking] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
-  const isCancellable =
-    ["issued", "paid"].includes(String(status)) && Boolean(facturamaId) && Boolean(satUuid);
+  const isStamped = ["issued", "paid"].includes(String(status)) && Boolean(facturamaId) && Boolean(satUuid);
+  const isCancelled = String(status) === "cancelled";
+  const isPending = cancellationStatus === "requested";
+  const wasRejected = cancellationStatus === "rejected";
 
-  if (!isCancellable) return null;
+  const acuseLink = hasAcuse ? (
+    <a
+      href={`/api/invoices/${invoiceId}/cancellation-acuse`}
+      className="text-xs text-[#D7A8FF] underline hover:text-white"
+      title="Descargar acuse de cancelacion del SAT (XML)"
+    >
+      Acuse SAT
+    </a>
+  ) : null;
 
-  if (!canCancel) {
-    return (
-      <span
-        title="Solo Direccion puede cancelar facturas timbradas."
-        className="rounded-xl border border-[#2A2A30] bg-[#151518] px-3 py-2 text-xs text-[#77777D]"
-      >
-        Cancelar
-      </span>
-    );
+  // Nada que hacer si no esta timbrada y no esta cancelada.
+  if (!isStamped && !isCancelled) return null;
+
+  async function handleCheckStatus() {
+    setChecking(true);
+    setFeedback(null);
+    const result = await checkInvoiceCancellationStatus(invoiceId);
+    setChecking(false);
+
+    if (!result.ok) {
+      setFeedback(`Error: ${result.error}`);
+      return;
+    }
+    setFeedback(result.message);
+    if (result.resolved) router.refresh();
   }
 
   async function handleCancel() {
     if (motive === "01" && !uuidReplacement.trim()) {
-      setFeedback("El motivo 01 requiere el UUID del CFDI que sustituye a este.");
-      return;
+      setFeedback(
+        "El motivo 01 requiere el UUID del CFDI que sustituye a este. Si ya timbraste la factura de reemplazo, dejalo vacio y el sistema lo busca."
+      );
+      // No return: dejamos que el server intente resolver el UUID del reemplazo.
     }
 
     const confirmed = window.confirm(
@@ -90,15 +115,63 @@ export default function CancelInvoiceButton({
   }
 
   return (
-    <>
-      <button
-        type="button"
-        onClick={() => setShowModal(true)}
-        title="Cancelar factura ante el SAT"
-        className="rounded-xl border border-[#6A2A2A] bg-[#351818] px-3 py-2 text-xs font-semibold text-[#FFB4B4] hover:bg-[#4A2222]"
-      >
-        Cancelar
-      </button>
+    <div className="flex flex-col items-start gap-1.5">
+      {isCancelled ? (
+        <span className="inline-flex rounded-full border border-[#6A2A2A] bg-[#351818] px-2 py-1 text-[10px] text-[#FFB4B4]">
+          Cancelada{cancellationMotive ? ` · motivo ${cancellationMotive}` : ""}
+        </span>
+      ) : null}
+
+      {isPending ? (
+        <span className="inline-flex rounded-full border border-[#614620] bg-[#322514] px-2 py-1 text-[10px] text-[#F4C66A]">
+          Cancelacion pendiente ante el SAT
+        </span>
+      ) : null}
+
+      {wasRejected ? (
+        <span className="inline-flex rounded-full border border-[#6A2A2A] bg-[#351818] px-2 py-1 text-[10px] text-[#FFB4B4]">
+          SAT rechazo la cancelacion
+        </span>
+      ) : null}
+
+      {acuseLink}
+
+      {isStamped && canCancel ? (
+        <button
+          type="button"
+          onClick={() => setShowModal(true)}
+          title="Cancelar factura ante el SAT"
+          className="rounded-xl border border-[#6A2A2A] bg-[#351818] px-3 py-2 text-xs font-semibold text-[#FFB4B4] hover:bg-[#4A2222]"
+        >
+          {wasRejected ? "Reintentar cancelacion" : "Cancelar"}
+        </button>
+      ) : null}
+
+      {isStamped && !canCancel ? (
+        <span
+          title="Solo Direccion puede cancelar facturas timbradas."
+          className="rounded-xl border border-[#2A2A30] bg-[#151518] px-3 py-2 text-xs text-[#77777D]"
+        >
+          Cancelar
+        </span>
+      ) : null}
+
+      {isStamped && isPending && canCancel ? (
+        <button
+          type="button"
+          onClick={handleCheckStatus}
+          disabled={checking}
+          className="rounded-xl border border-[#2A2A30] bg-[#222228] px-3 py-2 text-xs font-semibold text-[#B3B3B8] hover:text-white disabled:opacity-50"
+        >
+          {checking ? "Consultando..." : "Consultar estado SAT"}
+        </button>
+      ) : null}
+
+      {feedback && !showModal ? (
+        <p className="max-w-[220px] text-[10px] leading-relaxed text-[#B3B3B8]">
+          {feedback}
+        </p>
+      ) : null}
 
       {showModal ? (
         <div
@@ -147,7 +220,7 @@ export default function CancelInvoiceButton({
             {motive === "01" ? (
               <div className="space-y-2">
                 <label className="block text-xs font-medium text-[#B3B3B8]">
-                  UUID del CFDI sustituto
+                  UUID del CFDI sustituto (opcional si ya timbraste el reemplazo)
                 </label>
                 <input
                   type="text"
@@ -157,8 +230,9 @@ export default function CancelInvoiceButton({
                   className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-3 py-2.5 text-sm text-white outline-none focus:border-[#9E1B32]"
                 />
                 <p className="text-[11px] text-[#77777D]">
-                  El SAT lo exige cuando el motivo es 01 — es el folio fiscal
-                  de la factura que reemplaza a esta.
+                  El SAT lo exige cuando el motivo es 01. Si usaste
+                  &quot;Corregir y reemplazar&quot; y ya timbraste la factura
+                  nueva, puedes dejarlo vacio: el sistema toma su UUID.
                 </p>
               </div>
             ) : null}
@@ -189,6 +263,6 @@ export default function CancelInvoiceButton({
           </div>
         </div>
       ) : null}
-    </>
+    </div>
   );
 }

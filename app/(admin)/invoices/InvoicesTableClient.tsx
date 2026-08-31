@@ -14,19 +14,28 @@ import {
   normalizeInvoiceStatus,
   type ProjectInvoice,
 } from "@/lib/invoices";
+import { getCfdiUseCode } from "@/lib/fiscalData";
 import InvoiceFileLinks, { type FiscalDocumentEmailLog } from "./InvoiceFileLinks";
 import InvoiceStatusSelect from "./InvoiceStatusSelect";
+import InvoiceCfdiUseSelect from "./InvoiceCfdiUseSelect";
 import StampInvoiceButton from "./StampInvoiceButton";
 import DeleteDraftInvoiceButton from "./DeleteDraftInvoiceButton";
 import CancelInvoiceButton from "./CancelInvoiceButton";
+import ReplaceInvoiceButton from "./ReplaceInvoiceButton";
+
+type TableInvoice = ProjectInvoice & {
+  hasAcuse?: boolean;
+  hasLiveReplacement?: boolean;
+};
 
 type Props = {
-  invoices: ProjectInvoice[];
+  invoices: TableInvoice[];
   emailLogsByInvoice: Record<number, FiscalDocumentEmailLog[]>;
   facturamaEnv: "sandbox" | "production";
   sandboxReceiverNotice: string | null;
   facturamaProductionEnabled: boolean;
   canCancel: boolean;
+  canReplace: boolean;
 };
 
 type SortKey = "date_desc" | "date_asc" | "client_asc" | "total_desc" | "total_asc" | "folio_asc";
@@ -47,6 +56,7 @@ export default function InvoicesTableClient({
   sandboxReceiverNotice,
   facturamaProductionEnabled,
   canCancel,
+  canReplace,
 }: Props) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -152,10 +162,11 @@ export default function InvoicesTableClient({
     setSortKey("date_desc");
   }
 
-  function renderRow(invoice: ProjectInvoice) {
+  function renderRow(invoice: TableInvoice) {
     const status = normalizeInvoiceStatus(invoice.status);
     const client = getInvoiceRelation(invoice.clients);
     const project = getInvoiceRelation(invoice.client_projects);
+    const clientCfdiUse = getCfdiUseCode(client);
 
     return (
       <div
@@ -193,6 +204,18 @@ export default function InvoicesTableClient({
           {invoice.payment_complement_status === "pending" &&
           normalizeInvoiceStatus(invoice.status) === "issued" ? (
             <p className="text-[#F4C66A]">Complemento de pago pendiente.</p>
+          ) : null}
+          <InvoiceCfdiUseSelect
+            invoiceId={invoice.id}
+            status={invoice.status}
+            invoiceCfdiUse={invoice.cfdi_use}
+            clientCfdiUse={clientCfdiUse}
+            canEdit={canReplace}
+          />
+          {invoice.replaces_invoice_id ? (
+            <span className="inline-flex rounded-full border border-[#3A3A42] bg-[#222228] px-2 py-1 text-[10px] text-[#B3B3B8]">
+              Sustituye a #{invoice.replaces_invoice_id}
+            </span>
           ) : null}
         </div>
         <span
@@ -234,6 +257,15 @@ export default function InvoicesTableClient({
             facturamaId={invoice.facturama_id}
             internalFolio={invoice.internal_folio}
           />
+          <ReplaceInvoiceButton
+            invoiceId={invoice.id}
+            status={invoice.status}
+            facturamaId={invoice.facturama_id}
+            satUuid={invoice.sat_uuid}
+            internalFolio={invoice.internal_folio}
+            hasLiveReplacement={invoice.hasLiveReplacement}
+            canReplace={canReplace}
+          />
           <CancelInvoiceButton
             invoiceId={invoice.id}
             status={invoice.status}
@@ -241,6 +273,9 @@ export default function InvoicesTableClient({
             satUuid={invoice.sat_uuid}
             internalFolio={invoice.internal_folio}
             canCancel={canCancel}
+            cancellationStatus={invoice.cancellation_status}
+            cancellationMotive={invoice.cancellation_motive}
+            hasAcuse={invoice.hasAcuse}
           />
         </div>
       </div>

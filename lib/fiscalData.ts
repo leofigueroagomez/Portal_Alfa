@@ -75,6 +75,21 @@ export function getCfdiUseCode(client: FiscalClientData | null | undefined) {
   return legacy && /^[A-Z]\d{2}$/i.test(legacy) ? legacy.toUpperCase() : "";
 }
 
+/**
+ * Uso de CFDI efectivo para una factura: el valor capturado por factura
+ * (project_invoices.cfdi_use) manda; si esta vacio se hereda del cliente.
+ * Permite que un mismo cliente reciba facturas con G01 (adquisicion de
+ * mercancias) o G03 (gastos en general) sin editar su ficha fiscal.
+ */
+export function resolveInvoiceCfdiUseCode(
+  invoiceCfdiUse: string | null | undefined,
+  client: FiscalClientData | null | undefined
+) {
+  const perInvoice = invoiceCfdiUse?.trim().toUpperCase();
+  if (perInvoice && /^[A-Z]\d{2}$/.test(perInvoice)) return perInvoice;
+  return getCfdiUseCode(client);
+}
+
 export function getCatalogLabel(code: string | null | undefined, catalog: FiscalCatalogItem[]) {
   const item = catalog.find((option) => option.code === code);
   return item ? `${item.code} - ${item.name}` : code || "Pendiente";
