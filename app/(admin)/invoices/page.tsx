@@ -1,7 +1,7 @@
 import { Landmark, ReceiptText } from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { getCurrentUserProfile } from "@/services/profile";
-import { canCancelInvoices, canManageUsers } from "@/lib/permissions";
+import { canCancelInvoices, canManageUsers, canViewFinancials } from "@/lib/permissions";
 import { formatCurrency } from "@/lib/format";
 import {
   getFacturamaEnv,
@@ -48,6 +48,7 @@ export default async function InvoicesPage() {
   const profile = await getCurrentUserProfile();
   const allowManualInvoices = canManageUsers(profile?.role);
   const canCancel = canCancelInvoices(profile?.role);
+  const canReplace = canViewFinancials(profile?.role);
   const facturamaEnv = getFacturamaEnv();
   const facturamaProductionEnabled = getFacturamaProductionEnabled();
   const sandboxReceiverNotice = getFacturamaSandboxReceiverNotice();
@@ -76,7 +77,7 @@ export default async function InvoicesPage() {
     supabase
       .from("project_invoices")
       .select(
-        "id, internal_folio, client_project_id, client_id, invoice_date, subtotal_mxn, iva_mxn, total_mxn, subtotal, iva, total, status, facturama_id, xml_url, pdf_url, sat_uuid, payment_method_code, payment_form_code, requires_payment_complement, payment_complement_status, sat_payment_form_catalog(code, name, is_active), clients(id, name, tax_rfc, tax_business_name, tax_regime, default_cfdi_use, fiscal_regime, cfdi_use, tax_zip_code, billing_email, phone), client_projects(name)"
+        "id, internal_folio, client_project_id, client_id, invoice_date, subtotal_mxn, iva_mxn, total_mxn, subtotal, iva, total, status, facturama_id, xml_url, pdf_url, sat_uuid, cfdi_use, replaces_invoice_id, cancellation_status, cancellation_motive, cancelled_at, cancellation_acuse_xml, payment_method_code, payment_form_code, requires_payment_complement, payment_complement_status, sat_payment_form_catalog(code, name, is_active), clients(id, name, tax_rfc, tax_business_name, tax_regime, default_cfdi_use, fiscal_regime, cfdi_use, tax_zip_code, billing_email, phone), client_projects(name)"
       )
       .order("invoice_date", { ascending: false })
       .order("created_at", { ascending: false }),
@@ -107,7 +108,24 @@ export default async function InvoicesPage() {
     );
   }
 
-  const invoices = (invoicesResult.data || []) as ProjectInvoice[];
+  const rawInvoices = (invoicesResult.data || []) as (ProjectInvoice & {
+    cancellation_acuse_xml?: string | null;
+  })[];
+  // Facturas vivas (no canceladas) que declaran sustituir a otra.
+  const liveReplacementOriginals = new Set<number>();
+  for (const invoice of rawInvoices) {
+    if (invoice.replaces_invoice_id && String(invoice.status) !== "cancelled") {
+      liveReplacementOriginals.add(Number(invoice.replaces_invoice_id));
+    }
+  }
+  const invoices: (ProjectInvoice & {
+    hasAcuse: boolean;
+    hasLiveReplacement: boolean;
+  })[] = rawInvoices.map(({ cancellation_acuse_xml, ...invoice }) => ({
+    ...invoice,
+    hasAcuse: Boolean(cancellation_acuse_xml),
+    hasLiveReplacement: liveReplacementOriginals.has(Number(invoice.id)),
+  }));
   const clients = clientsResult.error ? [] : ((clientsResult.data || []) as FiscalClientData[]);
   const projects = projectsResult.error ? [] : ((projectsResult.data || []) as Project[]);
   const quotes = quotesResult.error ? [] : ((quotesResult.data || []) as Quote[]);
@@ -244,6 +262,7 @@ export default async function InvoicesPage() {
         sandboxReceiverNotice={sandboxReceiverNotice}
         facturamaProductionEnabled={facturamaProductionEnabled}
         canCancel={canCancel}
+        canReplace={canReplace}
       />
     </main>
   );

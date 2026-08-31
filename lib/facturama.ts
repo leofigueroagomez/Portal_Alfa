@@ -15,6 +15,13 @@ type FacturamaReceiver = {
   taxZipCode: string;
 };
 
+export type FacturamaCfdiRelation = {
+  /** TipoRelacion SAT. "04" = Sustitucion de los CFDI previos. */
+  type: string;
+  /** UUIDs (folios fiscales) de los CFDI relacionados. */
+  uuids: string[];
+};
+
 export type FacturamaInvoiceDraft = {
   invoiceId: number;
   invoiceDate: string;
@@ -26,6 +33,8 @@ export type FacturamaInvoiceDraft = {
   projectName: string | null;
   receiver: FacturamaReceiver;
   items: FacturamaInvoiceItem[];
+  /** Nodo CfdiRelacionados. Solo se envia si hay al menos un UUID. */
+  relation?: FacturamaCfdiRelation | null;
 };
 
 export type FacturamaInvoiceItem = {
@@ -317,9 +326,29 @@ function getExpeditionPlace() {
   return expeditionPlace;
 }
 
+function buildCfdiRelations(relation: FacturamaCfdiRelation | null | undefined) {
+  if (!relation) return null;
+
+  const uuids = [
+    ...new Set(
+      relation.uuids
+        .map((uuid) => uuid?.trim().toUpperCase())
+        .filter((uuid): uuid is string => Boolean(uuid))
+    ),
+  ];
+
+  if (uuids.length === 0 || !relation.type?.trim()) return null;
+
+  return {
+    Type: relation.type.trim(),
+    Cfdis: uuids.map((uuid) => ({ Uuid: uuid })),
+  };
+}
+
 function buildInvoicePayload(draft: FacturamaInvoiceDraft) {
   const serverNow = new Date();
   const facturamaDate = getMexicoFacturamaDateTime(serverNow);
+  const relations = buildCfdiRelations(draft.relation);
 
   return {
     NameId: 1,
@@ -331,6 +360,7 @@ function buildInvoicePayload(draft: FacturamaInvoiceDraft) {
     CfdiType: "I",
     PaymentForm: draft.paymentFormCode,
     PaymentMethod: draft.paymentMethodCode,
+    ...(relations ? { Relations: relations } : {}),
     Receiver: {
       Rfc: draft.receiver.rfc,
       Name: draft.receiver.name,
@@ -389,6 +419,7 @@ function buildFacturamaRequestLog(
     Currency: payload.Currency,
     PaymentForm: payload.PaymentForm,
     PaymentMethod: payload.PaymentMethod,
+    Relations: summarizeRelationsForLog(payload),
     OriginalInvoiceDate: draft.invoiceDate,
     Date: payload.Date,
     ServerNowIso: new Date().toISOString(),
@@ -439,6 +470,17 @@ function buildPaymentComplementRequestLog(
       },
     ],
     RelatedDocumentsCount: relatedDocuments.length,
+  };
+}
+
+function summarizeRelationsForLog(payload: FacturamaInvoicePayload) {
+  const relations = (payload as { Relations?: { Type?: string; Cfdis?: unknown[] } })
+    .Relations;
+  if (!relations) return null;
+
+  return {
+    Type: relations.Type || null,
+    Count: Array.isArray(relations.Cfdis) ? relations.Cfdis.length : 0,
   };
 }
 
@@ -633,8 +675,16 @@ export async function cancelFacturamaInvoice(
   uuidReplacement?: string | null,
   env?: FacturamaEnv
 ): Promise<FacturamaCancelResult> {
-  const params = new URLSearchParams({ type: "issued", motive });
-  if (uuidReplacement) params.set("uuidReplacement", uuidReplacement);
+  // El SDK oficial de Facturama SIEMPRE manda los 3 parametros de query, y usa
+  // el literal "null" cuando no hay UUID sustituto:
+  //   DELETE /cfdi/{id}?type=issued&motive=02&uuidReplacement=null
+  // Omitir `uuidReplacement` hace que la ruta no haga match y Facturama regresa
+  // 404 con body vacio.
+  const params = new URLSearchParams({
+    type: "issued",
+    motive,
+    uuidReplacement: uuidReplacement?.trim() || "null",
+  });
 
   const response = await facturamaRequest<FacturamaCancelResponse>(
     `cfdi/${facturamaId}?${params.toString()}`,
@@ -643,11 +693,7 @@ export async function cancelFacturamaInvoice(
     env
   );
 
-  const rawStatus = (response.data.Status || "").toLowerCase();
-  const status: FacturamaCancelResult["status"] =
-    rawStatus === "canceled" || rawStatus === "requested" || rawStatus === "rejected"
-      ? rawStatus
-      : "unknown";
+  const status = normalizeFacturamaCancelStatus(response.data.Status);
 
   return {
     status,
@@ -664,6 +710,139 @@ export async function cancelFacturamaInvoice(
       request: response.request,
       body: response.body,
     },
+  };
+}
+
+/**
+ * `cancelFacturamaInvoice` en realidad cancela cualquier CFDI emitido por su id
+ * de Facturama (`DELETE cfdi/{id}?type=issued`), incluidos los complementos de
+ * pago tipo P. Este alias lo deja explicito para quien cancela un REP.
+ */
+export const cancelFacturamaCfdi = cancelFacturamaInvoice;
+
+function normalizeFacturamaCancelStatus(
+  rawStatus: string | null | undefined
+): FacturamaCancelResult["status"] {
+  const status = (rawStatus || "").toLowerCase().trim();
+
+  if (status === "canceled" || status === "cancelled" || status === "cancelado") {
+    return "canceled";
+  }
+  if (status === "requested" || status === "pending" || status === "en proceso") {
+    return "requested";
+  }
+  if (status === "rejected" || status === "rechazado") {
+    return "rejected";
+  }
+  return "unknown";
+}
+
+export type FacturamaCfdiSatStatus = {
+  /** "Vigente" | "Cancelado" | "No Encontrado" | otro texto crudo del SAT. */
+  status: string | null;
+  /** "Vigente" -> vigente; "Cancelado" -> canceled; "No Encontrado" -> not_found. */
+  normalized: "vigente" | "canceled" | "not_found" | "unknown";
+  isCancelable: string | null;
+  uuid: string | null;
+  facturamaResponse: FacturamaResponseLog;
+};
+
+type FacturamaCfdiSatStatusResponse = {
+  Status?: string;
+  IsCancelable?: string;
+  Uuid?: string;
+};
+
+/**
+ * Consulta el estatus real de un CFDI ante el SAT (GET /cfdi/status).
+ * Sirve para resolver una cancelacion que quedo `requested` (pendiente de
+ * aceptacion del receptor, hasta 72 h) sin volver a enviar una peticion de
+ * cancelacion.
+ */
+export async function checkFacturamaCfdiSatStatus(
+  params: {
+    uuid: string;
+    issuerRfc: string;
+    receiverRfc: string;
+    totalMxn: number;
+  },
+  env?: FacturamaEnv
+): Promise<FacturamaCfdiSatStatus> {
+  const query = new URLSearchParams({
+    uuid: params.uuid.trim(),
+    issuerRfc: params.issuerRfc.trim().toUpperCase(),
+    receiverRfc: params.receiverRfc.trim().toUpperCase(),
+    total: amount(params.totalMxn).toFixed(2),
+  });
+
+  const response = await facturamaRequest<FacturamaCfdiSatStatusResponse>(
+    `cfdi/status?${query.toString()}`,
+    { method: "GET" },
+    { uuid: params.uuid, issuerRfc: params.issuerRfc, receiverRfc: params.receiverRfc },
+    env
+  );
+
+  const raw = (response.data.Status || "").toLowerCase().trim();
+  const normalized: FacturamaCfdiSatStatus["normalized"] =
+    raw === "vigente"
+      ? "vigente"
+      : raw === "cancelado"
+        ? "canceled"
+        : raw === "no encontrado"
+          ? "not_found"
+          : "unknown";
+
+  return {
+    status: response.data.Status || null,
+    normalized,
+    isCancelable: response.data.IsCancelable || null,
+    uuid: response.data.Uuid || null,
+    facturamaResponse: {
+      provider: "facturama",
+      path: response.path,
+      status: response.status,
+      statusText: response.statusText,
+      request: response.request,
+      body: response.body,
+    },
+  };
+}
+
+export type FacturamaCfdiDetail = {
+  issuerRfc: string | null;
+  receiverRfc: string | null;
+  totalMxn: number | null;
+  raw: unknown;
+};
+
+type FacturamaCfdiDetailResponse = {
+  Total?: number;
+  Issuer?: { Rfc?: string; TaxName?: string; FiscalRegime?: string };
+  Receiver?: { Rfc?: string; Name?: string };
+};
+
+/**
+ * Detalle de un CFDI emitido (GET /cfdi/{id}?type=issued). Se usa para obtener
+ * el RFC emisor / receptor / total que necesita `checkFacturamaCfdiSatStatus`
+ * sin depender de un env var adicional.
+ */
+export async function getFacturamaCfdiDetail(
+  facturamaId: string,
+  env?: FacturamaEnv
+): Promise<FacturamaCfdiDetail> {
+  const response = await facturamaRequest<FacturamaCfdiDetailResponse>(
+    `cfdi/${facturamaId}?type=issued`,
+    { method: "GET" },
+    { facturamaId },
+    env
+  );
+
+  return {
+    issuerRfc: response.data.Issuer?.Rfc || null,
+    receiverRfc: response.data.Receiver?.Rfc || null,
+    totalMxn:
+      typeof response.data.Total === "number" ? response.data.Total : null,
+    raw: response.body,
   };
 }
 

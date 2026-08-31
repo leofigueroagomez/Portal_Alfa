@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { getCurrentUserProfile } from "@/services/profile";
-import { canCancelInvoices, canManageUsers } from "@/lib/permissions";
+import { canCancelInvoices, canManageUsers, canViewFinancials } from "@/lib/permissions";
 import { formatCurrency } from "@/lib/format";
 import {
   getFacturamaEnv,
@@ -62,6 +62,7 @@ export default async function ProjectInvoicesPage({
   const profile = await getCurrentUserProfile();
   const allowManualInvoices = canManageUsers(profile?.role);
   const canCancel = canCancelInvoices(profile?.role);
+  const canReplace = canViewFinancials(profile?.role);
   const facturamaEnv = getFacturamaEnv();
   const facturamaProductionEnabled = getFacturamaProductionEnabled();
   const paymentComplementsConfig = getPaymentComplementsConfig();
@@ -123,7 +124,7 @@ export default async function ProjectInvoicesPage({
     supabase
       .from("project_invoices")
       .select(
-        "id, internal_folio, client_project_id, client_id, invoice_date, subtotal_mxn, iva_mxn, total_mxn, subtotal, iva, total, status, facturama_id, xml_url, pdf_url, sat_uuid, payment_method_code, payment_form_code, requires_payment_complement, payment_complement_status, sat_payment_form_catalog(code, name, is_active)"
+        "id, internal_folio, client_project_id, client_id, invoice_date, subtotal_mxn, iva_mxn, total_mxn, subtotal, iva, total, status, facturama_id, xml_url, pdf_url, sat_uuid, cfdi_use, replaces_invoice_id, cancellation_status, cancellation_motive, cancelled_at, cancellation_acuse_xml, payment_method_code, payment_form_code, requires_payment_complement, payment_complement_status, sat_payment_form_catalog(code, name, is_active)"
       )
       .eq("client_project_id", projectData.id)
       .order("invoice_date", { ascending: false })
@@ -147,7 +148,7 @@ export default async function ProjectInvoicesPage({
       ? supabase
           .from("project_payment_complements")
           .select(
-            "id, project_invoice_id, project_payment_id, client_project_id, client_id, status, complement_env, partiality_number, previous_balance_mxn, amount_paid_mxn, paid_amount_mxn, source_payment_amount_mxn, manual_amount_override, manual_override_reason, outstanding_balance_mxn, payment_date, payment_form_code, currency, exchange_rate, payment_reference, payload_preview, facturama_id, sat_uuid, pdf_url, xml_url, last_error, facturama_response, issued_by_user_id, issued_at, created_at"
+            "id, project_invoice_id, project_payment_id, client_project_id, client_id, status, complement_env, partiality_number, previous_balance_mxn, amount_paid_mxn, paid_amount_mxn, source_payment_amount_mxn, manual_amount_override, manual_override_reason, outstanding_balance_mxn, payment_date, payment_form_code, currency, exchange_rate, payment_reference, payload_preview, facturama_id, sat_uuid, pdf_url, xml_url, last_error, facturama_response, issued_by_user_id, issued_at, created_at, cancellation_status, cancellation_motive, cancelled_at, cancellation_acuse_xml"
           )
           .eq("client_project_id", projectData.id)
           .order("created_at", { ascending: false })
@@ -165,7 +166,22 @@ export default async function ProjectInvoicesPage({
   ]);
 
   const client = clientResult.error ? null : (clientResult.data as FiscalClientData | null);
-  const invoices = invoicesResult.error ? [] : ((invoicesResult.data || []) as ProjectInvoice[]);
+  const rawInvoices = invoicesResult.error
+    ? []
+    : ((invoicesResult.data || []) as (ProjectInvoice & {
+        cancellation_acuse_xml?: string | null;
+      })[]);
+  const liveReplacementOriginals = new Set<number>();
+  for (const invoice of rawInvoices) {
+    if (invoice.replaces_invoice_id && String(invoice.status) !== "cancelled") {
+      liveReplacementOriginals.add(Number(invoice.replaces_invoice_id));
+    }
+  }
+  const invoices = rawInvoices.map(({ cancellation_acuse_xml, ...invoice }) => ({
+    ...invoice,
+    hasAcuse: Boolean(cancellation_acuse_xml),
+    hasLiveReplacement: liveReplacementOriginals.has(Number(invoice.id)),
+  }));
   const fiscalRegimes = regimesResult.error
     ? []
     : ((regimesResult.data || []) as FiscalCatalogItem[]);
@@ -328,6 +344,7 @@ export default async function ProjectInvoicesPage({
         sandboxReceiverNotice={sandboxReceiverNotice}
         facturamaProductionEnabled={facturamaProductionEnabled}
         canCancel={canCancel}
+        canReplace={canReplace}
       />
     </main>
   );

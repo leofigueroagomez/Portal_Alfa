@@ -139,7 +139,9 @@ export async function handleSatCatalogSearch(
   const requestId = createRequestId();
   const clientIp = getClientIp(request);
 
-  if (!checkBasicRateLimit(`sat-catalog:${clientIp}`, 30, 60_000)) {
+  // Catalogo SAT de solo lectura. El limite alto deja pasar la validacion en
+  // lote de conceptos al crear una factura de muchas partidas.
+  if (!checkBasicRateLimit(`sat-catalog:${clientIp}`, 300, 60_000)) {
     return NextResponse.json(
       { error: "Demasiadas solicitudes. Intenta de nuevo más tarde.", items: [], requestId },
       { status: 429 }

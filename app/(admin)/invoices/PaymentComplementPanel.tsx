@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { FileJson, Plus, X } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import InvoiceFileLinks, { type FiscalDocumentEmailLog } from "./InvoiceFileLinks";
+import CancelPaymentComplementButton from "./CancelPaymentComplementButton";
 import type { PaymentFormCatalogItem } from "@/lib/paymentTerms";
 import {
   createPaymentComplementDraft,
@@ -56,6 +57,10 @@ type PaymentComplementForPanel = {
   issued_by_name?: string | null;
   issued_at?: string | null;
   created_at?: string | null;
+  cancellation_status?: string | null;
+  cancellation_motive?: string | null;
+  cancelled_at?: string | null;
+  cancellation_acuse_xml?: string | null;
 };
 
 type Props = {
@@ -69,6 +74,7 @@ type Props = {
   paymentForms: PaymentFormCatalogItem[];
   stampingEnabled: boolean;
   complementEnv: "sandbox" | "production";
+  canCancel?: boolean;
 };
 
 function today() {
@@ -102,6 +108,7 @@ export default function PaymentComplementPanel({
   paymentForms,
   stampingEnabled,
   complementEnv,
+  canCancel = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [selectedPaymentId, setSelectedPaymentId] = useState("");
@@ -401,6 +408,19 @@ export default function PaymentComplementPanel({
                       />
                     </>
                   ) : null}
+                  <CancelPaymentComplementButton
+                    complementId={complement.id}
+                    status={complement.status}
+                    facturamaId={complement.facturama_id}
+                    satUuid={complement.sat_uuid}
+                    partialityLabel={`${invoice.internal_folio || `FAC-${invoice.id}`} · parcialidad ${
+                      complement.partiality_number || complement.id
+                    }`}
+                    canCancel={canCancel}
+                    cancellationStatus={complement.cancellation_status}
+                    cancellationMotive={complement.cancellation_motive}
+                    hasAcuse={Boolean(complement.cancellation_acuse_xml)}
+                  />
                 </div>
                 {complement.status === "issued" ? (
                   <p className="mt-2 text-[#8CE0B6]">

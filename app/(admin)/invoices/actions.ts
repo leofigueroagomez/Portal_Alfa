@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import {
   cancelFacturamaInvoice,
+  checkFacturamaCfdiSatStatus,
   facturamaSandboxReceiverNotice,
+  getFacturamaCfdiDetail,
   getFacturamaErrorDetails,
   getFacturamaSandboxReceiverOverride,
   stampFacturamaInvoice,
@@ -18,16 +20,20 @@ import {
 import {
   formatMissingFiscalFields,
   getClientPersonType,
-  getCfdiUseCode,
   getFiscalRegimeCode,
   getMissingFiscalFields,
   optionMatchesPersonType,
+  resolveInvoiceCfdiUseCode,
   type FiscalCatalogItem,
 } from "@/lib/fiscalData";
 import { getMissingProductFiscalFields, type ProductFiscalCatalogs } from "@/lib/productFiscalData";
 import { canCancelInvoices, canViewFinancials } from "@/lib/permissions";
 import { formatRfcDiagnostic, getRfcDiagnostic, type RfcDiagnostic } from "@/lib/rfc";
 import { isPaymentMethodCode } from "@/lib/paymentTerms";
+import {
+  getNextInternalInvoiceFolio,
+  isDuplicateInternalFolioError,
+} from "@/lib/invoiceFolios";
 import { getMexicoDate } from "@/lib/mexicoDate";
 import { getCurrentUserProfile } from "@/services/profile";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
@@ -66,6 +72,8 @@ type InvoiceForStamping = {
   facturama_id: string | null;
   payment_method_code: string | null;
   payment_form_code: string | null;
+  cfdi_use: string | null;
+  replaces_invoice_id: number | null;
   clients: InvoiceClient | InvoiceClient[] | null;
   client_projects: InvoiceProject | InvoiceProject[] | null;
 };
@@ -442,7 +450,7 @@ export async function stampProjectInvoice(
     const { data, error } = await supabase
       .from("project_invoices")
       .select(
-        "id, client_project_id, client_id, invoice_date, subtotal_mxn, discount_mxn, taxable_subtotal_mxn, iva_mxn, total_mxn, subtotal, iva, total, status, facturama_id, payment_method_code, payment_form_code, clients(id, name, tax_rfc, tax_business_name, tax_regime, default_cfdi_use, fiscal_regime, cfdi_use, tax_zip_code, billing_email), client_projects(name)"
+        "id, client_project_id, client_id, invoice_date, subtotal_mxn, discount_mxn, taxable_subtotal_mxn, iva_mxn, total_mxn, subtotal, iva, total, status, facturama_id, payment_method_code, payment_form_code, cfdi_use, replaces_invoice_id, clients(id, name, tax_rfc, tax_business_name, tax_regime, default_cfdi_use, fiscal_regime, cfdi_use, tax_zip_code, billing_email), client_projects(name)"
       )
       .eq("id", invoiceId)
       .maybeSingle();
@@ -519,14 +527,14 @@ export async function stampProjectInvoice(
           rfc: sandboxReceiver.rfc,
           name: sandboxReceiver.name,
           fiscalRegime: sandboxReceiver.fiscalRegime,
-          cfdiUse: getCfdiUseCode(client),
+          cfdiUse: resolveInvoiceCfdiUseCode(invoice.cfdi_use, client),
           taxZipCode: sandboxReceiver.taxZipCode,
         }
       : {
           rfc: client.tax_rfc || "",
           name: client.tax_business_name || "",
           fiscalRegime: getFiscalRegimeCode(client),
-          cfdiUse: getCfdiUseCode(client),
+          cfdiUse: resolveInvoiceCfdiUseCode(invoice.cfdi_use, client),
           taxZipCode: client.tax_zip_code || "",
     };
     rfcDiagnostic = getRfcDiagnostic(receiver.rfc);
@@ -562,9 +570,19 @@ export async function stampProjectInvoice(
       fiscalRegimes: (regimesResult.data || []) as FiscalCatalogItem[],
       cfdiUses: (cfdiUsesResult.data || []) as FiscalCatalogItem[],
     };
-    const missingFiscalFields = sandboxReceiver
+    const missingFiscalFieldsRaw = sandboxReceiver
       ? getSandboxMissingFiscalFields(receiver, fiscalCatalogs)
       : getMissingFiscalFields(client, fiscalCatalogs);
+    // El uso de CFDI puede venir de la propia factura (project_invoices.cfdi_use),
+    // no solo de la ficha del cliente. Si el receptor ya trae un uso valido y
+    // activo, no bloqueamos por "Uso CFDI" faltante en el cliente; su validez la
+    // confirma getReceiverValidationErrors mas abajo.
+    const invoiceCfdiUseIsValid = fiscalCatalogs.cfdiUses.some(
+      (item) => item.code === receiver.cfdiUse && item.is_active
+    );
+    const missingFiscalFields = invoiceCfdiUseIsValid
+      ? missingFiscalFieldsRaw.filter((field) => !field.startsWith("Uso CFDI"))
+      : missingFiscalFieldsRaw;
 
     if (missingFiscalFields.length > 0) {
       throw new Error(
@@ -725,6 +743,31 @@ export async function stampProjectInvoice(
       );
     }
 
+    let substitutionRelation:
+      | { type: "04"; uuids: string[] }
+      | null = null;
+
+    if (invoice.replaces_invoice_id) {
+      const { data: replacedInvoice, error: replacedError } = await supabase
+        .from("project_invoices")
+        .select("id, sat_uuid, status")
+        .eq("id", invoice.replaces_invoice_id)
+        .maybeSingle();
+
+      if (replacedError) {
+        throw new Error(
+          `Error leyendo la factura que esta sustituye: ${replacedError.message}`
+        );
+      }
+      if (!replacedInvoice?.sat_uuid) {
+        throw new Error(
+          "La factura que esta sustituye no tiene UUID timbrado. No se puede relacionar la sustitucion (relacion SAT 04)."
+        );
+      }
+
+      substitutionRelation = { type: "04", uuids: [replacedInvoice.sat_uuid] };
+    }
+
     const result = await stampFacturamaInvoice({
       invoiceId: invoice.id,
       invoiceDate: invoice.invoice_date || getMexicoDate(),
@@ -734,6 +777,7 @@ export async function stampProjectInvoice(
       paymentMethodCode,
       paymentFormCode,
       projectName: project?.name || null,
+      relation: substitutionRelation,
       receiver: {
         rfc: rfcDiagnostic.normalized,
         name: receiver.name.trim().toUpperCase(),
@@ -921,13 +965,7 @@ export async function cancelProjectInvoice(
     const profile = await getCurrentUserProfile();
 
     if (!profile?.is_active || !canCancelInvoices(profile.role)) {
-      throw new Error("Solo Direccion puede cancelar facturas.");
-    }
-
-    if (motive === "01" && !uuidReplacement?.trim()) {
-      throw new Error(
-        "El motivo 01 (comprobante con errores con relacion) requiere el UUID del CFDI que lo sustituye."
-      );
+      throw new Error("Solo Direccion o Admin pueden cancelar facturas.");
     }
 
     supabase = createSupabaseAdminClient();
@@ -950,16 +988,58 @@ export async function cancelProjectInvoice(
       );
     }
 
+    // El SAT no deja cancelar una factura PPD que aun tiene un complemento de
+    // pago (REP) vigente. Hay que cancelar el complemento primero.
+    const { data: liveComplements } = await supabase
+      .from("project_payment_complements")
+      .select("id, partiality_number")
+      .eq("project_invoice_id", invoiceId)
+      .in("status", ["issued", "stamped"]);
+
+    if (liveComplements && liveComplements.length > 0) {
+      const parts = liveComplements
+        .map((c) => `parcialidad ${c.partiality_number || c.id}`)
+        .join(", ");
+      throw new Error(
+        `Esta factura tiene complemento(s) de pago vigente(s) (${parts}). Cancela primero el complemento y luego la factura.`
+      );
+    }
+
+    // Motivo 01: el SAT exige el UUID del CFDI que sustituye a este. Si no se
+    // paso a mano, se busca una factura timbrada que ya declaro sustituir a esta
+    // (replaces_invoice_id), que es el flujo "corregir y reemplazar".
+    let effectiveUuidReplacement = uuidReplacement?.trim() || "";
+    if (motive === "01" && !effectiveUuidReplacement) {
+      const { data: substitute } = await supabase
+        .from("project_invoices")
+        .select("id, sat_uuid, status")
+        .eq("replaces_invoice_id", invoiceId)
+        .in("status", ["issued", "paid"])
+        .order("id", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (substitute?.sat_uuid) {
+        effectiveUuidReplacement = substitute.sat_uuid;
+      }
+    }
+
+    if (motive === "01" && !effectiveUuidReplacement) {
+      throw new Error(
+        "El motivo 01 (comprobante con errores con relacion) requiere el UUID del CFDI que lo sustituye. Timbra primero la factura de reemplazo o captura el UUID a mano."
+      );
+    }
+
     const result = await cancelFacturamaInvoice(
       invoice.facturama_id,
       motive,
-      uuidReplacement || null
+      effectiveUuidReplacement || null
     );
 
     const nowIso = new Date().toISOString();
     const updatePayload: Record<string, unknown> = {
       cancellation_motive: motive,
-      cancellation_uuid_replacement: uuidReplacement?.trim() || null,
+      cancellation_uuid_replacement: effectiveUuidReplacement || null,
       cancellation_status: result.status === "unknown" ? null : result.status,
       cancellation_acuse_xml: result.acuseXmlBase64,
       cancelled_by_user_id: profile.id,
@@ -1012,5 +1092,423 @@ export async function cancelProjectInvoice(
     }
 
     return { ok: false, error: message };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// H2 — Resolver una cancelacion que quedo pendiente (`requested`, hasta 72 h).
+// Consulta el estatus real del CFDI ante el SAT y cierra el ciclo si ya se
+// cancelo (o registra el rechazo). No vuelve a enviar una peticion de cancelacion.
+// ---------------------------------------------------------------------------
+
+export type CheckInvoiceCancellationStatusResult =
+  | {
+      ok: true;
+      satStatus: "vigente" | "canceled" | "not_found" | "unknown";
+      resolved: boolean;
+      message: string;
+    }
+  | { ok: false; error: string };
+
+export async function checkInvoiceCancellationStatus(
+  invoiceId: number
+): Promise<CheckInvoiceCancellationStatusResult> {
+  let supabase: SupabaseAdminClient | null = null;
+
+  try {
+    const profile = await getCurrentUserProfile();
+
+    if (!profile?.is_active || !canCancelInvoices(profile.role)) {
+      throw new Error("Solo Direccion o Admin pueden consultar el estado de cancelacion.");
+    }
+
+    supabase = createSupabaseAdminClient();
+    const { data: invoice, error } = await supabase
+      .from("project_invoices")
+      .select(
+        "id, client_project_id, status, facturama_id, sat_uuid, total_mxn, total, cancellation_status, clients(tax_rfc)"
+      )
+      .eq("id", invoiceId)
+      .maybeSingle();
+
+    if (error) throw new Error(`Error leyendo factura: ${error.message}`);
+    if (!invoice) throw new Error("Factura no encontrada.");
+    if (!invoice.facturama_id || !invoice.sat_uuid) {
+      throw new Error("La factura no tiene CFDI timbrado que consultar.");
+    }
+    if (String(invoice.status) === "cancelled") {
+      return {
+        ok: true,
+        satStatus: "canceled",
+        resolved: false,
+        message: "La factura ya esta marcada como cancelada.",
+      };
+    }
+
+    const client = getRelation(
+      invoice.clients as { tax_rfc: string | null } | { tax_rfc: string | null }[] | null
+    );
+    const totalMxn = Number(invoice.total_mxn ?? invoice.total ?? 0);
+
+    let issuerRfc = "";
+    let receiverRfc = (client?.tax_rfc || "").trim();
+    let statusTotalMxn = totalMxn;
+
+    try {
+      const detail = await getFacturamaCfdiDetail(invoice.facturama_id);
+      if (detail.issuerRfc) issuerRfc = detail.issuerRfc;
+      if (detail.receiverRfc) receiverRfc = detail.receiverRfc;
+      if (typeof detail.totalMxn === "number" && detail.totalMxn > 0) {
+        statusTotalMxn = detail.totalMxn;
+      }
+    } catch {
+      // Si el detalle falla seguimos con lo que tenemos localmente; el issuer
+      // RFC es el unico dato que no podemos suplir.
+    }
+
+    if (!issuerRfc || !receiverRfc || !(statusTotalMxn > 0)) {
+      throw new Error(
+        "No se pudo reunir RFC emisor / receptor / total para consultar el estatus ante el SAT."
+      );
+    }
+
+    const satStatus = await checkFacturamaCfdiSatStatus({
+      uuid: invoice.sat_uuid,
+      issuerRfc,
+      receiverRfc,
+      totalMxn: statusTotalMxn,
+    });
+
+    const updatePayload: Record<string, unknown> = {
+      last_error: null,
+      facturama_response: satStatus.facturamaResponse,
+    };
+    let resolved = false;
+    let message: string;
+
+    if (satStatus.normalized === "canceled") {
+      updatePayload.status = "cancelled";
+      updatePayload.cancellation_status = "canceled";
+      updatePayload.cancelled_at = new Date().toISOString();
+      resolved = true;
+      message = "El SAT confirma que el CFDI esta cancelado. Factura marcada como cancelada.";
+    } else if (satStatus.normalized === "vigente") {
+      message =
+        invoice.cancellation_status === "requested"
+          ? "El CFDI sigue vigente ante el SAT: la cancelacion continua pendiente de aceptacion del receptor."
+          : "El CFDI esta vigente ante el SAT.";
+    } else if (satStatus.normalized === "not_found") {
+      message = "El SAT no encontro el CFDI con esos datos. Revisa RFC y total.";
+    } else {
+      message = `Respuesta del SAT no reconocida: ${satStatus.status || "sin estatus"}.`;
+    }
+
+    const { error: updateError } = await supabase
+      .from("project_invoices")
+      .update(updatePayload)
+      .eq("id", invoiceId);
+
+    if (updateError) {
+      throw new Error(`Error guardando estatus: ${updateError.message}`);
+    }
+
+    revalidatePath("/invoices");
+    if (invoice.client_project_id) {
+      revalidatePath(`/projects/${invoice.client_project_id}/invoices`);
+    }
+
+    return {
+      ok: true,
+      satStatus: satStatus.normalized,
+      resolved,
+      message,
+    };
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "No se pudo consultar el estado de cancelacion.";
+
+    if (supabase) {
+      await supabase
+        .from("project_invoices")
+        .update({ last_error: message })
+        .eq("id", invoiceId);
+    }
+
+    return { ok: false, error: message };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// H4 — Uso de CFDI (tipo de gasto) editable por factura, mientras esta en borrador.
+// ---------------------------------------------------------------------------
+
+export type SetInvoiceCfdiUseResult =
+  | { ok: true; cfdiUse: string | null }
+  | { ok: false; error: string };
+
+export async function setInvoiceCfdiUse(
+  invoiceId: number,
+  cfdiUseCode: string
+): Promise<SetInvoiceCfdiUseResult> {
+  try {
+    const profile = await getCurrentUserProfile();
+
+    if (!profile?.is_active || !canViewFinancials(profile.role)) {
+      throw new Error("No tienes permisos para editar facturas.");
+    }
+
+    const normalized = cfdiUseCode.trim().toUpperCase();
+
+    const supabase = createSupabaseAdminClient();
+    const { data: invoice, error } = await supabase
+      .from("project_invoices")
+      .select("id, client_project_id, status, facturama_id, clients(tax_rfc)")
+      .eq("id", invoiceId)
+      .maybeSingle();
+
+    if (error) throw new Error(`Error leyendo factura: ${error.message}`);
+    if (!invoice) throw new Error("Factura no encontrada.");
+    if (invoice.status !== "draft" || invoice.facturama_id) {
+      throw new Error(
+        "El uso de CFDI solo se puede cambiar mientras la factura es un borrador sin timbrar."
+      );
+    }
+
+    // Vacio => heredar del cliente al timbrar.
+    if (!normalized) {
+      const { error: clearError } = await supabase
+        .from("project_invoices")
+        .update({ cfdi_use: null })
+        .eq("id", invoiceId);
+
+      if (clearError) throw new Error(`Error guardando uso de CFDI: ${clearError.message}`);
+
+      revalidatePath("/invoices");
+      if (invoice.client_project_id) {
+        revalidatePath(`/projects/${invoice.client_project_id}/invoices`);
+      }
+      return { ok: true, cfdiUse: null };
+    }
+
+    if (!/^[A-Z]\d{2}$/.test(normalized)) {
+      throw new Error("El uso de CFDI debe tener el formato del catalogo SAT (p. ej. G01, G03).");
+    }
+
+    const { data: catalogRow, error: catalogError } = await supabase
+      .from("cfdi_use_catalog")
+      .select("code, name, applies_to_person_type, is_active")
+      .eq("code", normalized)
+      .maybeSingle();
+
+    if (catalogError) throw new Error("No se pudo validar el uso de CFDI contra el catalogo SAT.");
+    if (!catalogRow || !catalogRow.is_active) {
+      throw new Error("Ese uso de CFDI no existe o no esta activo en el catalogo SAT.");
+    }
+
+    const client = getRelation(
+      invoice.clients as { tax_rfc: string | null } | { tax_rfc: string | null }[] | null
+    );
+    const personType = getClientPersonType(client?.tax_rfc);
+    if (!optionMatchesPersonType(catalogRow as FiscalCatalogItem, personType)) {
+      throw new Error(
+        "Ese uso de CFDI no corresponde al tipo de persona del RFC del cliente."
+      );
+    }
+
+    const { error: updateError } = await supabase
+      .from("project_invoices")
+      .update({ cfdi_use: normalized })
+      .eq("id", invoiceId);
+
+    if (updateError) throw new Error(`Error guardando uso de CFDI: ${updateError.message}`);
+
+    revalidatePath("/invoices");
+    if (invoice.client_project_id) {
+      revalidatePath(`/projects/${invoice.client_project_id}/invoices`);
+    }
+
+    return { ok: true, cfdiUse: normalized };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Error desconocido.",
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// H1 — "Corregir y reemplazar": crea un borrador nuevo copiado de una factura
+// timbrada, ligado por replaces_invoice_id. Al timbrarlo se agrega la relacion
+// SAT 04 y despues se puede cancelar la original con motivo 01.
+// ---------------------------------------------------------------------------
+
+export type CreateReplacementInvoiceDraftResult =
+  | { ok: true; invoiceId: number; clientProjectId: number | null }
+  | { ok: false; error: string };
+
+export async function createReplacementInvoiceDraft(
+  originalInvoiceId: number
+): Promise<CreateReplacementInvoiceDraftResult> {
+  try {
+    const profile = await getCurrentUserProfile();
+
+    if (!profile?.is_active || !canViewFinancials(profile.role)) {
+      throw new Error("No tienes permisos para crear facturas.");
+    }
+
+    const supabase = createSupabaseAdminClient();
+    const { data: original, error } = await supabase
+      .from("project_invoices")
+      .select(
+        "id, client_project_id, client_id, source_type, source_quote_id, source_service_report_id, subtotal_mxn, discount_mxn, taxable_subtotal_mxn, iva_mxn, total_mxn, subtotal, iva, total, status, facturama_id, sat_uuid, payment_method_code, payment_form_code, requires_payment_complement, payment_complement_status, cfdi_use"
+      )
+      .eq("id", originalInvoiceId)
+      .maybeSingle();
+
+    if (error) throw new Error(`Error leyendo factura: ${error.message}`);
+    if (!original) throw new Error("Factura no encontrada.");
+    if (
+      !["issued", "paid"].includes(String(original.status)) ||
+      !original.facturama_id ||
+      !original.sat_uuid
+    ) {
+      throw new Error(
+        "Solo se puede reemplazar una factura timbrada (emitida o pagada)."
+      );
+    }
+
+    const { data: existingSubstitutes, error: existingError } = await supabase
+      .from("project_invoices")
+      .select("id, status")
+      .eq("replaces_invoice_id", originalInvoiceId);
+
+    if (existingError) {
+      throw new Error(`Error revisando reemplazos previos: ${existingError.message}`);
+    }
+
+    const liveSubstitute = (existingSubstitutes || []).find(
+      (row) => row.status !== "cancelled"
+    );
+    if (liveSubstitute) {
+      throw new Error(
+        `Ya existe un borrador/factura de reemplazo (#${liveSubstitute.id}) para esta factura.`
+      );
+    }
+
+    const { data: items, error: itemsError } = await supabase
+      .from("project_invoice_items")
+      .select(
+        "source_quote_item_id, product_id, description, quantity, unit_price_mxn, subtotal_mxn, gross_amount_mxn, discount_mxn, net_amount_mxn, iva_mxn, total_mxn, sat_product_service_code, sat_unit_code, sat_unit_name, fiscal_object, sort_order"
+      )
+      .eq("project_invoice_id", originalInvoiceId)
+      .order("sort_order", { ascending: true });
+
+    if (itemsError) throw new Error(`Error leyendo conceptos: ${itemsError.message}`);
+    if (!items || items.length === 0) {
+      throw new Error("La factura original no tiene conceptos para copiar.");
+    }
+
+    const invoiceBase = {
+      client_project_id: original.client_project_id,
+      client_id: original.client_id,
+      source_type: original.source_type || "manual",
+      source_quote_id: original.source_quote_id,
+      source_service_report_id: original.source_service_report_id,
+      invoice_date: getMexicoDate(),
+      subtotal_mxn: original.subtotal_mxn,
+      discount_mxn: original.discount_mxn ?? 0,
+      taxable_subtotal_mxn: original.taxable_subtotal_mxn,
+      iva_mxn: original.iva_mxn,
+      total_mxn: original.total_mxn,
+      subtotal: original.subtotal ?? original.subtotal_mxn,
+      iva: original.iva ?? original.iva_mxn,
+      total: original.total ?? original.total_mxn,
+      payment_method_code: original.payment_method_code || "PUE",
+      payment_form_code: original.payment_form_code || "03",
+      requires_payment_complement: original.requires_payment_complement ?? false,
+      payment_complement_status: original.payment_complement_status || "not_required",
+      cfdi_use: original.cfdi_use,
+      replaces_invoice_id: originalInvoiceId,
+      status: "draft",
+    };
+
+    // Folio interno calculado como en InvoiceForm (MAX+1), no via el default de
+    // la tabla: la secuencia de la BD esta desfasada porque los borradores se
+    // insertan con folio calculado en la app.
+    let created: { id: number; client_project_id: number | null } | null = null;
+    let insertError: unknown = null;
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const internalFolio = await getNextInternalInvoiceFolio(supabase);
+      const result = await supabase
+        .from("project_invoices")
+        .insert({ ...invoiceBase, internal_folio: internalFolio })
+        .select("id, client_project_id")
+        .single();
+
+      if (!result.error && result.data) {
+        created = result.data as { id: number; client_project_id: number | null };
+        insertError = null;
+        break;
+      }
+
+      insertError = result.error;
+      if (!isDuplicateInternalFolioError(result.error)) break;
+    }
+
+    if (insertError || !created) {
+      throw new Error(
+        `No se pudo crear el borrador de reemplazo: ${
+          (insertError as { message?: string })?.message || "sin id"
+        }`
+      );
+    }
+
+    const { error: itemsInsertError } = await supabase
+      .from("project_invoice_items")
+      .insert(
+        items.map((item, index) => ({
+          project_invoice_id: created.id,
+          source_quote_item_id: item.source_quote_item_id,
+          product_id: item.product_id,
+          description: item.description,
+          quantity: item.quantity,
+          unit_price_mxn: item.unit_price_mxn,
+          subtotal_mxn: item.subtotal_mxn,
+          gross_amount_mxn: item.gross_amount_mxn,
+          discount_mxn: item.discount_mxn,
+          net_amount_mxn: item.net_amount_mxn,
+          iva_mxn: item.iva_mxn,
+          total_mxn: item.total_mxn,
+          sat_product_service_code: item.sat_product_service_code,
+          sat_unit_code: item.sat_unit_code,
+          sat_unit_name: item.sat_unit_name,
+          fiscal_object: item.fiscal_object,
+          sort_order: item.sort_order ?? index,
+        }))
+      );
+
+    if (itemsInsertError) {
+      // Deja el borrador huerfano-sin-conceptos fuera: lo borramos para no dejar basura.
+      await supabase.from("project_invoices").delete().eq("id", created.id);
+      throw new Error(`Error copiando conceptos: ${itemsInsertError.message}`);
+    }
+
+    revalidatePath("/invoices");
+    if (created.client_project_id) {
+      revalidatePath(`/projects/${created.client_project_id}/invoices`);
+    }
+
+    return {
+      ok: true,
+      invoiceId: created.id,
+      clientProjectId: created.client_project_id ?? null,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Error desconocido.",
+    };
   }
 }
