@@ -61,6 +61,10 @@ type PaymentComplementForPanel = {
   issued_by_name?: string | null;
   issued_at?: string | null;
   created_at?: string | null;
+  cancellation_status?: string | null;
+  cancellation_motive?: string | null;
+  cancelled_at?: string | null;
+  cancellation_acuse_xml?: string | null;
 };
 
 type SortKey = "date_desc" | "date_asc" | "total_desc" | "total_asc" | "folio_asc";
@@ -381,6 +385,7 @@ export default function ProjectInvoicesTableClient({
                           paymentForms={paymentForms}
                           stampingEnabled={paymentComplementsStampingEnabled}
                           complementEnv={complementEnv}
+                          canCancel={canCancel}
                         />
                       </div>
                     ) : null}

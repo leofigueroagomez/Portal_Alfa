@@ -705,6 +705,13 @@ export async function cancelFacturamaInvoice(
   };
 }
 
+/**
+ * `cancelFacturamaInvoice` en realidad cancela cualquier CFDI emitido por su id
+ * de Facturama (`DELETE cfdi/{id}?type=issued`), incluidos los complementos de
+ * pago tipo P. Este alias lo deja explicito para quien cancela un REP.
+ */
+export const cancelFacturamaCfdi = cancelFacturamaInvoice;
+
 function normalizeFacturamaCancelStatus(
   rawStatus: string | null | undefined
 ): FacturamaCancelResult["status"] {

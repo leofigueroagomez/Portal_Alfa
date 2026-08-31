@@ -2,11 +2,19 @@
 
 import { revalidatePath } from "next/cache";
 import {
+  cancelFacturamaCfdi,
+  checkFacturamaCfdiSatStatus,
+  getFacturamaCfdiDetail,
   getFacturamaErrorDetails,
   stampPaymentComplement,
+  type FacturamaCancellationMotive,
   type FacturamaPaymentComplementPayload,
 } from "@/lib/facturama";
-import { canManageFiscalPayments, canViewFinancials } from "@/lib/permissions";
+import {
+  canCancelInvoices,
+  canManageFiscalPayments,
+  canViewFinancials,
+} from "@/lib/permissions";
 import {
   buildFacturamaPaymentComplementPayload,
   calculatePaymentComplement,
@@ -489,5 +497,361 @@ export async function stampPaymentComplementDraft(
       error: message,
       details,
     };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Cancelacion de complemento de pago (CFDI tipo P / REP) ante el SAT.
+// Mismo patron que la cancelacion de facturas: rol direccion/admin, motivo SAT,
+// y al confirmarse se recalcula el estado de complemento de la factura PPD.
+// ---------------------------------------------------------------------------
+
+type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
+
+async function recomputeInvoicePaymentComplementStatus(
+  supabase: SupabaseAdminClient,
+  invoiceId: number,
+  invoiceTotalMxn: number
+) {
+  const { data, error } = await supabase
+    .from("project_payment_complements")
+    .select("paid_amount_mxn, amount_paid_mxn, status")
+    .eq("project_invoice_id", invoiceId)
+    .in("status", ["issued", "stamped"]);
+
+  if (error) {
+    throw new Error(`Error recalculando estado de complemento: ${error.message}`);
+  }
+
+  const paid = (data || []).reduce(
+    (sum, row) =>
+      sum + Number(row.paid_amount_mxn ?? row.amount_paid_mxn ?? 0),
+    0
+  );
+
+  const nextStatus =
+    paid <= 0.009
+      ? "pending"
+      : paid + 0.01 >= invoiceTotalMxn
+        ? "completed"
+        : "partial";
+
+  const { error: updateError } = await supabase
+    .from("project_invoices")
+    .update({ payment_complement_status: nextStatus })
+    .eq("id", invoiceId);
+
+  if (updateError) {
+    throw new Error(
+      `REP cancelado, pero no se pudo actualizar la factura: ${updateError.message}`
+    );
+  }
+
+  return nextStatus;
+}
+
+type ComplementForCancel = {
+  id: number;
+  project_invoice_id: number | null;
+  client_project_id: number | null;
+  status: string | null;
+  facturama_id: string | null;
+  sat_uuid: string | null;
+  complement_env: string | null;
+  paid_amount_mxn: number | null;
+  amount_paid_mxn: number | null;
+  cancellation_status: string | null;
+  project_invoices:
+    | { id: number; total_mxn: number | null; total: number | null; clients: { tax_rfc: string | null } | { tax_rfc: string | null }[] | null }
+    | { id: number; total_mxn: number | null; total: number | null; clients: { tax_rfc: string | null } | { tax_rfc: string | null }[] | null }[]
+    | null;
+};
+
+function getComplementEnv(value: string | null): "sandbox" | "production" {
+  return value === "production" ? "production" : "sandbox";
+}
+
+function firstRelation<T>(relation: T | T[] | null | undefined) {
+  if (Array.isArray(relation)) return relation[0] || null;
+  return relation || null;
+}
+
+export type CancelPaymentComplementResult =
+  | {
+      ok: true;
+      satStatus: "canceled" | "requested" | "rejected" | "unknown";
+      message: string;
+    }
+  | { ok: false; error: string };
+
+export async function cancelPaymentComplement(
+  complementId: number,
+  motive: FacturamaCancellationMotive,
+  uuidReplacement?: string
+): Promise<CancelPaymentComplementResult> {
+  let supabase: SupabaseAdminClient | null = null;
+
+  try {
+    const profile = await getCurrentUserProfile();
+    if (!profile?.is_active || !canCancelInvoices(profile.role)) {
+      throw new Error("Solo Direccion o Admin pueden cancelar complementos de pago.");
+    }
+
+    if (motive === "01" && !uuidReplacement?.trim()) {
+      throw new Error(
+        "El motivo 01 requiere el UUID del complemento que sustituye a este."
+      );
+    }
+
+    supabase = createSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from("project_payment_complements")
+      .select(
+        "id, project_invoice_id, client_project_id, status, facturama_id, sat_uuid, complement_env, paid_amount_mxn, amount_paid_mxn, cancellation_status, project_invoices(id, total_mxn, total, clients(tax_rfc))"
+      )
+      .eq("id", complementId)
+      .maybeSingle();
+
+    if (error) throw new Error(`Error leyendo complemento: ${error.message}`);
+    if (!data) throw new Error("Complemento no encontrado.");
+
+    const complement = data as unknown as ComplementForCancel;
+
+    if (
+      !["issued", "stamped"].includes(String(complement.status)) ||
+      !complement.facturama_id ||
+      !complement.sat_uuid
+    ) {
+      throw new Error("Solo se pueden cancelar complementos de pago timbrados.");
+    }
+
+    const env = getComplementEnv(complement.complement_env);
+    const result = await cancelFacturamaCfdi(
+      complement.facturama_id,
+      motive,
+      uuidReplacement?.trim() || null,
+      env
+    );
+
+    const nowIso = new Date().toISOString();
+    const updatePayload: Record<string, unknown> = {
+      cancellation_motive: motive,
+      cancellation_uuid_replacement: uuidReplacement?.trim() || null,
+      cancellation_status: result.status === "unknown" ? null : result.status,
+      cancellation_acuse_xml: result.acuseXmlBase64,
+      cancelled_by_user_id: profile.id,
+      last_error: null,
+      facturama_response: result.facturamaResponse,
+      updated_at: nowIso,
+    };
+
+    if (result.status === "canceled") {
+      updatePayload.status = "cancelled";
+      updatePayload.cancelled_at = nowIso;
+    }
+
+    const { error: updateError } = await supabase
+      .from("project_payment_complements")
+      .update(updatePayload)
+      .eq("id", complementId);
+
+    if (updateError) {
+      throw new Error(`Error guardando cancelacion: ${updateError.message}`);
+    }
+
+    const invoice = firstRelation(complement.project_invoices);
+    if (result.status === "canceled" && invoice?.id) {
+      await recomputeInvoicePaymentComplementStatus(
+        supabase,
+        Number(invoice.id),
+        Number(invoice.total_mxn ?? invoice.total ?? 0)
+      );
+    }
+
+    if (complement.client_project_id) {
+      revalidatePath("/invoices");
+      revalidatePath(`/projects/${complement.client_project_id}/invoices`);
+      revalidatePath(`/projects/${complement.client_project_id}/account-statement`);
+    }
+
+    const message =
+      result.status === "canceled"
+        ? "Complemento de pago cancelado ante el SAT. Se recalculo el estado de la factura."
+        : result.status === "requested"
+          ? "Cancelacion solicitada. Queda pendiente de aceptacion del receptor ante el SAT (hasta 72 horas)."
+          : result.status === "rejected"
+            ? "El SAT rechazo la solicitud de cancelacion del complemento."
+            : "Facturama respondio con un estatus no reconocido, revisa el detalle.";
+
+    return { ok: true, satStatus: result.status, message };
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "No se pudo cancelar el complemento.";
+    const details = getFacturamaErrorDetails(error);
+
+    if (supabase) {
+      await supabase
+        .from("project_payment_complements")
+        .update({
+          last_error: message,
+          facturama_response: details,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", complementId);
+    }
+
+    return { ok: false, error: message };
+  }
+}
+
+export type CheckPaymentComplementCancellationResult =
+  | {
+      ok: true;
+      satStatus: "vigente" | "canceled" | "not_found" | "unknown";
+      resolved: boolean;
+      message: string;
+    }
+  | { ok: false; error: string };
+
+export async function checkPaymentComplementCancellationStatus(
+  complementId: number
+): Promise<CheckPaymentComplementCancellationResult> {
+  let supabase: SupabaseAdminClient | null = null;
+
+  try {
+    const profile = await getCurrentUserProfile();
+    if (!profile?.is_active || !canCancelInvoices(profile.role)) {
+      throw new Error(
+        "Solo Direccion o Admin pueden consultar el estado de cancelacion."
+      );
+    }
+
+    supabase = createSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from("project_payment_complements")
+      .select(
+        "id, project_invoice_id, client_project_id, status, facturama_id, sat_uuid, complement_env, paid_amount_mxn, amount_paid_mxn, cancellation_status, project_invoices(id, total_mxn, total, clients(tax_rfc))"
+      )
+      .eq("id", complementId)
+      .maybeSingle();
+
+    if (error) throw new Error(`Error leyendo complemento: ${error.message}`);
+    if (!data) throw new Error("Complemento no encontrado.");
+
+    const complement = data as unknown as ComplementForCancel;
+    if (!complement.facturama_id || !complement.sat_uuid) {
+      throw new Error("El complemento no tiene CFDI timbrado que consultar.");
+    }
+    if (String(complement.status) === "cancelled") {
+      return {
+        ok: true,
+        satStatus: "canceled",
+        resolved: false,
+        message: "El complemento ya esta marcado como cancelado.",
+      };
+    }
+
+    const env = getComplementEnv(complement.complement_env);
+    const invoice = firstRelation(complement.project_invoices);
+    const client = firstRelation(invoice?.clients);
+    const paidAmount = Number(
+      complement.paid_amount_mxn ?? complement.amount_paid_mxn ?? 0
+    );
+
+    let issuerRfc = "";
+    let receiverRfc = (client?.tax_rfc || "").trim();
+    let totalForStatus = paidAmount;
+
+    try {
+      const detail = await getFacturamaCfdiDetail(complement.facturama_id, env);
+      if (detail.issuerRfc) issuerRfc = detail.issuerRfc;
+      if (detail.receiverRfc) receiverRfc = detail.receiverRfc;
+      if (typeof detail.totalMxn === "number") totalForStatus = detail.totalMxn;
+    } catch {
+      // REP: el total del CFDI tipo P suele ser 0; si el detalle falla seguimos
+      // con lo que tenemos.
+    }
+
+    if (!issuerRfc || !receiverRfc) {
+      throw new Error(
+        "No se pudo reunir RFC emisor / receptor para consultar el estatus ante el SAT."
+      );
+    }
+
+    const satStatus = await checkFacturamaCfdiSatStatus(
+      {
+        uuid: complement.sat_uuid,
+        issuerRfc,
+        receiverRfc,
+        totalMxn: totalForStatus,
+      },
+      env
+    );
+
+    const updatePayload: Record<string, unknown> = {
+      last_error: null,
+      facturama_response: satStatus.facturamaResponse,
+      updated_at: new Date().toISOString(),
+    };
+    let resolved = false;
+    let message: string;
+
+    if (satStatus.normalized === "canceled") {
+      updatePayload.status = "cancelled";
+      updatePayload.cancellation_status = "canceled";
+      updatePayload.cancelled_at = new Date().toISOString();
+      resolved = true;
+      message =
+        "El SAT confirma que el complemento esta cancelado. Se recalculo el estado de la factura.";
+    } else if (satStatus.normalized === "vigente") {
+      message =
+        complement.cancellation_status === "requested"
+          ? "El complemento sigue vigente: la cancelacion continua pendiente de aceptacion del receptor."
+          : "El complemento esta vigente ante el SAT.";
+    } else if (satStatus.normalized === "not_found") {
+      message = "El SAT no encontro el complemento con esos datos.";
+    } else {
+      message = `Respuesta del SAT no reconocida: ${satStatus.status || "sin estatus"}.`;
+    }
+
+    const { error: updateError } = await supabase
+      .from("project_payment_complements")
+      .update(updatePayload)
+      .eq("id", complementId);
+
+    if (updateError) {
+      throw new Error(`Error guardando estatus: ${updateError.message}`);
+    }
+
+    if (resolved && invoice?.id) {
+      await recomputeInvoicePaymentComplementStatus(
+        supabase,
+        Number(invoice.id),
+        Number(invoice.total_mxn ?? invoice.total ?? 0)
+      );
+    }
+
+    if (complement.client_project_id) {
+      revalidatePath("/invoices");
+      revalidatePath(`/projects/${complement.client_project_id}/invoices`);
+    }
+
+    return { ok: true, satStatus: satStatus.normalized, resolved, message };
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "No se pudo consultar el estado de cancelacion.";
+
+    if (supabase) {
+      await supabase
+        .from("project_payment_complements")
+        .update({ last_error: message, updated_at: new Date().toISOString() })
+        .eq("id", complementId);
+    }
+
+    return { ok: false, error: message };
   }
 }

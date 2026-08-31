@@ -144,6 +144,7 @@ Todo implementado por Claude en un solo pase, rama `sprint-h-cancelacion-fiscal-
 | H3 acuse + endurecer 02/03 | **CODIGO LISTO** | Ruta de descarga del acuse, badges de estado, mapeo de estatus de Facturama. Falta timbrar+cancelar una factura desechable en sandbox. |
 | H2 resolver pendiente | **CODIGO LISTO** | `checkInvoiceCancellationStatus` + boton "Consultar estado SAT". Endpoint `GET /cfdi/status` verificado en docs; falta ejercerlo contra una cancelacion real pendiente. |
 | H1 sustitucion (motivo 01) | **CODIGO LISTO** | `createReplacementInvoiceDraft` + nodo `Relations 04` + auto-UUID en la cancelacion. Falta la prueba end-to-end en sandbox (es lo mas riesgoso). |
+| H5 cancelar complemento de pago (REP) | **CODIGO LISTO** (2026-09-01, pedido de Leo) | Migracion `payment_complement_cancellation_columns` en prod. `cancelPaymentComplement` / `checkPaymentComplementCancellationStatus` en `paymentComplementActions.ts` (usan `complement_env`), `CancelPaymentComplementButton.tsx` en el panel, ruta `/api/payment-complements/[id]/cancellation-acuse`. Al confirmarse recalcula `payment_complement_status` de la factura PPD. Modal verificado en dev. Falta la prueba real contra Facturama. |
 
 Validado: `npx tsc --noEmit` limpio, `npm run build` OK. Lint sin errores nuevos (2 preexistentes en `InvoiceForm.tsx`).
 
