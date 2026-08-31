@@ -28,7 +28,7 @@
 2. **Sin transacción.** Una falla después de insertar `quotes` deja un borrador vacío de $0 (litter, no corrupción; la idempotencia no lo re-usa). Un `try/catch` que borre `quote` + `quote_group` en fallo posterior sería limpio. Para G3.
 3. **`nextBaseNumber` es read-max + 1.** Colisión posible con dos llamadas concurrentes. Sin riesgo para uso de una persona; documentado por Codex.
 4. **`created_by` queda NULL** en borradores generados por el sistema. G4 debe pasar el actor.
-5. **Confirmar con Leo:** ¿siempre cotizas al precio de catálogo del producto (`calculated_sale_price`), o ajustas el margen por cotización como práctica normal? Todas las cotizaciones históricas reconcilian a catálogo, así que asumo que sí.
+5. ~~Confirmar con Leo~~: **CONFIRMADO (2026-09-01)** — Leo siempre cotiza a precio de catálogo (`products.calculated_sale_price`), sin ajustar margen por cotización. El uso que Codex hace de ese campo como fuente de precio es correcto. El parámetro `margin_percent` del input queda como opción, no como flujo normal.
 
 ### Lo que Codex hizo bien
 
