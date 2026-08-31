@@ -142,7 +142,7 @@ export default function CancelInvoiceButton({
 
       {isStamped && !canCancel ? (
         <span
-          title="Solo Direccion puede cancelar facturas timbradas."
+          title="Solo Direccion o Admin pueden cancelar facturas timbradas."
           className="rounded-xl border border-[#2A2A30] bg-[#151518] px-3 py-2 text-xs text-[#77777D]"
         >
           Cancelar

@@ -965,7 +965,7 @@ export async function cancelProjectInvoice(
     const profile = await getCurrentUserProfile();
 
     if (!profile?.is_active || !canCancelInvoices(profile.role)) {
-      throw new Error("Solo Direccion puede cancelar facturas.");
+      throw new Error("Solo Direccion o Admin pueden cancelar facturas.");
     }
 
     supabase = createSupabaseAdminClient();
@@ -1102,7 +1102,7 @@ export async function checkInvoiceCancellationStatus(
     const profile = await getCurrentUserProfile();
 
     if (!profile?.is_active || !canCancelInvoices(profile.role)) {
-      throw new Error("Solo Direccion puede consultar el estado de cancelacion.");
+      throw new Error("Solo Direccion o Admin pueden consultar el estado de cancelacion.");
     }
 
     supabase = createSupabaseAdminClient();

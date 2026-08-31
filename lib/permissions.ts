@@ -135,5 +135,7 @@ export function canManagePricingSettings(role: string | null | undefined) {
 }
 
 export function canCancelInvoices(role: string | null | undefined) {
-  return normalizeRole(role) === "direccion";
+  // admin y direccion tienen los mismos privilegios; la diferencia es operativa
+  // (admin = Leo, direccion = su socio), no de permisos.
+  return isAdminLike(role);
 }
