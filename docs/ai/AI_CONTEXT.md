@@ -29,6 +29,7 @@ Pendiente de confirmar: version exacta desplegada en produccion y variables acti
 - Compras, contratistas y productos: `app/(admin)/contractors/`, `app/(admin)/products/`, librerias relacionadas.
 - Leads, landing publica y documentos publicos: `app/page.tsx`, `app/public/`, `app/(admin)/leads/`.
 - Usuarios, roles y seguridad: `proxy.ts`, `services/profile.ts`, `lib/permissions.ts`, `lib/apiAuth.ts`.
+- El Vigia (vigilancia autonoma del negocio): `lib/vigia/`, `app/api/vigia/cron/daily/`, tablas `vigia_*`; ver [`../modules/vigia/MODULE_CONTEXT.md`](../modules/vigia/MODULE_CONTEXT.md).
 
 Ver indice completo en [`MODULE_INDEX.md`](./MODULE_INDEX.md).
 

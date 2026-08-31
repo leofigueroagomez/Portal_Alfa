@@ -1,0 +1,99 @@
+# Modulo: El Vigia de ALFA OS
+
+Contexto operativo para agentes que quieran entender, mantener o ampliar la capa autonoma de vigilancia. Antes de tocar SQL, RLS o rutas API, revisar [`../../ai/SECURITY_RULES.md`](../../ai/SECURITY_RULES.md).
+
+Estado inferido: activo desde 2026-08-31. Fase 1 en marcha (frentes: integridad de datos y costos/margenes). Riesgo: medio — no toca datos de negocio, pero sus tablas y su cron corren en produccion y envian correo.
+
+Plan completo (vision, fases, bandeja de decision): artifact "El Vigia de ALFA OS" - https://claude.ai/code/artifact/321f9ba1-a6ee-471a-a4e5-f05279cf74a4
+
+## Que Hace
+
+Corre en calendario (Vercel Cron diario) un conjunto de **sensores** deterministas que revisan el negocio. Cada sensor lee una **vista de deteccion** (`public.vigia_v_*`) y produce **hallazgos** que se guardan en `public.vigia_findings` con deduplicacion. Al terminar, arma un **brief** (correo dos niveles) y lo envia. Toda la actividad queda en `public.vigia_audit_log`.
+
+Hoy el Vigia solo **detecta y recomienda**. No ejecuta cambios en tablas de negocio. Las acciones propuestas (`vigia_findings.proposed_action`) se aplican a mano; la capa de ejecutores automaticos es Fase 2 (bandeja de decision con botones autorizar/denegar).
+
+## Arquitectura
+
+```
+Sensores (vistas SQL)  ->  Runner  ->  vigia_findings  ->  Brief (correo)  ->  [Fase 2: Bandeja UI]
+                              |                                                  |
+                              +--------------->  vigia_audit_log  <--------------+
+```
+
+| Pieza | Archivo | Responsabilidad |
+| --- | --- | --- |
+| Contratos y tipos | `lib/vigia/types.ts` | `Sensor`, `RawFinding`, dominios, carriles, severidad, `severityFromImpact()`. |
+| Sensores | `lib/vigia/sensors.ts` | Un `Sensor` por check; cada uno lee su vista `vigia_v_*` y mapea filas a `RawFinding`. Registro en `SENSORS[]`. |
+| Enriquecimiento | `lib/vigia/enrich.ts` | Resuelve nombres legibles (proyecto + cliente, producto, cotizacion) y reescribe titulo/resumen para no dejar el numero pelon. Llena `entity_label`. |
+| Runner | `lib/vigia/runner.ts` | Corre los sensores, deduplica por `(sensor_id, fingerprint)`, auto-resuelve lo que ya no aparece, reabre lo que reaparece, respeta `descartado`, escribe la bitacora. |
+| Brief | `lib/vigia/brief.ts` | Lee hallazgos abiertos, arma el HTML (carriles: Aplicado / Requiere autorizacion / Prestar atencion / Senales por confirmar), lo envia con Resend. `renderVigiaBrief()` devuelve el HTML sin enviar. |
+| Endpoint / cron | `app/api/vigia/cron/daily/route.ts` | GET+POST. Auth por `CRON_SECRET`. Params: `?dry=1` (no envia correo), `?preview=1` (devuelve el HTML del brief), `?sensors=INT-01,CST-05` (subconjunto). |
+| Cron | `vercel.json` | `{ "crons": [{ "path": "/api/vigia/cron/daily", "schedule": "0 13 * * *" }] }` = 07:00 CDMX. Vercel manda el header `Authorization: Bearer $CRON_SECRET` solo -no requiere codigo extra-. |
+
+### SQL versionado
+
+| Archivo | Contenido |
+| --- | --- |
+| `sql/20260830_vigia_phase0.sql` | Tablas `vigia_sensor_runs`, `vigia_findings`, `vigia_audit_log` + RLS + vistas INT-01..04, CST-01..03. |
+| `sql/20260831_vigia_phase1_batch2.sql` | Vistas INT-05..10, CST-04..05. |
+| (migracion `vigia_findings_entity_label`) | `alter table vigia_findings add column entity_label text`. |
+
+Las migraciones se aplicaron a produccion via el flujo de Supabase; son **aditivas** (solo objetos nuevos `vigia_*`). No tocan ninguna tabla, columna, RLS ni dato de negocio.
+
+## Tablas
+
+| Tabla | Rol | Notas |
+| --- | --- | --- |
+| `vigia_sensor_runs` | Una fila por corrida de un sensor | `status` running/ok/error, `findings_count`, `resolved_count`, `error`. |
+| `vigia_findings` | Un hallazgo. Unico por `(sensor_id, fingerprint)` | `lane` (auto_aplicado / requiere_autorizacion / prestar_atencion), `severity`, `confidence`, `status` (abierto / reconocido / descartado / resuelto / auto_aplicado / expirado), `evidence` jsonb, `impact_mxn`, `entity_type` + `entity_id` + `entity_label`, `proposed_action` jsonb, `first_seen_at` / `last_seen_at` / `seen_count`, `decided_by` / `decided_at` / `decision_note`. |
+| `vigia_audit_log` | Bitacora append-only | `event_type` (finding_created / finding_reopened / finding_resolved / sensor_error / run_completed / brief_sent), `payload` jsonb. |
+
+**RLS:** las tres tablas tienen RLS activo con una sola policy: `select` para `authenticated`. Toda escritura la hace el runner con el cliente admin (`createSupabaseAdminClient`, service_role), que salta RLS. La bandeja UI (Fase 2) escribira decisiones por API con guard de rol, no por RLS abierta.
+
+## Como agregar un sensor
+
+1. **Vista de deteccion.** Nueva migracion en `sql/` con `create or replace view public.vigia_v_<id>_<slug> as ...`. La logica pesada (joins, group by, umbrales) vive en SQL para que sea revisable. La vista devuelve las columnas que el sensor necesita para armar el hallazgo. Terminar con `notify pgrst, 'reload schema';`. Aplicar la migracion.
+2. **Sensor.** En `lib/vigia/sensors.ts`, agregar un `Sensor` con `id` (`INT-XX` o `CST-XX`), `domain`, `run()` que consulta la vista y devuelve `RawFinding[]`. Registrarlo en `SENSORS[]`.
+3. **Fingerprint.** Clave estable que identifique el mismo problema del mundo real entre corridas (ej. `INT-01:cp:48:prod:351:colision_quote_item`). Si cambia el fingerprint, el hallazgo viejo se auto-resuelve y nace uno nuevo.
+4. **Carril y confianza.** `requiere_autorizacion` si hay una accion clara que implica criterio; `prestar_atencion` si solo hay que mirar; `auto_aplicado` reservado para Fase 2. `confidence` baja manda el hallazgo a "Senales por confirmar" (seccion colapsada del brief).
+5. **Probar.** `GET /api/vigia/cron/daily?dry=1&sensors=<TU-ID>` (local o prod). Revisar `vigia_findings` y `vigia_audit_log`.
+6. **Documentar.** Agregar el sensor a la lista de abajo.
+
+## Sensores actuales
+
+| ID | Dominio | Detecta |
+| --- | --- | --- |
+| INT-01 | integridad_datos | Partidas operativas duplicadas (misma partida/producto activa dos veces en un proyecto). |
+| INT-02 | integridad_datos | Lineas de compra huerfanas con historial de compras. |
+| INT-03 | integridad_datos | Partidas operativas de una version de cotizacion ya superada. |
+| INT-04 | integridad_datos | Lineas de compra que piden mas que la base operativa activa. |
+| INT-05 | integridad_datos | Compra en USD sin tipo de cambio. |
+| INT-06 | integridad_datos | Partida operativa en USD sin tipo de cambio, con compra pendiente. |
+| INT-07 | integridad_datos | Cotizacion aprobada sin proyecto vinculado. |
+| INT-08 | integridad_datos | Proyecto ganado/entregado sin cotizacion aprobada. |
+| INT-09 | integridad_datos | Total estimado de la linea de compra desincronizado del calculo. |
+| INT-10 | integridad_datos | Cantidad de la partida operativa distinta a la del quote_item vigente. |
+| CST-01 | costos_margenes | Sobrecosto real de compra vs estimado operativo (por evento). |
+| CST-02 | costos_margenes | Costo de proveedor sin actualizar en producto por comprarse o en cotizacion aprobada vigente. |
+| CST-03 | costos_margenes | Deriva entre el TC cotizado y el TC real al que se compro. |
+| CST-04 | costos_margenes | Producto de equipo sin costo alimentando un margen falso (excluye servicios ALFA). |
+| CST-05 | costos_margenes | Sobrecosto acumulado de compras a nivel proyecto (rollup de CST-01). |
+
+## Variables de entorno
+
+| Var | Uso |
+| --- | --- |
+| `CRON_SECRET` | Candado del endpoint. Vercel lo manda solo como Bearer en el cron. Requerido en produccion. |
+| `RESEND_API_KEY` | Envio del brief (ya existe para otros correos del repo). |
+| `VIGIA_BRIEF_TO` | Destinatario(s) del brief, separados por coma. Default `leo@alfait.com.mx`. |
+| `VIGIA_BRIEF_FROM` | Remitente. Default `ALFA - El Vigia <soporte@alfait.com.mx>`. |
+| `APP_URL` / `NEXT_PUBLIC_APP_URL` | Enlaces del brief. Cae a `getAppBaseUrl()` (`lib/appUrl.ts`). |
+
+Vercel plan Hobby: cron 1x/dia como maximo, `maxDuration` real ~60s (el codigo pide 300).
+
+## Restricciones
+
+- Los sensores son **solo lectura** sobre tablas de negocio. Nunca escribir desde un sensor.
+- No relajar la RLS de las tablas `vigia_*` ni la auth del endpoint para depurar.
+- Un sensor ruidoso erosiona la confianza. Preferir alcance estrecho y `confidence` honesta; calibrar con el historial de `descartado`.
+- Toda estructura nueva va en migracion revisable en `sql/` y se refleja aqui.

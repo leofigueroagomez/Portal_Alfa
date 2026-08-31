@@ -10,10 +10,10 @@ Mapa real del repositorio para agentes. No asumir rutas fuera de este arbol sin 
 | `app/(admin)/` | ALFA OS interno: cotizaciones, proyectos, facturacion, clientes, servicios, productos, usuarios, dashboards. |
 | `app/(auth)/`, `app/auth/`, `app/login/` | Flujos de autenticacion. |
 | `app/(client)/`, `app/portal/` | Portal cliente y vistas autenticadas de cliente. |
-| `app/api/` | Endpoints server-side para PDF, documentos, integraciones y mutaciones. |
+| `app/api/` | Endpoints server-side para PDF, documentos, integraciones y mutaciones. Incluye crons (`app/api/*/cron/*`, `app/api/vigia/cron/daily`). |
 | `app/public/` | Rutas publicas, incluyendo documentos por token. |
 | `components/` | Componentes compartidos de UI y shell administrativo. |
-| `lib/` | Logica de dominio, integraciones, PDF, permisos, auth API, Supabase helpers. |
+| `lib/` | Logica de dominio, integraciones, PDF, permisos, auth API, Supabase helpers. `lib/vigia/` = capa de vigilancia autonoma (ver `docs/modules/vigia/`). |
 | `services/` | Servicios compartidos, incluyendo perfil de usuario y Supabase admin. |
 | `types/` | Tipos TypeScript compartidos. |
 | `utils/` | Utilidades auxiliares. |
@@ -34,6 +34,7 @@ Mapa real del repositorio para agentes. No asumir rutas fuera de este arbol sin 
 | `tsconfig.json` | Configuracion TypeScript. |
 | `eslint.config.mjs` | Configuracion ESLint. |
 | `postcss.config.mjs` | Configuracion CSS/PostCSS. |
+| `vercel.json` | Cron jobs de Vercel. Hoy solo el brief diario de El Vigia (`/api/vigia/cron/daily`). |
 | `AGENTS.md` | Punto de entrada para agentes. |
 
 ## Rutas Administrativas Detectadas

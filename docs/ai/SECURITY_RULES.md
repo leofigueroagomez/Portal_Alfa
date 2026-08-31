@@ -39,6 +39,12 @@ Roles detectados en codigo:
 
 Pendiente de confirmar: listado completo y actualizado de policies aplicadas en produccion.
 
+### El Vigia
+
+- Tablas `vigia_sensor_runs`, `vigia_findings`, `vigia_audit_log`: RLS activo, unica policy `select` para `authenticated`. La escritura la hace el runner con service_role. No abrir estas tablas a escritura por RLS.
+- Endpoint `app/api/vigia/cron/daily`: auth por `CRON_SECRET` (header Bearer que Vercel manda solo, o `?key=`). No quitar el candado. El endpoint corre sensores de solo lectura y puede enviar correo (Resend), asi que su ejecucion es un cambio que envia correos.
+- Los sensores (`lib/vigia/sensors.ts`) son solo lectura sobre tablas de negocio. Nunca escribir desde un sensor.
+
 ## Storage
 
 - El repo usa Supabase Storage en flujos de imagenes/documentos.
