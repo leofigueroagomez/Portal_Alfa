@@ -877,27 +877,53 @@ export default function InvoiceForm({
     return Boolean(response.ok && payload.items?.[0]?.is_active);
   }
 
+  // Valida cada codigo SAT distinto una sola vez (muchas partidas comparten
+  // unidad/objeto de impuesto) para no disparar decenas de peticiones iguales.
+  async function buildCatalogValidator(
+    endpoint: string,
+    codes: Iterable<string>
+  ) {
+    const uniqueCodes = [
+      ...new Set([...codes].map((code) => code.trim()).filter(Boolean)),
+    ];
+    const entries = await Promise.all(
+      uniqueCodes.map(
+        async (code) => [code, await isActiveCatalogCode(endpoint, code)] as const
+      )
+    );
+    const byCode = new Map(entries);
+    return (code: string | null | undefined) =>
+      Boolean(code && byCode.get(code.trim()));
+  }
+
   async function getConceptFiscalErrors() {
+    const [isValidProduct, isValidUnit, isValidTaxObject] = await Promise.all([
+      buildCatalogValidator(
+        "/api/sat-catalogs/product-services",
+        concepts.map((concept) => concept.sat_product_service_code)
+      ),
+      buildCatalogValidator(
+        "/api/sat-catalogs/units",
+        concepts.map((concept) => concept.sat_unit_code)
+      ),
+      buildCatalogValidator(
+        "/api/sat-catalogs/tax-objects",
+        concepts.map((concept) => concept.fiscal_object)
+      ),
+    ]);
+
     const messages: string[] = [];
 
     for (const concept of concepts) {
-      const [validProductCode, validUnitCode, validTaxObject] = await Promise.all([
-        isActiveCatalogCode(
-          "/api/sat-catalogs/product-services",
-          concept.sat_product_service_code
-        ),
-        isActiveCatalogCode("/api/sat-catalogs/units", concept.sat_unit_code),
-        isActiveCatalogCode("/api/sat-catalogs/tax-objects", concept.fiscal_object),
-      ]);
       const missing: string[] = [];
 
-      if (!validProductCode) {
+      if (!isValidProduct(concept.sat_product_service_code)) {
         missing.push("Codigo SAT producto/servicio requiere actualizacion");
       }
-      if (!validUnitCode) {
+      if (!isValidUnit(concept.sat_unit_code)) {
         missing.push("Clave unidad SAT requiere actualizacion");
       }
-      if (!validTaxObject) {
+      if (!isValidTaxObject(concept.fiscal_object)) {
         missing.push("Objeto de impuesto requiere actualizacion");
       }
 

@@ -30,6 +30,10 @@ import { getMissingProductFiscalFields, type ProductFiscalCatalogs } from "@/lib
 import { canCancelInvoices, canViewFinancials } from "@/lib/permissions";
 import { formatRfcDiagnostic, getRfcDiagnostic, type RfcDiagnostic } from "@/lib/rfc";
 import { isPaymentMethodCode } from "@/lib/paymentTerms";
+import {
+  getNextInternalInvoiceFolio,
+  isDuplicateInternalFolioError,
+} from "@/lib/invoiceFolios";
 import { getMexicoDate } from "@/lib/mexicoDate";
 import { getCurrentUserProfile } from "@/services/profile";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
@@ -1389,7 +1393,7 @@ export async function createReplacementInvoiceDraft(
       throw new Error("La factura original no tiene conceptos para copiar.");
     }
 
-    const invoicePayload = {
+    const invoiceBase = {
       client_project_id: original.client_project_id,
       client_id: original.client_id,
       source_type: original.source_type || "manual",
@@ -1413,15 +1417,34 @@ export async function createReplacementInvoiceDraft(
       status: "draft",
     };
 
-    const { data: created, error: insertError } = await supabase
-      .from("project_invoices")
-      .insert(invoicePayload)
-      .select("id, client_project_id")
-      .single();
+    // Folio interno calculado como en InvoiceForm (MAX+1), no via el default de
+    // la tabla: la secuencia de la BD esta desfasada porque los borradores se
+    // insertan con folio calculado en la app.
+    let created: { id: number; client_project_id: number | null } | null = null;
+    let insertError: unknown = null;
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const internalFolio = await getNextInternalInvoiceFolio(supabase);
+      const result = await supabase
+        .from("project_invoices")
+        .insert({ ...invoiceBase, internal_folio: internalFolio })
+        .select("id, client_project_id")
+        .single();
+
+      if (!result.error && result.data) {
+        created = result.data as { id: number; client_project_id: number | null };
+        insertError = null;
+        break;
+      }
+
+      insertError = result.error;
+      if (!isDuplicateInternalFolioError(result.error)) break;
+    }
 
     if (insertError || !created) {
       throw new Error(
-        `No se pudo crear el borrador de reemplazo: ${insertError?.message || "sin id"}`
+        `No se pudo crear el borrador de reemplazo: ${
+          (insertError as { message?: string })?.message || "sin id"
+        }`
       );
     }
 

@@ -49,6 +49,7 @@ export default function CancelInvoiceButton({
   const [uuidReplacement, setUuidReplacement] = useState("");
   const [cancelling, setCancelling] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [acknowledged, setAcknowledged] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
   const isStamped = ["issued", "paid"].includes(String(status)) && Boolean(facturamaId) && Boolean(satUuid);
@@ -84,18 +85,6 @@ export default function CancelInvoiceButton({
   }
 
   async function handleCancel() {
-    if (motive === "01" && !uuidReplacement.trim()) {
-      setFeedback(
-        "El motivo 01 requiere el UUID del CFDI que sustituye a este. Si ya timbraste la factura de reemplazo, dejalo vacio y el sistema lo busca."
-      );
-      // No return: dejamos que el server intente resolver el UUID del reemplazo.
-    }
-
-    const confirmed = window.confirm(
-      `¿Cancelar la factura ${internalFolio || `#${invoiceId}`} ante el SAT? Esta accion tiene validez fiscal y no se puede deshacer desde aqui.`
-    );
-    if (!confirmed) return;
-
     setCancelling(true);
     setFeedback(null);
     const result = await cancelProjectInvoice(
@@ -139,7 +128,11 @@ export default function CancelInvoiceButton({
       {isStamped && canCancel ? (
         <button
           type="button"
-          onClick={() => setShowModal(true)}
+          onClick={() => {
+            setAcknowledged(false);
+            setFeedback(null);
+            setShowModal(true);
+          }}
           title="Cancelar factura ante el SAT"
           className="rounded-xl border border-[#6A2A2A] bg-[#351818] px-3 py-2 text-xs font-semibold text-[#FFB4B4] hover:bg-[#4A2222]"
         >
@@ -243,11 +236,24 @@ export default function CancelInvoiceButton({
               </p>
             ) : null}
 
+            <label className="flex items-start gap-2 text-xs text-[#B3B3B8]">
+              <input
+                type="checkbox"
+                checked={acknowledged}
+                onChange={(event) => setAcknowledged(event.target.checked)}
+                className="mt-0.5"
+              />
+              <span>
+                Entiendo que esto cancela el CFDI ante el SAT y no se puede
+                deshacer desde aqui.
+              </span>
+            </label>
+
             <div className="flex flex-col gap-3 pt-2 sm:flex-row">
               <button
                 type="button"
                 onClick={handleCancel}
-                disabled={cancelling}
+                disabled={cancelling || !acknowledged}
                 className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#9E1B32] py-3 text-sm font-bold text-white transition hover:bg-[#B91C3C] disabled:opacity-50"
               >
                 {cancelling ? "Cancelando..." : "Confirmar cancelacion"}
