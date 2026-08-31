@@ -9,7 +9,8 @@ export type VigiaDomain =
   | "integridad_datos"
   | "costos_margenes"
   | "ventas_pipeline"
-  | "postventa_servicios";
+  | "postventa_servicios"
+  | "procesos";
 
 export type FindingLane =
   | "auto_aplicado"

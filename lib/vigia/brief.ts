@@ -27,6 +27,7 @@ const DOMAIN_LABEL: Record<string, string> = {
   costos_margenes: "Costos y márgenes",
   ventas_pipeline: "Ventas y cotizaciones",
   postventa_servicios: "Postventa y servicios",
+  procesos: "Procesos",
 };
 
 const LANE_LABEL: Record<string, string> = {

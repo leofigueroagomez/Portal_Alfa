@@ -925,6 +925,99 @@ export const srv02: Sensor = {
   },
 };
 
+// ---------------------------------------------------------------------------
+// PRC-01 - Proyecto ganado atorado en compras
+// ---------------------------------------------------------------------------
+type Prc01Row = {
+  client_project_id: number;
+  name: string | null;
+  project_age_days: number;
+  line_count: number;
+  req_cost: number;
+  pend_cost: number;
+  qty_purchased: number;
+  pending_ratio: number;
+  days_since_purchase: number;
+};
+
+export const prc01: Sensor = {
+  id: "PRC-01",
+  domain: "procesos",
+  title: "Proyecto ganado atorado en compras",
+  description:
+    "Proyecto ganado con alcance de compra definido, pero con casi nada comprado y sin movimiento de compras en semanas. El proyecto no avanza.",
+  async run({ supabase }) {
+    const { data, error } = await supabase
+      .from("vigia_v_prc01_stalled_procurement")
+      .select("*");
+    if (error) throw error;
+
+    return ((data ?? []) as Prc01Row[]).map((row) => {
+      const pend = num(row.pend_cost);
+      const days = num(row.days_since_purchase);
+      const severity: RawFinding["severity"] =
+        pend >= 50000 ? "alto" : pend >= 10000 ? "medio" : "bajo";
+      return {
+        fingerprint: `PRC-01:cp:${row.client_project_id}`,
+        lane: "prestar_atencion",
+        severity,
+        confidence: "media",
+        title: `Proyecto ${row.client_project_id} atorado en compras: falta comprar $${pend.toFixed(0)} MXN`,
+        summary: `El proyecto lleva ${row.project_age_days} dias como ganado y ${days} dias sin una sola compra. Queda por comprar el ${(num(row.pending_ratio) * 100).toFixed(0)}% del equipo ($${pend.toFixed(0)} de $${num(row.req_cost).toFixed(0)} MXN). Revisar si sigue vivo, si espera algo del cliente, o si hay que empujarlo.`,
+        evidence: { ...row },
+        entityType: "client_project",
+        entityId: String(row.client_project_id),
+        proposedAction: {
+          type: "revisar_proyecto_atorado",
+          client_project_id: row.client_project_id,
+          criterio: "confirmar estado real del proyecto con el cliente; empujar compras o mover de etapa",
+        },
+      } satisfies RawFinding;
+    });
+  },
+};
+
+// ---------------------------------------------------------------------------
+// PRC-02 - Proyecto ganado con alcance pero sin base de compras
+// ---------------------------------------------------------------------------
+type Prc02Row = {
+  client_project_id: number;
+  name: string | null;
+  project_age_days: number;
+  operational_item_count: number;
+};
+
+export const prc02: Sensor = {
+  id: "PRC-02",
+  domain: "procesos",
+  title: "Proyecto ganado sin base de compras",
+  description:
+    "Proyecto ganado con alcance operativo definido pero sin una sola linea de compra generada. Quedo cerrado en ventas pero nunca se preparo para ejecutarse.",
+  async run({ supabase }) {
+    const { data, error } = await supabase
+      .from("vigia_v_prc02_won_without_procurement")
+      .select("*");
+    if (error) throw error;
+
+    return ((data ?? []) as Prc02Row[]).map((row) => ({
+      fingerprint: `PRC-02:cp:${row.client_project_id}`,
+      lane: "prestar_atencion",
+      severity: "bajo",
+      confidence: "baja",
+      title: `Proyecto ${row.client_project_id} ganado hace ${row.project_age_days}d sin base de compras`,
+      summary: `Tiene ${row.operational_item_count} partidas operativas pero cero lineas de compra. O falta generar la base operativa/compras, o el proyecto no arranco, o esta mal etapado. Confirmar.`,
+      evidence: { ...row },
+      entityType: "client_project",
+      entityId: String(row.client_project_id),
+      proposedAction: {
+        type: "revisar_alcance_sin_compras",
+        client_project_id: row.client_project_id,
+        criterio: "generar base de compras, o mover el proyecto a la etapa correcta",
+      },
+    } satisfies RawFinding));
+  },
+};
+
 export const SENSORS: Sensor[] = [
   int01,
   int02,
@@ -946,4 +1039,6 @@ export const SENSORS: Sensor[] = [
   vta03,
   srv01,
   srv02,
+  prc01,
+  prc02,
 ];

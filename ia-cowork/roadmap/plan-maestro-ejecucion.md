@@ -13,7 +13,7 @@
 | Entregado | Detalle |
 | --- | --- |
 | Fase 0 — Cimientos | Tablas `vigia_sensor_runs`, `vigia_findings`, `vigia_audit_log`; RLS; runner con deduplicación por fingerprint, auto-resolución, reapertura, respeto a `descartado`; bitácora append-only. |
-| Fase 1 — Observa | 15 sensores en producción: integridad de datos (`INT-01..10`) y costos/márgenes (`CST-01..05`). |
+| Fase 1 — Observa | 22 sensores en producción: integridad de datos (`INT-01..10`), costos/márgenes (`CST-01..05`), ventas (`VTA-01..03`), postventa (`SRV-01..02`), procesos (`PRC-01..02`). |
 | Brief diario | Correo dos niveles (Requiere autorización / Prestar atención / Señales por confirmar) vía Resend, cron Vercel `0 13 * * *` (07:00 CDMX). Envío real verificado. |
 | Nombres legibles | El brief dice "proyecto Marsella 4064 · Eduardo Venzor", no "proyecto 48". |
 | Documentación para IAs | `docs/modules/vigia/MODULE_CONTEXT.md` + índices en `docs/ai/`. |
@@ -52,7 +52,7 @@ Prioridad = (impacto para Leo) × (cierra un lazo) ÷ (riesgo de romper algo).
 | ~~B2~~ | **HECHO Y VERIFICADO EN PROD** (2026-09-01, `idea-IA-20260901-002.md`). "Investigar a fondo": híbrido playbook determinista + 1 llamada a Claude, tope mensual $25 USD, correo aparte, automático en `severity=critico`. Tablas `vigia_investigations`. Botón en la Bandeja + `runAutoInvestigations()` en el cron. Primera investigación real (finding #4 INT-02): playbook genérico, $0.0265 USD, 12 s, correo OK, diagnóstico cruzó con otro hallazgo del mismo proyecto. **Falta:** playbook dedicado para INT-04 (hoy cae al genérico y funciona). | Claude IA-20260831-002 | Claude | Medio |
 | ~~C1~~ | **HECHO** (2026-09-01): Sensores `VTA-01/02/03` — leads desatendidos (>24h), cotizaciones dormidas de alto valor (> $100k MXN, >7d), proyectos 'won' sin anticipo (>10d). Vistas SQL en `sql/20260901_vigia_phase1_sprint_c.sql` + registro en `sensors.ts`. | Antigravity IA-003 | Antigravity | Bajo |
 | ~~C2~~ | **HECHO** (2026-09-01): Sensores `SRV-01/02` — garantías por vencer en <45d (oferta de póliza) y tickets de servicio estancados (>72h sin actualización). Vistas SQL + enriquecimiento y navegación. | Antigravity IA-003 | Antigravity | Bajo |
-| C3 | Sensores de proceso `PRC-01/02` — cotización estancada, proyecto sin avance de compra (base del score de riesgo) | Claude IA-20260831-005 | Claude | Bajo |
+| ~~C3~~ | **HECHO** (2026-09-01, `sql/20260901_vigia_phase1_prc.sql`): sensores de proceso `PRC-01` (proyecto ganado atorado en compras — 6 hallazgos reales, top 2 son $190k y $120k parados 3 meses) y `PRC-02` (ganado sin base de compras — 2, `confidence` baja). Dominio nuevo `procesos`. Desbloquea D1. | Claude IA-20260831-005 | Claude | Bajo |
 | ~~C4~~ | ~~Canal WhatsApp solo para `severity = critico`~~ — **DIFERIDO** (2026-08-31). Por ahora la comunicación del Vigía es solo por correo. Se retoma en un sprint posterior; ver `idea-IA-20260831-006.md`. | Plan maestro + Claude IA-20260831-004/006 | Claude + Leo | Bajo |
 | D1 | Score de riesgo por proyecto `vigia_v_project_risk` + pestaña "Proyectos en riesgo" | ChatGPT IA-002 concretado en Claude IA-20260831-005 | Claude | Bajo |
 | D2 | Digest semanal (tendencia, abiertos vs resueltos, sensores ruidosos) + calibración automática | Claude IA-20260831-001 | Claude | Bajo |

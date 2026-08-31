@@ -176,7 +176,7 @@ history:
 ```
 
 ```yaml
-id: IA-20260901-004
+id: IA-20260901-005
 author: Claude
 type: plan
 status: accepted
@@ -184,6 +184,17 @@ owner: Claude (lider), Antigravity (G1), Codex (G2), Leo
 history:
   - 2026-09-01 | Leo | aprobo Sprint G completo ("todas las cosas") y sumo a Codex al equipo
   - 2026-09-01 | Claude | plan Sprint G (ALFA OS Movil + Cotizacion Asistida) en ia-cowork/roadmap/sprint-G-alfa-movil-cotizacion-asistida.md
+  - nota: renumerado de 004 a 005 por colision con el registro de Antigravity (G1)
+```
+
+```yaml
+id: IA-20260901-006
+author: Claude
+type: feature
+status: executed
+owner: Claude
+history:
+  - 2026-09-01 | Claude | ejecutado Sprint C3: sensores de proceso PRC-01/02 (sql/20260901_vigia_phase1_prc.sql, dominio "procesos"). 6 hallazgos PRC-01 reales + 2 PRC-02. Desbloquea D1 (score de riesgo).
 ```
 
 ```yaml

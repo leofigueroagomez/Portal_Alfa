@@ -44,6 +44,7 @@ Sensores (vistas SQL)  ->  Runner  ->  vigia_findings  ->  Brief (correo)  ->  B
 | `sql/20260901_vigia_action_backups.sql` | Tabla `vigia_action_backups` (snapshots de los ejecutores B1). |
 | `sql/20260901_vigia_investigations.sql` | Tabla `vigia_investigations` (expedientes + diagnostico de B2). |
 | `sql/20260901_vigia_phase1_sprint_c.sql` | Vistas VTA-01..03 (Ventas) y SRV-01..02 (Postventa/Servicios). |
+| `sql/20260901_vigia_phase1_prc.sql` | Vistas PRC-01..02 (Procesos) — proyecto ganado atorado en compras / sin base de compras. |
 | (migracion `vigia_findings_entity_label`) | `alter table vigia_findings add column entity_label text`. |
 
 Las migraciones se aplicaron a produccion via el flujo de Supabase; son **aditivas** (solo objetos nuevos `vigia_*`). No tocan ninguna tabla, columna, RLS ni dato de negocio.
@@ -101,6 +102,8 @@ Las migraciones se aplicaron a produccion via el flujo de Supabase; son **aditiv
 | VTA-03 | ventas_pipeline | Proyectos ganados ('won') sin anticipo registrado (> 10 días). |
 | SRV-01 | postventa_servicios | Proyectos con garantía por vencer en < 45 días sin póliza de mantenimiento activa. |
 | SRV-02 | postventa_servicios | Tickets o reportes de servicio estancados (> 72h sin actualización técnica). |
+| PRC-01 | procesos | Proyecto ganado (>45d) con alcance de compra definido, ≥90% sin comprar y sin movimiento de compras en >21d. |
+| PRC-02 | procesos | Proyecto ganado (>40d) con ≥5 partidas operativas y cero líneas de compra generadas (`confidence` baja → señales por confirmar). |
 
 ## Variables de entorno
 
