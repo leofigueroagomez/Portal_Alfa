@@ -261,7 +261,7 @@ export default async function BlogPostPage({ params }: Props) {
       {post.coverImage && (
         <section className="px-5 pt-10 sm:px-8 lg:px-12">
           <figure className="mx-auto max-w-4xl">
-            <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl border border-white/10 bg-[#141418]">
+            <div className="relative aspect-[4/3] sm:aspect-[3/2] w-full overflow-hidden rounded-2xl border border-white/10 bg-[#141418]">
               <Image
                 src={post.coverImage}
                 alt={post.coverImageAlt}
@@ -272,7 +272,7 @@ export default async function BlogPostPage({ params }: Props) {
               />
             </div>
             <figcaption className="mt-3 text-center text-xs text-zinc-500 font-light">
-              {post.coverImageAlt}
+              {post.coverImageCaption || post.coverImageAlt}
             </figcaption>
           </figure>
         </section>
@@ -321,9 +321,17 @@ export default async function BlogPostPage({ params }: Props) {
                   <figure className="my-8">
                     <div
                       className={`relative w-full overflow-hidden rounded-2xl border border-white/10 ${
+                        {
+                          "4/3": "aspect-[4/3]",
+                          "16/10": "aspect-[16/10]",
+                          "3/2": "aspect-[3/2]",
+                          "16/9": "aspect-[16/9]",
+                          "1/1": "aspect-square",
+                        }[section.image.aspect ?? (section.image.fit === "contain" ? "4/3" : "16/10")]
+                      } ${
                         section.image.fit === "contain"
-                          ? "aspect-[4/3] bg-gradient-to-b from-white to-zinc-100"
-                          : "aspect-[16/10] bg-[#141418]"
+                          ? "bg-gradient-to-b from-white to-zinc-100"
+                          : "bg-[#141418]"
                       }`}
                     >
                       <Image

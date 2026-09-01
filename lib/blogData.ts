@@ -23,6 +23,8 @@ export interface BlogSectionImage {
   caption?: string;
   /** "contain" para renders/planos sobre fondo claro; "cover" para fotografía a sangre */
   fit?: "contain" | "cover";
+  /** Relación de aspecto del marco: "4/3" | "16/10" | "3/2" | "1/1". Por defecto 4/3 (contain) o 16/10 (cover). */
+  aspect?: "4/3" | "16/10" | "3/2" | "16/9" | "1/1";
 }
 
 export interface BlogSection {
@@ -62,6 +64,8 @@ export interface BlogPost {
   readTime: string;
   coverImage: string;
   coverImageAlt: string;
+  /** Pie de foto de la portada. Si se omite, se usa coverImageAlt. */
+  coverImageCaption?: string;
   author: BlogAuthor;
   aiEditorialDisclosure: BlogAiDisclosure;
   whatsappQuoteMessage: string;
@@ -131,9 +135,11 @@ export const STATIC_BLOG_POSTS: BlogPost[] = [
     publishedAt: "2026-09-01",
     publishedAtFormatted: "1 de Septiembre, 2026",
     readTime: "8 min de lectura",
-    coverImage: "/blog/hikvision-ds-klm28-12/cover.png",
+    coverImage: "/blog/hikvision-ds-klm28-12/escena-gimnasio-ia.jpg",
     coverImageAlt:
-      "Locker inteligente Hikvision DS-KLM28-12 de 12 puertas con terminal de reconocimiento facial y pantalla táctil de 8 pulgadas integrada",
+      "Dos usuarios operando un locker inteligente Hikvision DS-KLM28-12 en el área de vestidores de un gimnasio premium: uno se autentica en la pantalla táctil mientras otro retira su mochila y tablet de un compartimento abierto",
+    coverImageCaption:
+      "Imagen conceptual generada con inteligencia artificial, únicamente con fines demostrativos. No corresponde a una instalación real de ALFA.",
     author: {
       name: "Ing. Leonardo Figueroa",
       role: "Director de Ingeniería e Integración | ALFA High End Services",
@@ -187,11 +193,12 @@ export const STATIC_BLOG_POSTS: BlogPost[] = [
           "El lanzamiento del casillero inteligente Hikvision DS-KLM28-12 marca un antes y un después en el mercado mexicano, ofreciendo una solución integral 'todo en uno' donde el casillero se convierte en un nodo biométrico inteligente, auditable y centralizado.",
         ],
         image: {
-          src: "/blog/hikvision-ds-klm28-12/locker-render.png",
-          alt: "Vista frontal del locker inteligente Hikvision DS-KLM28-12 con 12 compartimentos y consola táctil central",
+          src: "/blog/hikvision-ds-klm28-12/escena-gimnasio-ia.jpg",
+          alt: "Recreación de un club deportivo premium donde dos socios usan un locker inteligente Hikvision DS-KLM28-12 para resguardar mochila, tablet y pertenencias mediante la pantalla táctil",
           caption:
-            "Hikvision DS-KLM28-12: 12 compartimentos y terminal biométrica de 8\" integrada en un solo cuerpo de acero.",
-          fit: "contain",
+            "Escenario conceptual: club deportivo con el DS-KLM28-12 como consigna inteligente de autoservicio. Imagen generada con inteligencia artificial, sólo demostrativa; no es una instalación real de ALFA.",
+          fit: "cover",
+          aspect: "3/2",
         },
         callout: {
           type: "highlight",
