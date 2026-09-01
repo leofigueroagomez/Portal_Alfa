@@ -5,7 +5,7 @@ import {
   BLOG_CATEGORIES,
 } from "./blogData";
 
-export type { BlogPost, BlogCategory, BlogAuthor, BlogAiDisclosure, BlogSection, BlogFaqItem } from "./blogData";
+export type { BlogPost, BlogCategory, BlogAuthor, BlogAiDisclosure, BlogSection, BlogSectionImage, BlogFaqItem } from "./blogData";
 export { BLOG_CATEGORIES, STATIC_BLOG_POSTS } from "./blogData";
 
 /**

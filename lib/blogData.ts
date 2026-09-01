@@ -17,10 +17,19 @@ export interface BlogFaqItem {
   answer: string;
 }
 
+export interface BlogSectionImage {
+  src: string;
+  alt: string;
+  caption?: string;
+  /** "contain" para renders/planos sobre fondo claro; "cover" para fotografía a sangre */
+  fit?: "contain" | "cover";
+}
+
 export interface BlogSection {
   id: string;
   title: string;
   content: string[];
+  image?: BlogSectionImage;
   bullets?: string[];
   subsections?: {
     subtitle: string;
@@ -122,8 +131,9 @@ export const STATIC_BLOG_POSTS: BlogPost[] = [
     publishedAt: "2026-09-01",
     publishedAtFormatted: "1 de Septiembre, 2026",
     readTime: "8 min de lectura",
-    coverImage: "/projects/residencia-premium.jpeg",
-    coverImageAlt: "Locker inteligente Hikvision DS-KLM28-12 con reconocimiento facial y pantalla táctil",
+    coverImage: "/blog/hikvision-ds-klm28-12/cover.png",
+    coverImageAlt:
+      "Locker inteligente Hikvision DS-KLM28-12 de 12 puertas con terminal de reconocimiento facial y pantalla táctil de 8 pulgadas integrada",
     author: {
       name: "Ing. Leonardo Figueroa",
       role: "Director de Ingeniería e Integración | ALFA High End Services",
@@ -176,6 +186,13 @@ export const STATIC_BLOG_POSTS: BlogPost[] = [
           "Con la creciente exigencia de normativas de seguridad patrimonial, privacidad de datos y control de activos sensibles (como laptops de empresa, teléfonos móviles en áreas limpias o herramientas especializadas), los lockers tradicionales se han convertido en un cuello de botella operativo y un foco de riesgo constante.",
           "El lanzamiento del casillero inteligente Hikvision DS-KLM28-12 marca un antes y un después en el mercado mexicano, ofreciendo una solución integral 'todo en uno' donde el casillero se convierte en un nodo biométrico inteligente, auditable y centralizado.",
         ],
+        image: {
+          src: "/blog/hikvision-ds-klm28-12/locker-render.png",
+          alt: "Vista frontal del locker inteligente Hikvision DS-KLM28-12 con 12 compartimentos y consola táctil central",
+          caption:
+            "Hikvision DS-KLM28-12: 12 compartimentos y terminal biométrica de 8\" integrada en un solo cuerpo de acero.",
+          fit: "contain",
+        },
         callout: {
           type: "highlight",
           title: "Beneficio Clave de Seguridad",
@@ -189,6 +206,13 @@ export const STATIC_BLOG_POSTS: BlogPost[] = [
           "El modelo Hikvision DS-KLM28-12 es un casillero inteligente maestro compuesto por 12 puertas individuales y una consola central táctil de 8 pulgadas que integra una terminal biométrica facial de alta precisión.",
           "A diferencia de los gabinetes convencionales que requieren cablear controladoras externas, fuentes de poder dispersas y electroimanes por separado, el DS-KLM28-12 viene integrado de fábrica con un sistema operativo embebido basado en Android, sensores de estado de puerta, cerraduras electromecánicas reforzadas e interfaz de red nativa TCP/IP.",
         ],
+        image: {
+          src: "/blog/hikvision-ds-klm28-12/dimensiones.png",
+          alt: "Plano de dimensiones del locker Hikvision DS-KLM28-12: 188 cm de alto, 97 cm de ancho y 47 cm de fondo, con gabinetes de 27.7 x 37.2 x 45 cm",
+          caption:
+            "Dimensiones del gabinete maestro (mm). Cada compartimento libre mide 27.7 × 37.2 × 45 cm.",
+          fit: "contain",
+        },
         bullets: [
           "12 gabinetes espaciosos (27.7 x 37.2 x 45 cm c/u), ideales para mochilas, laptops de hasta 16 pulgadas, bolsos, cascos de seguridad o equipo técnico.",
           "Estructura construida en acero laminado en frío de alta durabilidad con acabado anticorrosivo y bisagras de uso rudo.",
@@ -265,6 +289,13 @@ export const STATIC_BLOG_POSTS: BlogPost[] = [
           "A través del protocolo ISAPI de Hikvision y la suite HikCentral Enterprise, los administradores de TI y seguridad pueden sincronizar usuarios automáticamente desde Active Directory, configurar horarios permitidos de apertura y recibir alertas instantáneas si una puerta permanece abierta por más tiempo del autorizado.",
           "En ALFA High End Services respaldamos la puesta a punto con nuestra plataforma ALFA OS, garantizando planos digitales de ubicación, bitácora de entrega de obra, inventario de IPs y soporte postventa especializado.",
         ],
+        image: {
+          src: "/blog/hikvision-ds-klm28-12/software-smart-cabinet.png",
+          alt: "Consola web Smart Cabinet de Hikvision mostrando la administración del gabinete maestro y un módulo esclavo con estado de cada compartimento",
+          caption:
+            "Consola web Smart Cabinet: alta de usuarios, asignación de compartimentos y apertura remota del maestro y sus módulos esclavos.",
+          fit: "cover",
+        },
         callout: {
           type: "info",
           title: "Seguridad y Trazabilidad Integral",

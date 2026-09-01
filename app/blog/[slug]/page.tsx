@@ -257,6 +257,27 @@ export default async function BlogPostPage({ params }: Props) {
         </div>
       </section>
 
+      {/* Article Cover Image */}
+      {post.coverImage && (
+        <section className="px-5 pt-10 sm:px-8 lg:px-12">
+          <figure className="mx-auto max-w-4xl">
+            <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl border border-white/10 bg-[#141418]">
+              <Image
+                src={post.coverImage}
+                alt={post.coverImageAlt}
+                fill
+                priority
+                sizes="(max-width: 896px) 100vw, 896px"
+                className="object-cover"
+              />
+            </div>
+            <figcaption className="mt-3 text-center text-xs text-zinc-500 font-light">
+              {post.coverImageAlt}
+            </figcaption>
+          </figure>
+        </section>
+      )}
+
       {/* Main Content Layout (2 Columns on Desktop) */}
       <section className="px-5 py-12 sm:px-8 sm:py-16 lg:px-12">
         <div className="mx-auto max-w-7xl grid gap-12 lg:grid-cols-12">
@@ -294,6 +315,37 @@ export default async function BlogPostPage({ params }: Props) {
                     <p key={idx}>{p}</p>
                   ))}
                 </div>
+
+                {/* Section Image if present */}
+                {section.image && (
+                  <figure className="my-8">
+                    <div
+                      className={`relative w-full overflow-hidden rounded-2xl border border-white/10 ${
+                        section.image.fit === "contain"
+                          ? "aspect-[4/3] bg-gradient-to-b from-white to-zinc-100"
+                          : "aspect-[16/10] bg-[#141418]"
+                      }`}
+                    >
+                      <Image
+                        src={section.image.src}
+                        alt={section.image.alt}
+                        fill
+                        sizes="(max-width: 1024px) 100vw, 720px"
+                        className={
+                          section.image.fit === "contain"
+                            ? "object-contain p-4 sm:p-8"
+                            : "object-cover"
+                        }
+                      />
+                    </div>
+                    {section.image.caption && (
+                      <figcaption className="mt-3 flex items-start gap-2 text-xs text-zinc-500 font-light leading-relaxed">
+                        <span className="mt-[3px] h-3 w-px shrink-0 bg-[#B84A5A]" />
+                        <span>{section.image.caption}</span>
+                      </figcaption>
+                    )}
+                  </figure>
+                )}
 
                 {/* Subsections if present */}
                 {section.subsections && (
