@@ -101,6 +101,9 @@ export default function SeoContentPage({
             <Link href="/" className="hover:text-zinc-300 transition">
               Inicio
             </Link>
+            <Link href="/blog" className="hover:text-zinc-300 transition">
+              Blog
+            </Link>
             <Link href="/servicios/audio-video" className="hover:text-zinc-300 transition">
               Audio & Video
             </Link>

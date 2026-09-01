@@ -67,6 +67,12 @@ export default async function PortafolioPage() {
               Marcas
             </Link>
             <Link
+              href="/blog"
+              className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400 transition hover:text-white hidden sm:block"
+            >
+              Blog
+            </Link>
+            <Link
               href="/login"
               className="rounded-lg bg-[#9E1B32] hover:bg-[#B91C3C] px-4 py-2 text-xs font-semibold uppercase tracking-wider text-white transition"
             >

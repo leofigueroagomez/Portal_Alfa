@@ -440,6 +440,12 @@ export default function PublicLanding() {
               Marcas
             </Link>
             <Link
+              href="/blog"
+              className="rounded border border-white/10 px-3.5 py-2 text-xs font-medium uppercase tracking-wider text-zinc-300 transition hover:border-[#B84A5A] hover:text-white"
+            >
+              Blog
+            </Link>
+            <Link
               href="/alfa-os"
               className="rounded border border-white/10 px-3.5 py-2 text-xs font-medium uppercase tracking-wider text-zinc-300 transition hover:border-[#B84A5A] hover:text-white"
             >
@@ -513,6 +519,14 @@ export default function PublicLanding() {
                 className="flex items-center justify-between rounded-lg px-3 py-2 text-sm text-zinc-200 hover:bg-white/5"
               >
                 <span>Catálogo de Marcas & Equipos</span>
+                <ArrowRight className="h-4 w-4 text-[#B84A5A]" />
+              </Link>
+              <Link
+                href="/blog"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center justify-between rounded-lg px-3 py-2 text-sm text-zinc-200 hover:bg-white/5"
+              >
+                <span>Blog & Artículos Especializados</span>
                 <ArrowRight className="h-4 w-4 text-[#B84A5A]" />
               </Link>
               <Link
@@ -1331,6 +1345,11 @@ export default function PublicLanding() {
                 >
                   WhatsApp Directo
                 </a>
+              </li>
+              <li>
+                <Link href="/blog" className="transition hover:text-white">
+                  Blog & Novedades Técnicas
+                </Link>
               </li>
               <li>
                 <Link href="/login" className="transition hover:text-white">

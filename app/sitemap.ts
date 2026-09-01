@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { STATIC_BRANDS, STATIC_CATALOG_PRODUCTS } from "@/lib/catalogData";
 import { STATIC_PORTFOLIO_PROJECTS } from "@/lib/portfolioData";
+import { STATIC_BLOG_POSTS } from "@/lib/blogData";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = (
@@ -15,6 +16,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: currentDate,
       changeFrequency: "weekly",
       priority: 1.0,
+    },
+    {
+      url: `${baseUrl}/blog`,
+      lastModified: currentDate,
+      changeFrequency: "weekly",
+      priority: 0.95,
     },
     {
       url: `${baseUrl}/servicios/iluminacion`,
@@ -102,5 +109,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.9,
   }));
 
-  return [...staticPages, ...brandPages, ...productPages, ...portfolioPages];
+  // Blog Post URLs
+  const blogPages: MetadataRoute.Sitemap = STATIC_BLOG_POSTS.map((post) => ({
+    url: `${baseUrl}/blog/${post.slug}`,
+    lastModified: `${post.publishedAt}T08:00:00.000Z`,
+    changeFrequency: "weekly",
+    priority: 0.9,
+  }));
+
+  return [
+    ...staticPages,
+    ...brandPages,
+    ...productPages,
+    ...portfolioPages,
+    ...blogPages,
+  ];
 }

@@ -382,7 +382,10 @@ export default function ControlDeAccesoPage() {
             <Link href="/" className="hover:text-zinc-300 transition">
               Inicio
             </Link>
-            <Link href="/servicios/iluminacion" className="hover:text-zinc-300 transition text-[#F0B8C0]">
+            <Link href="/blog" className="hover:text-zinc-300 transition text-[#F0B8C0]">
+              Blog
+            </Link>
+            <Link href="/servicios/iluminacion" className="hover:text-zinc-300 transition">
               Iluminación (Lutron)
             </Link>
             <Link href="/servicios/audio-video" className="hover:text-zinc-300 transition">
