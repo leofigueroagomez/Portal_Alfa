@@ -4,6 +4,7 @@ import {
   STATIC_BLOG_POSTS,
   BLOG_CATEGORIES,
 } from "./blogData";
+import { SITE_URL } from "@/lib/siteUrl";
 
 export type { BlogPost, BlogCategory, BlogAuthor, BlogAiDisclosure, BlogSection, BlogSectionImage, BlogFaqItem } from "./blogData";
 export { BLOG_CATEGORIES, STATIC_BLOG_POSTS } from "./blogData";
@@ -48,7 +49,7 @@ export async function getRelatedBlogPosts(
  */
 export function generateBlogArticleJsonLd(
   post: BlogPost,
-  siteUrl: string = process.env.NEXT_PUBLIC_SITE_URL || "https://www.alfait.com.mx"
+  siteUrl: string = SITE_URL
 ) {
   const cleanSiteUrl = siteUrl.replace(/\/+$/, "");
   const articleUrl = `${cleanSiteUrl}/blog/${post.slug}`;

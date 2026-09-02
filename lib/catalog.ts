@@ -1,5 +1,6 @@
 import { supabase } from "@/services/supabase";
 import { STATIC_BRANDS, STATIC_CATALOG_PRODUCTS } from "./catalogData";
+import { SITE_URL } from "@/lib/siteUrl";
 
 export type Brand = {
   id: number;
@@ -316,7 +317,7 @@ export async function searchCatalogProducts(
  */
 export function generateProductJsonLd(
   product: CatalogProduct,
-  siteUrl: string = process.env.NEXT_PUBLIC_SITE_URL || "https://www.alfait.com.mx"
+  siteUrl: string = SITE_URL
 ) {
   const cleanSiteUrl = siteUrl.replace(/\/+$/, "");
   const productUrl = `${cleanSiteUrl}/marcas/${product.brand_slug}/${product.slug}`;
@@ -374,7 +375,7 @@ export function generateProductJsonLd(
  */
 export function generateBrandJsonLd(
   brand: Brand,
-  siteUrl: string = process.env.NEXT_PUBLIC_SITE_URL || "https://www.alfait.com.mx"
+  siteUrl: string = SITE_URL
 ) {
   const cleanSiteUrl = siteUrl.replace(/\/+$/, "");
   const brandUrl = `${cleanSiteUrl}/marcas/${brand.slug}`;

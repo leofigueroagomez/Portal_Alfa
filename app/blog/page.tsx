@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SITE_URL } from "@/lib/siteUrl";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -15,9 +16,7 @@ import {
 import { getPublicBlogPosts, BLOG_CATEGORIES } from "@/lib/blog";
 import BlogDirectoryClient from "./BlogDirectoryClient";
 
-const siteUrl = (
-  process.env.NEXT_PUBLIC_SITE_URL || "https://www.alfait.com.mx"
-).replace(/\/+$/, "");
+const siteUrl = SITE_URL;
 
 const WHATSAPP_PHONE =
   process.env.NEXT_PUBLIC_WHATSAPP_PHONE || "523318574884";

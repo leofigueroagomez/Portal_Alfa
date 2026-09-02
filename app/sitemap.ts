@@ -2,11 +2,10 @@ import type { MetadataRoute } from "next";
 import { STATIC_BRANDS, STATIC_CATALOG_PRODUCTS } from "@/lib/catalogData";
 import { STATIC_PORTFOLIO_PROJECTS } from "@/lib/portfolioData";
 import { STATIC_BLOG_POSTS } from "@/lib/blogData";
+import { SITE_URL } from "@/lib/siteUrl";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = (
-    process.env.NEXT_PUBLIC_SITE_URL || "https://www.alfait.com.mx"
-  ).replace(/\/+$/, "");
+  const baseUrl = SITE_URL;
 
   const currentDate = new Date().toISOString();
 

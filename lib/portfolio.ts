@@ -3,6 +3,7 @@ import {
   STATIC_PORTFOLIO_PROJECTS,
   PORTFOLIO_CATEGORIES,
 } from "./portfolioData";
+import { SITE_URL } from "@/lib/siteUrl";
 
 export type { PortfolioProject, PortfolioEquipmentZone, PortfolioEquipmentItem, PortfolioMediaItem } from "./portfolioData";
 export { PORTFOLIO_CATEGORIES } from "./portfolioData";
@@ -53,7 +54,7 @@ export async function getRelatedPortfolioProjects(
  */
 export function generateProjectJsonLd(
   project: PortfolioProject,
-  siteUrl: string = process.env.NEXT_PUBLIC_SITE_URL || "https://www.alfait.com.mx"
+  siteUrl: string = SITE_URL
 ) {
   const cleanSiteUrl = siteUrl.replace(/\/+$/, "");
   const projectUrl = `${cleanSiteUrl}/portafolio/${project.slug}`;

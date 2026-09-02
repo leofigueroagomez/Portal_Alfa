@@ -4,8 +4,8 @@ import {
   jsonError,
   logApiError,
   parsePositiveInteger,
+  requireInternalUser,
 } from "@/lib/apiAuth";
-import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 import { generateProjectContractPdf } from "@/lib/contractPdf";
 
@@ -22,14 +22,11 @@ export async function GET(
   const contractId = parsePositiveInteger(id);
   if (!contractId) return jsonError("Bad Request", 400);
 
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
+  // Esta ruta es solo para uso interno (panel de ALFA, ver ProjectContractCard.tsx).
+  // El flujo publico para clientes vive en app/api/public/contracts/[token]/pdf,
+  // que valida por token en vez de por rol.
+  const { response: authResponse } = await requireInternalUser();
+  if (authResponse) return authResponse;
 
   const adminClient = createSupabaseAdminClient();
   const { data: contract, error } = await adminClient

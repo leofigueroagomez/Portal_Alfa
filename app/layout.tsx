@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import AnalyticsScripts from "@/components/AnalyticsScripts";
+import { SITE_URL } from "@/lib/siteUrl";
 import PwaRegister from "@/components/PwaRegister";
 import "./globals.css";
 
@@ -8,7 +9,7 @@ const inter = Inter({
   subsets: ["latin"],
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.alfait.com.mx";
+const siteUrl = SITE_URL;
 
 export const viewport: Viewport = {
   themeColor: "#9E1B32",

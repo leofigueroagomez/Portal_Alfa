@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SITE_URL } from "@/lib/siteUrl";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -25,9 +26,7 @@ type Props = {
   params: Promise<{ marca: string; modelo: string }>;
 };
 
-const siteUrl = (
-  process.env.NEXT_PUBLIC_SITE_URL || "https://www.alfait.com.mx"
-).replace(/\/+$/, "");
+const siteUrl = SITE_URL;
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { marca, modelo } = await params;

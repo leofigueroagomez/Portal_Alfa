@@ -2,6 +2,55 @@
 
 Reglas criticas para agentes. No debilitar seguridad para resolver errores de producto.
 
+## Auditoria de seguridad 2026-09-01 (Supabase + rutas API)
+
+Hallazgos y correcciones de una revision completa de RLS/grants en Supabase y de
+autorizacion en `app/api/**`. Ver [[project_security_audit_20260901]] en memoria.
+Patrones a repetir/vigilar en cambios futuros:
+
+- **Una policy RLS para el rol `public` es casi siempre un bug.** `public` en
+  Postgres incluye `anon` (cualquiera en internet, sin login). Se encontraron y
+  cerraron policies `public`/`true` (o con `qual` que no verifica nada, como
+  `columna IS NOT NULL`) en `project_contracts` (RFC, CURP, INE, firmas —
+  critico), `suppliers` (RFC, credito) y `project_members`. Antes de escribir
+  `to public` o `to anon` en una policy, confirmar que el dato es realmente
+  publico (como `quotable_systems`, catalogo sin PII, si es correcto).
+- **Un `qual` de policy debe comparar contra algo que el llamante demuestre
+  poseer**, no solo verificar que la columna no sea null. Un flujo "acceso por
+  token" (onboarding, firma) se protege dejando la tabla sin policy publica y
+  haciendo el match exacto de token en un server action/route con
+  `createSupabaseAdminClient()` (service_role, bypasa RLS) — nunca confiando en
+  que PostgREST valide el token del cliente.
+- **Vista con `SECURITY DEFINER` + grant a `anon`/`authenticated` = bypass total
+  de RLS.** Se encontraron 22 vistas `vigia_v_*` con grants completos
+  (`SELECT/INSERT/UPDATE/DELETE`) al rol `anon`, exponiendo reportes financieros
+  y de pipeline de ventas sin login. Toda vista nueva sobre datos de negocio
+  debe revisar sus grants explícitamente (`revoke all ... ; grant select to
+  authenticated;`) — no asumir que hereda el RLS de las tablas base.
+- **Cada API route bajo `app/api/[algo]/[id]/...` necesita dos checks, no uno:**
+  ¿esta autenticado? y ¿tiene permiso sobre ESTE `id`? (`requireInternalUser()`
+  para rutas de staff, o `requireFiscalProjectAccessForProfile`/
+  `requirePortalProjectAccessForProfile` para rutas que un cliente/contratista
+  puede tocar). Se encontro y corrigio `app/api/contracts/[id]/pdf` que solo
+  verificaba sesion, sin rol — cualquier usuario logueado (incluido portal
+  cliente) podia pedir el contrato de cualquier otro `id`.
+- **Todo webhook externo debe verificar firma con fail-closed**, nunca un
+  fallback que confie en el body si falta la firma/secreto. Se encontro y
+  corrigio `app/api/webhooks/stripe` con un fallback `JSON.parse(rawBody)` sin
+  verificar cuando faltaba el header `stripe-signature` — permitia falsificar
+  eventos de pago (marcar servicios como pagados sin pagar).
+- **Pendiente de confirmar por Leo (no verificable via SQL/MCP):** que el
+  signup publico de email este deshabilitado en el Dashboard de Supabase
+  (Authentication → Sign In / Providers). `handle_new_user_profile()` y
+  `ensure_current_user_profile()` asignan `is_internal = true, role =
+  'comercial'` por default a cualquier usuario nuevo cuyo `user_metadata` no
+  lo marque como `client_portal` — fail-open. Ningun flujo de la app crea
+  usuarios asi (todos usan `service_role` + rol explicito), pero si el signup
+  publico de GoTrue esta habilitado, es una escalada de privilegios directa.
+  Corregir esto requiere tambien tocar `app/api/admin/users/route.ts` (que hoy
+  depende de ese default para dejar `is_internal=true` en altas de staff) —
+  no cambiar sin revisar ambos lados a la vez.
+
 ## Autenticacion
 
 - La proteccion de rutas vive principalmente en `proxy.ts`.
@@ -38,6 +87,12 @@ Roles detectados en codigo:
 - No inventar policies si existe patron equivalente en el modulo.
 
 Pendiente de confirmar: listado completo y actualizado de policies aplicadas en produccion.
+
+### Tablas de respaldo (`bkp_*`)
+
+- Toda tabla `bkp_*` creada durante una reparacion de datos (ver `sql/20260830_merge_orphan_purchase_lines.sql`) debe llevar `ENABLE ROW LEVEL SECURITY` sin policies en el mismo momento en que se crea. Sin RLS, PostgREST la expone publicamente (lectura/escritura/borrado con el `anon` key) al schema `public` — asi se detecto y corrigio para `bkp_20260830_*` (2026-09-01, alertado por el linter de seguridad de Supabase).
+- Estas tablas no las consulta la app; RLS activo sin policy las deja en deny-by-default, que es el estado correcto (no requieren policies de lectura).
+- Correr `get_advisors(type: security)` despues de crear cualquier tabla de respaldo o dejar una migracion sin terminar.
 
 ### El Vigia
 

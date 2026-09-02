@@ -46,8 +46,29 @@ const securityHeaders = [
   },
 ];
 
+// URLs del sitio anterior (HTML estatico) que Google todavia conserva
+// indexadas bajo http://. Hoy responden 404; se redirigen 301 a su equivalente
+// actual para no perder la senal que ya tienen acumulada.
+const legacyRedirects = [
+  { source: "/domotica.html", destination: "/servicios/iluminacion" },
+  { source: "/camarasdeseguridad.html", destination: "/servicios/cctv" },
+  { source: "/cercaelectrica.html", destination: "/servicios/control-de-acceso" },
+  { source: "/controldeacceso.html", destination: "/servicios/control-de-acceso" },
+  { source: "/audiovideo.html", destination: "/servicios/audio-video" },
+  { source: "/redes.html", destination: "/servicios/redes" },
+  { source: "/automatizacion.html", destination: "/servicios/iluminacion" },
+  { source: "/index.html", destination: "/" },
+  { source: "/nosotros.html", destination: "/" },
+  { source: "/contacto.html", destination: "/" },
+];
+
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@sparticuz/chromium"],
+  async redirects() {
+    // 301 explicito (no `permanent: true`, que emite 308): es el codigo que
+    // esperan Search Console y los crawlers/bookmarks del sitio anterior.
+    return legacyRedirects.map((r) => ({ ...r, statusCode: 301 as const }));
+  },
   async headers() {
     return [
       {

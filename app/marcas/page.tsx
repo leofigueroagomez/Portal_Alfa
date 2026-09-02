@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
+import { SITE_URL } from "@/lib/siteUrl";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, Sparkles, ShieldCheck } from "lucide-react";
 import { getPublicBrands, getPublicBrandProducts } from "@/lib/catalog";
 
-const siteUrl = (
-  process.env.NEXT_PUBLIC_SITE_URL || "https://www.alfait.com.mx"
-).replace(/\/+$/, "");
+const siteUrl = SITE_URL;
 
 export const metadata: Metadata = {
   title: "Marcas y Sistemas de Automatización de Lujo en México | ALFA",

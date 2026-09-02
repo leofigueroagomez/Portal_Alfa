@@ -14,16 +14,19 @@ export async function POST(request: Request) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   const signature = request.headers.get("stripe-signature");
 
+  if (!webhookSecret || !signature) {
+    // Sin firma verificada, cualquiera podria mandar un evento falso (p.ej. marcar
+    // un servicio como pagado sin pagar). Nunca se debe confiar en el body sin
+    // verificar contra STRIPE_WEBHOOK_SECRET.
+    console.error("Stripe webhook rechazado: falta STRIPE_WEBHOOK_SECRET o el header stripe-signature.");
+    return NextResponse.json({ error: "Webhook signature verification failed" }, { status: 400 });
+  }
+
   let event: import("stripe").Stripe.Event;
 
   try {
     const rawBody = await request.text();
-
-    if (webhookSecret && signature) {
-      event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
-    } else {
-      event = JSON.parse(rawBody) as import("stripe").Stripe.Event;
-    }
+    event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Webhook signature verification failed";
     console.error("Error verificando webhook de Stripe:", msg);

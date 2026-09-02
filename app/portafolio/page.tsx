@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
+import { SITE_URL } from "@/lib/siteUrl";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Sparkles, Phone, ShieldCheck, Layers, Award } from "lucide-react";
 import { getPublicPortfolioProjects } from "@/lib/portfolio";
 import PortfolioDirectoryClient from "./PortfolioDirectoryClient";
 
-const siteUrl = (
-  process.env.NEXT_PUBLIC_SITE_URL || "https://www.alfait.com.mx"
-).replace(/\/+$/, "");
+const siteUrl = SITE_URL;
 
 export const metadata: Metadata = {
   title: "Portafolio de Proyectos | Audio Hi-Fi, Iluminación Lutron y Domótica | ALFA",

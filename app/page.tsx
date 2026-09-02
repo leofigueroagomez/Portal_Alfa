@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SITE_URL } from "@/lib/siteUrl";
 import PublicLandingClient from "@/components/PublicLandingClient";
 
 const seoTitle =
@@ -7,9 +8,7 @@ const seoTitle =
 const seoDescription =
   "ALFA diseña e implementa soluciones tecnológicas llave en mano para residencias y empresas. Redes estables, audio premium, videovigilancia y automatización con acompañamiento antes, durante y después del proyecto.";
 
-const siteUrl = (
-  process.env.NEXT_PUBLIC_SITE_URL || "https://www.alfait.com.mx"
-).replace(/\/+$/, "");
+const siteUrl = SITE_URL;
 
 export const metadata: Metadata = {
   title: "Automatización, Redes y Audio para Residencias y Empresas | ALFA",
