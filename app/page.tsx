@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { SITE_URL } from "@/lib/siteUrl";
+import { buildLocalBusinessJsonLd } from "@/lib/localBusiness";
 import PublicLandingClient from "@/components/PublicLandingClient";
 
 const seoTitle =
@@ -32,33 +33,14 @@ export const metadata: Metadata = {
 };
 
 const organizationJsonLd = {
-  "@context": "https://schema.org",
-  "@type": ["LocalBusiness", "ProfessionalService"],
-  name: "ALFA High End Services",
-  alternateName: "ALFA IT",
-  description:
-    "Integración tecnológica premium llave en mano: audio de alta fidelidad, redes empresariales, videovigilancia CCTV, control de acceso y automatización con seguimiento vía ALFA OS.",
-  url: siteUrl,
-  logo: `${siteUrl}/logo-alfa.png`,
-  image: `${siteUrl}/projects/residencia-premium.jpeg`,
-  priceRange: "$$$$",
-  address: {
-    "@type": "PostalAddress",
-    addressLocality: "Zapopan",
-    addressRegion: "Jalisco",
-    addressCountry: "MX",
-  },
-  geo: {
-    "@type": "GeoCoordinates",
-    latitude: 20.7167,
-    longitude: -103.4167,
-  },
-  areaServed: [
-    { "@type": "City", name: "Zapopan" },
-    { "@type": "City", name: "Guadalajara" },
-    { "@type": "State", name: "Jalisco" },
-    { "@type": "Country", name: "México" },
-  ],
+  // NAP, cobertura y horario vienen de lib/localBusiness.ts para que todas las
+  // paginas publicas declaren exactamente los mismos datos que el Perfil de
+  // Negocio de Google.
+  ...buildLocalBusinessJsonLd({
+    pageUrl: siteUrl,
+    description:
+      "Integración tecnológica premium llave en mano: audio de alta fidelidad, redes empresariales, videovigilancia CCTV, control de acceso y automatización con seguimiento vía ALFA OS.",
+  }),
   hasOfferCatalog: {
     "@type": "OfferCatalog",
     name: "Servicios de Integración Tecnológica ALFA",

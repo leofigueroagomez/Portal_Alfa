@@ -5,6 +5,7 @@ import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { trackEvent } from "@/lib/analytics";
 import { getStoredAttribution } from "@/lib/utmTracking";
+import { COVERAGE_LINE, NAP } from "@/lib/localBusiness";
 import {
   ArrowRight,
   Building2,
@@ -1249,6 +1250,23 @@ export default function PublicLanding() {
             <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-[#B84A5A]">
               Zapopan, Jalisco, México
             </p>
+            <address className="mt-3 not-italic text-sm leading-6 text-zinc-400">
+              {NAP.streetAddress}
+              <br />
+              {NAP.postalCode} {NAP.addressLocality}, {NAP.addressRegion}
+              <br />
+              <a
+                href={`tel:${NAP.telephone}`}
+                className="transition hover:text-white"
+              >
+                {NAP.telephoneDisplay}
+              </a>
+              <br />
+              <span className="text-zinc-500">Lunes a viernes, 9:00 a 19:00</span>
+            </address>
+            <p className="mt-4 text-sm leading-6 text-zinc-400">
+              {COVERAGE_LINE}.
+            </p>
           </div>
 
           <div>
@@ -1263,6 +1281,14 @@ export default function PublicLanding() {
                 >
                   <span>Iluminación Arquitectónica (Lutron)</span>
                   <span className="text-[10px] text-[#F0B8C0] bg-[#7A1F2B]/40 px-1.5 py-0.2 rounded font-semibold">Top</span>
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/lutron-guadalajara"
+                  className="transition hover:text-white"
+                >
+                  Lutron en Guadalajara
                 </Link>
               </li>
               <li>
