@@ -29,6 +29,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.95,
     },
     {
+      // Landing de ciudad: objetivo "Lutron Guadalajara" / "Lutron Zapopan".
+      url: `${baseUrl}/lutron-guadalajara`,
+      lastModified: currentDate,
+      changeFrequency: "weekly",
+      priority: 0.95,
+    },
+    {
       url: `${baseUrl}/servicios/audio-video`,
       lastModified: currentDate,
       changeFrequency: "monthly",
