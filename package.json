@@ -22,7 +22,7 @@
     "@supabase/supabase-js": "^2.106.0",
     "heic2any": "^0.0.4",
     "lucide-react": "^1.16.0",
-    "next": "16.2.6",
+    "next": "16.3.4",
     "puppeteer-core": "^25.1.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
@@ -40,6 +40,6 @@
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^5",
-    "vercel": "^54.9.1"
+    "vercel": "^54.21.1"
   }
 }
