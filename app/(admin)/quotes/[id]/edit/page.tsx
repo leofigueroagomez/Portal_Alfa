@@ -48,6 +48,11 @@ import ProjectStageSelect from "@/components/ProjectStageSelect";
 import QuickCreateProductButton from "../../QuickCreateProductButton";
 import QuoteDiagnosticContextEditor from "../../QuoteDiagnosticContextEditor";
 import QuoteItemAreaDistributionModal from "../../QuoteItemAreaDistributionModal";
+import ApplyProductUpdatesModal from "../../ApplyProductUpdatesModal";
+import {
+  getPendingProductUpdates,
+  getProductUpdatePatch,
+} from "@/lib/quoteProductUpdates";
 import ReplaceQuoteItemModal from "../../ReplaceQuoteItemModal";
 import QuoteLaborActivitiesPanel from "../../QuoteLaborActivitiesPanel";
 import ClientSearchSelect from "@/components/ClientSearchSelect";
@@ -310,6 +315,9 @@ export default function EditQuotePage() {
     item: QuoteItem;
   } | null>(null);
   const [activeSectionId, setActiveSectionId] = useState("");
+  const [editedProductIds, setEditedProductIds] = useState<number[]>([]);
+  const [isProductUpdatesModalOpen, setIsProductUpdatesModalOpen] =
+    useState(false);
   const [newSectionName, setNewSectionName] = useState("");
   const [quotableSystems, setQuotableSystems] = useState<
     Array<{ id: number; name: string; code: string | null }>
@@ -1538,6 +1546,56 @@ export default function EditQuotePage() {
     );
   }
 
+  // Solo refresca la biblioteca de productos. Las partidas ya agregadas
+  // conservan su precio, costo y descripcion hasta que se aplique el cambio
+  // desde "Actualizar precios".
+  function handleProductUpdated(product: Product) {
+    setProducts((current) =>
+      current
+        .map((existing) =>
+          existing.id === product.id ? { ...existing, ...product } : existing
+        )
+        .sort((a, b) => a.brand.localeCompare(b.brand))
+    );
+
+    setEditedProductIds((current) =>
+      current.includes(product.id) ? current : [...current, product.id]
+    );
+  }
+
+  function handleApplyProductUpdates(productIds: number[]) {
+    setSections((current) =>
+      current.map((section) => ({
+        ...section,
+        items: section.items.map((item) => {
+          if (!productIds.includes(item.id)) return item;
+
+          const product = products.find(
+            (candidate) => candidate.id === item.id
+          );
+          if (!product) return item;
+
+          return { ...item, ...getProductUpdatePatch(product) };
+        }),
+      }))
+    );
+
+    setEditedProductIds((current) =>
+      current.filter((id) => !productIds.includes(id))
+    );
+    setIsProductUpdatesModalOpen(false);
+  }
+
+  const pendingProductUpdates = getPendingProductUpdates(
+    sections,
+    products,
+    editedProductIds
+  );
+  const pendingProductUpdatesItemCount = pendingProductUpdates.reduce(
+    (sum, update) => sum + update.itemCount,
+    0
+  );
+
   const filteredProducts = products.filter((product) => {
     const query = search.trim().toLowerCase();
     const productTags =
@@ -2525,6 +2583,30 @@ export default function EditQuotePage() {
             </div>
           </div>
 
+          {pendingProductUpdates.length > 0 ? (
+            <div className="flex flex-col gap-3 rounded-2xl border border-[#4A3A1A] bg-[#241E10] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+              <p className="text-sm text-[#F4C66A]">
+                Editaste{" "}
+                {pendingProductUpdates.length === 1
+                  ? "1 producto"
+                  : `${pendingProductUpdates.length} productos`}{" "}
+                en el catálogo con datos distintos a los de{" "}
+                {pendingProductUpdatesItemCount === 1
+                  ? "1 partida"
+                  : `${pendingProductUpdatesItemCount} partidas`}{" "}
+                de esta cotización.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => setIsProductUpdatesModalOpen(true)}
+                className="shrink-0 rounded-xl bg-[#9E1B32] px-5 py-3 text-sm font-semibold hover:bg-[#B91C3C]"
+              >
+                Actualizar precios
+              </button>
+            </div>
+          ) : null}
+
           <div className="space-y-6">
             {sections.map((section) => {
               const sectionEquipment = getSectionEquipmentTotal(section);
@@ -2675,18 +2757,27 @@ export default function EditQuotePage() {
                               {item.name}
                             </p>
 
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setReplacingTarget({
-                                  sectionId: section.id,
-                                  item,
-                                })
-                              }
-                              className="mt-1 text-xs font-semibold text-[#F4C66A] hover:text-[#F7D68A]"
-                            >
-                              Reemplazar
-                            </button>
+                            <div className="mt-1 flex flex-wrap items-center gap-3">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setReplacingTarget({
+                                    sectionId: section.id,
+                                    item,
+                                  })
+                                }
+                                className="text-xs font-semibold text-[#F4C66A] hover:text-[#F7D68A]"
+                              >
+                                Reemplazar
+                              </button>
+
+                              <QuickCreateProductButton
+                                productId={item.id}
+                                onProductUpdated={handleProductUpdated}
+                                triggerLabel="Editar producto"
+                                triggerClassName="text-xs font-semibold text-[#B3B3B8] hover:text-white"
+                              />
+                            </div>
                           </div>
 
                           <input
@@ -3199,6 +3290,15 @@ export default function EditQuotePage() {
                             Costo sin verificar hace {getProductAgeInDays(product.cost_updated_at)} dias
                           </p>
                         ) : null}
+
+                        <div className="mt-1">
+                          <QuickCreateProductButton
+                            productId={product.id}
+                            onProductUpdated={handleProductUpdated}
+                            triggerLabel="Editar producto"
+                            triggerClassName="text-xs font-semibold text-[#B3B3B8] hover:text-white"
+                          />
+                        </div>
                       </div>
 
                       <button
@@ -3589,6 +3689,13 @@ export default function EditQuotePage() {
           </div>
         </aside>
       </section>
+
+      <ApplyProductUpdatesModal
+        open={isProductUpdatesModalOpen}
+        updates={pendingProductUpdates}
+        onClose={() => setIsProductUpdatesModalOpen(false)}
+        onApply={handleApplyProductUpdates}
+      />
 
       <ReplaceQuoteItemModal
         target={replacingTarget}

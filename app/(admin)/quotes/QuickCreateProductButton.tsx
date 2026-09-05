@@ -1,12 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/services/supabase";
 import { formatCurrency } from "@/lib/format";
 import {
   findDuplicateProduct,
   formatDuplicateProductMessage,
 } from "@/lib/productDuplicates";
+import {
+  SatProductServiceSelect,
+  SatUnitSelect,
+  TaxObjectSelect,
+} from "@/components/SatCatalogSelect";
 
 type Product = {
   id: number;
@@ -37,6 +42,7 @@ type TaxonomyOption = {
 const LABOR_MULTIPLIER = 2;
 
 const INITIAL_FORM = {
+  sku: "",
   brand: "",
   model: "",
   name: "",
@@ -55,24 +61,51 @@ const INITIAL_FORM = {
   labor_unit_cost: "",
   sat_product_key: "",
   sat_unit_key: "",
+  sat_product_service_code: "",
+  sat_unit_code: "",
+  sat_unit_name: "",
+  fiscal_object: "02",
   unit_name: "",
   tax_rate: "16",
   is_favorite: false,
   partner_discount_eligible: true,
 };
 
+const PRODUCT_RETURN_COLUMNS =
+  "id, sku, brand, model, name, category, category_id, image_url, cost_price, cost_currency, calculated_sale_price, sale_currency, labor_unit_cost, labor_unit_sale_price, is_favorite, partner_discount_eligible, created_at, cost_updated_at";
+
 type Props = {
-  onProductCreated: (product: Product) => void;
+  /** Alta de producto nuevo (modo por defecto). */
+  onProductCreated?: (product: Product) => void;
+  /** Si viene un id, el modal abre en modo edicion sobre ese producto del catalogo. */
+  productId?: number | null;
+  /** Solo se dispara en modo edicion, con el producto ya actualizado en el catalogo. */
+  onProductUpdated?: (product: Product) => void;
+  triggerLabel?: string;
+  triggerClassName?: string;
 };
+
+const DEFAULT_TRIGGER_CLASS =
+  "bg-[#222228] hover:bg-[#2A2A30] border border-[#2A2A30] text-[#B3B3B8] rounded-xl px-5 py-3 font-semibold";
 
 export default function QuickCreateProductButton({
   onProductCreated,
+  productId = null,
+  onProductUpdated,
+  triggerLabel,
+  triggerClassName,
 }: Props) {
+  const isEditMode = Boolean(productId);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [loadingProduct, setLoadingProduct] = useState(false);
   const [categories, setCategories] = useState<TaxonomyOption[]>([]);
   const [suppliers, setSuppliers] = useState<TaxonomyOption[]>([]);
   const [form, setForm] = useState(INITIAL_FORM);
+  const originalCostRef = useRef<{
+    cost_price: number;
+    cost_currency: string;
+  } | null>(null);
 
   function updateField(field: string, value: string | boolean) {
     setForm((current) => ({
@@ -84,11 +117,77 @@ export default function QuickCreateProductButton({
   function resetModalState() {
     setForm({ ...INITIAL_FORM });
     setSaving(false);
+    originalCostRef.current = null;
+  }
+
+  async function loadProductIntoForm() {
+    if (!productId) return;
+
+    setLoadingProduct(true);
+
+    const { data, error } = await supabase
+      .from("products")
+      .select("*")
+      .eq("id", productId)
+      .single();
+
+    setLoadingProduct(false);
+
+    if (error || !data) {
+      console.error("Error leyendo producto:", error);
+      alert(
+        "No se pudo leer el producto del catalogo: " +
+          JSON.stringify(error || { message: "Sin datos" })
+      );
+      setOpen(false);
+      return;
+    }
+
+    originalCostRef.current = {
+      cost_price: Number(data.cost_price || 0),
+      cost_currency: data.cost_currency || "USD",
+    };
+
+    setForm({
+      ...INITIAL_FORM,
+      sku: data.sku || "",
+      brand: data.brand || "",
+      model: data.model || "",
+      name: data.name || "",
+      category: data.category || "",
+      category_id: data.category_id ? String(data.category_id) : "",
+      supplier: data.supplier || "",
+      supplier_id: data.supplier_id ? String(data.supplier_id) : "",
+      image_url: data.image_url || "",
+      cost_price: String(data.cost_price ?? ""),
+      cost_currency: data.cost_currency || "USD",
+      pricing_method: data.pricing_method || "target_margin",
+      target_margin: String(data.target_margin ?? ""),
+      public_price: String(data.public_price ?? ""),
+      calculated_sale_price: String(data.calculated_sale_price ?? ""),
+      sale_currency: data.sale_currency || "USD",
+      labor_unit_cost: String(data.labor_unit_cost ?? ""),
+      sat_product_key: data.sat_product_key || "",
+      sat_unit_key: data.sat_unit_key || "",
+      sat_product_service_code:
+        data.sat_product_service_code || data.sat_product_key || "",
+      sat_unit_code: data.sat_unit_code || data.sat_unit_key || "",
+      sat_unit_name: data.sat_unit_name || data.unit_name || "",
+      fiscal_object: data.fiscal_object || "02",
+      unit_name: data.unit_name || "",
+      tax_rate: String(data.tax_rate ?? "16"),
+      is_favorite: Boolean(data.is_favorite),
+      partner_discount_eligible: data.partner_discount_eligible !== false,
+    });
   }
 
   function openModal() {
     resetModalState();
     setOpen(true);
+
+    if (productId) {
+      loadProductIntoForm();
+    }
   }
 
   function closeModal() {
@@ -167,6 +266,85 @@ export default function QuickCreateProductButton({
     form.pricing_method,
   ]);
 
+  async function handleUpdate() {
+    if (!productId) return;
+
+    const duplicate = await findDuplicateProduct(supabase, {
+      brand: form.brand,
+      model: form.model,
+      sku: form.sku,
+      excludeId: productId,
+    });
+
+    if (duplicate) {
+      alert(formatDuplicateProductMessage(duplicate));
+      return;
+    }
+
+    setSaving(true);
+
+    const newCostPrice = Number(form.cost_price) || 0;
+    const costChanged =
+      !originalCostRef.current ||
+      originalCostRef.current.cost_price !== newCostPrice ||
+      originalCostRef.current.cost_currency !== form.cost_currency;
+
+    const { data, error } = await supabase
+      .from("products")
+      .update({
+        brand: form.brand,
+        model: form.model,
+        name: form.name,
+        category: form.category,
+        category_id: form.category_id ? Number(form.category_id) : null,
+        supplier: form.supplier,
+        supplier_id: form.supplier_id ? Number(form.supplier_id) : null,
+        image_url: form.image_url,
+        cost_price: newCostPrice,
+        cost_currency: form.cost_currency,
+        ...(costChanged ? { cost_updated_at: new Date().toISOString() } : {}),
+        pricing_method: form.pricing_method,
+        target_margin: Number(form.target_margin) || 0,
+        public_price: Number(form.public_price) || 0,
+        calculated_sale_price: Number(form.calculated_sale_price) || 0,
+        sale_currency: form.sale_currency,
+        labor_unit_cost: Number(form.labor_unit_cost) || 0,
+        labor_sale_multiplier: LABOR_MULTIPLIER,
+        labor_unit_sale_price: laborUnitSalePrice,
+        sat_product_key: form.sat_product_service_code,
+        sat_unit_key: form.sat_unit_code,
+        sat_product_service_code: form.sat_product_service_code,
+        sat_unit_code: form.sat_unit_code,
+        sat_unit_name: form.sat_unit_name,
+        unit_name: form.sat_unit_name,
+        fiscal_object: form.fiscal_object || "02",
+        tax_rate: Number(form.tax_rate) || 16,
+        is_favorite: form.is_favorite,
+        partner_discount_eligible: form.partner_discount_eligible,
+      })
+      .eq("id", productId)
+      .select(PRODUCT_RETURN_COLUMNS)
+      .single();
+
+    setSaving(false);
+
+    if (error || !data) {
+      const currentError = error || { message: "No se recibio producto" };
+      console.error("Error editando producto:", currentError);
+      alert(
+        "Error editando producto: " +
+          JSON.stringify(currentError) +
+          ("message" in currentError && currentError.message
+            ? ` ${currentError.message}`
+            : "")
+      );
+      return;
+    }
+
+    onProductUpdated?.(data as Product);
+    closeModal();
+  }
+
   async function handleSave() {
     if (!form.brand.trim() || !form.model.trim() || !form.name.trim()) {
       alert("Agrega marca, modelo y nombre");
@@ -174,7 +352,16 @@ export default function QuickCreateProductButton({
     }
 
     if (!form.image_url.trim()) {
-      alert("Adjunta una foto real del producto antes de darlo de alta.");
+      alert(
+        isEditMode
+          ? "Adjunta una foto real del producto antes de guardar."
+          : "Adjunta una foto real del producto antes de darlo de alta."
+      );
+      return;
+    }
+
+    if (isEditMode) {
+      await handleUpdate();
       return;
     }
 
@@ -221,9 +408,7 @@ export default function QuickCreateProductButton({
         partner_discount_eligible: form.partner_discount_eligible,
         is_active: true,
       })
-      .select(
-        "id, sku, brand, model, name, category, category_id, image_url, cost_price, cost_currency, calculated_sale_price, sale_currency, labor_unit_cost, labor_unit_sale_price, is_favorite, partner_discount_eligible, created_at, cost_updated_at"
-      )
+      .select(PRODUCT_RETURN_COLUMNS)
       .single();
 
     setSaving(false);
@@ -241,7 +426,7 @@ export default function QuickCreateProductButton({
       return;
     }
 
-    onProductCreated(data as Product);
+    onProductCreated?.(data as Product);
     closeModal();
   }
 
@@ -250,9 +435,9 @@ export default function QuickCreateProductButton({
       <button
         type="button"
         onClick={openModal}
-        className="bg-[#222228] hover:bg-[#2A2A30] border border-[#2A2A30] text-[#B3B3B8] rounded-xl px-5 py-3 font-semibold"
+        className={triggerClassName || DEFAULT_TRIGGER_CLASS}
       >
-        Nuevo producto
+        {triggerLabel || (isEditMode ? "Editar producto" : "Nuevo producto")}
       </button>
 
       {open && (
@@ -260,9 +445,13 @@ export default function QuickCreateProductButton({
           <div className="max-h-[calc(100vh-24px)] w-full max-w-4xl overflow-y-auto rounded-2xl border border-[#1F1F24] bg-[#151518] p-4 md:p-6">
             <div className="mb-6 flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-2xl font-bold">Nuevo producto</h3>
+                <h3 className="text-2xl font-bold">
+                  {isEditMode ? "Editar producto" : "Nuevo producto"}
+                </h3>
                 <p className="text-[#B3B3B8] text-sm mt-1">
-                  Alta rápida para agregarlo a la cotización.
+                  {isEditMode
+                    ? "Corrige el producto en el catálogo. No cambia las partidas ya agregadas a esta cotización."
+                    : "Alta rápida para agregarlo a la cotización."}
                 </p>
               </div>
 
@@ -332,9 +521,39 @@ export default function QuickCreateProductButton({
               <p className="rounded-xl bg-[#222228] p-4 text-sm text-[#B3B3B8]">
                 Precio venta MO calculado automáticamente x{LABOR_MULTIPLIER}
               </p>
-              <input className="bg-[#222228] rounded-xl p-4 outline-none" placeholder="Clave SAT producto" value={form.sat_product_key} onChange={(e) => updateField("sat_product_key", e.target.value)} />
-              <input className="bg-[#222228] rounded-xl p-4 outline-none" placeholder="Clave SAT unidad" value={form.sat_unit_key} onChange={(e) => updateField("sat_unit_key", e.target.value)} />
-              <input className="bg-[#222228] rounded-xl p-4 outline-none" placeholder="Unidad" value={form.unit_name} onChange={(e) => updateField("unit_name", e.target.value)} />
+              {isEditMode ? (
+                <>
+                  <SatProductServiceSelect
+                    label="Codigo SAT Producto/Servicio"
+                    value={form.sat_product_service_code}
+                    onChange={(value) =>
+                      updateField("sat_product_service_code", value)
+                    }
+                  />
+                  <SatUnitSelect
+                    label="Clave Unidad SAT"
+                    value={form.sat_unit_code}
+                    onChange={(value, unitName) =>
+                      setForm((cur) => ({
+                        ...cur,
+                        sat_unit_code: value,
+                        sat_unit_name: unitName || cur.sat_unit_name,
+                      }))
+                    }
+                  />
+                  <TaxObjectSelect
+                    label="Objeto de impuesto"
+                    value={form.fiscal_object || "02"}
+                    onChange={(value) => updateField("fiscal_object", value)}
+                  />
+                </>
+              ) : (
+                <>
+                  <input className="bg-[#222228] rounded-xl p-4 outline-none" placeholder="Clave SAT producto" value={form.sat_product_key} onChange={(e) => updateField("sat_product_key", e.target.value)} />
+                  <input className="bg-[#222228] rounded-xl p-4 outline-none" placeholder="Clave SAT unidad" value={form.sat_unit_key} onChange={(e) => updateField("sat_unit_key", e.target.value)} />
+                  <input className="bg-[#222228] rounded-xl p-4 outline-none" placeholder="Unidad" value={form.unit_name} onChange={(e) => updateField("unit_name", e.target.value)} />
+                </>
+              )}
             </div>
 
             <label className="mb-6 flex items-center gap-3 rounded-xl bg-[#222228] p-4 text-[#B3B3B8]">
@@ -396,10 +615,14 @@ export default function QuickCreateProductButton({
               <button
                 type="button"
                 onClick={handleSave}
-                disabled={saving}
-                className="flex-1 bg-[#9E1B32] hover:bg-[#B91C3C] rounded-xl py-3 font-semibold"
+                disabled={saving || loadingProduct}
+                className="flex-1 bg-[#9E1B32] hover:bg-[#B91C3C] rounded-xl py-3 font-semibold disabled:bg-[#222228] disabled:text-[#77777D]"
               >
-                {saving ? "Guardando..." : "Guardar producto"}
+                {loadingProduct
+                  ? "Cargando..."
+                  : saving
+                    ? "Guardando..."
+                    : "Guardar producto"}
               </button>
             </div>
           </div>
