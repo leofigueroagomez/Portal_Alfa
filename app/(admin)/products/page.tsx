@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import Link from "next/link";
 import ProductsTableClient, { ProductForTable } from "./ProductsTableClient";
+import { fetchAllRows } from "@/lib/supabaseFetchAll";
 
 type TaxonomyOption = {
   id: number;
@@ -11,13 +12,19 @@ export default async function ProductsPage() {
   const supabase = await createSupabaseServerClient();
   const [{ data: products }, { data: categories }, { data: tags }] =
     await Promise.all([
-      supabase
-        .from("products")
-        .select(
-          "*, product_categories(id, name), product_tag_assignments(product_tags(id, name))"
-        )
-        .order("is_favorite", { ascending: false })
-        .order("created_at", { ascending: false }),
+      // Paginado: el API corta en 1000 filas y hay mas productos que eso, asi
+      // que sin esto los mas antiguos del orden nunca se listan.
+      fetchAllRows<ProductForTable>((from, to) =>
+        supabase
+          .from("products")
+          .select(
+            "*, product_categories(id, name), product_tag_assignments(product_tags(id, name))"
+          )
+          .order("is_favorite", { ascending: false })
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: true })
+          .range(from, to)
+      ),
       supabase
         .from("product_categories")
         .select("id, name")

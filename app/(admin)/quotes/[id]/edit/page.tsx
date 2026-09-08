@@ -46,6 +46,7 @@ import {
 } from "@/lib/quoteItemPresentation";
 import ProjectStageSelect from "@/components/ProjectStageSelect";
 import QuickCreateProductButton from "../../QuickCreateProductButton";
+import { fetchAllRows } from "@/lib/supabaseFetchAll";
 import QuoteDiagnosticContextEditor from "../../QuoteDiagnosticContextEditor";
 import QuoteItemAreaDistributionModal from "../../QuoteItemAreaDistributionModal";
 import ReplaceQuoteItemModal from "../../ReplaceQuoteItemModal";
@@ -529,14 +530,20 @@ export default function EditQuotePage() {
         { data: clientsData, error: clientsError },
         { data: projectsData, error: projectsError },
       ] = await Promise.all([
-        supabase
-          .from("products")
-          .select(
-            "*, product_categories(name), product_tag_assignments(product_tags(id, name))"
-          )
-          .eq("is_active", true)
-          .order("is_favorite", { ascending: false })
-          .order("brand", { ascending: true }),
+        // Paginado: el API corta en 1000 filas y hay mas productos activos que
+        // eso, asi que sin esto las ultimas marcas del orden nunca se cargan.
+        fetchAllRows<Product>((from, to) =>
+          supabase
+            .from("products")
+            .select(
+              "*, product_categories(name), product_tag_assignments(product_tags(id, name))"
+            )
+            .eq("is_active", true)
+            .order("is_favorite", { ascending: false })
+            .order("brand", { ascending: true })
+            .order("id", { ascending: true })
+            .range(from, to)
+        ),
         supabase
           .from("clients")
           .select("id, client_number, name, company_name")

@@ -46,6 +46,7 @@ import QuoteItemAreaDistributionModal from "../QuoteItemAreaDistributionModal";
 import ReplaceQuoteItemModal from "../ReplaceQuoteItemModal";
 import QuoteLaborActivitiesPanel from "../QuoteLaborActivitiesPanel";
 import QuickCreateProductButton from "../QuickCreateProductButton";
+import { fetchAllRows } from "@/lib/supabaseFetchAll";
 import ClientSearchSelect from "@/components/ClientSearchSelect";
 
 type Product = {
@@ -287,16 +288,22 @@ export default function NewQuotePage() {
 
   useEffect(() => {
     async function loadProducts() {
-      const { data } = await supabase
-        .from("products")
-        .select(
-          "*, product_categories(name), product_tag_assignments(product_tags(id, name))"
-        )
-        .eq("is_active", true)
-        .order("is_favorite", { ascending: false })
-        .order("brand", { ascending: true });
+      // Paginado: el API corta en 1000 filas y hay mas productos activos que
+      // eso, asi que sin esto las ultimas marcas del orden nunca se cargan.
+      const { data } = await fetchAllRows<Product>((from, to) =>
+        supabase
+          .from("products")
+          .select(
+            "*, product_categories(name), product_tag_assignments(product_tags(id, name))"
+          )
+          .eq("is_active", true)
+          .order("is_favorite", { ascending: false })
+          .order("brand", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, to)
+      );
 
-      setProducts(data || []);
+      setProducts(data);
     }
 
     loadProducts();
