@@ -1,6 +1,78 @@
 import { Brand, CatalogProduct } from "./catalog";
+import { HIKVISION_CATALOG_PRODUCTS } from "./catalogData/hikvision";
+import { TIANDY_CATALOG_PRODUCTS } from "./catalogData/tiandy";
 
 export const STATIC_BRANDS: Brand[] = [
+  {
+    id: 3,
+    name: "Hikvision",
+    slug: "hikvision",
+    tagline: "Videovigilancia IP, Analítica AcuSense y Control de Acceso",
+    description:
+      "El fabricante de videovigilancia más grande del mundo. Cámaras IP y TurboHD con ColorVu para color 24/7, analítica AcuSense que distingue personas y vehículos para eliminar falsas alarmas, PTZ con DarkFighter, grabadores NVR y DVR, videoporteros, control de acceso y paneles de alarma AX PRO.",
+    logo_url: "/logos/brands/hikvision.png",
+    hero_image_url: "/projects/residencia-premium.jpeg",
+    website_url: "https://www.hikvision.com",
+    origin_country: "China",
+    focus_areas: [
+      "Cámaras IP ColorVu",
+      "Analítica AcuSense",
+      "PTZ DarkFighter",
+      "NVR y DVR TurboHD",
+      "Alarma AX PRO",
+    ],
+    authorized_partner_tier: "Distribuidor Autorizado e Integrador Certificado",
+    seo_title:
+      "Hikvision México | Cámaras ColorVu, AcuSense, NVR y PTZ | Distribuidor ALFA",
+    seo_description:
+      "Diseño, suministro e instalación de sistemas Hikvision en México: cámaras IP ColorVu, analítica AcuSense, PTZ, NVR, DVR TurboHD, control de acceso y alarma AX PRO. Garantía oficial e integración con ALFA.",
+    seo_keywords: [
+      "Hikvision Mexico",
+      "Hikvision distribuidor",
+      "camaras Hikvision",
+      "Hikvision ColorVu",
+      "Hikvision AcuSense",
+      "Hikvision Guadalajara",
+      "Hikvision Zapopan",
+    ],
+    is_active: true,
+    sort_order: 3,
+  },
+  {
+    id: 4,
+    name: "Tiandy",
+    slug: "tiandy",
+    tagline: "Videovigilancia IP con Color en Baja Luz y Grabación Inteligente",
+    description:
+      "Fabricante global de videovigilancia IP con fuerte presencia en proyecto comercial y residencial. Cámaras bala, turret y domo con tecnologías ColorMaker y Polar Day para imagen a color en muy baja iluminación, Super Starlight, domos PTZ, cámaras panorámicas y grabadores NVR con PoE integrado.",
+    logo_url: "/logos/brands/tiandy.png",
+    hero_image_url: "/projects/residencia-premium.jpeg",
+    website_url: "https://www.tiandy.com",
+    origin_country: "China",
+    focus_areas: [
+      "Cámaras ColorMaker",
+      "Polar Day y Super Starlight",
+      "Domos PTZ",
+      "NVR con PoE",
+      "Cámaras Panorámicas",
+    ],
+    authorized_partner_tier: "Distribuidor Autorizado e Integrador Certificado",
+    seo_title:
+      "Tiandy México | Cámaras IP ColorMaker, Starlight, PTZ y NVR | Distribuidor ALFA",
+    seo_description:
+      "Suministro e instalación de videovigilancia Tiandy en México: cámaras IP bala, turret y domo con ColorMaker y Super Starlight, domos PTZ y grabadores NVR PoE. Ingeniería, garantía y puesta en marcha con ALFA.",
+    seo_keywords: [
+      "Tiandy Mexico",
+      "Tiandy distribuidor",
+      "camaras Tiandy",
+      "Tiandy ColorMaker",
+      "Tiandy NVR",
+      "Tiandy Guadalajara",
+      "Tiandy Zapopan",
+    ],
+    is_active: true,
+    sort_order: 4,
+  },
   {
     "id": 2,
     "name": "Sonos",
@@ -68,7 +140,7 @@ export const STATIC_BRANDS: Brand[] = [
   },
 ];
 
-export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
+const LUTRON_SONOS_CATALOG_PRODUCTS: CatalogProduct[] = [
   {
     "id": 100,
     "slug": "lutron-radiora3-lubp1-adaptador-de-barril-a-terminal",
@@ -4827,4 +4899,10 @@ export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
     "created_at": "2026-08-28T00:00:00.000Z",
     "updated_at": "2026-08-28T00:00:00.000Z"
   }
+];
+
+export const STATIC_CATALOG_PRODUCTS: CatalogProduct[] = [
+  ...LUTRON_SONOS_CATALOG_PRODUCTS,
+  ...HIKVISION_CATALOG_PRODUCTS,
+  ...TIANDY_CATALOG_PRODUCTS,
 ];

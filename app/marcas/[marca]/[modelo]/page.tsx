@@ -19,6 +19,7 @@ import {
   generateProductJsonLd,
   generateCatalogBreadcrumbJsonLd,
 } from "@/lib/catalog";
+import { brandFallbackHighlights } from "@/lib/catalogBrandUi";
 import ProductQuoteModal from "./ProductQuoteModal";
 import ProductDetailImage from "./ProductDetailImage";
 
@@ -227,25 +228,15 @@ export default async function ProductDetailPage({ params }: Props) {
                   Aspectos Clave de Integración
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                  {product.highlights && product.highlights.length > 0 ? (
-                    product.highlights.map((item, idx) => (
-                      <div key={idx} className="flex items-start gap-2 text-xs text-zinc-300">
-                        <CheckCircle2 className="h-4 w-4 text-[#E07A8B] shrink-0 mt-0.5" />
-                        <span className="font-light">{item}</span>
-                      </div>
-                    ))
-                  ) : (
-                    <>
-                      <div className="flex items-start gap-2 text-xs text-zinc-300">
-                        <CheckCircle2 className="h-4 w-4 text-[#E07A8B] shrink-0 mt-0.5" />
-                        <span>Tecnología RF Clear Connect Type X nativa</span>
-                      </div>
-                      <div className="flex items-start gap-2 text-xs text-zinc-300">
-                        <CheckCircle2 className="h-4 w-4 text-[#E07A8B] shrink-0 mt-0.5" />
-                        <span>Integración con procesador RadioRA 3 y ALFA OS</span>
-                      </div>
-                    </>
-                  )}
+                  {(product.highlights && product.highlights.length > 0
+                    ? product.highlights
+                    : brandFallbackHighlights(product.brand_slug)
+                  ).map((item, idx) => (
+                    <div key={idx} className="flex items-start gap-2 text-xs text-zinc-300">
+                      <CheckCircle2 className="h-4 w-4 text-[#E07A8B] shrink-0 mt-0.5" />
+                      <span className="font-light">{item}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
 
