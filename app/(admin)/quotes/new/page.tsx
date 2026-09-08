@@ -46,6 +46,7 @@ import QuoteItemAreaDistributionModal from "../QuoteItemAreaDistributionModal";
 import ReplaceQuoteItemModal from "../ReplaceQuoteItemModal";
 import QuoteLaborActivitiesPanel from "../QuoteLaborActivitiesPanel";
 import QuickCreateProductButton from "../QuickCreateProductButton";
+import { recalculateSalePrice } from "@/lib/productPricing";
 import { fetchAllRows } from "@/lib/supabaseFetchAll";
 import ClientSearchSelect from "@/components/ClientSearchSelect";
 
@@ -60,6 +61,9 @@ type Product = {
   image_url: string | null;
   cost_price: number | null;
   cost_currency: string | null;
+  pricing_method?: string | null;
+  target_margin?: number | null;
+  public_price?: number | null;
   calculated_sale_price: number;
   sale_currency: string;
   labor_unit_cost: number | null;
@@ -695,12 +699,33 @@ export default function NewQuotePage() {
     const newCostCurrency = item.cost_currency || "USD";
     const nowIso = new Date().toISOString();
 
+    // Verificar el costo sin recalcular el precio deja el margen real distinto
+    // al objetivo, y con costos altos deja el producto vendiendose bajo costo.
+    const catalogProduct =
+      products.find((product) => product.id === item.id) || item;
+    const pricing = recalculateSalePrice(catalogProduct, newCostPrice);
+
+    if (pricing.status === "invalid_margin") {
+      alert(
+        `No se puede recalcular el precio de ${item.brand} ${item.model}: ` +
+          `el margen objetivo es ${pricing.margin}%, fuera del rango valido (0 a 99).\n\n` +
+          "Corrige el margen del producto en el catalogo antes de verificar el costo."
+      );
+      return;
+    }
+
+    const previousSalePrice = Number(item.calculated_sale_price) || 0;
+    const newSalePrice =
+      pricing.status === "recalculated" ? pricing.salePrice : previousSalePrice;
+    const salePriceChanged = newSalePrice !== previousSalePrice;
+
     const { error } = await supabase
       .from("products")
       .update({
         cost_price: newCostPrice,
         cost_currency: newCostCurrency,
         cost_updated_at: nowIso,
+        ...(salePriceChanged ? { calculated_sale_price: newSalePrice } : {}),
       })
       .eq("id", item.id);
 
@@ -723,6 +748,7 @@ export default function NewQuotePage() {
                 cost_price: newCostPrice,
                 cost_currency: newCostCurrency,
                 cost_updated_at: nowIso,
+                calculated_sale_price: newSalePrice,
                 costVerificationPending: false,
               }
             : sectionItem
@@ -738,10 +764,20 @@ export default function NewQuotePage() {
               cost_price: newCostPrice,
               cost_currency: newCostCurrency,
               cost_updated_at: nowIso,
+              calculated_sale_price: newSalePrice,
             }
           : product
       )
     );
+
+    if (salePriceChanged) {
+      alert(
+        `Precio de venta recalculado para ${item.brand} ${item.model}:\n\n` +
+          `${formatCurrency(previousSalePrice, item.sale_currency)}  ->  ` +
+          `${formatCurrency(newSalePrice, item.sale_currency)}\n\n` +
+          "Se actualizo el catalogo y esta partida para conservar el margen objetivo."
+      );
+    }
   }
 
   function handleReplaceProduct(newProduct: Product, scope: "single" | "all") {
