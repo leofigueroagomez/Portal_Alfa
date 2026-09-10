@@ -12,6 +12,14 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Los patrones de arriba solo cubren la raiz. Sin estos, `npm run lint`
+    // entra al build generado de cualquier subdirectorio y ahoga los hallazgos
+    // reales en miles de avisos sobre chunks de Turbopack.
+    "**/.next/**",
+    "**/out/**",
+    "**/build/**",
+    // Worktrees: son copias del repo y se lintean en su propio arbol.
+    ".claude/worktrees/**",
   ]),
 ]);
 
