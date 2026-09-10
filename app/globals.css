@@ -102,3 +102,64 @@ body {
     page-break-inside: avoid;
   }
 }
+
+/* Marquee de marcas (landing publica) */
+@keyframes alfa-marquee-left {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+@keyframes alfa-marquee-right {
+  from {
+    transform: translate3d(-50%, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.alfa-marquee-surface {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 3%,
+    #000 97%,
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 3%,
+    #000 97%,
+    transparent
+  );
+}
+
+.alfa-marquee-track {
+  animation: alfa-marquee-left 64s linear infinite;
+  will-change: transform;
+}
+
+.alfa-marquee-track--reverse {
+  animation-name: alfa-marquee-right;
+  animation-duration: 78s;
+}
+
+.alfa-marquee:hover .alfa-marquee-track,
+.alfa-marquee:focus-within .alfa-marquee-track {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alfa-marquee {
+    overflow-x: auto;
+  }
+
+  .alfa-marquee-track {
+    animation: none;
+  }
+}

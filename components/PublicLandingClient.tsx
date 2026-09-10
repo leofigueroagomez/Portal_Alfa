@@ -232,6 +232,18 @@ const brandLogos = [
   },
 ];
 
+const brandPageSlugs = new Set(["lutron", "sonos"]);
+
+const brandHref = (name: string) => {
+  const slug = name.toLowerCase();
+  return brandPageSlugs.has(slug) ? `/marcas/${slug}` : "/marcas";
+};
+
+const brandMarqueeRows = [
+  brandLogos.slice(0, Math.ceil(brandLogos.length / 2)),
+  brandLogos.slice(Math.ceil(brandLogos.length / 2)),
+];
+
 const processSteps = [
   "Diagnóstico y levantamiento",
   "Diseño técnico y alcance",
@@ -753,43 +765,18 @@ export default function PublicLanding() {
             <p className="mt-5 text-base leading-8 text-zinc-700">
               Seleccionamos cada solución considerando desempeño, confiabilidad
               y experiencia de uso para entregar proyectos a la altura de las
-              expectativas de nuestros clientes.
+              expectativas de nuestros clientes. Trabajamos con fabricantes
+              reconocidos por su calidad y desempeño para construir soluciones
+              pensadas para durar.
             </p>
+            <Link
+              href="/marcas"
+              className="mt-8 inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-[#7A1F2B] transition hover:text-[#B84A5A]"
+            >
+              Ver catálogo de marcas
+              <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+            </Link>
           </div>
-
-          <div className="mt-10 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-            {brandLogos.map((brand) => {
-              const brandLower = brand.name.toLowerCase();
-              const brandHref =
-                brandLower === "lutron"
-                  ? "/marcas/lutron"
-                  : brandLower === "sonos"
-                  ? "/marcas/sonos"
-                  : "/marcas";
-
-              return (
-                <Link
-                  key={brand.name}
-                  href={brandHref}
-                  className="group flex h-28 items-center justify-center overflow-hidden rounded-[24px] border border-black/[0.08] bg-white p-6 shadow-sm shadow-black/[0.03] transition duration-[250ms] ease-in-out hover:-translate-y-0.5 hover:border-[#7A1F2B] sm:h-32"
-                >
-                  <Image
-                    src={brand.src}
-                    alt={brand.name}
-                    width={220}
-                    height={90}
-                    title={brand.category}
-                    className={`${brand.logoClassName} h-auto w-auto object-contain opacity-[.85] grayscale transition duration-[250ms] ease-in-out group-hover:opacity-100 group-hover:grayscale-0`}
-                  />
-                </Link>
-              );
-            })}
-          </div>
-
-          <p className="mt-8 max-w-3xl text-sm leading-7 text-zinc-600">
-            Trabajamos con fabricantes reconocidos por su calidad, confiabilidad
-            y desempeño para construir soluciones pensadas para durar.
-          </p>
         </div>
       </section>
 
@@ -1227,6 +1214,63 @@ export default function PublicLanding() {
               </p>
             ) : null}
           </form>
+        </div>
+      </section>
+
+      <section className="border-t border-black/[0.06] bg-[#F8F7F5] px-5 py-14 text-[#0F0F0F] sm:px-8 sm:py-16 lg:px-12">
+        <div className="mx-auto max-w-7xl">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#B84A5A]">
+                Marcas
+              </p>
+              <h2 className="mt-3 text-2xl font-semibold sm:text-3xl">
+                Las marcas que integramos.
+              </h2>
+            </div>
+            <Link
+              href="/marcas"
+              className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#7A1F2B] transition hover:text-[#B84A5A]"
+            >
+              Ver catálogo completo
+              <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+            </Link>
+          </div>
+
+          <div className="alfa-marquee-surface mt-9 flex flex-col gap-4">
+            {brandMarqueeRows.map((row, rowIndex) => (
+              <div key={`brand-row-${rowIndex}`} className="alfa-marquee overflow-hidden">
+                <div
+                  className={`alfa-marquee-track flex w-max items-center gap-4 pr-4${
+                    rowIndex % 2 === 1 ? " alfa-marquee-track--reverse" : ""
+                  }`}
+                >
+                  {[...row, ...row].map((brand, index) => {
+                    const isClone = index >= row.length;
+                    return (
+                      <Link
+                        key={`${brand.name}-${index}`}
+                        href={brandHref(brand.name)}
+                        aria-hidden={isClone || undefined}
+                        tabIndex={isClone ? -1 : undefined}
+                        title={brand.category}
+                        className="group flex h-[88px] w-[172px] shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-black/[0.07] bg-white px-6 py-3 shadow-sm shadow-black/[0.03] transition duration-[250ms] ease-in-out hover:border-[#7A1F2B]"
+                      >
+                        <Image
+                          src={brand.src}
+                          alt={isClone ? "" : brand.name}
+                          width={220}
+                          height={90}
+                          loading="lazy"
+                          className={`${brand.logoClassName} h-auto w-auto object-contain opacity-[.7] grayscale transition duration-[250ms] ease-in-out group-hover:opacity-100 group-hover:grayscale-0`}
+                        />
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
