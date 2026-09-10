@@ -13,7 +13,7 @@ Gestiona facturacion interna por proyecto, facturas desde cotizacion o captura m
 | Flujo | Archivos confirmados | Responsabilidad |
 | --- | --- | --- |
 | Listar facturas | `app/(admin)/invoices/page.tsx` | Lee `project_invoices`, clientes, proyectos, cotizaciones aprobadas y logs fiscales; muestra acciones de timbrado, status, archivos y correo. |
-| Crear factura | `app/(admin)/invoices/InvoiceForm.tsx`, `lib/invoiceFolios.ts` | Valida cliente/proyecto, datos fiscales, conceptos, PUE/PPD, folio interno e inserta `project_invoices` y `project_invoice_items`. |
+| Crear factura | `app/(admin)/invoices/InvoiceForm.tsx`, `lib/invoiceProration.ts`, `lib/invoiceFolios.ts` | Valida cliente/proyecto, datos fiscales, conceptos, PUE/PPD, folio interno e inserta `project_invoices` y `project_invoice_items`. El prorrateo de importes por concepto vive en `lib/invoiceProration.ts`. |
 | Preparar/editar datos fiscales antes de factura | `app/(admin)/invoices/InvoiceForm.tsx`, `lib/fiscalData.ts`, `lib/productFiscalData.ts`, `lib/cfdiDescription.ts` | Corrige datos fiscales de cliente/producto y descripcion CFDI antes de crear la factura. |
 | Cambiar estado interno de factura | `app/(admin)/invoices/InvoiceStatusSelect.tsx`, `lib/invoices.ts` | Actualiza `project_invoices.status` entre `draft`, `issued`, `cancelled`, `paid`. No confirma cancelacion ante PAC. |
 | Timbrar CFDI | `app/(admin)/invoices/StampInvoiceButton.tsx`, `app/(admin)/invoices/actions.ts`, `lib/facturama.ts` | Valida permisos, factura draft, cliente, catalogos SAT, totales, IVA por concepto y llama Facturama para CFDI de ingreso. |
@@ -60,6 +60,7 @@ Gestiona facturacion interna por proyecto, facturas desde cotizacion o captura m
 | `lib/invoices.ts` | Tipos, status y helpers de importes/status. | Cambios de estados o helpers compartidos. | Puede afectar dashboard, portal, filtros y cobranza. |
 | `lib/fiscalDocumentsEmail.ts` | Resolucion de factura/complemento, validacion, descarga y template de correo. | Cambios de envio fiscal generico. | Puede mezclar tipos de documento o adjuntos. |
 | `lib/invoiceFolios.ts` | Folio interno `FAC-*`. | Cambios de formato o calculo de folios. | Riesgo de duplicados o inconsistencia con folios ya emitidos. |
+| `lib/invoiceProration.ts` | Matematica pura del prorrateo fiscal por concepto: reparto de centavos de subtotal, descuento y base gravable; valor unitario; validacion `ValorUnitario * Cantidad = Importe`. Sin dependencias de React ni de Supabase, se usa desde `InvoiceForm.tsx` y desde `actions.ts`. | Cambios de redondeo, prorrateo, descuentos o validacion de importes por concepto. | Critico: define los importes que se timbran. Cubierto por `npm run test:invoice-proration`. |
 | `lib/satCatalogSearch.ts` | Busqueda de catalogos SAT. | Cambios de catalogos o filtros. | Puede mostrar opciones inactivas o incompatibles con persona fisica/moral. |
 
 ## Contratos De Datos Confirmados
@@ -242,6 +243,8 @@ Pendiente de confirmar: si `invoice_email_logs` debe mantenerse o migrarse total
 - Complemento de pago: solo para facturas `PPD`, `issued`, con `sat_uuid` y saldo pendiente.
 - Relacion factura-pago: un complemento puede asociarse a `project_payment_id`; si el importe fiscal difiere del pago registrado, requiere permiso `canManageFiscalPayments` y motivo.
 - IVA/impuestos: factura valida sumas por concepto; `fiscal_object='02'` envia IVA 16% a Facturama.
+- Importe por concepto: el SAT valida `Importe = ValorUnitario x Cantidad`, y `buildInvoicePayload` manda `UnitPrice` y `Subtotal` redondeados a 2 decimales. `lib/invoiceProration.ts` reparte el bruto en multiplos de la cantidad de cada partida para que cuadre exacto, compensando el centavo sobrante en otra partida sin mover subtotal, descuento, base gravable, IVA ni total. `getConceptUnitPriceErrors` bloquea al guardar (`InvoiceForm`) y al timbrar (`stampProjectInvoice`).
+- Caso sin solucion: si el subtotal aprobado no admite ningun reparto en multiplos de las cantidades (por ejemplo una sola partida de cantidad 30 con subtotal que no es multiplo de 30 centavos), no existe valor unitario a 2 decimales que cuadre. El prorrateo conserva el subtotal, marca `matchedQuantities=false` y la validacion bloquea. Salida pendiente: mandar `ValorUnitario` con hasta 6 decimales en `lib/facturama.ts`, que requiere prueba de timbrado en sandbox. `Pendiente de confirmar`.
 - Factura timbrada: `stampProjectInvoice` solo acepta `status='draft'` y sin `facturama_id`.
 - Archivos fiscales: PDF/XML se descargan desde Facturama bajo demanda usando `facturama_id`; rutas requieren auth y acceso fiscal al proyecto.
 - Cancelacion fiscal: `cancelProjectInvoice` (rol `direccion` o `admin`) llama `DELETE cfdi/{id}` en Facturama con motivo SAT. Sustitucion (motivo 01) via `createReplacementInvoiceDraft` + relacion `04` en el timbrado. `checkInvoiceCancellationStatus` resuelve las que quedan `requested`. Endpoints Facturama verificados contra docs en vivo (2026-09-01): `DELETE cfdi/{id}?type=issued&motive=..&uuidReplacement=..`, `GET cfdi/status?uuid=&issuerRfc=&receiverRfc=&total=`, `GET cfdi/{id}?type=issued`, nodo `Relations { Type, Cfdis:[{Uuid}] }` en `POST 3/cfdis`.
@@ -250,7 +253,7 @@ Pendiente de confirmar: si `invoice_email_logs` debe mantenerse o migrarse total
 ## Archivos Que Suelen Cambiar Juntos
 
 - Timbrado CFDI: `app/(admin)/invoices/actions.ts`, `lib/facturama.ts`, `lib/fiscalData.ts`, `lib/productFiscalData.ts`, `lib/cfdiDescription.ts`, `lib/paymentTerms.ts`, SQL si cambia contrato.
-- Creacion de factura: `app/(admin)/invoices/InvoiceForm.tsx`, `lib/invoiceFolios.ts`, `lib/paymentTerms.ts`, `project_invoices`, `project_invoice_items`.
+- Creacion de factura: `app/(admin)/invoices/InvoiceForm.tsx`, `lib/invoiceProration.ts`, `lib/invoiceFolios.ts`, `lib/paymentTerms.ts`, `project_invoices`, `project_invoice_items`.
 - Complemento de pago: `app/(admin)/invoices/PaymentComplementPanel.tsx`, `app/(admin)/invoices/paymentComplementActions.ts`, `lib/paymentComplements.ts`, `lib/facturama.ts`, `project_payment_complements`, `project_payments`.
 - PDF/XML: `app/api/invoices/[id]/pdf/route.ts`, `app/api/invoices/[id]/xml/route.ts`, `app/api/payment-complements/[id]/pdf/route.ts`, `app/api/payment-complements/[id]/xml/route.ts`, `lib/facturama.ts`.
 - Correo fiscal: `app/(admin)/invoices/InvoiceFileLinks.tsx`, `app/api/fiscal-documents/[type]/[id]/*`, `lib/fiscalDocumentsEmail.ts`, logs SQL.
@@ -264,6 +267,8 @@ Pendiente de confirmar: si `invoice_email_logs` debe mantenerse o migrarse total
 Checklist minimo segun tipo de cambio:
 
 - Crear factura:
+  - `npm run test:invoice-proration` si se toco `lib/invoiceProration.ts`;
+  - `unit_price_mxn * quantity = gross_amount_mxn` por concepto (cantidades enteras);
   - cliente con datos fiscales completos;
   - origen `quote` desde cotizacion aprobada;
   - origen `manual` solo con rol permitido;
@@ -271,6 +276,7 @@ Checklist minimo segun tipo de cambio:
   - PPD fuerza forma `99` y `payment_complement_status='pending'`.
 - Timbrar CFDI:
   - factura `draft` sin `facturama_id`;
+  - `unit_price_mxn * quantity = gross_amount_mxn` por concepto (cantidades enteras);
   - RFC valido y regimen/uso CFDI activos;
   - conceptos con codigo SAT, unidad, objeto de impuesto y descripcion valida;
   - suma bruta, descuento, neto, IVA y total cuadran;
@@ -319,6 +325,8 @@ Checklist minimo segun tipo de cambio:
 
 - Un payload CFDI invalido puede timbrar mal o fallar ante Facturama.
 - Cambios de redondeo afectan base, IVA, descuentos y total.
+- Un centavo de descuadre entre `unit_price_mxn * quantity` y `gross_amount_mxn` puede provocar rechazo del SAT al timbrar.
+- Folio interno con dos fuentes que no coinciden: el default de `project_invoices.internal_folio` en Postgres es `next_project_invoice_internal_folio()` (secuencia que salta folios ya tomados y por eso rellena huecos: asigno FAC-0027 con FAC-0033 ya existente), mientras que `lib/invoiceFolios.ts::getNextInternalInvoiceFolio` usa max+1. Hoy el codigo siempre manda `internal_folio` explicito, asi que el default solo entra si alguien inserta sin la columna. `Pendiente de confirmar` cual de las dos fuentes debe quedarse.
 - PPD/PUE mal aplicado rompe complementos de pago.
 - Complementos duplicados o con saldo incorrecto generan errores fiscales.
 - Estado interno `cancelled` no equivale necesariamente a cancelacion fiscal.

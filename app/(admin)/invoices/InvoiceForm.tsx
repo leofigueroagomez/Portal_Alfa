@@ -44,6 +44,12 @@ import {
   validateCfdiDescription,
 } from "@/lib/cfdiDescription";
 import { getMexicoDate } from "@/lib/mexicoDate";
+import {
+  buildProratedConceptAmounts,
+  getConceptUnitPriceErrors,
+  getIvaFromTaxBase,
+  roundMoney,
+} from "@/lib/invoiceProration";
 import { supabase } from "@/services/supabase";
 
 type Project = {
@@ -128,8 +134,6 @@ type CreatedInvoice = {
   internal_folio: string | null;
 };
 
-const IVA_RATE = 0.16;
-
 function today() {
   return getMexicoDate();
 }
@@ -137,22 +141,6 @@ function today() {
 function getRelation<T>(relation: T | T[] | null | undefined) {
   if (Array.isArray(relation)) return relation[0] || null;
   return relation || null;
-}
-
-function roundMoney(value: number) {
-  return Math.round(value * 100) / 100;
-}
-
-function moneyToCents(value: number) {
-  return Math.round(roundMoney(value) * 100);
-}
-
-function centsToMoney(cents: number) {
-  return roundMoney(cents / 100);
-}
-
-function getIvaFromTaxBase(taxBaseMxn: number) {
-  return roundMoney(taxBaseMxn * IVA_RATE);
 }
 
 function isMissingLegacyAmountColumnError(error: unknown) {
@@ -235,134 +223,6 @@ function getQuoteFiscalSnapshot(
       approvedTotalMxn > 0
         ? approvedTotalMxn
         : roundMoney(taxableSubtotalMxn + ivaMxn),
-  };
-}
-
-function distributeCentsByWeight(
-  targetMxn: number,
-  weights: number[],
-  fallbackWeight = 1
-) {
-  const targetCents = moneyToCents(targetMxn);
-  if (weights.length === 0) return [];
-
-  const normalizedWeights = weights.map((weight) =>
-    Math.max(Number.isFinite(weight) ? weight : 0, 0)
-  );
-  const totalWeight = normalizedWeights.reduce((sum, weight) => sum + weight, 0);
-  const effectiveWeights =
-    totalWeight > 0
-      ? normalizedWeights
-      : weights.map(() => Math.max(fallbackWeight, 1));
-  const effectiveTotalWeight = effectiveWeights.reduce(
-    (sum, weight) => sum + weight,
-    0
-  );
-  let distributedCents = 0;
-
-  return effectiveWeights.map((weight, index) => {
-    if (index === effectiveWeights.length - 1) {
-      return targetCents - distributedCents;
-    }
-
-    const cents = Math.round((targetCents * weight) / effectiveTotalWeight);
-    distributedCents += cents;
-    return cents;
-  });
-}
-
-function taxCentsFromBaseCents(baseCents: number) {
-  return Math.round(baseCents * IVA_RATE);
-}
-
-function sumCents(values: number[]) {
-  return values.reduce((sum, value) => sum + value, 0);
-}
-
-function moveTaxBaseCent(input: {
-  baseCents: number[];
-  grossCents: number[];
-  discountCents: number[];
-  direction: 1 | -1;
-}) {
-  const { baseCents, grossCents, discountCents, direction } = input;
-
-  for (let receiver = 0; receiver < baseCents.length; receiver += 1) {
-    for (let donor = 0; donor < baseCents.length; donor += 1) {
-      if (receiver === donor) continue;
-      if (direction === 1 && baseCents[donor] <= 0) continue;
-      if (direction === -1 && baseCents[receiver] <= 0) continue;
-
-      const currentTax =
-        taxCentsFromBaseCents(baseCents[receiver]) +
-        taxCentsFromBaseCents(baseCents[donor]);
-      const nextReceiverBase =
-        direction === 1 ? baseCents[receiver] + 1 : baseCents[receiver] - 1;
-      const nextDonorBase =
-        direction === 1 ? baseCents[donor] - 1 : baseCents[donor] + 1;
-
-      if (nextReceiverBase < 0 || nextDonorBase < 0) continue;
-      if (direction === 1 && grossCents[donor] - 1 < discountCents[donor]) {
-        continue;
-      }
-      if (
-        direction === -1 &&
-        grossCents[receiver] - 1 < discountCents[receiver]
-      ) {
-        continue;
-      }
-
-      const nextTax =
-        taxCentsFromBaseCents(nextReceiverBase) +
-        taxCentsFromBaseCents(nextDonorBase);
-
-      if (nextTax - currentTax !== direction) continue;
-
-      baseCents[receiver] = nextReceiverBase;
-      baseCents[donor] = nextDonorBase;
-      grossCents[receiver] += direction === 1 ? 1 : -1;
-      grossCents[donor] += direction === 1 ? -1 : 1;
-      return true;
-    }
-  }
-
-  return false;
-}
-
-function alignTaxBaseDistribution(input: {
-  grossCents: number[];
-  discountCents: number[];
-  targetIvaMxn: number;
-}) {
-  const grossCents = [...input.grossCents];
-  const discountCents = [...input.discountCents];
-  const baseCents = grossCents.map((gross, index) =>
-    Math.max(gross - (discountCents[index] || 0), 0)
-  );
-  const targetIvaCents = moneyToCents(input.targetIvaMxn);
-  let currentIvaCents = sumCents(baseCents.map(taxCentsFromBaseCents));
-  let remainingIterations = Math.abs(targetIvaCents - currentIvaCents) * 50 + 100;
-
-  while (currentIvaCents !== targetIvaCents && remainingIterations > 0) {
-    const direction: 1 | -1 = currentIvaCents < targetIvaCents ? 1 : -1;
-    const moved = moveTaxBaseCent({
-      baseCents,
-      grossCents,
-      discountCents,
-      direction,
-    });
-
-    if (!moved) break;
-    currentIvaCents = sumCents(baseCents.map(taxCentsFromBaseCents));
-    remainingIterations -= 1;
-  }
-
-  return {
-    grossCents,
-    discountCents,
-    baseCents,
-    ivaCents: baseCents.map(taxCentsFromBaseCents),
-    matchedTargetIva: currentIvaCents === targetIvaCents,
   };
 }
 
@@ -543,6 +403,9 @@ export default function InvoiceForm({
 
     if (sourceType !== "quote" || !selectedQuote) return [] as InvoiceConcept[];
 
+    const quantities = quoteItems.map(
+      (item) => Number(item.quantity || 1) || 1
+    );
     const grossAmounts = quoteItems.map((item) =>
       roundMoney(getQuoteItemSubtotalMxn(item, selectedQuote))
     );
@@ -550,33 +413,19 @@ export default function InvoiceForm({
       grossAmounts.reduce((sum, amount) => sum + amount, 0)
     );
     const fiscalSnapshot = getQuoteFiscalSnapshot(selectedQuote, grossSubtotal);
-    const grossCents = distributeCentsByWeight(
-      fiscalSnapshot.subtotalMxn,
-      grossAmounts
-    );
-    const discountCents = distributeCentsByWeight(
-      fiscalSnapshot.discountMxn,
-      grossCents
-    );
-    const adjustedDistribution = alignTaxBaseDistribution({
-      grossCents,
-      discountCents,
-      targetIvaMxn: fiscalSnapshot.ivaMxn,
+    // El bruto se reparte respetando la cantidad de cada partida para que
+    // ValorUnitario * Cantidad = Importe a dos decimales (lo que valida el SAT).
+    const { amounts } = buildProratedConceptAmounts({
+      subtotalMxn: fiscalSnapshot.subtotalMxn,
+      discountMxn: fiscalSnapshot.discountMxn,
+      ivaMxn: fiscalSnapshot.ivaMxn,
+      weights: grossAmounts,
+      quantities,
     });
 
     return quoteItems.map((item, index) => {
       const product = getRelation(item.products);
-      const quantity = Number(item.quantity || 1) || 1;
-      const grossAmount = centsToMoney(
-        adjustedDistribution.grossCents[index] || 0
-      );
-      const discount = centsToMoney(
-        adjustedDistribution.discountCents[index] || 0
-      );
-      const netAmount = centsToMoney(
-        adjustedDistribution.baseCents[index] || 0
-      );
-      const iva = getIvaFromTaxBase(netAmount);
+      const amount = amounts[index];
       const commercialDescription = getProductDescription(item);
       const conceptKey = String(item.id);
       const fiscalDescription =
@@ -589,14 +438,14 @@ export default function InvoiceForm({
         product_id: item.product_id,
         commercial_description: commercialDescription,
         description: fiscalDescription,
-        quantity,
-        unit_price_mxn: roundMoney(grossAmount / quantity),
-        subtotal_mxn: grossAmount,
-        gross_amount_mxn: grossAmount,
-        discount_mxn: discount,
-        net_amount_mxn: netAmount,
-        iva_mxn: iva,
-        total_mxn: roundMoney(netAmount + iva),
+        quantity: amount.quantity,
+        unit_price_mxn: amount.unitPriceMxn,
+        subtotal_mxn: amount.grossAmountMxn,
+        gross_amount_mxn: amount.grossAmountMxn,
+        discount_mxn: amount.discountMxn,
+        net_amount_mxn: amount.netAmountMxn,
+        iva_mxn: amount.ivaMxn,
+        total_mxn: amount.totalMxn,
         sat_product_service_code: getProductSatProductCode(product),
         sat_unit_code: getProductSatUnitCode(product),
         sat_unit_name: getProductSatUnitName(product),
@@ -624,6 +473,21 @@ export default function InvoiceForm({
           validation: validateCfdiDescription(concept.description),
         }))
         .filter((item) => !item.validation.ok),
+    [concepts]
+  );
+
+  // El SAT valida Importe = ValorUnitario * Cantidad por concepto. Si el
+  // prorrateo no logro cuadrarlo, se bloquea antes de guardar el borrador.
+  const conceptUnitPriceErrors = useMemo(
+    () =>
+      getConceptUnitPriceErrors(
+        concepts.map((concept) => ({
+          label: concept.commercial_description || concept.description,
+          quantity: concept.quantity,
+          unitPriceMxn: concept.unit_price_mxn,
+          grossAmountMxn: concept.gross_amount_mxn,
+        }))
+      ),
     [concepts]
   );
 
@@ -1015,6 +879,21 @@ export default function InvoiceForm({
     if (sourceType === "quote" && quoteMissingProducts.length > 0) {
       setErrorMessage("Faltan datos fiscales en productos de la cotizacion.");
       setProductModalOpen(true);
+      return;
+    }
+
+    if (conceptUnitPriceErrors.length > 0) {
+      console.warn("[InvoiceForm] valor unitario por concepto no cuadra", {
+        quoteId: selectedQuote?.id || null,
+        quoteNumber: selectedQuote?.quote_number || null,
+        errors: conceptUnitPriceErrors,
+        concepts,
+      });
+      setErrorMessage(
+        `El valor unitario de un concepto no cuadra con su importe y el SAT lo rechazaria: ${conceptUnitPriceErrors.join(
+          " | "
+        )}`
+      );
       return;
     }
 

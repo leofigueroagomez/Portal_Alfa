@@ -35,6 +35,11 @@ import {
   isDuplicateInternalFolioError,
 } from "@/lib/invoiceFolios";
 import { getMexicoDate } from "@/lib/mexicoDate";
+import {
+  IVA_RATE,
+  getConceptUnitPriceErrors,
+  roundMoney,
+} from "@/lib/invoiceProration";
 import { getCurrentUserProfile } from "@/services/profile";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 
@@ -118,12 +123,6 @@ type CfdiReceiverDiagnostic = {
   FiscalRegime: string;
   TaxZipCode: string;
 };
-
-const IVA_RATE = 0.16;
-
-function roundMoney(value: number) {
-  return Math.round(value * 100) / 100;
-}
 
 export type StampProjectInvoiceResult =
   | {
@@ -624,6 +623,25 @@ export async function stampProjectInvoice(
 
     if (cfdiDescriptionErrors.length > 0) {
       throw new Error(cfdiDescriptionErrors.join(" | "));
+    }
+
+    // El SAT valida Importe = ValorUnitario * Cantidad por concepto, y
+    // `buildInvoicePayload` manda ambos redondeados a dos decimales.
+    const unitPriceErrors = getConceptUnitPriceErrors(
+      invoiceItems.map((item) => ({
+        label: getInvoiceItemLabel(item),
+        quantity: Number(item.quantity || 1),
+        unitPriceMxn: Number(item.unit_price_mxn || 0),
+        grossAmountMxn: Number(item.gross_amount_mxn ?? item.subtotal_mxn ?? 0),
+      }))
+    );
+
+    if (unitPriceErrors.length > 0) {
+      throw new Error(
+        `El valor unitario no cuadra con el importe del concepto: ${unitPriceErrors.join(
+          " | "
+        )}`
+      );
     }
 
     const itemGrossTotal = invoiceItems.reduce(
