@@ -16,6 +16,7 @@
  *   node scripts/import-syscom.mjs --marca HIKVISION --dry
  *   node scripts/import-syscom.mjs --marca HIKVISION
  *   node scripts/import-syscom.mjs --alarma --dry
+ *   node scripts/import-syscom.mjs --modelos 311-234,EP-JC405-NN15 --dry
  */
 
 import fs from "node:fs";
@@ -30,6 +31,16 @@ const MARCA = (() => {
   return i >= 0 ? (process.argv[i + 1] || "").toUpperCase() : null;
 })();
 const MODO_ALARMA = process.argv.includes("--alarma");
+/** Lista explicita de modelos, para dar de alta partidas sueltas de una cotizacion. */
+const MODELOS = (() => {
+  const i = process.argv.indexOf("--modelos");
+  if (i < 0) return null;
+  const set = new Set(
+    (process.argv[i + 1] || "").split(",")
+      .map((m) => m.toUpperCase().replace(/\s+/g, "")).filter(Boolean)
+  );
+  return set.size ? set : null;
+})();
 
 const TARGET_MARGIN = 30;
 const BUCKET = "product-images";
@@ -62,6 +73,7 @@ function* filas(texto) {
 /** Categorias del catalogo interno, por palabra clave del titulo. */
 function categoriaPara(titulo) {
   const t = titulo.toLowerCase();
+  if (/amplificador de se[ñn]al celular|repetidor de se[ñn]al celular|antena (tipo panel|celular|multibanda|omnidireccional)|jumper coaxial|cable coaxial de .*baja p[ée]rdida|\blmr\s?-?\d{3}\b|\blp-?600\b|conector n (macho|hembra)/.test(t)) return 10; // Repetición de Señal Celular
   if (/ax pro|ax hybrid|alarma|intrusi|detector pir|\bpir\b|contacto magn|sirena|estrobo|p[aá]nico|rotura de cristal/.test(t)) return 6;   // Alarma de Intrusión
   if (/c[aá]mara|domo|bala|turret|nvr|dvr|turbohd|videoportero/.test(t)) return 7;  // CCTV
   if (/control de acceso|biom[eé]tric|huella|cerradura|torniquete/.test(t)) return 8;
@@ -112,7 +124,8 @@ async function subirImagen(url, slug) {
 }
 
 async function main() {
-  if (!MARCA && !MODO_ALARMA) throw new Error("Usa --marca <MARCA> o --alarma");
+  if (!MARCA && !MODO_ALARMA && !MODELOS)
+    throw new Error("Usa --marca <MARCA>, --alarma o --modelos <M1,M2,...>");
 
   const texto = fs.readFileSync(CSV, "utf8").replace(/^\uFEFF/, "");
   const it = filas(texto);
@@ -129,11 +142,18 @@ async function main() {
     const costo = Number(g(row, "Su Precio"));
     if (!modelo || !titulo || !(costo > 0)) continue;
     if (MARCA && marca.toUpperCase() !== MARCA) continue;
+    if (MODELOS && !MODELOS.has(cmpModel(modelo))) continue;
     if (MODO_ALARMA && !sirveParaAlarma(marca, titulo)) continue;
     seleccion.push({ marca, modelo, titulo, costo,
       sat: g(row, "Código Fiscal"), img: g(row, "Imagen Principal") });
   }
   console.log(`Seleccionados del archivo: ${seleccion.length}`);
+
+  if (MODELOS) {
+    const hallados = new Set(seleccion.map((p) => cmpModel(p.modelo)));
+    const faltantes = [...MODELOS].filter((m) => !hallados.has(m));
+    if (faltantes.length) console.log(`Sin coincidencia en el CSV: ${faltantes.join(", ")}`);
+  }
 
   // catalogo actual (paginado: el API corta en 1000)
   const existentes = [];
@@ -188,7 +208,8 @@ async function main() {
   }
 
   console.log(`${DRY ? "[DRY] " : ""}Nuevos: ${res.nuevos.length}  Actualizados: ${res.actualizados.length}  Errores: ${res.errores.length}`);
-  const out = path.join(process.env.TEMP || ".", `syscom-${MARCA || "alarma"}-${DRY ? "dry" : "run"}.json`);
+  const etiqueta = MARCA || (MODELOS ? "modelos" : "alarma");
+  const out = path.join(process.env.TEMP || ".", `syscom-${etiqueta}-${DRY ? "dry" : "run"}.json`);
   fs.writeFileSync(out, JSON.stringify(res, null, 2), "utf8");
   console.log("Detalle:", out);
 }
