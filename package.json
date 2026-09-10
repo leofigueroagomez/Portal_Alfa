@@ -39,8 +39,7 @@
     "supabase": "^2.117.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.13",
-    "typescript": "^5",
-    "vercel": "^59.15.1"
+    "typescript": "^5"
   },
   "overrides": {
     "tar": "^7.5.18",
