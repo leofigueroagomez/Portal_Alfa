@@ -4,9 +4,13 @@ import Link from "next/link";
 import { ArrowRight, CheckCircle2, SlidersHorizontal, KeyRound, Smartphone, ShieldCheck, DoorClosed, Phone } from "lucide-react";
 import FaqAccordion, { FaqItem } from "@/components/FaqAccordion";
 import WhatsAppLeadButton from "@/components/WhatsAppLeadButton";
+import LocalBusinessJsonLd from "@/components/LocalBusinessJsonLd";
+import { SITE_URL } from "@/lib/siteUrl";
 
 export const metadata: Metadata = {
-  title: "Control de Acceso y Automatización | ALFA High End Services",
+  // `absolute` evita que el template "%s | ALFA" del layout raiz
+  // agregue un segundo sufijo de marca.
+  title: { absolute: "Control de Acceso y Automatización | ALFA High End Services" },
   description:
     "Soluciones de control de acceso vehicular y peatonal, videointercomunicadores IP, chapas inteligentes y automatización Lutron para residencias y corporativos en Guadalajara y Zapopan.",
   alternates: {
@@ -125,6 +129,7 @@ const faqItems: FaqItem[] = [
 export default function ControlDeAccesoPage() {
   return (
     <main className="min-h-screen bg-[#0F0F0F] text-white">
+      <LocalBusinessJsonLd pageUrl={`${SITE_URL}/servicios/control-de-acceso`} />
       {/* Hero Section */}
       <section className="relative min-h-[88vh] overflow-hidden bg-[#0A0A0A]">
         <Image
