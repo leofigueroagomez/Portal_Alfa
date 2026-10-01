@@ -56,6 +56,21 @@ import {
   getProductUpdatePatch,
 } from "@/lib/quoteProductUpdates";
 import ReplaceQuoteItemModal from "../../ReplaceQuoteItemModal";
+import QuoteBrandDiscountsPanel from "../../QuoteBrandDiscountsPanel";
+import QuoteItemDiscountFields, {
+  type QuoteItemDiscountField,
+} from "../../QuoteItemDiscountFields";
+import {
+  buildBrandRuleMap,
+  computeLaborDiscounts,
+  isMissingLineDiscountSchema,
+  normalizeBrandKey,
+  parseOptionalPercent,
+  resolveLineDiscount,
+  type BrandCommercialRule,
+  type LineDiscountResult,
+  type QuoteDiscountDefaults,
+} from "@/lib/quoteLineDiscounts";
 import QuoteLaborActivitiesPanel from "../../QuoteLaborActivitiesPanel";
 import ClientSearchSelect from "@/components/ClientSearchSelect";
 
@@ -100,6 +115,9 @@ type QuoteItem = Product & {
   customer_visible_note: string;
   allocations: QuoteItemAreaAllocation[];
   costVerificationPending?: boolean;
+  // "" = hereda (% general de la cotizacion o regla de marca).
+  client_discount_percent?: string;
+  partner_discount_percent?: string;
 };
 
 type QuoteSection = {
@@ -297,6 +315,7 @@ export default function EditQuotePage() {
   const [selectedClientId, setSelectedClientId] = useState("");
   const [selectedClientProjectId, setSelectedClientProjectId] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
+  const [brandRules, setBrandRules] = useState<BrandCommercialRule[]>([]);
   const [productCategories, setProductCategories] = useState<TaxonomyOption[]>(
     []
   );
@@ -659,6 +678,49 @@ export default function EditQuotePage() {
         itemsData = fallbackItems.data as typeof itemsData;
       }
 
+      // Descuentos por partida y reglas de marca: consulta aparte para tolerar
+      // entornos donde la migracion 20261001 aun no se aplica.
+      const lineDiscountsByItemId = new Map<
+        number,
+        { client: number | null; partner: number | null }
+      >();
+      const [lineDiscountsResult, brandRulesResult] = await Promise.all([
+        supabase
+          .from("quote_items")
+          .select("id, client_discount_percent, partner_discount_percent")
+          .eq("quote_id", quoteId),
+        supabase
+          .from("brand_commercial_rules")
+          .select(
+            "id, brand, max_client_discount_percent, partner_discount_percent, notes, is_active"
+          )
+          .eq("is_active", true),
+      ]);
+
+      if (lineDiscountsResult.error) {
+        if (!isMissingLineDiscountSchema(lineDiscountsResult.error)) {
+          reportStepError("leer descuentos por partida", lineDiscountsResult.error);
+          setLoading(false);
+          return;
+        }
+      } else {
+        (lineDiscountsResult.data || []).forEach((row) => {
+          lineDiscountsByItemId.set(Number(row.id), {
+            client: parseOptionalPercent(row.client_discount_percent),
+            partner: parseOptionalPercent(row.partner_discount_percent),
+          });
+        });
+      }
+
+      if (brandRulesResult.error) {
+        if (!isMissingLineDiscountSchema(brandRulesResult.error)) {
+          console.error("Error cargando reglas por marca:", brandRulesResult.error);
+        }
+        setBrandRules([]);
+      } else {
+        setBrandRules((brandRulesResult.data || []) as BrandCommercialRule[]);
+      }
+
       const { data: termsData, error: termsError } = await supabase
         .from("quote_terms_settings")
         .select(
@@ -787,6 +849,7 @@ export default function EditQuotePage() {
               const catalogProduct = item.product_id
                 ? productsById.get(item.product_id)
                 : null;
+              const lineDiscounts = lineDiscountsByItemId.get(item.id);
 
               return {
                 id: item.product_id || 0,
@@ -819,6 +882,14 @@ export default function EditQuotePage() {
                   catalogProduct?.cost_updated_at ?? null
                 ),
                 allocations: areaAllocationsByItemId.get(item.id) || [],
+                client_discount_percent:
+                  lineDiscounts?.client === null || lineDiscounts?.client === undefined
+                    ? ""
+                    : String(lineDiscounts.client),
+                partner_discount_percent:
+                  lineDiscounts?.partner === null || lineDiscounts?.partner === undefined
+                    ? ""
+                    : String(lineDiscounts.partner),
                 labor_activities:
                   laborActivitiesByItemId.get(item.id) ||
                   createLegacyLaborActivity(
@@ -1405,6 +1476,48 @@ export default function EditQuotePage() {
     );
   }
 
+  function updateItemDiscount(
+    sectionId: string,
+    productId: number,
+    field: QuoteItemDiscountField,
+    value: string
+  ) {
+    setSections((current) =>
+      current.map((section) =>
+        section.id === sectionId
+          ? {
+              ...section,
+              items: section.items.map((item) =>
+                item.id === productId ? { ...item, [field]: value } : item
+              ),
+            }
+          : section
+      )
+    );
+  }
+
+  function applyBrandDiscount(
+    brand: string,
+    clientPercent: string,
+    partnerPercent: string
+  ) {
+    const brandKey = normalizeBrandKey(brand);
+    setSections((current) =>
+      current.map((section) => ({
+        ...section,
+        items: section.items.map((item) =>
+          normalizeBrandKey(item.brand) === brandKey
+            ? {
+                ...item,
+                client_discount_percent: clientPercent.trim(),
+                partner_discount_percent: partnerPercent.trim(),
+              }
+            : item
+        ),
+      }))
+    );
+  }
+
   function updateCustomerVisibleNote(
     sectionId: string,
     productId: number,
@@ -1698,42 +1811,90 @@ export default function EditQuotePage() {
 
   const equipmentTotalMXN = equipmentTotalUSD * numericExchangeRate;
   const subtotalMXN = equipmentTotalMXN + laborTotalMXN;
-  const partnerEquipmentDiscountMXN = isPartnerQuote
-    ? sections.reduce((sectionSum, section) => {
-        const total = section.items.reduce((sum, item) => {
-          if (item.partner_discount_eligible === false) return sum;
+  const discountDefaults: QuoteDiscountDefaults = {
+    clientPercent: discountType === "percent" ? Number(discountPercent) || 0 : 0,
+    isPartnerQuote,
+    partnerEquipmentPercent: Number(partnerEquipmentDiscountPercent) || 0,
+  };
+  const brandRuleMap = buildBrandRuleMap(brandRules);
 
-          return (
-            sum +
-            getEquipmentUnitPriceUsd(item, numericExchangeRate, indirectCostMultiplier) *
-              getNewEquipmentAllocationQuantity(item) *
-              numericExchangeRate *
-              ((Number(partnerEquipmentDiscountPercent) || 0) / 100)
-          );
-        }, 0);
+  function getItemLineDiscount(item: QuoteItem): LineDiscountResult {
+    const quantity = getNewEquipmentAllocationQuantity(item);
 
-        return sectionSum + total;
-      }, 0)
-    : 0;
-  const partnerLaborDiscountMXN = isPartnerQuote
-    ? laborTotalMXN * ((Number(partnerLaborDiscountPercent) || 0) / 100)
-    : 0;
+    return resolveLineDiscount(
+      {
+        brand: item.brand,
+        equipmentSaleMxn:
+          getEquipmentUnitPriceUsd(item, numericExchangeRate, indirectCostMultiplier) *
+          quantity *
+          numericExchangeRate,
+        equipmentCostMxn: isExistingCustomerEquipment(item)
+          ? 0
+          : normalizeToMXN(
+              item.cost_price,
+              item.cost_currency || item.sale_currency,
+              numericExchangeRate
+            ) * quantity,
+        partnerEligible: item.partner_discount_eligible,
+        clientOverride: parseOptionalPercent(item.client_discount_percent),
+        partnerOverride: parseOptionalPercent(item.partner_discount_percent),
+      },
+      discountDefaults,
+      brandRuleMap
+    );
+  }
+
+  let lineClientDiscountMXN = 0;
+  let partnerEquipmentDiscountMXN = 0;
+  const lineDiscountViolations: { label: string; message: string }[] = [];
+
+  for (const section of sections) {
+    for (const item of section.items) {
+      const lineDiscount = getItemLineDiscount(item);
+      lineClientDiscountMXN += lineDiscount.clientDiscountMxn;
+      partnerEquipmentDiscountMXN += lineDiscount.partnerDiscountMxn;
+      if (lineDiscount.violation) {
+        lineDiscountViolations.push({
+          label: `${item.brand} ${item.model}`.trim(),
+          message: lineDiscount.violation,
+        });
+      }
+    }
+  }
+
+  const quoteBrandSummaries = Array.from(
+    sections
+      .flatMap((section) => section.items)
+      .filter((item) => !isExistingCustomerEquipment(item) && item.brand.trim())
+      .reduce((map, item) => {
+        const key = normalizeBrandKey(item.brand);
+        const current = map.get(key);
+        map.set(key, {
+          brand: current?.brand || item.brand.trim(),
+          lineCount: (current?.lineCount || 0) + 1,
+        });
+        return map;
+      }, new Map<string, { brand: string; lineCount: number }>())
+      .values()
+  ).sort((a, b) => a.brand.localeCompare(b.brand));
+
+  const laborDiscounts = computeLaborDiscounts(
+    laborTotalMXN,
+    discountDefaults,
+    Number(partnerLaborDiscountPercent) || 0
+  );
+  const partnerLaborDiscountMXN = laborDiscounts.partnerDiscountMxn;
   const partnerTotalDiscountMXN =
     partnerEquipmentDiscountMXN + partnerLaborDiscountMXN;
   const discountMXN =
-    discountType === "percent"
-      ? subtotalMXN * ((Number(discountPercent) || 0) / 100)
-      : discountType === "amount"
-        ? Number(discountAmountMXN) || 0
-        : 0;
+    lineClientDiscountMXN +
+    laborDiscounts.clientDiscountMxn +
+    (discountType === "amount" ? Number(discountAmountMXN) || 0 : 0);
+  // Opcion A: primero el descuento al cliente, luego el del aliado sobre el resto.
+  const cappedDiscountMXN = Math.min(Math.max(discountMXN, 0), subtotalMXN);
   const cappedPartnerDiscountMXN = Math.min(
     Math.max(partnerTotalDiscountMXN, 0),
-    subtotalMXN
-  );
-  const remainingAfterPartnerDiscount = subtotalMXN - cappedPartnerDiscountMXN;
-  const cappedDiscountMXN = Math.min(
-    Math.max(discountMXN, 0),
-    remainingAfterPartnerDiscount
+    subtotalMXN - cappedDiscountMXN
   );
   const indirectCostMXN = computeIndirectCostMxn(
     equipmentTotalMXN,
@@ -1881,6 +2042,17 @@ export default function EditQuotePage() {
 
     if (isPartnerQuote && !selectedCommercialPartnerId) {
       alert("Selecciona el aliado comercial para esta cotizacion.");
+      return;
+    }
+
+    if (lineDiscountViolations.length > 0) {
+      alert(
+        "No puedes guardar la cotizacion: hay descuentos que no se permiten.\n\n" +
+          lineDiscountViolations
+            .map((violation) => `- ${violation.label}: ${violation.message}`)
+            .join("\n") +
+          "\n\nAjusta el descuento de esas partidas antes de continuar."
+      );
       return;
     }
 
@@ -2130,6 +2302,7 @@ export default function EditQuotePage() {
           itemEquipmentUnitPriceUsd * getNewEquipmentAllocationQuantity(item);
         const itemLaborTotal = getItemLaborSaleTotal(item);
         const itemLaborUnitPrice = getItemLaborUnitSalePrice(item);
+        const itemLineDiscount = getItemLineDiscount(item);
 
         return {
           quote_id: quoteId,
@@ -2154,13 +2327,44 @@ export default function EditQuotePage() {
           area: normalizeQuoteItemArea(item.area) || null,
           customer_visible_note: item.customer_visible_note.trim() || null,
           sort_order: itemIndex,
+          client_discount_percent: parseOptionalPercent(item.client_discount_percent),
+          partner_discount_percent: parseOptionalPercent(item.partner_discount_percent),
+          client_discount_mxn: itemLineDiscount.clientDiscountMxn,
+          partner_discount_mxn: itemLineDiscount.partnerDiscountMxn,
         };
       });
 
-      const { data: savedItems, error: itemsError } = await supabase
+      let { data: savedItems, error: itemsError } = await supabase
         .from("quote_items")
         .insert(itemsToInsert)
         .select("id, sort_order");
+
+      // Sin la migracion 20261001 solo se puede guardar si nadie capturo
+      // descuentos por partida; si los hay, perderlos cambiaria el total.
+      if (
+        isMissingLineDiscountSchema(itemsError) &&
+        itemsToInsert.every(
+          (item) =>
+            item.client_discount_percent === null &&
+            item.partner_discount_percent === null
+        )
+      ) {
+        const legacyItems = itemsToInsert.map(
+          ({
+            client_discount_percent,
+            partner_discount_percent,
+            client_discount_mxn,
+            partner_discount_mxn,
+            ...legacyItem
+          }) => legacyItem
+        );
+        const legacyResult = await supabase
+          .from("quote_items")
+          .insert(legacyItems)
+          .select("id, sort_order");
+        savedItems = legacyResult.data;
+        itemsError = legacyResult.error;
+      }
 
       if (itemsError) {
         reportStepError("crear quote_items", itemsError);
@@ -2976,7 +3180,18 @@ export default function EditQuotePage() {
                                 className="mt-2 min-h-20 w-full rounded-xl border border-[#2A2A30] bg-[#151518] px-4 py-3 text-sm outline-none focus:border-[#9E1B32] disabled:cursor-not-allowed disabled:opacity-70"
                               />
                             </div>
-                          ) : null}
+                          ) : (
+                            <QuoteItemDiscountFields
+                              lineDiscount={getItemLineDiscount(item)}
+                              clientValue={item.client_discount_percent || ""}
+                              partnerValue={item.partner_discount_percent || ""}
+                              isPartnerQuote={isPartnerQuote}
+                              disabled={!canEditQuote}
+                              onChange={(field, value) =>
+                                updateItemDiscount(section.id, item.id, field, value)
+                              }
+                            />
+                          )}
 
                           <QuoteItemAreaDistributionModal
                             item={item}
@@ -3567,6 +3782,14 @@ export default function EditQuotePage() {
                     onChange={(e) => setDiscountAmountMXN(e.target.value)}
                   />
                 ) : null}
+
+                <QuoteBrandDiscountsPanel
+                  brands={quoteBrandSummaries}
+                  rules={brandRuleMap}
+                  isPartnerQuote={isPartnerQuote}
+                  disabled={!canEditQuote}
+                  onApply={applyBrandDiscount}
+                />
               </div>
 
               <p className="text-xs text-[#77777D]">
