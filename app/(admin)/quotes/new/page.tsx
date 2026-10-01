@@ -55,7 +55,7 @@ import QuoteItemDiscountFields, {
 } from "../QuoteItemDiscountFields";
 import {
   buildBrandRuleMap,
-  computeLaborDiscounts,
+  DEFAULT_PARTNER_PROFIT_SHARE_PERCENT,
   isMissingLineDiscountSchema,
   normalizeBrandKey,
   parseOptionalPercent,
@@ -150,7 +150,7 @@ type QuoteItem = Product & {
   costVerificationPending?: boolean;
   // "" = hereda (% general de la cotizacion o regla de marca).
   client_discount_percent?: string;
-  partner_discount_percent?: string;
+  partner_profit_share_percent?: string;
 };
 
 type QuoteSection = {
@@ -287,10 +287,10 @@ export default function NewQuotePage() {
   >([]);
   const [selectedCommercialPartnerId, setSelectedCommercialPartnerId] =
     useState("");
-  const [partnerEquipmentDiscountPercent, setPartnerEquipmentDiscountPercent] =
-    useState("15");
-  const [partnerLaborDiscountPercent, setPartnerLaborDiscountPercent] =
-    useState("25");
+  // % de la utilidad (despues del descuento al cliente) que se lleva el aliado.
+  const [partnerProfitSharePercent, setPartnerProfitSharePercent] = useState(
+    String(DEFAULT_PARTNER_PROFIT_SHARE_PERCENT)
+  );
   const [notes, setNotes] = useState("");
   const [includeDiagnosticContext, setIncludeDiagnosticContext] =
     useState(false);
@@ -481,7 +481,7 @@ export default function NewQuotePage() {
       const { data, error } = await supabase
         .from("brand_commercial_rules")
         .select(
-          "id, brand, max_client_discount_percent, partner_discount_percent, notes, is_active"
+          "id, brand, max_client_discount_percent, partner_profit_share_percent, notes, is_active"
         )
         .eq("is_active", true);
 
@@ -1028,7 +1028,7 @@ export default function NewQuotePage() {
             ? {
                 ...item,
                 client_discount_percent: clientPercent.trim(),
-                partner_discount_percent: partnerPercent.trim(),
+                partner_profit_share_percent: partnerPercent.trim(),
               }
             : item
         ),
@@ -1320,33 +1320,50 @@ export default function NewQuotePage() {
 
   const equipmentTotalMXN = equipmentTotalUSD * numericExchangeRate;
   const subtotalMXN = equipmentTotalMXN + laborTotalMXN;
+  const partnerProfitShareValue =
+    parseOptionalPercent(partnerProfitSharePercent) ??
+    DEFAULT_PARTNER_PROFIT_SHARE_PERCENT;
   const discountDefaults: QuoteDiscountDefaults = {
     clientPercent: discountType === "percent" ? Number(discountPercent) || 0 : 0,
     isPartnerQuote,
-    partnerEquipmentPercent: Number(partnerEquipmentDiscountPercent) || 0,
+    partnerProfitSharePercent: partnerProfitShareValue,
   };
   const brandRuleMap = buildBrandRuleMap(brandRules);
 
   function getItemLineDiscount(item: QuoteItem): LineDiscountResult {
     const quantity = getNewEquipmentAllocationQuantity(item);
+    const equipmentSaleMxn =
+      getEquipmentUnitPriceUsd(item, numericExchangeRate, indirectCostMultiplier) *
+      quantity *
+      numericExchangeRate;
+    // El costo indirecto de la empresa va dentro del precio de venta; cuenta como
+    // costo para que no se reparta con el aliado como si fuera utilidad.
+    const indirectShareMxn =
+      indirectCostMultiplier > 0
+        ? equipmentSaleMxn - equipmentSaleMxn / indirectCostMultiplier
+        : 0;
+
+    // `quantity` ya excluye las piezas que el cliente reutiliza.
+    const rawEquipmentCostMxn =
+      normalizeToMXN(
+        item.cost_price,
+        item.cost_currency || item.sale_currency,
+        numericExchangeRate
+      ) * quantity;
 
     return resolveLineDiscount(
       {
         brand: item.brand,
-        equipmentSaleMxn:
-          getEquipmentUnitPriceUsd(item, numericExchangeRate, indirectCostMultiplier) *
-          quantity *
-          numericExchangeRate,
-        equipmentCostMxn: isExistingCustomerEquipment(item)
-          ? 0
-          : normalizeToMXN(
-              item.cost_price,
-              item.cost_currency || item.sale_currency,
-              numericExchangeRate
-            ) * quantity,
+        equipmentSaleMxn,
+        // Sin costo capturado se queda en 0 para que el bloqueo lo detecte.
+        equipmentCostMxn: rawEquipmentCostMxn > 0
+          ? rawEquipmentCostMxn + indirectShareMxn
+          : 0,
         partnerEligible: item.partner_discount_eligible,
         clientOverride: parseOptionalPercent(item.client_discount_percent),
-        partnerOverride: parseOptionalPercent(item.partner_discount_percent),
+        laborSaleMxn: getItemLaborSaleTotal(item),
+        laborCostMxn: getItemLaborCostTotal(item),
+        partnerOverride: parseOptionalPercent(item.partner_profit_share_percent),
       },
       discountDefaults,
       brandRuleMap
@@ -1354,14 +1371,19 @@ export default function NewQuotePage() {
   }
 
   let lineClientDiscountMXN = 0;
+  let equipmentClientDiscountMXN = 0;
   let partnerEquipmentDiscountMXN = 0;
+  let partnerLaborDiscountMXN = 0;
   const lineDiscountViolations: { label: string; message: string }[] = [];
 
   for (const section of sections) {
     for (const item of section.items) {
       const lineDiscount = getItemLineDiscount(item);
-      lineClientDiscountMXN += lineDiscount.clientDiscountMxn;
+      lineClientDiscountMXN +=
+        lineDiscount.clientDiscountMxn + lineDiscount.laborClientDiscountMxn;
+      equipmentClientDiscountMXN += lineDiscount.clientDiscountMxn;
       partnerEquipmentDiscountMXN += lineDiscount.partnerDiscountMxn;
+      partnerLaborDiscountMXN += lineDiscount.laborPartnerDiscountMxn;
       if (lineDiscount.violation) {
         lineDiscountViolations.push({
           label: `${item.brand} ${item.model}`.trim(),
@@ -1387,23 +1409,28 @@ export default function NewQuotePage() {
       .values()
   ).sort((a, b) => a.brand.localeCompare(b.brand));
 
-  const laborDiscounts = computeLaborDiscounts(
-    laborTotalMXN,
-    discountDefaults,
-    Number(partnerLaborDiscountPercent) || 0
-  );
-  const partnerLaborDiscountMXN = laborDiscounts.partnerDiscountMxn;
   const partnerTotalDiscountMXN =
     partnerEquipmentDiscountMXN + partnerLaborDiscountMXN;
   const discountMXN =
     lineClientDiscountMXN +
-    laborDiscounts.clientDiscountMxn +
     (discountType === "amount" ? Number(discountAmountMXN) || 0 : 0);
-  // Opcion A: primero el descuento al cliente, luego el del aliado sobre el resto.
+  // Primero el descuento al cliente; el del aliado sale de la utilidad restante.
   const cappedDiscountMXN = Math.min(Math.max(discountMXN, 0), subtotalMXN);
   const cappedPartnerDiscountMXN = Math.min(
     Math.max(partnerTotalDiscountMXN, 0),
     subtotalMXN - cappedDiscountMXN
+  );
+  // % efectivo del aliado sobre el precio al cliente; solo informativo para
+  // reportes, el calculo real es por partida (reparto de utilidad).
+  const toEffectivePercent = (amount: number, base: number) =>
+    base > 0 ? Math.round((amount / base) * 100 * 10000) / 10000 : 0;
+  const partnerEquipmentEffectivePercent = toEffectivePercent(
+    partnerEquipmentDiscountMXN,
+    equipmentTotalMXN - equipmentClientDiscountMXN
+  );
+  const partnerLaborEffectivePercent = toEffectivePercent(
+    partnerLaborDiscountMXN,
+    laborTotalMXN * (1 - Math.min(Math.max(discountDefaults.clientPercent, 0), 100) / 100)
   );
   const indirectCostMXN = computeIndirectCostMxn(
     equipmentTotalMXN,
@@ -1637,9 +1664,8 @@ export default function NewQuotePage() {
       commercial_partner_id: isPartnerQuote
         ? Number(selectedCommercialPartnerId)
         : null,
-      partner_equipment_discount_percent:
-        Number(partnerEquipmentDiscountPercent) || 0,
-      partner_labor_discount_percent: Number(partnerLaborDiscountPercent) || 0,
+      partner_equipment_discount_percent: partnerEquipmentEffectivePercent,
+      partner_labor_discount_percent: partnerLaborEffectivePercent,
       partner_equipment_discount_mxn: partnerEquipmentDiscountMXN,
       partner_labor_discount_mxn: partnerLaborDiscountMXN,
       partner_total_discount_mxn: cappedPartnerDiscountMXN,
@@ -1751,6 +1777,20 @@ export default function NewQuotePage() {
       return;
     }
 
+    const { error: profitShareError } = await supabase
+      .from("quotes")
+      .update({ partner_profit_share_percent: partnerProfitShareValue })
+      .eq("id", quote.id);
+
+    if (profitShareError && !isMissingLineDiscountSchema(profitShareError)) {
+      console.error("Error guardando reparto de utilidad del aliado:", profitShareError);
+      alert(
+        "Error guardando reparto de utilidad del aliado: " + profitShareError.message
+      );
+      setSavingQuote(false);
+      return;
+    }
+
     const diagnosticBlocksToInsert = normalizeDiagnosticBlocks(diagnosticBlocks).map(
       (block, index) => ({
         quote_id: quote.id,
@@ -1854,7 +1894,9 @@ export default function NewQuotePage() {
           customer_visible_note: item.customer_visible_note.trim() || null,
           sort_order: itemIndex,
           client_discount_percent: parseOptionalPercent(item.client_discount_percent),
-          partner_discount_percent: parseOptionalPercent(item.partner_discount_percent),
+          partner_profit_share_percent: parseOptionalPercent(
+            item.partner_profit_share_percent
+          ),
           client_discount_mxn: itemLineDiscount.clientDiscountMxn,
           partner_discount_mxn: itemLineDiscount.partnerDiscountMxn,
         };
@@ -1872,13 +1914,13 @@ export default function NewQuotePage() {
         itemsToInsert.every(
           (item) =>
             item.client_discount_percent === null &&
-            item.partner_discount_percent === null
+            item.partner_profit_share_percent === null
         )
       ) {
         const legacyItems = itemsToInsert.map(
           ({
             client_discount_percent,
-            partner_discount_percent,
+            partner_profit_share_percent,
             client_discount_mxn,
             partner_discount_mxn,
             ...legacyItem
@@ -2701,7 +2743,7 @@ export default function NewQuotePage() {
                             <QuoteItemDiscountFields
                               lineDiscount={getItemLineDiscount(item)}
                               clientValue={item.client_discount_percent || ""}
-                              partnerValue={item.partner_discount_percent || ""}
+                              partnerValue={item.partner_profit_share_percent || ""}
                               isPartnerQuote={isPartnerQuote}
                               disabled={false}
                               onChange={(field, value) =>
@@ -3210,24 +3252,25 @@ export default function NewQuotePage() {
                       </div>
                     ) : null}
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <label className="block text-xs text-[#B3B3B8]">
+                      Aliado: % de la utilidad
                       <input
-                        className="rounded-xl bg-[#151518] px-3 py-2 outline-none"
-                        placeholder="% equipo"
-                        value={partnerEquipmentDiscountPercent}
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="5"
+                        className="mt-2 w-full rounded-xl bg-[#151518] px-3 py-2 text-sm text-white outline-none"
+                        placeholder="50"
+                        value={partnerProfitSharePercent}
                         onChange={(e) =>
-                          setPartnerEquipmentDiscountPercent(e.target.value)
+                          setPartnerProfitSharePercent(e.target.value)
                         }
                       />
-                      <input
-                        className="rounded-xl bg-[#151518] px-3 py-2 outline-none"
-                        placeholder="% mano de obra"
-                        value={partnerLaborDiscountPercent}
-                        onChange={(e) =>
-                          setPartnerLaborDiscountPercent(e.target.value)
-                        }
-                      />
-                    </div>
+                    </label>
+                    <p className="text-xs leading-relaxed text-[#77777D]">
+                      Se aplica sobre la utilidad que queda despues del descuento
+                      al cliente, en equipo y mano de obra.
+                    </p>
                     <div className="space-y-2 text-xs text-[#B3B3B8]">
                       <div className="flex justify-between">
                         <span>Descuento aliado equipo</span>

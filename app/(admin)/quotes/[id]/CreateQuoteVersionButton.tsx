@@ -78,7 +78,7 @@ type QuoteDiagnosticBlock = {
 
 type QuoteItemLineDiscount = {
   client_discount_percent: number | null;
-  partner_discount_percent: number | null;
+  partner_profit_share_percent: number | null;
   client_discount_mxn: number | null;
   partner_discount_mxn: number | null;
 };
@@ -295,7 +295,7 @@ export default function CreateQuoteVersionButton({
     const lineDiscountsResult = await supabase
       .from("quote_items")
       .select(
-        "id, client_discount_percent, partner_discount_percent, client_discount_mxn, partner_discount_mxn"
+        "id, client_discount_percent, partner_profit_share_percent, client_discount_mxn, partner_discount_mxn"
       )
       .eq("quote_id", quoteId);
 
@@ -309,7 +309,7 @@ export default function CreateQuoteVersionButton({
       (lineDiscountsResult.data || []).forEach((row) => {
         lineDiscountsByItemId.set(Number(row.id), {
           client_discount_percent: row.client_discount_percent,
-          partner_discount_percent: row.partner_discount_percent,
+          partner_profit_share_percent: row.partner_profit_share_percent,
           client_discount_mxn: row.client_discount_mxn,
           partner_discount_mxn: row.partner_discount_mxn,
         });
@@ -478,6 +478,36 @@ export default function CreateQuoteVersionButton({
         "crear nueva quote",
         newQuoteError || { message: "No se recibió nueva quote" }
       );
+      setCreating(false);
+      return;
+    }
+
+    // Reparto de utilidad con el aliado (migracion 20261001b); tolerante si falta.
+    const sourceProfitShare = await supabase
+      .from("quotes")
+      .select("partner_profit_share_percent")
+      .eq("id", quoteId)
+      .maybeSingle();
+
+    if (!sourceProfitShare.error && sourceProfitShare.data) {
+      const { error: profitShareError } = await supabase
+        .from("quotes")
+        .update({
+          partner_profit_share_percent:
+            sourceProfitShare.data.partner_profit_share_percent,
+        })
+        .eq("id", newQuote.id);
+
+      if (profitShareError && !isMissingLineDiscountSchema(profitShareError)) {
+        reportStepError("copiar reparto de utilidad", profitShareError);
+        setCreating(false);
+        return;
+      }
+    } else if (
+      sourceProfitShare.error &&
+      !isMissingLineDiscountSchema(sourceProfitShare.error)
+    ) {
+      reportStepError("leer reparto de utilidad", sourceProfitShare.error);
       setCreating(false);
       return;
     }

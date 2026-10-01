@@ -9,7 +9,7 @@ export type BrandRuleInput = {
   id?: number | null;
   brand: string;
   max_client_discount_percent: string;
-  partner_discount_percent: string;
+  partner_profit_share_percent: string;
   notes: string;
 };
 
@@ -50,7 +50,7 @@ export async function saveBrandRule(
   let partner: number | null;
   try {
     maxClient = parsePercent(input.max_client_discount_percent, "El tope al cliente");
-    partner = parsePercent(input.partner_discount_percent, "El % del aliado");
+    partner = parsePercent(input.partner_profit_share_percent, "El % de utilidad del aliado");
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Valor invalido." };
   }
@@ -59,7 +59,7 @@ export async function saveBrandRule(
   const payload = {
     brand,
     max_client_discount_percent: maxClient,
-    partner_discount_percent: partner,
+    partner_profit_share_percent: partner,
     notes: input.notes?.trim() || null,
     is_active: true,
     updated_by: profile.id,

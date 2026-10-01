@@ -25,7 +25,7 @@ export default async function BrandRulesPage() {
   const [rulesRes, brandsRes] = await Promise.all([
     supabase
       .from("brand_commercial_rules")
-      .select("id, brand, max_client_discount_percent, partner_discount_percent, notes, is_active")
+      .select("id, brand, max_client_discount_percent, partner_profit_share_percent, notes, is_active")
       .eq("is_active", true)
       .order("brand", { ascending: true }),
     // Paginado: el API corta en 1000 filas.

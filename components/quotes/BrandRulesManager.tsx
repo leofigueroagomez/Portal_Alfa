@@ -22,7 +22,7 @@ const EMPTY_DRAFT: BrandRuleInput = {
   id: null,
   brand: "",
   max_client_discount_percent: "",
-  partner_discount_percent: "",
+  partner_profit_share_percent: "",
   notes: "",
 };
 
@@ -35,8 +35,8 @@ function toDraft(rule: BrandCommercialRule): BrandRuleInput {
     brand: rule.brand,
     max_client_discount_percent:
       rule.max_client_discount_percent === null ? "" : String(rule.max_client_discount_percent),
-    partner_discount_percent:
-      rule.partner_discount_percent === null ? "" : String(rule.partner_discount_percent),
+    partner_profit_share_percent:
+      rule.partner_profit_share_percent === null ? "" : String(rule.partner_profit_share_percent),
     notes: rule.notes || "",
   };
 }
@@ -87,7 +87,7 @@ export default function BrandRulesManager({ rules, brandOptions, canManage, load
           </Link>
           <h1 className="mt-1 text-2xl font-bold text-[#111111]">Reglas por marca</h1>
           <p className="mt-1 text-sm text-black/60">
-            Cuánto descuento puede recibir el cliente y qué % se lleva el aliado en cada marca.
+            Cuánto descuento puede recibir el cliente y qué parte de la utilidad se lleva el aliado.
           </p>
         </div>
         {canManage && !draft && (
@@ -105,9 +105,9 @@ export default function BrandRulesManager({ rules, brandOptions, canManage, load
       </div>
 
       <p className="mt-6 text-sm leading-relaxed text-black/60">
-        El % del aliado se calcula sobre el precio que ya trae el descuento al cliente.
-        Una partida puede cambiar estos valores dentro de la cotización, pero no puede
-        pasar el tope al cliente ni quedar por debajo de su costo.
+        Primero se aplica el descuento al cliente; la utilidad que queda se reparte con
+        el aliado (50% por defecto). Una partida puede cambiar estos valores dentro de la
+        cotización, pero no puede pasar el tope al cliente ni quedar por debajo de su costo.
       </p>
 
       {loadError ? (
@@ -158,15 +158,17 @@ export default function BrandRulesManager({ rules, brandOptions, canManage, load
               />
             </label>
             <label className="block">
-              <span className="mb-1 block text-xs font-semibold text-black/60">Aliado %</span>
+              <span className="mb-1 block text-xs font-semibold text-black/60">
+                Aliado: % de la utilidad
+              </span>
               <input
                 type="number"
                 min="0"
                 max="100"
                 step="0.5"
-                value={draft.partner_discount_percent}
+                value={draft.partner_profit_share_percent}
                 onChange={(event) =>
-                  setDraft({ ...draft, partner_discount_percent: event.target.value })
+                  setDraft({ ...draft, partner_profit_share_percent: event.target.value })
                 }
                 className={inputClass}
                 placeholder="El de la cotización"
@@ -220,9 +222,9 @@ export default function BrandRulesManager({ rules, brandOptions, canManage, load
                   : `máx ${formatPercent(Number(rule.max_client_discount_percent))}`}
                 {" · "}
                 Aliado:{" "}
-                {rule.partner_discount_percent === null
+                {rule.partner_profit_share_percent === null
                   ? "el de la cotización"
-                  : formatPercent(Number(rule.partner_discount_percent))}
+                  : `${formatPercent(Number(rule.partner_profit_share_percent))} de la utilidad`}
               </p>
               {rule.notes ? <p className="mt-1 text-xs text-black/40">{rule.notes}</p> : null}
             </div>

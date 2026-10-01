@@ -9,7 +9,7 @@ import { formatCurrency } from "@/lib/format";
 
 export type QuoteItemDiscountField =
   | "client_discount_percent"
-  | "partner_discount_percent";
+  | "partner_profit_share_percent";
 
 type Props = {
   lineDiscount: LineDiscountResult;
@@ -36,8 +36,6 @@ export default function QuoteItemDiscountFields({
   const rule = lineDiscount.brandRule;
   const inputClass =
     "w-full rounded-xl border border-[#2A2A30] bg-[#151518] px-4 py-3 text-sm outline-none focus:border-[#9E1B32] disabled:cursor-not-allowed disabled:opacity-70";
-  const hasAnyDiscount =
-    lineDiscount.clientDiscountMxn > 0 || lineDiscount.partnerDiscountMxn > 0;
 
   return (
     <div className="mt-3 rounded-xl border border-[#2A2A30] p-4">
@@ -69,20 +67,20 @@ export default function QuoteItemDiscountFields({
         {isPartnerQuote ? (
           <label className="block">
             <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[#77777D]">
-              Aliado % (sobre precio cliente)
+              Aliado: % de la utilidad
             </span>
             <input
               type="number"
               min="0"
               max="100"
-              step="0.5"
+              step="5"
               value={partnerValue}
               disabled={disabled}
               onChange={(event) =>
-                onChange("partner_discount_percent", event.target.value)
+                onChange("partner_profit_share_percent", event.target.value)
               }
               placeholder={sourceHint(
-                lineDiscount.partnerPercent,
+                lineDiscount.partnerSharePercent,
                 describeDiscountSource(lineDiscount.partnerSource)
               )}
               className={`mt-2 ${inputClass}`}
@@ -98,16 +96,20 @@ export default function QuoteItemDiscountFields({
             {rule.max_client_discount_percent === null
               ? "sin tope al cliente"
               : `max ${formatPercent(Number(rule.max_client_discount_percent))} al cliente`}
-            {isPartnerQuote && rule.partner_discount_percent !== null
-              ? ` · aliado ${formatPercent(Number(rule.partner_discount_percent))}`
+            {isPartnerQuote && rule.partner_profit_share_percent !== null
+              ? ` · aliado ${formatPercent(Number(rule.partner_profit_share_percent))} de la utilidad`
               : ""}
           </span>
         ) : null}
-        {hasAnyDiscount ? (
+        {lineDiscount.clientDiscountMxn > 0 ? (
+          <span>Cliente -{formatCurrency(lineDiscount.clientDiscountMxn, "MXN")}</span>
+        ) : null}
+        {isPartnerQuote ? (
           <span>
-            Cliente -{formatCurrency(lineDiscount.clientDiscountMxn, "MXN")}
-            {isPartnerQuote
-              ? ` · Aliado -${formatCurrency(lineDiscount.partnerDiscountMxn, "MXN")}`
+            Utilidad equipo {formatCurrency(lineDiscount.equipmentProfitMxn, "MXN")} · Aliado{" "}
+            {formatCurrency(lineDiscount.partnerDiscountMxn, "MXN")}
+            {lineDiscount.laborPartnerDiscountMxn > 0
+              ? ` · Aliado MO ${formatCurrency(lineDiscount.laborPartnerDiscountMxn, "MXN")}`
               : ""}
           </span>
         ) : null}

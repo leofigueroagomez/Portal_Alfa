@@ -50,8 +50,9 @@ export default function QuoteBrandDiscountsPanel({
         </Link>
       </div>
       <p className="mt-1 text-xs text-[#77777D]">
-        Aplica un % a todas las partidas de una marca. Vacio = usar el % general
-        o la regla de la marca.
+        Aplica un % a todas las partidas de una marca. Aliado = % de la utilidad
+        que queda despues del descuento al cliente. Vacio = usar el % general o la
+        regla de la marca.
       </p>
 
       <div className="mt-3 space-y-3">
@@ -75,8 +76,8 @@ export default function QuoteBrandDiscountsPanel({
                           ? "sin tope"
                           : `max ${formatPercent(Number(rule.max_client_discount_percent))}`
                       } cliente${
-                        isPartnerQuote && rule.partner_discount_percent !== null
-                          ? `, aliado ${formatPercent(Number(rule.partner_discount_percent))}`
+                        isPartnerQuote && rule.partner_profit_share_percent !== null
+                          ? `, aliado ${formatPercent(Number(rule.partner_profit_share_percent))} de la utilidad`
                           : ""
                       }`
                     : ""}
@@ -105,7 +106,7 @@ export default function QuoteBrandDiscountsPanel({
                   min="0"
                   max="100"
                   step="0.5"
-                  placeholder="Aliado %"
+                  placeholder="Aliado % util."
                   aria-label={`Descuento aliado ${brand}`}
                   value={draft.partner}
                   disabled={disabled}

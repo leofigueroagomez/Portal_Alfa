@@ -1,27 +1,39 @@
-// Descuentos por partida y reglas comerciales por marca.
+// Descuentos por partida, reparto de utilidad con el aliado y reglas por marca.
 //
-// Regla de negocio (confirmada por Leo, 2026-10-01): el descuento del aliado se
-// calcula sobre el precio que YA trae el descuento al cliente (opcion A).
-//   cliente paga   = venta x (1 - c)
-//   aliado liquida = venta x (1 - c) x (1 - p)
+// Regla de negocio (confirmada por Leo, 2026-10-01): primero se aplica el
+// descuento al cliente; la utilidad que queda (precio al cliente - costo) se
+// reparte con el aliado. Por defecto 50/50, en equipo y en mano de obra.
+//   precio cliente = venta x (1 - c)
+//   utilidad       = precio cliente - costo
+//   aliado         = utilidad x s          (s = % de la utilidad para el aliado)
+//   ALFA neto      = precio cliente - aliado
+// Ejemplos: Lutron con 30% de margen y 15% al cliente deja 15% de utilidad ->
+// 7.5% para cada uno. Sonos con 10% de margen y 0% al cliente -> 5% y 5%.
 //
-// Resolucion del % efectivo de cada partida de equipo:
-//   cliente: override de la partida ?? min(% global de la cotizacion, tope de marca)
-//   aliado:  override de la partida ?? % de la marca ?? (no elegible ? 0 : % global)
+// Resolucion por partida de equipo:
+//   cliente: override de la partida ?? min(% general de la cotizacion, tope de marca)
+//   aliado:  override de la partida ?? % de utilidad de la marca ??
+//            (producto no elegible ? 0 : % de utilidad de la cotizacion)
+// La mano de obra usa el % general al cliente y el % de utilidad de la cotizacion.
 //
-// Un override de partida que rebase el tope de la marca, o una partida que quede
-// vendida por debajo de su costo, es un bloqueo duro al guardar (no un aviso).
+// Bloqueos duros al guardar (no avisos):
+//   - override al cliente mayor al tope de la marca;
+//   - precio al cliente por debajo del costo;
+//   - en cotizacion de aliado, equipo o mano de obra con venta y sin costo
+//     (sin costo no hay utilidad que repartir y el aliado se llevaria de mas).
 
 export type BrandCommercialRule = {
   id?: number;
   brand: string;
   max_client_discount_percent: number | null;
-  partner_discount_percent: number | null;
+  partner_profit_share_percent: number | null;
   notes?: string | null;
   is_active?: boolean | null;
 };
 
 export type BrandRuleMap = Map<string, BrandCommercialRule>;
+
+export const DEFAULT_PARTNER_PROFIT_SHARE_PERCENT = 50;
 
 export function normalizeBrandKey(brand: string | null | undefined) {
   return (brand || "").trim().toLowerCase();
@@ -51,7 +63,7 @@ export function isMissingLineDiscountSchema(
       error.code === "PGRST205" ||
       error.code === "42P01") &&
     (message.includes("client_discount_percent") ||
-      message.includes("partner_discount_percent") ||
+      message.includes("partner_profit_share_percent") ||
       message.includes("client_discount_mxn") ||
       message.includes("partner_discount_mxn") ||
       message.includes("brand_commercial_rules"))
@@ -74,13 +86,16 @@ export type QuoteDiscountDefaults = {
   // % global al cliente; 0 si la cotizacion no usa descuento porcentual.
   clientPercent: number;
   isPartnerQuote: boolean;
-  partnerEquipmentPercent: number;
+  // % de la utilidad que se lleva el aliado.
+  partnerProfitSharePercent: number;
 };
 
 export type LineDiscountInput = {
   brand: string | null | undefined;
   equipmentSaleMxn: number;
   equipmentCostMxn: number;
+  laborSaleMxn?: number;
+  laborCostMxn?: number;
   partnerEligible: boolean | null | undefined;
   clientOverride: number | null | undefined;
   partnerOverride: number | null | undefined;
@@ -90,12 +105,15 @@ export type LineDiscountSource = "line" | "brand" | "quote" | "not_eligible" | "
 
 export type LineDiscountResult = {
   clientPercent: number;
-  partnerPercent: number;
+  partnerSharePercent: number;
   clientSource: LineDiscountSource;
   partnerSource: LineDiscountSource;
   clientDiscountMxn: number;
+  equipmentProfitMxn: number;
   partnerDiscountMxn: number;
   netToAlfaMxn: number;
+  laborClientDiscountMxn: number;
+  laborPartnerDiscountMxn: number;
   brandRule: BrandCommercialRule | null;
   violation: string | null;
 };
@@ -127,37 +145,52 @@ export function resolveLineDiscount(
     clientSource = clientPercent > 0 ? "quote" : "none";
   }
 
-  let partnerPercent = 0;
+  let partnerSharePercent = 0;
   let partnerSource: LineDiscountSource = "none";
 
   if (defaults.isPartnerQuote) {
     const partnerOverride = parseOptionalPercent(line.partnerOverride);
-    const brandPartner =
-      brandRule?.partner_discount_percent === null ||
-      brandRule?.partner_discount_percent === undefined
+    const brandShare =
+      brandRule?.partner_profit_share_percent === null ||
+      brandRule?.partner_profit_share_percent === undefined
         ? null
-        : clampPercent(Number(brandRule.partner_discount_percent));
+        : clampPercent(Number(brandRule.partner_profit_share_percent));
 
     if (partnerOverride !== null) {
-      partnerPercent = clampPercent(partnerOverride);
+      partnerSharePercent = clampPercent(partnerOverride);
       partnerSource = "line";
-    } else if (brandPartner !== null) {
-      partnerPercent = brandPartner;
+    } else if (brandShare !== null) {
+      partnerSharePercent = brandShare;
       partnerSource = "brand";
     } else if (line.partnerEligible === false) {
-      partnerPercent = 0;
+      partnerSharePercent = 0;
       partnerSource = "not_eligible";
     } else {
-      partnerPercent = clampPercent(defaults.partnerEquipmentPercent);
+      partnerSharePercent = clampPercent(defaults.partnerProfitSharePercent);
       partnerSource = "quote";
     }
   }
 
   const sale = Math.max(Number(line.equipmentSaleMxn) || 0, 0);
+  const cost = Math.max(Number(line.equipmentCostMxn) || 0, 0);
   const clientDiscountMxn = sale * (clientPercent / 100);
   const clientPriceMxn = sale - clientDiscountMxn;
-  const partnerDiscountMxn = clientPriceMxn * (partnerPercent / 100);
+  const equipmentProfitMxn = clientPriceMxn - cost;
+  const partnerDiscountMxn =
+    Math.max(equipmentProfitMxn, 0) * (partnerSharePercent / 100);
   const netToAlfaMxn = clientPriceMxn - partnerDiscountMxn;
+
+  // Mano de obra: % general al cliente y % de utilidad de la cotizacion. Como
+  // antes, `partner_discount_eligible` solo aplica al equipo.
+  const laborSale = Math.max(Number(line.laborSaleMxn) || 0, 0);
+  const laborCost = Math.max(Number(line.laborCostMxn) || 0, 0);
+  const laborClientDiscountMxn = laborSale * (clampPercent(defaults.clientPercent) / 100);
+  const laborClientPrice = laborSale - laborClientDiscountMxn;
+  const laborShare = defaults.isPartnerQuote
+    ? clampPercent(defaults.partnerProfitSharePercent)
+    : 0;
+  const laborPartnerDiscountMxn =
+    Math.max(laborClientPrice - laborCost, 0) * (laborShare / 100);
 
   let violation: string | null = null;
   const brandLabel = (line.brand || "").trim() || "esta marca";
@@ -168,41 +201,32 @@ export function resolveLineDiscount(
     clientPercent > brandMaxClient + 1e-9
   ) {
     violation = `${brandLabel} permite maximo ${formatPercent(brandMaxClient)} de descuento al cliente y la partida tiene ${formatPercent(clientPercent)}.`;
-  } else {
-    const cost = Math.max(Number(line.equipmentCostMxn) || 0, 0);
-    if (sale > 0 && cost > 0 && netToAlfaMxn + 0.005 < cost) {
-      violation = `Con ${formatPercent(clientPercent)} al cliente${
-        partnerPercent > 0 ? ` y ${formatPercent(partnerPercent)} al aliado` : ""
-      } la partida queda por debajo de su costo.`;
-    }
+  } else if (sale > 0 && cost > 0 && clientPriceMxn + 0.005 < cost) {
+    violation = `Con ${formatPercent(clientPercent)} al cliente el equipo queda por debajo de su costo.`;
+  } else if (sale > 0 && cost <= 0 && partnerSharePercent > 0) {
+    violation =
+      "El equipo no tiene costo capturado y no se puede calcular la utilidad del aliado.";
+  } else if (laborSale > 0 && laborCost > 0 && laborClientPrice + 0.005 < laborCost) {
+    violation = `Con ${formatPercent(defaults.clientPercent)} al cliente la mano de obra queda por debajo de su costo.`;
+  } else if (laborSale > 0 && laborCost <= 0 && laborShare > 0) {
+    violation =
+      "La mano de obra no tiene costo interno y no se puede calcular la utilidad del aliado.";
   }
 
   return {
     clientPercent,
-    partnerPercent,
+    partnerSharePercent,
     clientSource,
     partnerSource,
     clientDiscountMxn,
+    equipmentProfitMxn,
     partnerDiscountMxn,
     netToAlfaMxn,
+    laborClientDiscountMxn,
+    laborPartnerDiscountMxn,
     brandRule,
     violation,
   };
-}
-
-// Mano de obra: no tiene override por partida. Usa el % global al cliente y el %
-// de mano de obra del aliado, con la misma regla A.
-export function computeLaborDiscounts(
-  laborSaleMxn: number,
-  defaults: QuoteDiscountDefaults,
-  partnerLaborPercent: number
-) {
-  const sale = Math.max(Number(laborSaleMxn) || 0, 0);
-  const clientDiscountMxn = sale * (clampPercent(defaults.clientPercent) / 100);
-  const partnerDiscountMxn = defaults.isPartnerQuote
-    ? (sale - clientDiscountMxn) * (clampPercent(partnerLaborPercent) / 100)
-    : 0;
-  return { clientDiscountMxn, partnerDiscountMxn };
 }
 
 export function formatPercent(value: number) {
@@ -219,7 +243,7 @@ export function describeDiscountSource(source: LineDiscountSource) {
     case "quote":
       return "general";
     case "not_eligible":
-      return "producto sin descuento aliado";
+      return "producto sin reparto al aliado";
     default:
       return "";
   }
