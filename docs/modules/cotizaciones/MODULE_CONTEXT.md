@@ -27,6 +27,7 @@ Gestiona cotizaciones comerciales con versiones, secciones, partidas, mano de ob
 | Diagnostico | `app/(admin)/quotes/QuoteDiagnosticContextEditor.tsx`, `lib/quoteDiagnosticContext.ts`, `lib/quotePdfSnapshot.ts`, `lib/quotePremiumPdfHtml.ts` | UI de bloques, normalizacion/hidratacion, lectura para snapshot y render en PDF. |
 | Actividades de mano de obra | `app/(admin)/quotes/QuoteLaborActivitiesPanel.tsx`, `lib/quoteLaborActivities.ts`, `app/(admin)/quotes/new/page.tsx`, `app/(admin)/quotes/[id]/edit/page.tsx`, `app/(admin)/quotes/[id]/CreateQuoteVersionButton.tsx` | UI y calculo de actividades por partida; insercion/copia en `quote_item_labor_activities`. |
 | Aliados comerciales | `lib/commercialPartners.ts`, `app/(admin)/quotes/new/page.tsx`, `app/(admin)/quotes/[id]/edit/page.tsx`, `app/(admin)/quotes/[id]/page.tsx`, `app/(admin)/quotes/[id]/PrintQuoteButton.tsx`, `app/api/quotes/[id]/premium-pdf/route.ts` | Seleccion de partner, descuentos/branding y generacion de PDF con marca aliada (cliente) o marca ALFA (aliado). |
+| Descuentos por partida y reglas por marca | `lib/quoteLineDiscounts.ts`, `app/(admin)/quotes/QuoteItemDiscountFields.tsx`, `app/(admin)/quotes/QuoteBrandDiscountsPanel.tsx`, `app/(admin)/quotes/brand-rules/` (`page.tsx`, `actions.ts`), `components/quotes/BrandRulesManager.tsx`, `new/page.tsx`, `edit/page.tsx`, `CreateQuoteVersionButton.tsx` | Override de % cliente y % aliado por partida de equipo, tope/% por marca en `brand_commercial_rules`, aplicar % a toda una marca desde el editor. Regla A: el % del aliado se calcula sobre el precio ya descontado al cliente. Bloqueo duro al guardar si una partida rebasa el tope de su marca o queda bajo costo. |
 
 Pendiente de confirmar: si existen server actions o rutas API adicionales para cotizaciones fuera de estos archivos.
 
@@ -65,6 +66,7 @@ Confirmado por inserts/selects en `new`, `edit`, `CreateQuoteVersionButton` y `q
 - Descuentos: `discount_type`, `discount_percent`, `discount_amount_mxn`.
 - Viaticos: `includes_travel_expenses_detail`, `travel_fuel_mxn`, `travel_tolls_mxn`, `travel_food_mxn`, `travel_total_mxn`.
 - Partner: `is_partner_quote`, `commercial_partner_id`, `partner_equipment_discount_percent`, `partner_labor_discount_percent`, `partner_equipment_discount_mxn`, `partner_labor_discount_mxn`, `partner_total_discount_mxn`.
+- Desde 2026-10-01 `discount_amount_mxn` y `partner_*_discount_mxn` son la suma de los descuentos por partida (ver `### Descuentos por partida y reglas por marca`). `discount_percent` y `partner_equipment_discount_percent` quedan como default que heredan las partidas sin override.
 - Diagnostico/notas: `notes`, `include_diagnostic_context`.
 - Auditoria: `created_at` confirmado por lecturas para PDF/detalle.
 
@@ -400,6 +402,28 @@ Confirmado por `lib/commercialPartners.ts`:
 - `logo_storage_path` se resuelve con public URL del bucket `commercial-partner-assets`.
 
 Pendiente de confirmar: si el bucket publico de partner sigue siendo el criterio deseado para produccion.
+
+### Descuentos por partida y reglas por marca
+
+Migracion `sql/20261001_quote_line_discounts_brand_rules.sql` (aditiva):
+
+- `quote_items.client_discount_percent`, `quote_items.partner_discount_percent`: nullable; null = hereda.
+- `quote_items.client_discount_mxn`, `quote_items.partner_discount_mxn`: monto calculado al guardar.
+- `brand_commercial_rules`: `brand` (unico por `lower(btrim)`), `max_client_discount_percent` (null = sin tope), `partner_discount_percent` (null = el de la cotizacion), `notes`, `is_active`. RLS select solo `is_internal_user()`; escritura solo por server action con rol `admin`/`direccion`. Seed: Sonos 0% cliente / 5% aliado.
+
+Resolucion por partida de equipo (`lib/quoteLineDiscounts.ts`):
+
+- Cliente: override de partida, si no `min(% general porcentual, tope de marca)`.
+- Aliado: override de partida, si no % de la marca, si no 0 cuando `products.partner_discount_eligible = false`, si no `% equipo` de la cotizacion.
+- Cliente paga `venta x (1 - c)`; aliado liquida `venta x (1 - c) x (1 - p)` (regla A, confirmada por Leo).
+- Mano de obra no tiene override: usa el % general al cliente y el % mano de obra del aliado con la misma regla A.
+- Descuento por monto (`discount_type = amount`) sigue siendo global y se suma despues.
+- Bloqueo duro al guardar: override de cliente mayor al tope de su marca, o partida con neto ALFA menor a su costo.
+- Cambio de semantica: antes el % del aliado se calculaba sobre precio de lista. Cotizaciones partner con descuento al cliente cambian su total solo si se vuelven a guardar (6 en produccion al 2026-10-01).
+- Sin la migracion aplicada, crear/editar siguen funcionando mientras nadie capture overrides; con overrides el guardado falla en lugar de perderlos.
+- Prueba: `npx tsx --test tests/quoteLineDiscounts.test.ts`.
+
+Pendiente: mostrar descuento por partida/marca en PDF Premium (hoy sale como un solo renglon "Descuento") y funcion "Unificar cotizaciones".
 
 ## Archivos Que Suelen Cambiar Juntos
 

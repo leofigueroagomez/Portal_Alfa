@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/services/supabase";
 import { isMissingDiagnosticContextSchema } from "@/lib/quoteDiagnosticContext";
 import { isMissingQuoteItemAreaAllocationsSchema } from "@/lib/quoteItemPresentation";
+import { isMissingLineDiscountSchema } from "@/lib/quoteLineDiscounts";
 
 type Props = {
   quoteId: number;
@@ -75,7 +76,14 @@ type QuoteDiagnosticBlock = {
   sort_order: number | null;
 };
 
-type NewQuoteItem = Omit<QuoteItem, "id"> & {
+type QuoteItemLineDiscount = {
+  client_discount_percent: number | null;
+  partner_discount_percent: number | null;
+  client_discount_mxn: number | null;
+  partner_discount_mxn: number | null;
+};
+
+type NewQuoteItem = Omit<QuoteItem, "id"> & Partial<QuoteItemLineDiscount> & {
   quote_id: number;
   quote_section_id: number;
 };
@@ -280,6 +288,33 @@ export default function CreateQuoteVersionButton({
     }
 
     const sourceItems = (items || []) as QuoteItem[];
+
+    // Descuentos por partida (migracion 20261001). Si la columna no existe en
+    // este entorno, la version se copia sin ellos, igual que antes.
+    const lineDiscountsByItemId = new Map<number, QuoteItemLineDiscount>();
+    const lineDiscountsResult = await supabase
+      .from("quote_items")
+      .select(
+        "id, client_discount_percent, partner_discount_percent, client_discount_mxn, partner_discount_mxn"
+      )
+      .eq("quote_id", quoteId);
+
+    if (lineDiscountsResult.error) {
+      if (!isMissingLineDiscountSchema(lineDiscountsResult.error)) {
+        reportStepError("leer descuentos por partida", lineDiscountsResult.error);
+        setCreating(false);
+        return;
+      }
+    } else {
+      (lineDiscountsResult.data || []).forEach((row) => {
+        lineDiscountsByItemId.set(Number(row.id), {
+          client_discount_percent: row.client_discount_percent,
+          partner_discount_percent: row.partner_discount_percent,
+          client_discount_mxn: row.client_discount_mxn,
+          partner_discount_mxn: row.partner_discount_mxn,
+        });
+      });
+    }
     const sourceItemIds = sourceItems.map((item) => item.id).filter(Boolean);
     const { data: sourceAreaAllocations, error: areaAllocationsError } =
       sourceItemIds.length > 0
@@ -536,6 +571,7 @@ export default function CreateQuoteVersionButton({
           area: item.area || null,
           customer_visible_note: item.customer_visible_note || null,
           sort_order: item.sort_order,
+          ...(lineDiscountsByItemId.get(item.id) || {}),
         });
       }
     }
