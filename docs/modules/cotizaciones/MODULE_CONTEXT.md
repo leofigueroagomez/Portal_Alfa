@@ -426,6 +426,16 @@ Regla de negocio (confirmada por Leo 2026-10-01, aplica a todos los aliados): pr
 
 Pendiente: desglose por partida/marca en PDF Premium (hoy un solo renglon "Descuento") y funcion "Unificar cotizaciones".
 
+### Regla de moneda unica por producto
+
+Regla de Leo (2026-10-01): un producto maneja una sola moneda. `products.sale_currency` siempre es igual a `products.cost_currency`; la cotizacion presenta todo en pesos, pero el catalogo no mezcla monedas. Mezclarlas cotizo, por ejemplo, Sonos BM1WMWW1BLK (costo MXN 758) a USD 947.41 y Leviton 41644-00W (costo USD 149.71) a MXN 213.87.
+
+- Base de datos: CHECK `products_sale_currency_matches_cost_currency` (`sql/20261001d_products_single_currency.sql`).
+- Formularios de producto (`app/(admin)/products/new`, `app/(admin)/products/[id]/edit`, `app/(admin)/quotes/QuickCreateProductButton.tsx`): no hay selector de moneda de venta; se guarda `sale_currency = cost_currency`.
+- Verificacion de costo en cotizacion (`new/page.tsx`, `edit/page.tsx`): actualiza `sale_currency` junto con `cost_currency`; si cambia la moneda y el precio no se recalcula desde el costo (precio publico o manual), bloquea.
+- Editor de cotizacion: bloqueo duro al guardar si una partida tiene precio en otra moneda que el costo del producto (`lib/quoteLineDiscounts.ts`), con boton "Actualizar desde catalogo" para tomar precio y moneda vigentes.
+- Scripts de importacion (`scripts/import-*.mjs`) ya escriben ambas monedas en USD.
+
 ## Archivos Que Suelen Cambiar Juntos
 
 - PDF Premium: `lib/quotePdfSnapshot.ts`, `lib/quotePremiumPdfHtml.ts`, `lib/quotePremiumPdf.ts`, `app/api/quotes/[id]/premium-pdf/route.ts`; si agrega datos, revisar selects y tipos del snapshot.

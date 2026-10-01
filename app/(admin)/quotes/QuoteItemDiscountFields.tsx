@@ -18,6 +18,8 @@ type Props = {
   isPartnerQuote: boolean;
   disabled: boolean;
   onChange: (field: QuoteItemDiscountField, value: string) => void;
+  // Vuelve a tomar precio, costo y moneda del catalogo para esta partida.
+  onRefreshFromCatalog?: () => void;
 };
 
 function sourceHint(percent: number, source: string) {
@@ -32,6 +34,7 @@ export default function QuoteItemDiscountFields({
   isPartnerQuote,
   disabled,
   onChange,
+  onRefreshFromCatalog,
 }: Props) {
   const rule = lineDiscount.brandRule;
   const inputClass =
@@ -116,9 +119,21 @@ export default function QuoteItemDiscountFields({
       </div>
 
       {lineDiscount.violation ? (
-        <p className="mt-3 text-sm font-semibold text-[#F87171]">
-          {lineDiscount.violation} No se podra guardar asi.
-        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <p className="text-sm font-semibold text-[#F87171]">
+            {lineDiscount.violation} No se podra guardar asi.
+          </p>
+          {lineDiscount.currencyMismatch && onRefreshFromCatalog ? (
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={onRefreshFromCatalog}
+              className="rounded-xl bg-[#9E1B32] px-4 py-2 text-xs font-semibold hover:bg-[#B91C3C] disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              Actualizar desde catalogo
+            </button>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );

@@ -221,3 +221,37 @@ test("producto no elegible no reparte utilidad de equipo", () => {
   assert.equal(result.partnerDiscountMxn, 0);
   assert.equal(result.partnerSource, "not_eligible");
 });
+
+test("bloquea una partida con el precio en otra moneda que el costo", () => {
+  const result = resolveLineDiscount(
+    {
+      brand: "Sonos",
+      equipmentSaleMxn: 17_000,
+      equipmentCostMxn: 758,
+      saleCurrency: "USD",
+      costCurrency: "mxn",
+      partnerEligible: true,
+      clientOverride: null,
+      partnerOverride: null,
+    },
+    { clientPercent: 0, isPartnerQuote: false, partnerProfitSharePercent: 50 },
+    rules
+  );
+  assert.match(result.violation || "", /precio esta en USD y el costo en MXN/);
+
+  const sameCurrency = resolveLineDiscount(
+    {
+      brand: "Sonos",
+      equipmentSaleMxn: 947.41,
+      equipmentCostMxn: 758,
+      saleCurrency: "MXN",
+      costCurrency: "MXN",
+      partnerEligible: true,
+      clientOverride: null,
+      partnerOverride: null,
+    },
+    { clientPercent: 0, isPartnerQuote: false, partnerProfitSharePercent: 50 },
+    rules
+  );
+  assert.equal(sameCurrency.violation, null);
+});

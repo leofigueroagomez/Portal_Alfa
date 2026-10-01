@@ -18,6 +18,8 @@
 //
 // Bloqueos duros al guardar (no avisos):
 //   - override al cliente mayor al tope de la marca;
+//   - precio en una moneda distinta a la del costo (regla de Leo: un producto
+//     maneja una sola moneda; mezclarlas cobro 18x de mas o vendio con perdida);
 //   - precio al cliente por debajo del costo;
 //   - en cotizacion de aliado, equipo o mano de obra con venta y sin costo
 //     (sin costo no hay utilidad que repartir y el aliado se llevaria de mas).
@@ -96,6 +98,9 @@ export type LineDiscountInput = {
   equipmentCostMxn: number;
   laborSaleMxn?: number;
   laborCostMxn?: number;
+  // Moneda del precio de la partida y del costo del producto.
+  saleCurrency?: string | null;
+  costCurrency?: string | null;
   partnerEligible: boolean | null | undefined;
   clientOverride: number | null | undefined;
   partnerOverride: number | null | undefined;
@@ -115,6 +120,7 @@ export type LineDiscountResult = {
   laborClientDiscountMxn: number;
   laborPartnerDiscountMxn: number;
   brandRule: BrandCommercialRule | null;
+  currencyMismatch: boolean;
   violation: string | null;
 };
 
@@ -194,8 +200,16 @@ export function resolveLineDiscount(
 
   let violation: string | null = null;
   const brandLabel = (line.brand || "").trim() || "esta marca";
+  const saleCurrency = (line.saleCurrency || "").trim().toUpperCase();
+  const costCurrency = (line.costCurrency || "").trim().toUpperCase();
 
-  if (
+  const currencyMismatch = Boolean(
+    sale > 0 && saleCurrency && costCurrency && saleCurrency !== costCurrency
+  );
+
+  if (currencyMismatch) {
+    violation = `El precio esta en ${saleCurrency} y el costo en ${costCurrency}; un producto debe manejar una sola moneda. Corrige el producto en el catalogo y usa "Actualizar desde catalogo".`;
+  } else if (
     clientSource === "line" &&
     brandMaxClient !== null &&
     clientPercent > brandMaxClient + 1e-9
@@ -225,6 +239,7 @@ export function resolveLineDiscount(
     laborClientDiscountMxn,
     laborPartnerDiscountMxn,
     brandRule,
+    currencyMismatch,
     violation,
   };
 }

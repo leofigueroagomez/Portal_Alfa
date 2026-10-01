@@ -307,7 +307,7 @@ export default function QuickCreateProductButton({
         target_margin: Number(form.target_margin) || 0,
         public_price: Number(form.public_price) || 0,
         calculated_sale_price: Number(form.calculated_sale_price) || 0,
-        sale_currency: form.sale_currency,
+        sale_currency: form.cost_currency,
         labor_unit_cost: Number(form.labor_unit_cost) || 0,
         labor_sale_multiplier: LABOR_MULTIPLIER,
         labor_unit_sale_price: laborUnitSalePrice,
@@ -396,7 +396,7 @@ export default function QuickCreateProductButton({
         target_margin: Number(form.target_margin) || 0,
         public_price: Number(form.public_price) || 0,
         calculated_sale_price: Number(form.calculated_sale_price) || 0,
-        sale_currency: form.sale_currency,
+        sale_currency: form.cost_currency,
         labor_unit_cost: Number(form.labor_unit_cost) || 0,
         labor_sale_multiplier: LABOR_MULTIPLIER,
         labor_unit_sale_price: laborUnitSalePrice,
@@ -509,10 +509,11 @@ export default function QuickCreateProductButton({
               <input className="bg-[#222228] rounded-xl p-4 outline-none" placeholder="% margen" value={form.target_margin} onChange={(e) => updateField("target_margin", e.target.value)} />
               <input className="bg-[#222228] rounded-xl p-4 outline-none" placeholder="Precio público" value={form.public_price} onChange={(e) => updateField("public_price", e.target.value)} />
               <input className="bg-[#1A1A1F] border border-[#2A2A30] rounded-xl p-4 outline-none" placeholder="Precio calculado" value={form.calculated_sale_price} onChange={(e) => updateField("calculated_sale_price", e.target.value)} readOnly={form.pricing_method !== "manual"} />
-              <select className="bg-[#222228] rounded-xl p-4 outline-none" value={form.sale_currency} onChange={(e) => updateField("sale_currency", e.target.value)}>
-                <option>USD</option>
-                <option>MXN</option>
-              </select>
+              {/* Un producto maneja una sola moneda: el precio va en la moneda del costo. */}
+              <div className="rounded-xl border border-[#2A2A30] bg-[#1A1A1F] p-4">
+                <p className="text-xs text-[#77777D]">Moneda del precio</p>
+                <p className="font-semibold">{form.cost_currency} (igual que el costo)</p>
+              </div>
               <input className="bg-[#222228] rounded-xl p-4 outline-none" placeholder="Costo MO" value={form.labor_unit_cost} onChange={(e) => updateField("labor_unit_cost", e.target.value)} />
               <div className="rounded-xl border border-[#2A2A30] bg-[#1A1A1F] p-4">
                 <p className="text-xs text-[#77777D]">Venta MO auto</p>

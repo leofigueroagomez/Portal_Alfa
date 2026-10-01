@@ -1261,6 +1261,21 @@ export default function EditQuotePage() {
       return;
     }
 
+    // Un producto maneja una sola moneda: el precio va en la moneda del costo.
+    // Si cambia la moneda y el precio no se recalcula desde el costo (precio
+    // publico o manual), el numero quedaria en la moneda anterior.
+    const currencyChanged =
+      (item.sale_currency || "USD").toUpperCase() !== newCostCurrency.toUpperCase();
+
+    if (currencyChanged && pricing.status !== "recalculated") {
+      alert(
+        `Cambiaste la moneda del costo de ${item.brand} ${item.model} a ${newCostCurrency}, ` +
+          "pero su precio no se calcula desde el costo (precio publico o manual).\n\n" +
+          `Corrige el precio en ${newCostCurrency} con "Editar producto" antes de verificar el costo.`
+      );
+      return;
+    }
+
     const previousSalePrice = Number(item.calculated_sale_price) || 0;
     const newSalePrice =
       pricing.status === "recalculated" ? pricing.salePrice : previousSalePrice;
@@ -1271,6 +1286,7 @@ export default function EditQuotePage() {
       .update({
         cost_price: newCostPrice,
         cost_currency: newCostCurrency,
+        sale_currency: newCostCurrency,
         cost_updated_at: nowIso,
         ...(salePriceChanged ? { calculated_sale_price: newSalePrice } : {}),
       })
@@ -1294,6 +1310,7 @@ export default function EditQuotePage() {
                 ...sectionItem,
                 cost_price: newCostPrice,
                 cost_currency: newCostCurrency,
+                sale_currency: newCostCurrency,
                 cost_updated_at: nowIso,
                 calculated_sale_price: newSalePrice,
                 costVerificationPending: false,
@@ -1505,6 +1522,41 @@ export default function EditQuotePage() {
               ...section,
               items: section.items.map((item) =>
                 item.id === productId ? { ...item, [field]: value } : item
+              ),
+            }
+          : section
+      )
+    );
+  }
+
+  function refreshItemFromCatalog(sectionId: string, productId: number) {
+    const catalogProduct = products.find((product) => product.id === productId);
+
+    if (!catalogProduct) {
+      alert(
+        "Este producto no esta activo en el catalogo. Corrigelo o reemplazalo por otro antes de guardar."
+      );
+      return;
+    }
+
+    if (
+      (catalogProduct.sale_currency || "USD").toUpperCase() !==
+      (catalogProduct.cost_currency || "USD").toUpperCase()
+    ) {
+      alert(
+        `En el catalogo, ${catalogProduct.brand} ${catalogProduct.model} sigue con el precio en ${catalogProduct.sale_currency} y el costo en ${catalogProduct.cost_currency}. Corrige el producto con "Editar producto" primero.`
+      );
+      return;
+    }
+
+    const patch = getProductUpdatePatch(catalogProduct);
+    setSections((current) =>
+      current.map((section) =>
+        section.id === sectionId
+          ? {
+              ...section,
+              items: section.items.map((item) =>
+                item.id === productId ? { ...item, ...patch } : item
               ),
             }
           : section
@@ -1866,6 +1918,8 @@ export default function EditQuotePage() {
         equipmentCostMxn: rawEquipmentCostMxn > 0
           ? rawEquipmentCostMxn + indirectShareMxn
           : 0,
+        saleCurrency: item.sale_currency,
+        costCurrency: item.cost_currency,
         partnerEligible: item.partner_discount_eligible,
         clientOverride: parseOptionalPercent(item.client_discount_percent),
         laborSaleMxn: getItemLaborSaleTotal(item),
@@ -3247,6 +3301,9 @@ export default function EditQuotePage() {
                               disabled={!canEditQuote}
                               onChange={(field, value) =>
                                 updateItemDiscount(section.id, item.id, field, value)
+                              }
+                              onRefreshFromCatalog={() =>
+                                refreshItemFromCatalog(section.id, item.id)
                               }
                             />
                           )}
