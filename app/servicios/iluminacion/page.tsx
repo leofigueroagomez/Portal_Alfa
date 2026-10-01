@@ -4,9 +4,13 @@ import Link from "next/link";
 import { ArrowRight, CheckCircle2, Lightbulb, Sparkles, SunDim, Sliders, Layers, ShieldCheck, Phone } from "lucide-react";
 import FaqAccordion, { FaqItem } from "@/components/FaqAccordion";
 import WhatsAppLeadButton from "@/components/WhatsAppLeadButton";
+import LocalBusinessJsonLd from "@/components/LocalBusinessJsonLd";
+import { SITE_URL } from "@/lib/siteUrl";
 
 export const metadata: Metadata = {
-  title: "Control de Iluminación Arquitectónica y Persianas | Lutron & Shelly | ALFA",
+  // `absolute` evita que el template "%s | ALFA" del layout raiz
+  // agregue un segundo sufijo de marca.
+  title: { absolute: "Control de Iluminación Arquitectónica y Persianas | Lutron & Shelly | ALFA" },
   description:
     "Especialistas en control de iluminación Lutron (HomeWorks / RadioRA 3), botoneras de diseño Palladiom y Alisse, persianas motorizadas ultra silenciosas y automatización Shelly para residencias de alto nivel.",
   alternates: {
@@ -123,6 +127,7 @@ const faqItems: FaqItem[] = [
 export default function IluminacionPage() {
   return (
     <main className="min-h-screen bg-[#0F0F0F] text-white">
+      <LocalBusinessJsonLd pageUrl={`${SITE_URL}/servicios/iluminacion`} />
       {/* Hero Section */}
       <section className="relative min-h-[90vh] overflow-hidden bg-[#0A0A0A]">
         <Image
@@ -320,12 +325,19 @@ export default function IluminacionPage() {
             ))}
           </div>
 
-          <div className="mt-8 text-center">
+          <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Link
               href="/marcas/lutron"
               className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#7A1F2B] hover:text-[#5A1320] transition bg-zinc-100 px-5 py-2.5 rounded-full border border-zinc-200 hover:border-[#7A1F2B]/40"
             >
               <span>Explorar catálogo completo de modelos Lutron RadioRA 3</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+            <Link
+              href="/lutron-guadalajara"
+              className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#7A1F2B] hover:text-[#5A1320] transition bg-zinc-100 px-5 py-2.5 rounded-full border border-zinc-200 hover:border-[#7A1F2B]/40"
+            >
+              <span>Instalación Lutron en Guadalajara y Zapopan</span>
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>

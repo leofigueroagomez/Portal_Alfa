@@ -4,9 +4,13 @@ import Link from "next/link";
 import { ArrowRight, CheckCircle2, Network, ShieldCheck, Wifi, Server, Cpu, Phone } from "lucide-react";
 import FaqAccordion, { FaqItem } from "@/components/FaqAccordion";
 import WhatsAppLeadButton from "@/components/WhatsAppLeadButton";
+import LocalBusinessJsonLd from "@/components/LocalBusinessJsonLd";
+import { SITE_URL } from "@/lib/siteUrl";
 
 export const metadata: Metadata = {
-  title: "Redes Empresariales y Cableado Estructurado | ALFA High End Services",
+  // `absolute` evita que el template "%s | ALFA" del layout raiz
+  // agregue un segundo sufijo de marca.
+  title: { absolute: "Redes Empresariales y Cableado Estructurado | ALFA High End Services" },
   description:
     "Diseño e instalación de redes empresariales, WiFi profesional de alta densidad, cableado estructurado Cat6A/Fibra Óptica y racks de telecomunicaciones en Guadalajara y Zapopan.",
   alternates: {
@@ -126,6 +130,7 @@ const faqItems: FaqItem[] = [
 export default function RedesPage() {
   return (
     <main className="min-h-screen bg-[#0F0F0F] text-white">
+      <LocalBusinessJsonLd pageUrl={`${SITE_URL}/servicios/redes`} />
       {/* Hero Section */}
       <section className="relative min-h-[88vh] overflow-hidden bg-[#0A0A0A]">
         <Image

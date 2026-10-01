@@ -4,9 +4,13 @@ import Link from "next/link";
 import { ArrowRight, Phone } from "lucide-react";
 import FaqAccordion, { FaqItem } from "@/components/FaqAccordion";
 import WhatsAppLeadButton from "@/components/WhatsAppLeadButton";
+import LocalBusinessJsonLd from "@/components/LocalBusinessJsonLd";
+import { SITE_URL } from "@/lib/siteUrl";
 
 export const metadata: Metadata = {
-  title: "Audio y Video Profesional | ALFA High End Services",
+  // `absolute` evita que el template "%s | ALFA" del layout raiz
+  // agregue un segundo sufijo de marca.
+  title: { absolute: "Audio y Video Profesional | ALFA High End Services" },
   description:
     "Diseñamos e implementamos soluciones de audio y video para residencias, salas de juntas, espacios corporativos y proyectos especiales. Experiencias audiovisuales pensadas para disfrutarse todos los días.",
   alternates: {
@@ -89,6 +93,7 @@ const faqItems: FaqItem[] = [
 export default function AudioVideoPage() {
   return (
     <main className="bg-[#F7F6F3] text-[#111111]">
+      <LocalBusinessJsonLd pageUrl={`${SITE_URL}/servicios/audio-video`} />
       <section className="relative min-h-[92vh] overflow-hidden bg-[#0F0F0F] text-white">
         <Image
           src="/projects/audio-hifi-bw-mcintosh.jpeg"
