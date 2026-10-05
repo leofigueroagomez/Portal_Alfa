@@ -120,20 +120,23 @@ test("override por partida del % de utilidad", () => {
   close(result.partnerDiscountMxn, 120);
 });
 
-test("bloquea un override que rebasa el tope de la marca", () => {
+test("un descuento escrito en la partida pasa por encima del tope de la marca", () => {
   const result = resolveLineDiscount(
     {
       brand: "Sonos",
       equipmentSaleMxn: 10_000,
-      equipmentCostMxn: 9_000,
+      equipmentCostMxn: 8_000,
       partnerEligible: true,
-      clientOverride: 15,
+      clientOverride: 10,
       partnerOverride: null,
     },
     partnerQuote,
     rules
   );
-  assert.match(result.violation || "", /maximo 0%/);
+  assert.equal(result.clientPercent, 10);
+  assert.equal(result.clientSource, "line");
+  close(result.partnerDiscountMxn, 500);
+  assert.equal(result.violation, null);
 });
 
 test("bloquea cuando el descuento al cliente deja el equipo bajo costo; el aliado no recibe nada", () => {

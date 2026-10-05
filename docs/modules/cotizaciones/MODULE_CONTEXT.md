@@ -27,7 +27,7 @@ Gestiona cotizaciones comerciales con versiones, secciones, partidas, mano de ob
 | Diagnostico | `app/(admin)/quotes/QuoteDiagnosticContextEditor.tsx`, `lib/quoteDiagnosticContext.ts`, `lib/quotePdfSnapshot.ts`, `lib/quotePremiumPdfHtml.ts` | UI de bloques, normalizacion/hidratacion, lectura para snapshot y render en PDF. |
 | Actividades de mano de obra | `app/(admin)/quotes/QuoteLaborActivitiesPanel.tsx`, `lib/quoteLaborActivities.ts`, `app/(admin)/quotes/new/page.tsx`, `app/(admin)/quotes/[id]/edit/page.tsx`, `app/(admin)/quotes/[id]/CreateQuoteVersionButton.tsx` | UI y calculo de actividades por partida; insercion/copia en `quote_item_labor_activities`. |
 | Aliados comerciales | `lib/commercialPartners.ts`, `app/(admin)/quotes/new/page.tsx`, `app/(admin)/quotes/[id]/edit/page.tsx`, `app/(admin)/quotes/[id]/page.tsx`, `app/(admin)/quotes/[id]/PrintQuoteButton.tsx`, `app/api/quotes/[id]/premium-pdf/route.ts` | Seleccion de partner, descuentos/branding y generacion de PDF con marca aliada (cliente) o marca ALFA (aliado). |
-| Descuentos por partida y reglas por marca | `lib/quoteLineDiscounts.ts`, `app/(admin)/quotes/QuoteItemDiscountFields.tsx`, `app/(admin)/quotes/QuoteBrandDiscountsPanel.tsx`, `app/(admin)/quotes/brand-rules/` (`page.tsx`, `actions.ts`), `components/quotes/BrandRulesManager.tsx`, `new/page.tsx`, `edit/page.tsx`, `CreateQuoteVersionButton.tsx` | Override de % cliente y % de utilidad del aliado por partida de equipo, tope/% por marca en `brand_commercial_rules`, aplicar % a toda una marca desde el editor. Reparto de utilidad: tras el descuento al cliente, el aliado se lleva un % de la utilidad (50% por defecto). Bloqueo duro al guardar si una partida rebasa el tope de su marca, queda bajo costo o no tiene costo en cotizacion de aliado. |
+| Descuentos por partida y reglas por marca | `lib/quoteLineDiscounts.ts`, `app/(admin)/quotes/QuoteItemDiscountFields.tsx`, `app/(admin)/quotes/QuoteBrandDiscountsPanel.tsx`, `app/(admin)/quotes/brand-rules/` (`page.tsx`, `actions.ts`), `components/quotes/BrandRulesManager.tsx`, `new/page.tsx`, `edit/page.tsx`, `CreateQuoteVersionButton.tsx` | Override de % cliente y % de utilidad del aliado por partida de equipo, tope/% por marca en `brand_commercial_rules`, aplicar % a toda una marca desde el editor. Reparto de utilidad: tras el descuento al cliente, el aliado se lleva un % de la utilidad (50% por defecto). El tope de marca solo limita el % general; un % escrito en la partida se respeta. Bloqueo duro al guardar si una partida queda bajo costo, mezcla monedas o no tiene costo en cotizacion de aliado. |
 
 Pendiente de confirmar: si existen server actions o rutas API adicionales para cotizaciones fuera de estos archivos.
 
@@ -415,12 +415,12 @@ Migraciones (aplicadas en produccion 2026-10-01): `sql/20261001_quote_line_disco
 Regla de negocio (confirmada por Leo 2026-10-01, aplica a todos los aliados): primero el descuento al cliente; la utilidad que queda se reparte con el aliado, 50/50 por defecto, en equipo y en mano de obra. Los margenes normales de ALFA son 30% equipo y 50% mano de obra, por eso el esquema anterior era 15%/25% sobre precio.
 
 - Precio cliente = venta x (1 - c). Utilidad = precio cliente - costo. Aliado = max(utilidad, 0) x s.
-- Cliente: override de partida, si no `min(% general porcentual, tope de marca)`. Mano de obra usa el % general.
+- Cliente: override de partida, si no `min(% general porcentual, tope de marca)`. El tope solo limita lo heredado: un % escrito en la partida se respeta aunque lo rebase (decision de Leo 2026-10-05). Mano de obra usa el % general.
 - Aliado: override de partida, si no % de la marca, si no 0 cuando `products.partner_discount_eligible = false` (solo equipo), si no `quotes.partner_profit_share_percent`.
 - El costo indirecto de empresa (markup en precio) cuenta como costo, no como utilidad repartible.
 - Descuento por monto (`discount_type = amount`) sigue siendo global y se suma despues.
 - `quotes.partner_equipment_discount_percent` / `partner_labor_discount_percent` ahora guardan el % efectivo sobre precio al cliente (informativo); los montos `partner_*_discount_mxn` son la suma por partida.
-- Bloqueo duro al guardar: override de cliente mayor al tope de la marca; precio al cliente bajo costo (equipo o mano de obra); en cotizacion de aliado, equipo o mano de obra con venta y sin costo.
+- Bloqueo duro al guardar: precio al cliente bajo costo (equipo o mano de obra); en cotizacion de aliado, equipo o mano de obra con venta y sin costo.
 - Cotizaciones de aliado existentes cambian su total solo si se vuelven a guardar. Al 2026-10-01 solo ALFA-0017-V1 quedaria bloqueada (3 actividades de mano de obra sin costo interno).
 - Prueba: `npx tsx --test tests/quoteLineDiscounts.test.ts`.
 

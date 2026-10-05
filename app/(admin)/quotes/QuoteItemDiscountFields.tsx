@@ -98,7 +98,7 @@ export default function QuoteItemDiscountFields({
             Regla {rule.brand}:{" "}
             {rule.max_client_discount_percent === null
               ? "sin tope al cliente"
-              : `max ${formatPercent(Number(rule.max_client_discount_percent))} al cliente`}
+              : `${formatPercent(Number(rule.max_client_discount_percent))} al cliente por defecto`}
             {isPartnerQuote && rule.partner_profit_share_percent !== null
               ? ` · aliado ${formatPercent(Number(rule.partner_profit_share_percent))} de la utilidad`
               : ""}

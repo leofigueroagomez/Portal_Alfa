@@ -12,12 +12,13 @@
 //
 // Resolucion por partida de equipo:
 //   cliente: override de la partida ?? min(% general de la cotizacion, tope de marca)
+//            (el tope de marca solo limita lo heredado; un % escrito en la partida
+//            se respeta, decision de Leo 2026-10-05)
 //   aliado:  override de la partida ?? % de utilidad de la marca ??
 //            (producto no elegible ? 0 : % de utilidad de la cotizacion)
 // La mano de obra usa el % general al cliente y el % de utilidad de la cotizacion.
 //
 // Bloqueos duros al guardar (no avisos):
-//   - override al cliente mayor al tope de la marca;
 //   - precio en una moneda distinta a la del costo (regla de Leo: un producto
 //     maneja una sola moneda; mezclarlas cobro 18x de mas o vendio con perdida);
 //   - precio al cliente por debajo del costo;
@@ -199,7 +200,6 @@ export function resolveLineDiscount(
     Math.max(laborClientPrice - laborCost, 0) * (laborShare / 100);
 
   let violation: string | null = null;
-  const brandLabel = (line.brand || "").trim() || "esta marca";
   const saleCurrency = (line.saleCurrency || "").trim().toUpperCase();
   const costCurrency = (line.costCurrency || "").trim().toUpperCase();
 
@@ -209,12 +209,6 @@ export function resolveLineDiscount(
 
   if (currencyMismatch) {
     violation = `El precio esta en ${saleCurrency} y el costo en ${costCurrency}; un producto debe manejar una sola moneda. Corrige el producto en el catalogo y usa "Actualizar desde catalogo".`;
-  } else if (
-    clientSource === "line" &&
-    brandMaxClient !== null &&
-    clientPercent > brandMaxClient + 1e-9
-  ) {
-    violation = `${brandLabel} permite maximo ${formatPercent(brandMaxClient)} de descuento al cliente y la partida tiene ${formatPercent(clientPercent)}.`;
   } else if (sale > 0 && cost > 0 && clientPriceMxn + 0.005 < cost) {
     violation = `Con ${formatPercent(clientPercent)} al cliente el equipo queda por debajo de su costo.`;
   } else if (sale > 0 && cost <= 0 && partnerSharePercent > 0) {

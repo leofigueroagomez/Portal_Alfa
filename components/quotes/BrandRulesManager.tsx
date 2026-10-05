@@ -107,7 +107,8 @@ export default function BrandRulesManager({ rules, brandOptions, canManage, load
       <p className="mt-6 text-sm leading-relaxed text-black/60">
         Primero se aplica el descuento al cliente; la utilidad que queda se reparte con
         el aliado (50% por defecto). Una partida puede cambiar estos valores dentro de la
-        cotización, pero no puede pasar el tope al cliente ni quedar por debajo de su costo.
+        cotización (el tope al cliente solo limita el descuento general); lo único que no se
+        permite es quedar por debajo del costo.
       </p>
 
       {loadError ? (
@@ -142,7 +143,7 @@ export default function BrandRulesManager({ rules, brandOptions, canManage, load
             </label>
             <label className="block">
               <span className="mb-1 block text-xs font-semibold text-black/60">
-                Tope descuento cliente %
+                Tope del descuento general al cliente %
               </span>
               <input
                 type="number"
