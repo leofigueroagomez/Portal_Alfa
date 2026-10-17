@@ -92,13 +92,11 @@ export function generateBlogArticleJsonLd(
         },
         about: [
           {
-            "@type": "Product",
+            // Thing, no Product: sin precio Google marca el Product como
+            // error de "Fragmentos de productos" (ver generateProductJsonLd).
+            "@type": "Thing",
             name: "Hikvision DS-KLM28-12",
             description: post.subtitle,
-            brand: {
-              "@type": "Brand",
-              name: "Hikvision",
-            },
           },
         ],
         keywords: post.tags.join(", "),

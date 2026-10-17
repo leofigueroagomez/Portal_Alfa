@@ -313,7 +313,12 @@ export async function searchCatalogProducts(
 // ---------------------------------------------------------------------------
 
 /**
- * Genera el JSON-LD de un producto para Google Rich Results (Schema.org/Product)
+ * Genera el JSON-LD de la ficha de un modelo del catálogo.
+ *
+ * Se publica como WebPage (no Product) a propósito: el catálogo nunca muestra
+ * precios, y Google exige precio en `offers` (lowPrice en AggregateOffer) o
+ * reseñas/calificación para validar un Product. Un Product sin eso aparece como
+ * error crítico de "Fragmentos de productos" en Search Console.
  */
 export function generateProductJsonLd(
   product: CatalogProduct,
@@ -334,39 +339,27 @@ export function generateProductJsonLd(
 
   return {
     "@context": "https://schema.org",
-    "@type": "Product",
+    "@type": "WebPage",
+    url: productUrl,
     name: product.name || `${product.brand_name} ${product.model}`,
-    image: fullImageUrl ? [fullImageUrl] : undefined,
     description:
       product.short_description ||
       product.description ||
       `Especificación e integración del modelo ${product.model} de ${product.brand_name} con garantía oficial en México por ALFA.`,
-    sku: product.sku || undefined,
-    mpn: product.model || product.sku || undefined,
-    brand: {
+    inLanguage: "es-MX",
+    primaryImageOfPage: fullImageUrl
+      ? { "@type": "ImageObject", url: fullImageUrl }
+      : undefined,
+    about: {
       "@type": "Brand",
       name: product.brand_name,
       logo: fullBrandLogoUrl || undefined,
     },
-    offers: {
-      "@type": "AggregateOffer",
-      priceCurrency: "USD",
-      availability: "https://schema.org/InStock",
-      url: productUrl,
-      seller: {
-        "@type": "Organization",
-        name: "ALFA High End Services",
-        url: cleanSiteUrl,
-      },
-      itemCondition: "https://schema.org/NewCondition",
+    publisher: {
+      "@type": "Organization",
+      name: "ALFA High End Services",
+      url: cleanSiteUrl,
     },
-    additionalProperty: Object.entries(product.specifications || {}).map(
-      ([name, value]) => ({
-        "@type": "PropertyValue",
-        name,
-        value: Array.isArray(value) ? value.join(", ") : String(value),
-      })
-    ),
   };
 }
 
