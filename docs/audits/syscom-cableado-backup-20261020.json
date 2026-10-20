@@ -1,0 +1,1158 @@
+{
+ "taken_at": "2026-10-20T21:49:40.939Z",
+ "max_product_id_before": 1457,
+ "rows": [
+  {
+   "id": 2,
+   "model": "PRO-CAT-6-LITE",
+   "cost_price": 129.18,
+   "cost_currency": "USD",
+   "calculated_sale_price": 184.54,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-09-14T18:33:04.643+00:00"
+  },
+  {
+   "id": 5,
+   "model": "PRO-CAT-5E-LITE",
+   "cost_price": 102.07,
+   "cost_currency": "USD",
+   "calculated_sale_price": 145.81,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-09-08T13:10:10.803+00:00"
+  },
+  {
+   "id": 14,
+   "model": "LP-UT6A-300-RD28",
+   "cost_price": 1.52,
+   "cost_currency": "USD",
+   "calculated_sale_price": 2.17,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-10-07T16:14:48.478+00:00"
+  },
+  {
+   "id": 17,
+   "model": "LP-UT6-100-WH",
+   "cost_price": 1.51,
+   "cost_currency": "USD",
+   "calculated_sale_price": 2.16,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-05-25T22:43:29.507323+00:00"
+  },
+  {
+   "id": 18,
+   "model": "LP-UT6-050-YE",
+   "cost_price": 1.38,
+   "cost_currency": "USD",
+   "calculated_sale_price": 1.97,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-08-26T15:59:44.828+00:00"
+  },
+  {
+   "id": 22,
+   "model": "S-CH-19X1U",
+   "cost_price": 21.38,
+   "cost_currency": "USD",
+   "calculated_sale_price": 30.54,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-09-30T23:09:34.178+00:00"
+  },
+  {
+   "id": 23,
+   "model": "LP-PP-607",
+   "cost_price": 24.07,
+   "cost_currency": "USD",
+   "calculated_sale_price": 34.39,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-09-30T23:08:43.039+00:00"
+  },
+  {
+   "id": 24,
+   "model": "LP-ORG-01",
+   "cost_price": 9.12,
+   "cost_currency": "USD",
+   "calculated_sale_price": 13.03,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-09-30T23:09:21.126+00:00"
+  },
+  {
+   "id": 25,
+   "model": "HTCM-1U",
+   "cost_price": 43.21,
+   "cost_currency": "USD",
+   "calculated_sale_price": 61.73,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-09-30T23:14:46.244+00:00"
+  },
+  {
+   "id": 27,
+   "model": "PSTC-09-645BDP",
+   "cost_price": 142.21,
+   "cost_currency": "USD",
+   "calculated_sale_price": 203.16,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-05-25T23:12:26.411642+00:00"
+  },
+  {
+   "id": 36,
+   "model": "NK2FNWH",
+   "cost_price": 1.53,
+   "cost_currency": "USD",
+   "calculated_sale_price": 2.19,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-05-26T21:32:41.787891+00:00"
+  },
+  {
+   "id": 40,
+   "model": "GW-44-024",
+   "cost_price": 3.72,
+   "cost_currency": "USD",
+   "calculated_sale_price": 5.31,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-10-15T00:44:48.192+00:00"
+  },
+  {
+   "id": 44,
+   "model": "TMK-4577",
+   "cost_price": 22.38,
+   "cost_currency": "USD",
+   "calculated_sale_price": 31.97,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-05-27T18:34:26.830591+00:00"
+  },
+  {
+   "id": 45,
+   "model": "PRO-CAT5-EXT-LITEW",
+   "cost_price": 124.93,
+   "cost_currency": "USD",
+   "calculated_sale_price": 178.47,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-05-27T18:40:25.555372+00:00"
+  },
+  {
+   "id": 46,
+   "model": "TMK-1735-SD-CC",
+   "cost_price": 6.04,
+   "cost_currency": "USD",
+   "calculated_sale_price": 8.63,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-09-30T23:16:02.864+00:00"
+  },
+  {
+   "id": 48,
+   "model": "LP-GPC-24",
+   "cost_price": 52.27,
+   "cost_currency": "USD",
+   "calculated_sale_price": 74.67,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-05-28T00:07:59.085353+00:00"
+  },
+  {
+   "id": 50,
+   "model": "NKFWH",
+   "cost_price": 1.84,
+   "cost_currency": "USD",
+   "calculated_sale_price": 2.63,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-05-28T00:11:02.258646+00:00"
+  },
+  {
+   "id": 55,
+   "model": "LP-PP-507",
+   "cost_price": 21.04,
+   "cost_currency": "USD",
+   "calculated_sale_price": 30.06,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-08-24T22:33:31.377+00:00"
+  },
+  {
+   "id": 59,
+   "model": "LP-UT6-030-WH28",
+   "cost_price": 1.37,
+   "cost_currency": "USD",
+   "calculated_sale_price": 1.96,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-08-26T20:15:49.561+00:00"
+  },
+  {
+   "id": 63,
+   "model": "LP-IND-SFP-1G-MM-550",
+   "cost_price": 15.49,
+   "cost_currency": "USD",
+   "calculated_sale_price": 22.13,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-05-28T00:39:38.413247+00:00"
+  },
+  {
+   "id": 64,
+   "model": "LP-FOM3-LCLC-R01",
+   "cost_price": 7.47,
+   "cost_currency": "USD",
+   "calculated_sale_price": 10.67,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-08-26T20:15:36.11+00:00"
+  },
+  {
+   "id": 66,
+   "model": "LP-UT6-030-BU28",
+   "cost_price": 1.36,
+   "cost_currency": "USD",
+   "calculated_sale_price": 1.94,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-05-28T00:44:00.214778+00:00"
+  },
+  {
+   "id": 67,
+   "model": "LP-UT6A-100-BK28",
+   "cost_price": 1.92,
+   "cost_currency": "USD",
+   "calculated_sale_price": 2.74,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-09-30T23:15:23.693+00:00"
+  },
+  {
+   "id": 68,
+   "model": "KIT-ORG-45",
+   "cost_price": 304.12,
+   "cost_currency": "USD",
+   "calculated_sale_price": 434.46,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-05-28T00:47:34.920594+00:00"
+  },
+  {
+   "id": 69,
+   "model": "LPVM45KIT",
+   "cost_price": 68.14,
+   "cost_currency": "USD",
+   "calculated_sale_price": 97.34,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-05-28T00:49:05.606183+00:00"
+  },
+  {
+   "id": 93,
+   "model": "KIT-ORG-24",
+   "cost_price": 177.86,
+   "cost_currency": "USD",
+   "calculated_sale_price": 254.09,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-08-26T20:15:55.063+00:00"
+  },
+  {
+   "id": 94,
+   "model": "LPCM-042U",
+   "cost_price": 16.22,
+   "cost_currency": "USD",
+   "calculated_sale_price": 23.17,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-08-24T22:33:54.864+00:00"
+  },
+  {
+   "id": 95,
+   "model": "LP-UT6A-100-RD28",
+   "cost_price": 1.83,
+   "cost_currency": "USD",
+   "calculated_sale_price": 2.61,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-10-07T16:14:57.469+00:00"
+  },
+  {
+   "id": 125,
+   "model": "LP-KJ-505-WH",
+   "cost_price": 1.07,
+   "cost_currency": "USD",
+   "calculated_sale_price": 1.53,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-10-06T01:21:31.95+00:00"
+  },
+  {
+   "id": 126,
+   "model": "LP-KJ-601-BU",
+   "cost_price": 1.22,
+   "cost_currency": "USD",
+   "calculated_sale_price": 1.74,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-09-17T18:49:30.841+00:00"
+  },
+  {
+   "id": 131,
+   "model": "NKHDMIWH",
+   "cost_price": 27.99,
+   "cost_currency": "USD",
+   "calculated_sale_price": 39.99,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-05-28T18:17:20.825334+00:00"
+  },
+  {
+   "id": 132,
+   "model": "NK1FBL",
+   "cost_price": 1.63,
+   "cost_currency": "USD",
+   "calculated_sale_price": 2.33,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-05-28T18:18:53.857938+00:00"
+  },
+  {
+   "id": 134,
+   "model": "R2P",
+   "cost_price": 259.14,
+   "cost_currency": "USD",
+   "calculated_sale_price": 370.2,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-05-28T18:31:28.183692+00:00"
+  },
+  {
+   "id": 135,
+   "model": "P12B01M",
+   "cost_price": 121.25,
+   "cost_currency": "USD",
+   "calculated_sale_price": 173.21,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-05-28T18:35:41.431161+00:00"
+  },
+  {
+   "id": 136,
+   "model": "SRM19FM2",
+   "cost_price": 98.86,
+   "cost_currency": "USD",
+   "calculated_sale_price": 141.23,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-05-28T18:36:58.815398+00:00"
+  },
+  {
+   "id": 143,
+   "model": "TMK-1020-SD-CC",
+   "cost_price": 2.94,
+   "cost_currency": "USD",
+   "calculated_sale_price": 4.2,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-05-29T01:40:29.791639+00:00"
+  },
+  {
+   "id": 150,
+   "model": "LP-UT6-030-RD28",
+   "cost_price": 1.36,
+   "cost_currency": "USD",
+   "calculated_sale_price": 1.94,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-05-29T15:48:30.119148+00:00"
+  },
+  {
+   "id": 156,
+   "model": "TC-57",
+   "cost_price": 1.21,
+   "cost_currency": "USD",
+   "calculated_sale_price": 1.73,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-05-29T17:13:58.120141+00:00"
+  },
+  {
+   "id": 163,
+   "model": "LP-REP-1205-CH",
+   "cost_price": 77.64,
+   "cost_currency": "USD",
+   "calculated_sale_price": 110.91,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-06-02T21:35:31.131161+00:00"
+  },
+  {
+   "id": 174,
+   "model": "LPVM24U",
+   "cost_price": 35.08,
+   "cost_currency": "USD",
+   "calculated_sale_price": 50.11,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-08-26T20:15:52.857+00:00"
+  },
+  {
+   "id": 186,
+   "model": "PRO-CAT-5E-LITE/100M",
+   "cost_price": 33.65,
+   "cost_currency": "USD",
+   "calculated_sale_price": 48.07,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-06-04T02:43:19.037896+00:00"
+  },
+  {
+   "id": 190,
+   "model": "PST-3030-18E",
+   "cost_price": 29.81,
+   "cost_currency": "USD",
+   "calculated_sale_price": 42.59,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-06-04T02:59:05.958865+00:00"
+  },
+  {
+   "id": 191,
+   "model": "PST-A010-03",
+   "cost_price": 4.48,
+   "cost_currency": "USD",
+   "calculated_sale_price": 6.4,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-06-04T03:00:00.301523+00:00"
+  },
+  {
+   "id": 192,
+   "model": "PRO-CAT-6-PLUS/100M",
+   "cost_price": 54.38,
+   "cost_currency": "USD",
+   "calculated_sale_price": 75.4,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-08-25T01:08:59.442+00:00"
+  },
+  {
+   "id": 194,
+   "model": "LPWR50304U",
+   "cost_price": 60.14,
+   "cost_currency": "USD",
+   "calculated_sale_price": 85.91,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-06-04T03:06:52.418127+00:00"
+  },
+  {
+   "id": 196,
+   "model": "LP-PSLIM-A030WH",
+   "cost_price": 1.03,
+   "cost_currency": "USD",
+   "calculated_sale_price": 1.47,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-06-04T03:18:35.252483+00:00"
+  },
+  {
+   "id": 206,
+   "model": "WMPHF2E",
+   "cost_price": 43.01,
+   "cost_currency": "USD",
+   "calculated_sale_price": 61.44,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-06-05T19:57:38.604408+00:00"
+  },
+  {
+   "id": 207,
+   "model": "NKFP48Y",
+   "cost_price": 77.7,
+   "cost_currency": "USD",
+   "calculated_sale_price": 111,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-06-05T19:58:50.123056+00:00"
+  },
+  {
+   "id": 208,
+   "model": "NK6PC1Y",
+   "cost_price": 5.36,
+   "cost_currency": "USD",
+   "calculated_sale_price": 7.66,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-06-05T19:59:46.415588+00:00"
+  },
+  {
+   "id": 209,
+   "model": "NK4FNWH",
+   "cost_price": 1.53,
+   "cost_currency": "USD",
+   "calculated_sale_price": 2.19,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-06-05T20:00:42.165628+00:00"
+  },
+  {
+   "id": 210,
+   "model": "NK688MBU",
+   "cost_price": 5.68,
+   "cost_currency": "USD",
+   "calculated_sale_price": 8.11,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-10-19T22:47:34.222+00:00"
+  },
+  {
+   "id": 211,
+   "model": "NK6PC5Y",
+   "cost_price": 6.46,
+   "cost_currency": "USD",
+   "calculated_sale_price": 9.23,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-06-05T20:03:01.15642+00:00"
+  },
+  {
+   "id": 216,
+   "model": "WMPVF45E",
+   "cost_price": 182.95,
+   "cost_currency": "USD",
+   "calculated_sale_price": 261.36,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-06-05T20:30:49.713573+00:00"
+  },
+  {
+   "id": 219,
+   "model": "LP-FP-90",
+   "cost_price": 3.9,
+   "cost_currency": "USD",
+   "calculated_sale_price": 5.57,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-06-06T13:05:44.594224+00:00"
+  },
+  {
+   "id": 221,
+   "model": "NK6PC3BUY",
+   "cost_price": 6.04,
+   "cost_currency": "USD",
+   "calculated_sale_price": 8.63,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-06-06T13:09:28.262547+00:00"
+  },
+  {
+   "id": 222,
+   "model": "NK6PC7BUY",
+   "cost_price": 7.144,
+   "cost_currency": "USD",
+   "calculated_sale_price": 10.21,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-06-06T13:22:26.034498+00:00"
+  },
+  {
+   "id": 223,
+   "model": "SR1912LH3G",
+   "cost_price": 130.23,
+   "cost_currency": "USD",
+   "calculated_sale_price": 186.04,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-09-14T18:32:34.779+00:00"
+  },
+  {
+   "id": 230,
+   "model": "JU-PD-34-TUB",
+   "cost_price": 215,
+   "cost_currency": "MXN",
+   "calculated_sale_price": 307.14,
+   "sale_currency": "MXN",
+   "cost_updated_at": "2026-09-30T00:24:51.401+00:00"
+  },
+  {
+   "id": 231,
+   "model": "JU-PD-34-COP",
+   "cost_price": 0.69,
+   "cost_currency": "USD",
+   "calculated_sale_price": 0.99,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-09-14T18:30:14.304+00:00"
+  },
+  {
+   "id": 233,
+   "model": "AB-CLP-034",
+   "cost_price": 0.38,
+   "cost_currency": "USD",
+   "calculated_sale_price": 0.54,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-09-14T18:30:46.441+00:00"
+  },
+  {
+   "id": 234,
+   "model": "HUB-191",
+   "cost_price": 2.75,
+   "cost_currency": "USD",
+   "calculated_sale_price": 3.93,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-08-27T05:22:52.752+00:00"
+  },
+  {
+   "id": 237,
+   "model": "LP-PP-608",
+   "cost_price": 49.99,
+   "cost_currency": "USD",
+   "calculated_sale_price": 71.41,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-08-27T17:10:19.399+00:00"
+  },
+  {
+   "id": 238,
+   "model": "LP-FP-21",
+   "cost_price": 1,
+   "cost_currency": "USD",
+   "calculated_sale_price": 1.43,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-09-30T23:22:57.361+00:00"
+  },
+  {
+   "id": 240,
+   "model": "LP-UT6A-200-BU28",
+   "cost_price": 2.72,
+   "cost_currency": "USD",
+   "calculated_sale_price": 3.89,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-09-30T23:15:24.689+00:00"
+  },
+  {
+   "id": 241,
+   "model": "LP-UT6-150-BU28",
+   "cost_price": 2.05,
+   "cost_currency": "USD",
+   "calculated_sale_price": 2.93,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-06-10T11:13:43.360586+00:00"
+  },
+  {
+   "id": 242,
+   "model": "LP-UT6-150-YE-28",
+   "cost_price": 2.05,
+   "cost_currency": "USD",
+   "calculated_sale_price": 2.93,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-06-10T11:15:22.793712+00:00"
+  },
+  {
+   "id": 249,
+   "model": "TMKS1/THAPA",
+   "cost_price": 3.15,
+   "cost_currency": "USD",
+   "calculated_sale_price": 4.5,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-06-10T11:50:29.633763+00:00"
+  },
+  {
+   "id": 274,
+   "model": "EF-50-LC",
+   "cost_price": 24.22,
+   "cost_currency": "USD",
+   "calculated_sale_price": 34.6,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-06-16T03:11:47.88809+00:00"
+  },
+  {
+   "id": 307,
+   "model": "FLEXIDUCTHO-BK",
+   "cost_price": 13.15,
+   "cost_currency": "USD",
+   "calculated_sale_price": 18.79,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-07-02T15:30:42.083289+00:00"
+  },
+  {
+   "id": 308,
+   "model": "PRO-CAT-5-EXT-LITE-DJ",
+   "cost_price": 123.74,
+   "cost_currency": "USD",
+   "calculated_sale_price": 176.77,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-09-01T21:48:05.938+00:00"
+  },
+  {
+   "id": 327,
+   "model": "TXG-PG-12NBK",
+   "cost_price": 0.52,
+   "cost_currency": "USD",
+   "calculated_sale_price": 0.74,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-07-03T01:18:38.625726+00:00"
+  },
+  {
+   "id": 330,
+   "model": "FC1X1LG2",
+   "cost_price": 4.11,
+   "cost_currency": "USD",
+   "calculated_sale_price": 5.87,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-07-03T01:33:35.155874+00:00"
+  },
+  {
+   "id": 332,
+   "model": "S-CH-19X13.5",
+   "cost_price": 25.16,
+   "cost_currency": "USD",
+   "calculated_sale_price": 35.94,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-07-03T01:48:49.228667+00:00"
+  },
+  {
+   "id": 333,
+   "model": "LP-PP-23-UTP-BK-24P",
+   "cost_price": 10.95,
+   "cost_currency": "USD",
+   "calculated_sale_price": 15.64,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-07-03T02:20:56.941625+00:00"
+  },
+  {
+   "id": 335,
+   "model": "LP-UT6-200-GN",
+   "cost_price": 1.89,
+   "cost_currency": "USD",
+   "calculated_sale_price": 2.7,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-07-03T02:26:00.21872+00:00"
+  },
+  {
+   "id": 345,
+   "model": "LP-UT6-200-BU",
+   "cost_price": 2.82,
+   "cost_currency": "USD",
+   "calculated_sale_price": 4.03,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-08-27T17:19:00.961+00:00"
+  },
+  {
+   "id": 346,
+   "model": "LP-UT6-100-BU",
+   "cost_price": 1.71,
+   "cost_currency": "USD",
+   "calculated_sale_price": 2.44,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-07-03T14:34:32.360747+00:00"
+  },
+  {
+   "id": 363,
+   "model": "LES-60-60-18UG",
+   "cost_price": 471.06,
+   "cost_currency": "USD",
+   "calculated_sale_price": 672.94,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-07-09T23:44:57.735065+00:00"
+  },
+  {
+   "id": 364,
+   "model": "LP-CAST-72-SET",
+   "cost_price": 33.65,
+   "cost_currency": "USD",
+   "calculated_sale_price": 48.07,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-07-09T23:52:40.391868+00:00"
+  },
+  {
+   "id": 399,
+   "model": "LP-WBX-100",
+   "cost_price": 1.72,
+   "cost_currency": "USD",
+   "calculated_sale_price": 3.99,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-09-03T10:13:51.175+00:00"
+  },
+  {
+   "id": 403,
+   "model": "PRO-CAT-6-EXT-LITEW",
+   "cost_price": 165.65,
+   "cost_currency": "USD",
+   "calculated_sale_price": 236.64,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-07-17T19:11:10.566731+00:00"
+  },
+  {
+   "id": 420,
+   "model": "TXG-01-551",
+   "cost_price": 37.98,
+   "cost_currency": "USD",
+   "calculated_sale_price": 54.26,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-07-21T19:28:22.553606+00:00"
+  },
+  {
+   "id": 439,
+   "model": "CPB48BL",
+   "cost_price": 178.09,
+   "cost_currency": "USD",
+   "calculated_sale_price": 254.41,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-07-23T14:25:01.282398+00:00"
+  },
+  {
+   "id": 463,
+   "model": "LP-SFP-1G-SM-3",
+   "cost_price": 10.97,
+   "cost_currency": "USD",
+   "calculated_sale_price": 15.67,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-07-30T00:41:45.269044+00:00"
+  },
+  {
+   "id": 470,
+   "model": "PRO-CAT-6-EXT-V2",
+   "cost_price": 205.71,
+   "cost_currency": "USD",
+   "calculated_sale_price": 293.87,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-07-30T22:42:39.74254+00:00"
+  },
+  {
+   "id": 471,
+   "model": "LPKJ6A17S",
+   "cost_price": 4.52,
+   "cost_currency": "USD",
+   "calculated_sale_price": 6.46,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-07-30T22:44:25.385198+00:00"
+  },
+  {
+   "id": 472,
+   "model": "LP-PP-630",
+   "cost_price": 48.81,
+   "cost_currency": "USD",
+   "calculated_sale_price": 69.73,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-07-30T22:46:16.220951+00:00"
+  },
+  {
+   "id": 473,
+   "model": "LP-FT7-050-BK",
+   "cost_price": 1.4,
+   "cost_currency": "USD",
+   "calculated_sale_price": 2,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-07-30T22:48:45.740917+00:00"
+  },
+  {
+   "id": 476,
+   "model": "PST-3040-20A",
+   "cost_price": 36.18,
+   "cost_currency": "USD",
+   "calculated_sale_price": 51.69,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-07-30T23:19:13.070647+00:00"
+  },
+  {
+   "id": 481,
+   "model": "PST-C05-001-BK",
+   "cost_price": 12.08,
+   "cost_currency": "USD",
+   "calculated_sale_price": 17.26,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-08-04T13:33:24.281669+00:00"
+  },
+  {
+   "id": 482,
+   "model": "S8-18-C0",
+   "cost_price": 1.79,
+   "cost_currency": "USD",
+   "calculated_sale_price": 2.56,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-08-04T13:34:14.257623+00:00"
+  },
+  {
+   "id": 483,
+   "model": "AGRUPATHOR-24-B",
+   "cost_price": 11.97,
+   "cost_currency": "USD",
+   "calculated_sale_price": 17.1,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-08-04T13:35:13.087154+00:00"
+  },
+  {
+   "id": 485,
+   "model": "FC2X2LG2",
+   "cost_price": 13.24,
+   "cost_currency": "USD",
+   "calculated_sale_price": 18.91,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-08-04T13:40:17.51315+00:00"
+  },
+  {
+   "id": 486,
+   "model": "PT-48-SD",
+   "cost_price": 8.8,
+   "cost_currency": "USD",
+   "calculated_sale_price": 12.57,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-08-04T13:44:18.557777+00:00"
+  },
+  {
+   "id": 487,
+   "model": "PT-48-L",
+   "cost_price": 0.95,
+   "cost_currency": "USD",
+   "calculated_sale_price": 1.36,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-08-04T13:46:41.799562+00:00"
+  },
+  {
+   "id": 493,
+   "model": "PSC-CAT5EXT",
+   "cost_price": 89.89,
+   "cost_currency": "USD",
+   "calculated_sale_price": 128.41,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-08-04T17:01:02.625716+00:00"
+  },
+  {
+   "id": 494,
+   "model": "TC-710-RC",
+   "cost_price": 2.2,
+   "cost_currency": "USD",
+   "calculated_sale_price": 3.14,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-08-04T17:03:52.538871+00:00"
+  },
+  {
+   "id": 504,
+   "model": "S8-18-C",
+   "cost_price": 2.07,
+   "cost_currency": "USD",
+   "calculated_sale_price": 2.96,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-08-05T01:47:59.740816+00:00"
+  },
+  {
+   "id": 508,
+   "model": "SYS-PM-81",
+   "cost_price": 1.02,
+   "cost_currency": "USD",
+   "calculated_sale_price": 1.46,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-08-05T01:52:39.336755+00:00"
+  },
+  {
+   "id": 522,
+   "model": "ANC-FXR-34",
+   "cost_price": 0.77,
+   "cost_currency": "USD",
+   "calculated_sale_price": 1.1,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-08-17T15:50:22.03969+00:00"
+  },
+  {
+   "id": 523,
+   "model": "HUB752",
+   "cost_price": 0.91,
+   "cost_currency": "USD",
+   "calculated_sale_price": 1.3,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-08-17T15:52:01.543164+00:00"
+  },
+  {
+   "id": 524,
+   "model": "AB-PU-028",
+   "cost_price": 0.15,
+   "cost_currency": "USD",
+   "calculated_sale_price": 0.21,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-09-17T18:39:02.342+00:00"
+  },
+  {
+   "id": 525,
+   "model": "LP-WP-BOX",
+   "cost_price": 6.22,
+   "cost_currency": "USD",
+   "calculated_sale_price": 8.89,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-08-17T15:59:01.833474+00:00"
+  },
+  {
+   "id": 526,
+   "model": "LP-C6WP-JK",
+   "cost_price": 7.9,
+   "cost_currency": "USD",
+   "calculated_sale_price": 11.29,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-08-17T16:03:44.9667+00:00"
+  },
+  {
+   "id": 544,
+   "model": "EI-GTR-19",
+   "cost_price": 36.77,
+   "cost_currency": "USD",
+   "calculated_sale_price": 52.53,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-08-25T00:29:33.048863+00:00"
+  },
+  {
+   "id": 555,
+   "model": "SR-1912-GAP-V5",
+   "cost_price": 344.51,
+   "cost_currency": "USD",
+   "calculated_sale_price": 492.16,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-08-26T16:36:28.571785+00:00"
+  },
+  {
+   "id": 565,
+   "model": "PS-06-550D",
+   "cost_price": 119.8,
+   "cost_currency": "USD",
+   "calculated_sale_price": 171.14,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-08-27T23:24:02.748895+00:00"
+  },
+  {
+   "id": 569,
+   "model": "EF-150-SC",
+   "cost_price": 38.52,
+   "cost_currency": "USD",
+   "calculated_sale_price": 55.03,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-08-31T22:19:07.071019+00:00"
+  },
+  {
+   "id": 574,
+   "model": "HUB-692",
+   "cost_price": 7.56,
+   "cost_currency": "USD",
+   "calculated_sale_price": 10.8,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-09-02T04:19:53.473099+00:00"
+  },
+  {
+   "id": 597,
+   "model": "PRO-CAT-5-EXT/500",
+   "cost_price": 76.29,
+   "cost_currency": "USD",
+   "calculated_sale_price": 108.99,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-09-04T00:52:43.325117+00:00"
+  },
+  {
+   "id": 1420,
+   "model": "TP-2X-KIT",
+   "cost_price": 0.9,
+   "cost_currency": "USD",
+   "calculated_sale_price": 1.29,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-09-11T01:38:02.408892+00:00"
+  },
+  {
+   "id": 1421,
+   "model": "ABP-I032",
+   "cost_price": 0.14,
+   "cost_currency": "USD",
+   "calculated_sale_price": 0.2,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-09-11T01:38:54.487701+00:00"
+  },
+  {
+   "id": 1422,
+   "model": "OLB-0093C",
+   "cost_price": 4.86,
+   "cost_currency": "USD",
+   "calculated_sale_price": 6.94,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-09-11T01:39:57.670136+00:00"
+  },
+  {
+   "id": 1423,
+   "model": "JU-PD-100-CON",
+   "cost_price": 1.34,
+   "cost_currency": "USD",
+   "calculated_sale_price": 1.91,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-09-11T01:40:53.184591+00:00"
+  },
+  {
+   "id": 1425,
+   "model": "ANC-CPD100",
+   "cost_price": 1.09,
+   "cost_currency": "USD",
+   "calculated_sale_price": 1.56,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-09-11T01:41:43.378568+00:00"
+  },
+  {
+   "id": 1426,
+   "model": "JU-PD-100-TUB",
+   "cost_price": 11.33,
+   "cost_currency": "USD",
+   "calculated_sale_price": 16.19,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-09-11T01:42:31.807747+00:00"
+  },
+  {
+   "id": 1427,
+   "model": "JU-PD-34-COD",
+   "cost_price": 1.73,
+   "cost_currency": "USD",
+   "calculated_sale_price": 2.47,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-09-14T18:29:07.723175+00:00"
+  },
+  {
+   "id": 1430,
+   "model": "RR-0282",
+   "cost_price": 8.21,
+   "cost_currency": "USD",
+   "calculated_sale_price": 11.73,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-09-17T18:37:37.083973+00:00"
+  },
+  {
+   "id": 1431,
+   "model": "OT-0087C",
+   "cost_price": 4,
+   "cost_currency": "USD",
+   "calculated_sale_price": 5.71,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-09-17T18:38:39.740077+00:00"
+  },
+  {
+   "id": 1432,
+   "model": "LP-FP-22",
+   "cost_price": 0.86,
+   "cost_currency": "USD",
+   "calculated_sale_price": 1.23,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-09-17T18:47:53.902093+00:00"
+  },
+  {
+   "id": 1436,
+   "model": "SR1909LH3PW",
+   "cost_price": 104.14,
+   "cost_currency": "USD",
+   "calculated_sale_price": 148.77,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-09-30T23:12:24.794642+00:00"
+  },
+  {
+   "id": 1437,
+   "model": "TMK-C",
+   "cost_price": 1.33,
+   "cost_currency": "USD",
+   "calculated_sale_price": 1.9,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-09-30T23:22:24.317909+00:00"
+  },
+  {
+   "id": 1438,
+   "model": "PRO-CAT-6-PLUSW",
+   "cost_price": 165.65,
+   "cost_currency": "USD",
+   "calculated_sale_price": 236.64,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-09-30T23:26:28.875339+00:00"
+  },
+  {
+   "id": 1452,
+   "model": "LP-IOC-SMF-R-12",
+   "cost_price": 1.05,
+   "cost_currency": "USD",
+   "calculated_sale_price": 1.5,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-10-19T23:04:39.731536+00:00"
+  },
+  {
+   "id": 1454,
+   "model": "LP-FO-LCU-02",
+   "cost_price": 1.37,
+   "cost_currency": "USD",
+   "calculated_sale_price": 1.96,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-10-19T23:24:54.929507+00:00"
+  },
+  {
+   "id": 1455,
+   "model": "LP-ODF-8024",
+   "cost_price": 40.77,
+   "cost_currency": "USD",
+   "calculated_sale_price": 58.24,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-10-19T23:33:56.124887+00:00"
+  },
+  {
+   "id": 1456,
+   "model": "LP-FO-LC-D12-SM",
+   "cost_price": 7.25,
+   "cost_currency": "USD",
+   "calculated_sale_price": 10.36,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-10-19T23:39:50.445671+00:00"
+  },
+  {
+   "id": 1457,
+   "model": "LP-S-S-60",
+   "cost_price": 6.71,
+   "cost_currency": "USD",
+   "calculated_sale_price": 9.59,
+   "sale_currency": "USD",
+   "cost_updated_at": "2026-10-19T23:43:00.00368+00:00"
+  }
+ ]
+}

@@ -31,6 +31,8 @@ const MARCA = (() => {
   return i >= 0 ? (process.argv[i + 1] || "").toUpperCase() : null;
 })();
 const MODO_ALARMA = process.argv.includes("--alarma");
+/** Todo el archivo: para listas ya filtradas por Syscom (p. ej. la de cableado estructurado). */
+const MODO_TODO = process.argv.includes("--todo");
 /** Lista explicita de modelos, para dar de alta partidas sueltas de una cotizacion. */
 const MODELOS = (() => {
   const i = process.argv.indexOf("--modelos");
@@ -81,6 +83,15 @@ function categoriaPara(titulo) {
   return null;
 }
 
+/** Lista de cableado estructurado: todo cae en Voz y Datos salvo canalizacion, site y energia. */
+function categoriaCableado(titulo) {
+  const t = titulo.toLowerCase();
+  if (/rack|gabinete|organizador|pdu|multicontacto|ventilador/.test(t)) return 12; // Site
+  if (/\bups\b|no ?break|regulador|supresor de picos/.test(t)) return 13;   // Protección de Línea / UPS
+  if (/tubo|conduit|charola|canaleta|cople|condulet|curva|registro|abrazadera|ducto|unicanal|tuber[ií]a|reducci[oó]n|caja cuadrada|taquete|varilla|barra roscada|contratuerca|conector uso rudo|[aá]ngulo \d/.test(t)) return 11; // Canalizaciones
+  return 1;
+}
+
 /** Filtro para "lo que sirve en cotizaciones de alarma de intrusion". */
 const ALARMA_INCLUIR = [
   /\bax pro\b/i, /\bax hybrid\b/i, /panel de alarma/i, /detector pir/i, /\bpir\b/i,
@@ -111,6 +122,17 @@ const cmpModel = (m) => normModel(m).toUpperCase().replace(/\s+/g, "");
 const slugify = (v) => String(v).toLowerCase().normalize("NFD")
   .replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 
+/** Reintenta errores de red transitorios ("fetch failed") con espera creciente. */
+async function conReintento(fn, intentos = 4) {
+  for (let i = 1; ; i++) {
+    try { return await fn(); }
+    catch (e) {
+      if (i >= intentos || !/fetch failed|ECONNRESET|ETIMEDOUT|socket/i.test(String(e?.message || e))) throw e;
+      await new Promise((r) => setTimeout(r, 1000 * i));
+    }
+  }
+}
+
 async function subirImagen(url, slug) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -124,8 +146,8 @@ async function subirImagen(url, slug) {
 }
 
 async function main() {
-  if (!MARCA && !MODO_ALARMA && !MODELOS)
-    throw new Error("Usa --marca <MARCA>, --alarma o --modelos <M1,M2,...>");
+  if (!MARCA && !MODO_ALARMA && !MODELOS && !MODO_TODO)
+    throw new Error("Usa --marca <MARCA>, --alarma, --modelos <M1,M2,...> o --todo");
 
   const texto = fs.readFileSync(CSV, "utf8").replace(/^\uFEFF/, "");
   const it = filas(texto);
@@ -159,7 +181,7 @@ async function main() {
   const existentes = [];
   for (let from = 0; ; from += 1000) {
     const { data, error } = await supabase.from("products")
-      .select("id, brand, model, target_margin, pricing_method")
+      .select("id, brand, model, target_margin, pricing_method, image_url")
       .order("id").range(from, from + 999);
     if (error) throw new Error(error.message);
     existentes.push(...data);
@@ -168,10 +190,11 @@ async function main() {
   const porModelo = new Map(existentes.map((p) => [cmpModel(p.model || ""), p]));
 
   const res = { nuevos: [], actualizados: [], errores: [] };
+  const venta = (c, m) => Number((c / (1 - (m || TARGET_MARGIN) / 100)).toFixed(2));
+  const altas = [];
 
   for (const p of seleccion) {
     const hit = porModelo.get(cmpModel(p.modelo));
-    const venta = (c, m) => Number((c / (1 - (m || TARGET_MARGIN) / 100)).toFixed(2));
 
     if (hit) {
       if (hit.pricing_method !== "target_margin") { res.actualizados.push({ ...p, nota: "precio manual, solo costo" }); }
@@ -180,20 +203,31 @@ async function main() {
       if (DRY) continue;
       const patch = { cost_price: p.costo, cost_currency: "USD", cost_updated_at: new Date().toISOString() };
       if (hit.pricing_method === "target_margin") patch.calculated_sale_price = nueva;
+      // Una corrida anterior pudo dejar el alta sin imagen: se completa aqui.
+      if (!hit.image_url && p.img) {
+        try { patch.image_url = await conReintento(() => subirImagen(p.img, slugify(p.modelo))); }
+        catch (e) { res.errores.push({ modelo: p.modelo, why: `imagen: ${e.message}` }); }
+      }
       const { error } = await supabase.from("products").update(patch).eq("id", hit.id);
       if (error) res.errores.push({ modelo: p.modelo, why: error.message });
       continue;
     }
 
-    res.nuevos.push({ modelo: p.modelo, marca: p.marca, costo: p.costo, venta: venta(p.costo), titulo: p.titulo.slice(0, 60) });
-    if (DRY) continue;
+    res.nuevos.push({ modelo: p.modelo, marca: p.marca, costo: p.costo, venta: venta(p.costo), titulo: p.titulo.slice(0, 60),
+      categoria: MODO_TODO ? categoriaCableado(p.titulo) : categoriaPara(p.titulo) });
+    if (!DRY) altas.push(p);
+  }
 
+  // Altas en paralelo: con miles de imagenes, una por una tarda horas.
+  let hechas = 0;
+  async function alta(p) {
     let imageUrl = null;
-    if (p.img) { try { imageUrl = await subirImagen(p.img, slugify(p.modelo)); } catch (e) { res.errores.push({ modelo: p.modelo, why: `imagen: ${e.message}` }); } }
+    if (p.img) { try { imageUrl = await conReintento(() => subirImagen(p.img, slugify(p.modelo))); } catch (e) { res.errores.push({ modelo: p.modelo, why: `imagen: ${e.message}` }); } }
 
-    const { error } = await supabase.from("products").insert({
+    const { error } = await conReintento(async () => {
+      const r = await supabase.from("products").insert({
       sku: "", brand: p.marca, model: p.modelo, name: p.titulo, description: "",
-      category_id: categoriaPara(p.titulo), supplier: SUPPLIER_NAME, supplier_id: SUPPLIER_ID,
+      category_id: MODO_TODO ? categoriaCableado(p.titulo) : categoriaPara(p.titulo), supplier: SUPPLIER_NAME, supplier_id: SUPPLIER_ID,
       image_url: imageUrl,
       cost_price: p.costo, cost_currency: "USD", cost_updated_at: new Date().toISOString(),
       pricing_method: "target_margin", target_margin: TARGET_MARGIN,
@@ -203,12 +237,20 @@ async function main() {
       sat_unit_key: "H87", sat_unit_code: "H87", sat_unit_name: "PZA", unit_name: "PZA",
       fiscal_object: "02", tax_rate: 16,
       is_favorite: false, partner_discount_eligible: true, is_active: true,
-    });
+      });
+      if (r.error && /fetch failed/i.test(r.error.message)) throw new Error(r.error.message);
+      return r;
+    }).catch((e) => ({ error: e }));
     if (error) res.errores.push({ modelo: p.modelo, why: error.message });
+    if (++hechas % 250 === 0) console.log(`  altas ${hechas}/${altas.length}  errores ${res.errores.length}`);
   }
+  const cola = [...altas];
+  await Promise.all(Array.from({ length: 4 }, async () => {
+    while (cola.length) await alta(cola.shift());
+  }));
 
   console.log(`${DRY ? "[DRY] " : ""}Nuevos: ${res.nuevos.length}  Actualizados: ${res.actualizados.length}  Errores: ${res.errores.length}`);
-  const etiqueta = MARCA || (MODELOS ? "modelos" : "alarma");
+  const etiqueta = MARCA || (MODELOS ? "modelos" : MODO_TODO ? "todo" : "alarma");
   const out = path.join(process.env.TEMP || ".", `syscom-${etiqueta}-${DRY ? "dry" : "run"}.json`);
   fs.writeFileSync(out, JSON.stringify(res, null, 2), "utf8");
   console.log("Detalle:", out);
