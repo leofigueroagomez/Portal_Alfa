@@ -37,7 +37,7 @@ Pendiente de confirmar: si existen server actions o rutas API adicionales para c
 | --- | --- | --- | --- |
 | `app/(admin)/quotes/new/page.tsx` | Creacion completa de cotizacion y tablas hijas. | Cambios de formulario, calculos iniciales, payload de insert, diagnostico, mano de obra o partner en creacion. | Puede dejar cotizaciones parciales si falla despues de insertar `quotes`; revisar orden de inserts y fallbacks PostgREST. |
 | `lib/quotes/draftBuilder.ts` | Construye borradores estandar desde un contrato reducido para plantillas/voz/IA; consulta el mismo catalogo y fuentes de tipo de cambio del editor. | Evolucion de G2-G5, formulas deterministas, idempotencia o nuevas entradas del borrador asistido. | No tiene transaccion SQL. Ante una falla intenta limpiar `quote` y `quote_group`, pero la compensacion es best-effort y puede ser rechazada por RLS; mantener un cliente Supabase autorizado y reportar limpieza incompleta. |
-| `app/(admin)/quotes/[id]/edit/page.tsx` | Edicion e hidratacion de cotizacion existente; reemplaza diagnostico, items y secciones. | Cambios de guardado, carga inicial, recalculo, diagnostico, mano de obra o partner en edicion. | Borra y recrea tablas hijas; riesgo de perdida de datos si cambia el mapeo o falla a mitad del flujo. |
+| `app/(admin)/quotes/[id]/edit/page.tsx` | Edicion e hidratacion de cotizacion existente; reemplaza diagnostico, items y secciones. | Cambios de guardado, carga inicial, recalculo, diagnostico, mano de obra o partner en edicion. | Reemplaza tablas hijas: secciones/items se insertan antes de borrar los anteriores y se descartan si falla; diagnostico, terminos y misc siguen borrando primero. No es transaccional. |
 | `app/(admin)/quotes/[id]/CreateQuoteVersionButton.tsx` | Duplica una cotizacion a nueva version. | Cambios en campos que deben copiarse entre versiones o tablas hijas nuevas. | Si se agrega una tabla hija y no se copia aqui, la nueva version queda incompleta. |
 | `app/(admin)/quotes/[id]/ApproveQuoteVersionButton.tsx` | Aprueba version, archiva aprobada previa, actualiza grupo y sincroniza operacion. | Cambios de estados, aprobacion o sincronizacion con proyecto. | Impacta version aprobada, `client_projects.sales_stage` y `project_operational_items`. |
 | `app/(admin)/quotes/[id]/page.tsx` | Vista detalle y acciones de version/aprobacion/impresion. | Cambios de lectura o presentacion del resumen. | Puede ocultar advertencias de partner o usar selects incompletos. |
@@ -102,7 +102,7 @@ Confirmado por inserts/selects:
 - `id`, `quote_id`, `name`, `sort_order`, `equipment_total`, `labor_total`, `total`.
 - Ordenamiento por `sort_order`.
 - En creacion/edicion se inserta una seccion por cada bloque de UI.
-- En edicion se borran secciones por `quote_id` despues de borrar items.
+- En edicion (desde 2026-10-22) primero se insertan las secciones nuevas con sus items, distribuciones y mano de obra; solo si todo se guardo se borran los items y secciones anteriores por id. Si algo falla a medio camino se borran las secciones recien creadas (los hijos caen en cascada) y la cotizacion queda como estaba. La base operativa de cotizaciones aprobadas se marca como borrada despues de retirar los items anteriores.
 
 Pendiente de confirmar: migracion base completa, `on delete`, timestamps y RLS final.
 
@@ -114,6 +114,7 @@ Confirmado por inserts/selects:
 - Fase 1: `existing_customer_equipment`, `area`, `customer_visible_note` para equipo existente/reutilizado del cliente, agrupacion simple visible por area/zona y nota visible para cliente.
 - Ordenamiento por `sort_order`.
 - `quote_section_id` se usa para agrupar items en PDF y versionado.
+- `product_id` admite `null` (partidas de mano de obra de `draftBuilder`). El editor hidrata esas partidas con id `0` y al guardar las manda como `null`; antes mandaba `0`, el FK a `products` fallaba y, con el borrado previo, se perdian secciones (ALFA-0173, 2026-10-22).
 
 Confirmado por SQL:
 
@@ -541,7 +542,7 @@ Checklist minimo segun tipo de cambio:
 - PDF Premium puede fallar por assets, storage, Chromium/runtime o HTML no compatible.
 - Cambios de schema deben recargar cache PostgREST si afectan queries desde Supabase.
 - Versionado puede omitir tablas hijas si no se actualiza `CreateQuoteVersionButton.tsx`.
-- Edicion borra y recrea hijos; errores intermedios pueden dejar datos inconsistentes.
+- Edicion reemplaza hijos. Secciones/items ya no se pierden si el guardado falla (se insertan antes de borrar), pero el guardado no es una transaccion: `quotes` se actualiza antes y diagnostico, terminos y misc siguen el patron borrar-y-recrear. Un fallo deja totales de `quotes` adelantados respecto a las partidas hasta el siguiente guardado exitoso.
 - Aprobacion afecta proyecto y sincronizacion operativa, no solo `quotes.status`.
 - RLS debe seguir patrones existentes de cotizaciones y tablas hijas.
 - No romper cotizaciones antiguas al agregar campos nuevos.
