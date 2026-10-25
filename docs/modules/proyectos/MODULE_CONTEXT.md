@@ -198,6 +198,18 @@ Uso confirmado desde Portal Cliente y facturacion:
 
 Ver contrato fiscal completo en [`../facturacion/MODULE_CONTEXT.md`](../facturacion/MODULE_CONTEXT.md).
 
+### Estimado de compra = presupuesto cotizado prorrateado (2026-10-25)
+
+Antes, sustituir un producto o cambiar una cantidad en Traduccion tecnica sobrescribia `unit_cost` y `total_required_cost` de la linea de compra con el costo del producto nuevo, y se perdia lo cotizado. Ahora:
+
+- Estimado de la linea = `original_quantity x original_unit_cost` de la partida operativa, en la moneda del producto cotizado, prorrateado entre la cantidad actual: `unit_cost = presupuesto / quantity_required`. Lo calcula `getPurchaseBudgetEstimate` en `lib/projectPurchases.ts`.
+- `operational_unit_cost` sigue siendo el costo del producto actual (sustituto). El costo real sigue saliendo de `project_purchase_events`. No cambia ningun precio de venta.
+- Partidas sin presupuesto (agregadas en traduccion, `original_quantity = 0`) usan cantidad x costo operativo, como antes.
+- Moneda del presupuesto: no hay columna propia; `resolveOriginalCostCurrency` / `loadOriginalCostCurrencies` usan la moneda del producto cotizado (`quote_items.product_id -> products.cost_currency`) cuando la partida ya se sustituyo, y si no `cost_currency` de la partida. Si la moneda del presupuesto y la de la linea difieren se convierte con `project_operational_items.exchange_rate`; sin TC, Traduccion tecnica bloquea el cambio y los recalculos saltan la linea y la reportan. Pendiente de confirmar: si la moneda de un producto cotizado se cambio despues de sembrar la partida, la moneda inferida puede estar mal; la solucion definitiva es guardar `original_cost_currency` en la partida (migracion no aplicada).
+- Usan la regla: `handleSubstitute` y `handleQuantityChange` (`ProjectTranslationEditor.tsx`), `RecalculatePurchaseLinesButton.tsx`, el ejecutor Vigia `recalcular_lineas_de_compra` (INT-09), la creacion de lineas en `/projects/[id]/purchases` y `getPurchaseLineVariation` (que prefiere el presupuesto cotizado sobre el `total_required_cost` guardado cuando la linea trae `original_*`). El director-dashboard aun pasa lineas sin `original_*`, asi que usa el `total_required_cost` guardado (correcto tras "Recalcular").
+- `/projects/[id]/purchases` muestra "Utilidad equipo" por linea consolidada: `quote_items.equipment_total` (esta en USD, igual a `equipment_total_usd`) x TC de la partida, menos el real en MXN. Solo con la compra completa y todas las lineas ligadas a `quote_item_id`. Es antes de descuento al cliente y reparto con aliado.
+- Caso de prueba (`tests/projectPurchasesBudget.test.ts`): Komorebi, linea 512, KEF $3,178 x 1 sustituido por Klipsch $1,242 x 2 -> estimado $3,178, real $2,484, ahorro $694. En prod esa linea ya estaba corregida a mano (unit_cost 1589, total 3178).
+
 ### Relacion con cotizaciones
 
 Uso confirmado:

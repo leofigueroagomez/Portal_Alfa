@@ -7,6 +7,7 @@ import ProductLibraryPicker, {
   ProductLibraryProduct,
 } from "@/components/ProductLibraryPicker";
 import { formatCurrency, formatNumber } from "@/lib/format";
+import { getPurchaseBudgetEstimate } from "@/lib/projectPurchases";
 import { supabase } from "@/services/supabase";
 
 export type OperationalEditorItem = {
@@ -21,8 +22,11 @@ export type OperationalEditorItem = {
   quantity: number;
   original_quantity: number;
   original_unit_cost: number;
+  /** Moneda del presupuesto cotizado (la del producto cotizado). */
+  original_cost_currency: string;
   operational_unit_cost: number;
   cost_currency: string;
+  exchange_rate: number | null;
   status: string;
   quantity_purchased: number;
   quantity_delivered: number;
@@ -91,6 +95,32 @@ function getTotals(items: OperationalEditorItem[]) {
     { original: 0, operational: 0 }
   );
 }
+
+// Estimado de compras de la partida: el presupuesto cotizado prorrateado entre
+// la cantidad nueva, no el costo del producto actual (ver
+// getPurchaseBudgetEstimate). null si el presupuesto esta en otra moneda y la
+// partida no tiene TC para convertirlo.
+function getPurchaseEstimate(
+  item: OperationalEditorItem,
+  quantity: number,
+  unitCost: number,
+  costCurrency: string
+) {
+  const estimate = getPurchaseBudgetEstimate({
+    quantity,
+    original_quantity: item.original_quantity,
+    original_unit_cost: item.original_unit_cost,
+    original_cost_currency: item.original_cost_currency,
+    operational_unit_cost: unitCost,
+    cost_currency: costCurrency,
+    exchange_rate: item.exchange_rate,
+  });
+
+  return estimate.source === "missing_exchange_rate" ? null : estimate;
+}
+
+const MISSING_BUDGET_FX_MESSAGE =
+  "El presupuesto cotizado de esta partida esta en otra moneda y la partida no tiene tipo de cambio. Captura el TC de la cotizacion antes de hacer este cambio.";
 
 function getStatusLabel(status: string) {
   if (status === "pending_director_approval") return "Pendiente direccion";
@@ -233,11 +263,13 @@ export default function ProjectTranslationEditor({
       product_name?: string | null;
       quantity_required?: number;
       unit_cost?: number;
+      total_required_cost?: number;
       cost_currency?: string | null;
     }
   ) {
     const quantityRequired = Number(values.quantity_required || 0);
     const unitCost = Number(values.unit_cost || 0);
+    const totalRequiredCost = values.total_required_cost ?? quantityRequired * unitCost;
     const patch: Record<string, string | number | null> = {
       updated_at: new Date().toISOString(),
     };
@@ -248,8 +280,8 @@ export default function ProjectTranslationEditor({
     if ("product_name" in values) patch.product_name = values.product_name || null;
     if ("quantity_required" in values) {
       patch.quantity_required = quantityRequired;
-      patch.total_required_cost = quantityRequired * unitCost;
-      patch.total_pending_cost = quantityRequired * unitCost;
+      patch.total_required_cost = totalRequiredCost;
+      patch.total_pending_cost = totalRequiredCost;
     }
     if ("unit_cost" in values) patch.unit_cost = unitCost;
     if ("cost_currency" in values) {
@@ -281,7 +313,17 @@ export default function ProjectTranslationEditor({
     };
     const nextItems = items.map((item) => (item.id === activeItem.id ? nextItem : item));
     const needsApproval = requiresDirectorApproval(nextItems);
+    const purchaseEstimate = getPurchaseEstimate(
+      activeItem,
+      activeItem.quantity,
+      nextItem.operational_unit_cost,
+      nextItem.cost_currency
+    );
 
+    if (!purchaseEstimate) {
+      alert(MISSING_BUDGET_FX_MESSAGE);
+      return;
+    }
     if (!confirmOverrunIfNeeded(nextItems)) return;
     setSaving(true);
 
@@ -312,7 +354,8 @@ export default function ProjectTranslationEditor({
         product_model: selectedProduct.model,
         product_name: selectedProduct.name,
         quantity_required: activeItem.quantity,
-        unit_cost: Number(selectedProduct.cost_price || 0),
+        unit_cost: purchaseEstimate.unit_cost,
+        total_required_cost: purchaseEstimate.total_required_cost,
         cost_currency: selectedProduct.cost_currency || "USD",
       });
 
@@ -369,7 +412,17 @@ export default function ProjectTranslationEditor({
     const nextItem = { ...activeItem, quantity: nextQuantity, status: "active" };
     const nextItems = items.map((item) => (item.id === activeItem.id ? nextItem : item));
     const needsApproval = requiresDirectorApproval(nextItems);
+    const purchaseEstimate = getPurchaseEstimate(
+      activeItem,
+      nextQuantity,
+      activeItem.operational_unit_cost,
+      activeItem.cost_currency
+    );
 
+    if (!purchaseEstimate) {
+      alert(MISSING_BUDGET_FX_MESSAGE);
+      return;
+    }
     if (!confirmOverrunIfNeeded(nextItems)) return;
     setSaving(true);
 
@@ -390,7 +443,8 @@ export default function ProjectTranslationEditor({
 
       await updateOpenPurchaseLine(activeItem.id, {
         quantity_required: nextQuantity,
-        unit_cost: activeItem.operational_unit_cost,
+        unit_cost: purchaseEstimate.unit_cost,
+        total_required_cost: purchaseEstimate.total_required_cost,
         cost_currency: activeItem.cost_currency,
       });
 
@@ -449,8 +503,10 @@ export default function ProjectTranslationEditor({
       quantity: nextQuantity,
       original_quantity: 0,
       original_unit_cost: 0,
+      original_cost_currency: selectedProduct.cost_currency || "USD",
       operational_unit_cost: Number(selectedProduct.cost_price || 0),
       cost_currency: selectedProduct.cost_currency || "USD",
+      exchange_rate: null,
       status: "active",
       quantity_purchased: 0,
       quantity_delivered: 0,

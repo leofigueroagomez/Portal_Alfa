@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import { syncProjectOperationalItems } from "@/lib/projectOperationalItems";
+import { loadOriginalCostCurrencies } from "@/lib/projectPurchases";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import ProjectTranslationEditor, {
   OperationalEditorItem,
@@ -17,6 +18,7 @@ type ClientProject = {
 type OperationalItemRow = {
   id: number;
   client_project_id: number;
+  source_quote_item_id: number | null;
   system_name: string | null;
   product_id: number | null;
   product_brand: string | null;
@@ -28,6 +30,7 @@ type OperationalItemRow = {
   original_unit_cost: number | null;
   operational_unit_cost: number | null;
   cost_currency: string | null;
+  exchange_rate: number | null;
   status: string | null;
 };
 
@@ -98,7 +101,7 @@ export default async function ProjectTranslationPage({
         supabase
           .from("project_operational_items")
           .select(
-            "id, client_project_id, system_name, product_id, product_brand, product_model, product_name, product_image_url, quantity, original_quantity, original_unit_cost, operational_unit_cost, cost_currency, status"
+            "id, client_project_id, source_quote_item_id, system_name, product_id, product_brand, product_model, product_name, product_image_url, quantity, original_quantity, original_unit_cost, operational_unit_cost, cost_currency, exchange_rate, status"
           )
           .eq("client_project_id", id)
           .neq("status", "deleted")
@@ -168,7 +171,23 @@ export default async function ProjectTranslationPage({
     new Map<number, number>()
   );
 
-  const editorItems = ((operationalResult.data || []) as OperationalItemRow[]).map((item) => ({
+  const operationalRows = (operationalResult.data || []) as OperationalItemRow[];
+  let originalCurrencies = new Map<number, string>();
+  if (!translationSqlError) {
+    try {
+      originalCurrencies = await loadOriginalCostCurrencies(supabase, operationalRows);
+    } catch (currencyError) {
+      translationSqlError =
+        currencyError &&
+        typeof currencyError === "object" &&
+        "message" in currencyError &&
+        typeof currencyError.message === "string"
+          ? currencyError.message
+          : "No se pudo leer la moneda del presupuesto cotizado.";
+    }
+  }
+
+  const editorItems = operationalRows.map((item) => ({
     id: item.id,
     client_project_id: item.client_project_id,
     system_name: item.system_name,
@@ -181,7 +200,10 @@ export default async function ProjectTranslationPage({
     original_quantity: Number(item.original_quantity || 0),
     original_unit_cost: Number(item.original_unit_cost || 0),
     operational_unit_cost: Number(item.operational_unit_cost || 0),
+    original_cost_currency:
+      originalCurrencies.get(item.id) || item.cost_currency || "USD",
     cost_currency: item.cost_currency || "USD",
+    exchange_rate: Number(item.exchange_rate || 0) || null,
     status: item.status || "active",
     quantity_purchased: Number(purchasedByOperationalItem.get(item.id) || 0),
     quantity_delivered: Number(deliveredByOperationalItem.get(item.id) || 0),

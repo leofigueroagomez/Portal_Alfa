@@ -3,6 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { RefreshCw } from "lucide-react";
+import {
+  getPurchaseBudgetEstimate,
+  loadOriginalCostCurrencies,
+} from "@/lib/projectPurchases";
 import { supabase } from "@/services/supabase";
 
 type Props = {
@@ -15,10 +19,14 @@ type Quote = {
 
 type OperationalItem = {
   id: number;
+  source_quote_item_id: number | null;
   product_id: number | null;
   quantity: number | null;
+  original_quantity: number | null;
+  original_unit_cost: number | null;
   operational_unit_cost: number | null;
   cost_currency: string | null;
+  exchange_rate: number | null;
 };
 
 type Product = {
@@ -54,7 +62,7 @@ export default function RecalculatePurchaseLinesButton({ projectId }: Props) {
 
   async function handleRecalculate() {
     const confirmed = window.confirm(
-      "Esto recalculara costo estimado y moneda desde la base operativa. No borra compras registradas. Continuar?"
+      "Esto recalculara el costo estimado desde el presupuesto cotizado de cada partida (prorrateado entre la cantidad actual) y la moneda desde la base operativa. No borra compras registradas. Continuar?"
     );
 
     if (!confirmed) return;
@@ -85,7 +93,9 @@ export default function RecalculatePurchaseLinesButton({ projectId }: Props) {
       await Promise.all([
         supabase
           .from("project_operational_items")
-          .select("id, product_id, quantity, operational_unit_cost, cost_currency")
+          .select(
+            "id, source_quote_item_id, product_id, quantity, original_quantity, original_unit_cost, operational_unit_cost, cost_currency, exchange_rate"
+          )
           .eq("client_project_id", projectId),
         supabase
           .from("project_purchase_lines")
@@ -120,24 +130,51 @@ export default function RecalculatePurchaseLinesButton({ projectId }: Props) {
       return;
     }
 
+    let originalCurrencies: Map<number, string>;
+    try {
+      originalCurrencies = await loadOriginalCostCurrencies(supabase, items);
+    } catch (currencyError) {
+      setRecalculating(false);
+      reportError("leer moneda del presupuesto cotizado", currencyError);
+      return;
+    }
+
     const productsById = new Map(
       ((products || []) as Product[]).map((product) => [product.id, product])
     );
     const itemsById = new Map(items.map((item) => [item.id, item]));
+    const linesMissingExchangeRate: number[] = [];
 
     for (const line of purchaseLines) {
       if (!line.project_operational_item_id) continue;
 
       const item = itemsById.get(line.project_operational_item_id);
       const product = item?.product_id ? productsById.get(item.product_id) : null;
-      const unitCost = Number(item?.operational_unit_cost || product?.cost_price || 0);
       const costCurrency =
         (item?.cost_currency || product?.cost_currency || "USD").toUpperCase() === "MXN"
           ? "MXN"
           : "USD";
       const quantityRequired = Number(line.quantity_required || item?.quantity || 0);
       const quantityPurchased = Number(line.quantity_purchased || 0);
-      const totalRequiredCost = unitCost * quantityRequired;
+      // Estimado = presupuesto cotizado prorrateado entre la cantidad actual; el
+      // costo del producto actual solo aplica a partidas sin presupuesto.
+      const estimate = getPurchaseBudgetEstimate({
+        quantity: quantityRequired,
+        original_quantity: item?.original_quantity,
+        original_unit_cost: item?.original_unit_cost,
+        original_cost_currency: item ? originalCurrencies.get(item.id) : null,
+        operational_unit_cost: Number(item?.operational_unit_cost || product?.cost_price || 0),
+        cost_currency: costCurrency,
+        exchange_rate: item?.exchange_rate,
+      });
+
+      if (estimate.source === "missing_exchange_rate") {
+        linesMissingExchangeRate.push(line.id);
+        continue;
+      }
+
+      const unitCost = estimate.unit_cost;
+      const totalRequiredCost = estimate.total_required_cost;
       const totalPendingCost = Math.max(
         totalRequiredCost - unitCost * quantityPurchased,
         0
@@ -162,6 +199,13 @@ export default function RecalculatePurchaseLinesButton({ projectId }: Props) {
     }
 
     setRecalculating(false);
+    if (linesMissingExchangeRate.length > 0) {
+      alert(
+        `No se recalcularon ${linesMissingExchangeRate.length} lineas (${linesMissingExchangeRate.join(
+          ", "
+        )}): su presupuesto cotizado esta en otra moneda y la partida no tiene tipo de cambio.`
+      );
+    }
     router.refresh();
   }
 

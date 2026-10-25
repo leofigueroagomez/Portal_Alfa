@@ -1,6 +1,10 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  getPurchaseBudgetEstimate,
+  loadOriginalCostCurrencies,
+} from "@/lib/projectPurchases";
 
 /**
  * Ejecutores de 1 clic de la Bandeja (Sprint B1).
@@ -129,10 +133,14 @@ function recomputeLineFromEvents(
 
 type OperationalItemRow = {
   id: number;
+  source_quote_item_id: number | null;
   product_id: number | null;
   quantity: number | null;
+  original_quantity: number | null;
+  original_unit_cost: number | null;
   operational_unit_cost: number | null;
   cost_currency: string | null;
+  exchange_rate: number | null;
 };
 type ProductCostRow = { id: number; cost_price: number | null; cost_currency: string | null };
 type PurchaseLineRow = {
@@ -184,9 +192,27 @@ const recalcularLineasDeCompra: Executor = {
     );
     const { data: opData } = await supabase
       .from("project_operational_items")
-      .select("id, product_id, quantity, operational_unit_cost, cost_currency")
+      .select(
+        "id, source_quote_item_id, product_id, quantity, original_quantity, original_unit_cost, operational_unit_cost, cost_currency, exchange_rate",
+      )
       .in("id", opIds);
     const ops = new Map(((opData ?? []) as OperationalItemRow[]).map((o) => [o.id, o]));
+    let originalCurrencies: Map<number, string>;
+    try {
+      originalCurrencies = await loadOriginalCostCurrencies(
+        supabase,
+        (opData ?? []) as OperationalItemRow[],
+      );
+    } catch (currencyError) {
+      return {
+        ok: false,
+        error:
+          currencyError instanceof Error
+            ? currencyError.message
+            : "No se pudo leer la moneda del presupuesto cotizado.",
+      };
+    }
+
 
     const productIds = Array.from(
       new Set(
@@ -207,19 +233,35 @@ const recalcularLineasDeCompra: Executor = {
     }));
 
     let changed = 0;
+    let skipped = 0;
     for (const line of lines) {
       const op = line.project_operational_item_id
         ? ops.get(line.project_operational_item_id)
         : null;
       if (!op) continue;
       const product = op.product_id ? products.get(op.product_id) : null;
-      const unitCost = num(op.operational_unit_cost) || num(product?.cost_price);
       const costCurrency =
         (op.cost_currency || product?.cost_currency || "USD").toUpperCase() === "MXN"
           ? "MXN"
           : "USD";
       const quantityRequired = num(line.quantity_required) || num(op.quantity);
-      const totalRequiredCost = unitCost * quantityRequired;
+      // Mismo estimado que el boton "Recalcular": presupuesto cotizado
+      // prorrateado entre la cantidad actual (getPurchaseBudgetEstimate).
+      const estimate = getPurchaseBudgetEstimate({
+        quantity: quantityRequired,
+        original_quantity: op.original_quantity,
+        original_unit_cost: op.original_unit_cost,
+        original_cost_currency: originalCurrencies.get(op.id),
+        operational_unit_cost: num(op.operational_unit_cost) || num(product?.cost_price),
+        cost_currency: costCurrency,
+        exchange_rate: op.exchange_rate,
+      });
+      if (estimate.source === "missing_exchange_rate") {
+        skipped += 1;
+        continue;
+      }
+      const unitCost = estimate.unit_cost;
+      const totalRequiredCost = estimate.total_required_cost;
       const totalPendingCost = Math.max(
         totalRequiredCost - unitCost * num(line.quantity_purchased),
         0,
@@ -239,7 +281,11 @@ const recalcularLineasDeCompra: Executor = {
       changed += 1;
     }
 
-    const summary = `${changed} linea(s) de compra recalculadas desde la base operativa.`;
+    const summary =
+      `${changed} linea(s) de compra recalculadas desde el presupuesto cotizado.` +
+      (skipped > 0
+        ? ` ${skipped} sin recalcular: presupuesto en otra moneda y la partida no tiene TC.`
+        : "");
     const backupId = await saveBackup(
       supabase,
       finding.id,

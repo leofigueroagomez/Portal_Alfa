@@ -6,8 +6,10 @@ import { formatCurrency, formatNumber } from "@/lib/format";
 import { normalizeRole } from "@/lib/permissions";
 import { syncProjectOperationalItems } from "@/lib/projectOperationalItems";
 import {
+  getPurchaseBudgetEstimate,
   getPurchaseProgressPercent,
   getPurchaseLineVariation,
+  loadOriginalCostCurrencies,
   summarizePendingBySupplier,
   summarizePurchaseTotalsByCurrency,
   summarizePurchaseVariationMxn,
@@ -41,6 +43,8 @@ type OperationalItem = {
   product_name: string | null;
   product_image_url: string | null;
   quantity: number | null;
+  original_quantity: number | null;
+  original_unit_cost: number | null;
   operational_unit_cost: number | null;
   cost_currency: string | null;
   exchange_rate: number | null;
@@ -65,6 +69,9 @@ type PurchaseLine = PurchaseLineAction & {
   product_image_url?: string | null;
   exchange_rate?: number | null;
   system_name?: string | null;
+  original_quantity?: number | null;
+  original_unit_cost?: number | null;
+  original_cost_currency?: string | null;
 };
 
 type PurchaseEvent = PurchaseEventAction & {
@@ -263,7 +270,7 @@ export default async function ProjectPurchasesPage({
         supabase
           .from("project_operational_items")
           .select(
-            "id, source_quote_id, source_quote_item_id, system_name, product_id, product_brand, product_model, product_name, product_image_url, quantity, operational_unit_cost, cost_currency, exchange_rate, status"
+            "id, source_quote_id, source_quote_item_id, system_name, product_id, product_brand, product_model, product_name, product_image_url, quantity, original_quantity, original_unit_cost, operational_unit_cost, cost_currency, exchange_rate, status"
           )
           .eq("client_project_id", projectData.id)
           .order("system_name", { ascending: true })
@@ -287,6 +294,20 @@ export default async function ProjectPurchasesPage({
     (item) => item.status !== "deleted"
   );
   const operationalItemsById = new Map(operationalItems.map((item) => [item.id, item]));
+  let originalCurrencies = new Map<number, string>();
+  if (!purchaseSqlError) {
+    try {
+      originalCurrencies = await loadOriginalCostCurrencies(supabase, operationalItems);
+    } catch (currencyError) {
+      purchaseSqlError =
+        currencyError &&
+        typeof currencyError === "object" &&
+        "message" in currencyError &&
+        typeof currencyError.message === "string"
+          ? currencyError.message
+          : "No se pudo leer la moneda del presupuesto cotizado.";
+    }
+  }
   const operationalItemsByQuoteItemId = new Map(
     operationalItems
       .filter((item) => item.source_quote_item_id)
@@ -396,8 +417,21 @@ export default async function ProjectPurchasesPage({
         const productItem = item.product_id ? productsById.get(item.product_id) : null;
         const quantityRequired = Number(item.quantity || 0);
         const costCurrency = (item.cost_currency || productItem?.cost_currency || "USD").toUpperCase();
-        const unitCost = Number(item.operational_unit_cost || productItem?.cost_price || 0);
-        const totalRequiredCost = quantityRequired * unitCost;
+        // Mismo estimado que Traduccion tecnica: presupuesto cotizado prorrateado.
+        // Sin TC para convertir un presupuesto en otra moneda se usa el costo
+        // operativo, y "Recalcular" avisa de la linea.
+        const estimate = getPurchaseBudgetEstimate({
+          quantity: quantityRequired,
+          original_quantity: item.original_quantity,
+          original_unit_cost: item.original_unit_cost,
+          original_cost_currency: originalCurrencies.get(item.id),
+          operational_unit_cost: Number(item.operational_unit_cost || productItem?.cost_price || 0),
+          cost_currency: costCurrency,
+          exchange_rate: item.exchange_rate,
+        });
+        const unitCost = estimate.unit_cost;
+        const totalRequiredCost = estimate.total_required_cost;
+
 
         return {
           client_project_id: projectData.id,
@@ -463,8 +497,39 @@ export default async function ProjectPurchasesPage({
         operationalItem?.exchange_rate ||
         null,
       system_name: operationalItem?.system_name || null,
+      original_quantity: operationalItem?.original_quantity ?? null,
+      original_unit_cost: operationalItem?.original_unit_cost ?? null,
+      original_cost_currency: operationalItem
+        ? originalCurrencies.get(operationalItem.id) || null
+        : null,
     };
   });
+
+  // Venta de equipo cotizada por linea, para la utilidad contra el costo real.
+  // quote_items.equipment_total esta en USD (igual a equipment_total_usd aun en
+  // cotizaciones en MXN), asi que se pasa a MXN con el TC de la partida.
+  const quoteItemIds = Array.from(
+    new Set(lines.map((line) => line.quote_item_id).filter(Boolean) as number[])
+  );
+  const { data: rawQuoteItems } =
+    !purchaseSqlError && quoteItemIds.length > 0
+      ? await supabase
+          .from("quote_items")
+          .select("id, equipment_total")
+          .in("id", quoteItemIds)
+      : { data: [] };
+  const equipmentTotalByQuoteItem = new Map(
+    ((rawQuoteItems || []) as { id: number; equipment_total: number | null }[]).map(
+      (row) => [row.id, Number(row.equipment_total || 0)]
+    )
+  );
+  function getEquipmentSaleMxn(line: PurchaseLine) {
+    if (!line.quote_item_id || !equipmentTotalByQuoteItem.has(line.quote_item_id)) return null;
+    const exchangeRate = Number(line.exchange_rate || 0);
+    if (exchangeRate <= 0) return null;
+    return Number(equipmentTotalByQuoteItem.get(line.quote_item_id) || 0) * exchangeRate;
+  }
+
 
   const lineIds = lines.map((line) => line.id);
   const { data: rawEvents } =
@@ -532,6 +597,19 @@ export default async function ProjectPurchasesPage({
       );
       const eventsForGroup = childLines.flatMap((line) => eventsByLine.get(line.id) || []);
       const variation = combineVariations(childLines);
+      // Utilidad de equipo = venta cotizada - costo real comprado. Solo con la
+      // compra completa y todas las lineas ligadas a una partida de cotizacion.
+      const childSales = childLines.map(getEquipmentSaleMxn);
+      const equipmentSaleMxn = childSales.every((sale) => sale !== null)
+        ? childSales.reduce((sum: number, sale) => sum + Number(sale || 0), 0)
+        : null;
+      const equipmentProfitMxn =
+        equipmentSaleMxn !== null &&
+        quantityRequired > 0 &&
+        quantityPurchased >= quantityRequired &&
+        !variation.missingExchangeRate
+          ? equipmentSaleMxn - variation.real
+          : null;
       const origins = Array.from(
         new Set(
           childLines.map((line) => {
@@ -608,6 +686,8 @@ export default async function ProjectPurchasesPage({
         total_pending_cost: totalPendingCost,
         displayStatus,
         variation,
+        equipmentSaleMxn,
+        equipmentProfitMxn,
         actionLine,
       };
     })
@@ -731,7 +811,7 @@ export default async function ProjectPurchasesPage({
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1580px] border-collapse text-xs">
+            <table className="w-full min-w-[1700px] border-collapse text-xs">
               <thead>
                 <tr className="border-b border-[#2A2A30] bg-[#101114] text-left text-[#B3B3B8]">
                   <th className="px-3 py-2 font-semibold">Proveedor</th>
@@ -747,6 +827,12 @@ export default async function ProjectPurchasesPage({
                   <th className="px-3 py-2 text-right font-semibold">Estimado Total</th>
                   <th className="px-3 py-2 text-right font-semibold">Real Comprado</th>
                   <th className="px-3 py-2 text-right font-semibold">Variacion</th>
+                  <th
+                    className="px-3 py-2 text-right font-semibold"
+                    title="Venta de equipo cotizada (TC de la cotizacion) menos costo real comprado. Antes de descuentos al cliente y reparto con aliado."
+                  >
+                    Utilidad equipo
+                  </th>
                   <th className="px-3 py-2 font-semibold">Estado</th>
                   <th className="px-3 py-2 font-semibold">Acciones</th>
                 </tr>
@@ -846,6 +932,30 @@ export default async function ProjectPurchasesPage({
                             {getVariationLabel(line.variation.status)}
                           </span>
                         )}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        {line.equipmentProfitMxn !== null ? (
+                          <p
+                            className={`font-semibold ${
+                              line.equipmentProfitMxn >= 0
+                                ? "text-[#8CE0B6]"
+                                : "text-[#FFB19C]"
+                            }`}
+                          >
+                            {formatCurrency(line.equipmentProfitMxn, "MXN")}
+                          </p>
+                        ) : (
+                          <p className="text-[#77777D]">
+                            {line.equipmentSaleMxn === null
+                              ? "Sin venta cotizada"
+                              : "Compra incompleta"}
+                          </p>
+                        )}
+                        {line.equipmentSaleMxn !== null ? (
+                          <p className="text-[10px] text-[#77777D]">
+                            Venta {formatCurrency(line.equipmentSaleMxn, "MXN")}
+                          </p>
+                        ) : null}
                       </td>
                       <td className="px-3 py-2">
                         <span
