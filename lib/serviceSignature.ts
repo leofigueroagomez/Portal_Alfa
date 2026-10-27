@@ -5,6 +5,35 @@ import { resolveServicePhotoUrl } from "@/lib/serviceReports";
 import { getServiceProposalTotals, type ServiceProposalQuoteItem } from "@/lib/serviceProposal";
 import { getOrCreateServiceStripeCheckout } from "@/lib/stripe";
 import { isValidContractSignaturePng } from "@/lib/contractPublicValidation";
+import { ID_IMAGE_UPLOAD_TYPES, parseValidatedDataUrl } from "@/lib/uploadValidation";
+
+// INE adjunta desde el enlace publico: la UI comprime a JPEG; se aceptan
+// JPEG/PNG/WebP reales por magic bytes (nunca SVG) con tope de peso.
+const MAX_INE_BYTES = 5 * 1024 * 1024;
+
+function parseIneAttachment(value: string | null | undefined, label: string) {
+  if (!value) return null;
+  const image = parseValidatedDataUrl(value, { allowed: ID_IMAGE_UPLOAD_TYPES, maxBytes: MAX_INE_BYTES });
+  if (!image) {
+    throw new Error(`La identificación (${label}) debe ser una imagen JPG, PNG o WebP de hasta 5 MB.`);
+  }
+  return image;
+}
+
+// Escape local para el correo interno: nombre, correo y telefono los captura el
+// firmante publico; cliente/proyecto vienen de BD pero tambien se escapan.
+function escapeHtml(value: string | number | null | undefined) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function singleLine(value: string) {
+  return value.replace(/[\r\n]+/g, " ").trim();
+}
 
 export type ServiceSigningContext = {
   serviceReport: {
@@ -220,6 +249,8 @@ export async function submitServiceSignature(input: SubmitServiceSignatureInput)
   if (!isValidContractSignaturePng(input.signatureDataUrl)) {
     throw new Error("La firma debe ser una imagen PNG válida de hasta 200 KB.");
   }
+  const ineFront = parseIneAttachment(input.ineFrontDataUrl, "frente");
+  const ineBack = parseIneAttachment(input.ineBackDataUrl, "reverso");
   const supabase = createSupabaseAdminClient();
 
   const { data: link, error: linkError } = await supabase
@@ -276,37 +307,27 @@ export async function submitServiceSignature(input: SubmitServiceSignatureInput)
     throw new Error("No se pudo almacenar la imagen de firma digital.");
   }
 
-  // 2. Guardar INE Frontal si se adjuntó
+  // 2. Guardar INE Frontal si se adjuntó (ya validada; extension del tipo real)
   let ineFrontPath: string | null = null;
-  if (input.ineFrontDataUrl) {
-    const frontMatch = input.ineFrontDataUrl.match(/^data:image\/(\w+);base64,(.+)$/);
-    if (frontMatch) {
-      const frontExt = frontMatch[1] === "jpeg" ? "jpg" : frontMatch[1];
-      const frontBuffer = Buffer.from(frontMatch[2], "base64");
-      const frontPath = `ine/services/${report.id}/ine-front-${timestamp}.${frontExt}`;
-      const frontUpload = await supabase.storage
-        .from(bucketName)
-        .upload(frontPath, frontBuffer, { contentType: `image/${frontExt}`, upsert: true });
-      if (!frontUpload.error) {
-        ineFrontPath = frontPath;
-      }
+  if (ineFront) {
+    const frontPath = `ine/services/${report.id}/ine-front-${timestamp}.${ineFront.ext}`;
+    const frontUpload = await supabase.storage
+      .from(bucketName)
+      .upload(frontPath, ineFront.buffer, { contentType: ineFront.mime, upsert: true });
+    if (!frontUpload.error) {
+      ineFrontPath = frontPath;
     }
   }
 
   // 3. Guardar INE Reverso si se adjuntó
   let ineBackPath: string | null = null;
-  if (input.ineBackDataUrl) {
-    const backMatch = input.ineBackDataUrl.match(/^data:image\/(\w+);base64,(.+)$/);
-    if (backMatch) {
-      const backExt = backMatch[1] === "jpeg" ? "jpg" : backMatch[1];
-      const backBuffer = Buffer.from(backMatch[2], "base64");
-      const backPath = `ine/services/${report.id}/ine-back-${timestamp}.${backExt}`;
-      const backUpload = await supabase.storage
-        .from(bucketName)
-        .upload(backPath, backBuffer, { contentType: `image/${backExt}`, upsert: true });
-      if (!backUpload.error) {
-        ineBackPath = backPath;
-      }
+  if (ineBack) {
+    const backPath = `ine/services/${report.id}/ine-back-${timestamp}.${ineBack.ext}`;
+    const backUpload = await supabase.storage
+      .from(bucketName)
+      .upload(backPath, ineBack.buffer, { contentType: ineBack.mime, upsert: true });
+    if (!backUpload.error) {
+      ineBackPath = backPath;
     }
   }
 
@@ -392,6 +413,15 @@ async function notifyManagementOfSignedService(input: {
   const baseUrl = getAppBaseUrl();
   const serviceAdminUrl = `${baseUrl}/services/${input.serviceId}`;
   const formattedTotal = new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(input.totalMxn);
+  const bankConfigured = getAlfaBankAccounts().configured;
+  const safe = {
+    serviceNumber: escapeHtml(input.serviceNumber),
+    clientName: escapeHtml(input.clientName),
+    projectName: escapeHtml(input.projectName),
+    signerName: escapeHtml(input.signerName),
+    signerEmail: escapeHtml(input.signerEmail),
+    signerPhone: escapeHtml(input.signerPhone),
+  };
 
   const html = `
     <!DOCTYPE html>
@@ -418,22 +448,26 @@ async function notifyManagementOfSignedService(input: {
             <div class="title">Servicio Firmado por el Cliente ✍️</div>
           </div>
           <div class="content">
-            <p>Se ha recibido la <strong>firma de conformidad</strong> para el servicio técnico <strong>${input.serviceNumber}</strong>.</p>
+            <p>Se ha recibido la <strong>firma de conformidad</strong> para el servicio técnico <strong>${safe.serviceNumber}</strong>.</p>
             
             <div class="card">
               <div style="font-size: 11px; text-transform: uppercase; color: #9E1B32; font-weight: bold; margin-bottom: 8px;">Datos de Recepción</div>
-              <div>• <strong>Cliente:</strong> ${input.clientName}</div>
-              <div>• <strong>Proyecto / Sitio:</strong> ${input.projectName}</div>
-              <div>• <strong>Firmante:</strong> ${input.signerName}</div>
-              <div>• <strong>Correo de Cobranza:</strong> ${input.signerEmail}</div>
-              <div>• <strong>Teléfono / WhatsApp:</strong> ${input.signerPhone}</div>
+              <div>• <strong>Cliente:</strong> ${safe.clientName}</div>
+              <div>• <strong>Proyecto / Sitio:</strong> ${safe.projectName}</div>
+              <div>• <strong>Firmante:</strong> ${safe.signerName}</div>
+              <div>• <strong>Correo de Cobranza:</strong> ${safe.signerEmail}</div>
+              <div>• <strong>Teléfono / WhatsApp:</strong> ${safe.signerPhone}</div>
               <div>• <strong>Fecha / Hora:</strong> ${new Date(input.signedAt).toLocaleString("es-MX", { timeZone: "America/Mexico_City" })}</div>
             </div>
 
             <div class="card" style="border-color: #614620; background-color: #22180C;">
               <div style="font-size: 11px; text-transform: uppercase; color: #F4C66A; font-weight: bold; margin-bottom: 8px;">Estado de Cobranza</div>
               <div style="font-size: 16px; margin: 4px 0;">Monto Pendiente de Cobro: <span class="highlight">${formattedTotal}</span></div>
-              <div style="font-size: 12px; color: #B3B3B8;">El cliente ya recibió los datos bancarios para transferencia SPEI. Los recordatorios diarios automáticos están programados.</div>
+              <div style="font-size: 12px; color: #B3B3B8;">${
+                bankConfigured
+                  ? "El cliente ya recibió los datos bancarios para transferencia SPEI. Los recordatorios diarios automáticos están programados."
+                  : "Los datos bancarios oficiales no están configurados (ALFA_BANK_CLABE / ALFA_BANK_BENEFICIARY): el cliente vio la indicación de solicitarlos por correo. Configúralos antes de cobrar."
+              }</div>
             </div>
 
             <div style="text-align: center;">
@@ -457,7 +491,7 @@ async function notifyManagementOfSignedService(input: {
     body: JSON.stringify({
       from,
       to: [to],
-      subject: `🔔 Servicio Firmado [${input.serviceNumber}] - ${input.clientName} (Pendiente Cobro: ${formattedTotal})`,
+      subject: singleLine(`🔔 Servicio Firmado [${input.serviceNumber}] - ${input.clientName} (Pendiente Cobro: ${formattedTotal})`),
       html,
     }),
   });

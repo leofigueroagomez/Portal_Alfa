@@ -4,7 +4,46 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import chromium from "@sparticuz/chromium";
-import puppeteer from "puppeteer-core";
+import puppeteer, { type HTTPRequest } from "puppeteer-core";
+import { fetchRemoteImageAsDataUrl } from "@/lib/ssrfGuard";
+
+// Chromium no sale a la red: data:/about: pasan directo y una imagen https (logo
+// de aliado) se descarga server-side con el guard SSRF y se responde desde aqui.
+// Cualquier otra peticion (scripts, iframes, fuentes, http, file:) se aborta.
+const MAX_PROXIED_IMAGES = 8;
+
+function createRequestGuard() {
+  let proxiedImages = 0;
+
+  return async (request: HTTPRequest) => {
+    if (request.isInterceptResolutionHandled()) return;
+    const url = request.url();
+
+    try {
+      if (/^(data|about):/i.test(url)) {
+        await request.continue();
+        return;
+      }
+
+      if (
+        request.resourceType() === "image" &&
+        /^https:\/\//i.test(url) &&
+        proxiedImages < MAX_PROXIED_IMAGES
+      ) {
+        proxiedImages += 1;
+        const image = await fetchRemoteImageAsDataUrl(url);
+        if (image) {
+          await request.respond({ status: 200, contentType: image.mime, body: image.buffer });
+          return;
+        }
+      }
+
+      await request.abort("blockedbyclient");
+    } catch {
+      // La peticion pudo resolverse/cancelarse mientras descargabamos.
+    }
+  };
+}
 
 function getCandidateBrowserPaths() {
   const configured = process.env.PUPPETEER_EXECUTABLE_PATH;
@@ -69,6 +108,8 @@ export async function renderQuotePremiumPdf(html: string) {
     });
 
     const page = await browser.newPage();
+    await page.setRequestInterception(true);
+    page.on("request", createRequestGuard());
     await page.setContent(html, {
       waitUntil: "load",
     });

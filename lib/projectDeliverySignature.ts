@@ -5,6 +5,35 @@ import { isValidContractSignaturePng } from "@/lib/contractPublicValidation";
 import { getPublicDocumentLink, recordPublicDocumentAccess } from "@/lib/publicDocuments";
 import { getAppBaseUrl } from "@/lib/appUrl";
 import { getProjectFinancialSummary } from "@/lib/projectFinancials";
+import { ID_IMAGE_UPLOAD_TYPES, parseValidatedDataUrl } from "@/lib/uploadValidation";
+
+// INE adjunta desde el enlace publico: la UI comprime a JPEG; se aceptan
+// JPEG/PNG/WebP reales por magic bytes (nunca SVG) con tope de peso.
+const MAX_INE_BYTES = 5 * 1024 * 1024;
+
+function parseIneAttachment(value: string | null | undefined, label: string) {
+  if (!value) return null;
+  const image = parseValidatedDataUrl(value, { allowed: ID_IMAGE_UPLOAD_TYPES, maxBytes: MAX_INE_BYTES });
+  if (!image) {
+    throw new Error(`La identificación (${label}) debe ser una imagen JPG, PNG o WebP de hasta 5 MB.`);
+  }
+  return image;
+}
+
+// Escape local para el correo interno: nombre, correo y telefono los captura el
+// firmante publico; cliente/proyecto vienen de BD pero tambien se escapan.
+function escapeHtml(value: string | number | null | undefined) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function singleLine(value: string) {
+  return value.replace(/[\r\n]+/g, " ").trim();
+}
 
 export type DeliverySigningContext = {
   isValid: boolean;
@@ -358,6 +387,12 @@ async function notifyManagementOfSignedDelivery(params: {
 
   const pendingFormatted = formatCurrency(params.financialSummary.pendingTotalMxn);
   const isPendingDebt = params.financialSummary.pendingTotalMxn > 1;
+  const safe = {
+    projectName: escapeHtml(params.projectName),
+    signerName: escapeHtml(params.signerName),
+    signerEmail: escapeHtml(params.signerEmail || "No proporcionado"),
+    signerPhone: escapeHtml(params.signerPhone || "No proporcionado"),
+  };
 
   const html = `
     <!DOCTYPE html>
@@ -388,7 +423,7 @@ async function notifyManagementOfSignedDelivery(params: {
         <div class="container">
           <div class="header">
             <div class="brand">ALFA OS • Notificación a Dirección</div>
-            <div class="title">🔔 Proyecto Entregado: ${params.projectName}</div>
+            <div class="title">🔔 Proyecto Entregado: ${safe.projectName}</div>
           </div>
           <div class="content">
             <p style="font-size: 14px; color: #D1D1D6; margin-top: 0;">
@@ -397,9 +432,9 @@ async function notifyManagementOfSignedDelivery(params: {
 
             <div class="card">
               <div style="font-size: 11px; text-transform: uppercase; color: #9E1B32; font-weight: bold; margin-bottom: 12px;">Datos de Contacto del Firmante (Posventa)</div>
-              <div class="row"><span class="label">Cliente / Titular:</span><span class="value">${params.signerName}</span></div>
-              <div class="row"><span class="label">Correo Electrónico:</span><span class="value">${params.signerEmail || "No proporcionado"}</span></div>
-              <div class="row"><span class="label">Teléfono / WhatsApp:</span><span class="value">${params.signerPhone || "No proporcionado"}</span></div>
+              <div class="row"><span class="label">Cliente / Titular:</span><span class="value">${safe.signerName}</span></div>
+              <div class="row"><span class="label">Correo Electrónico:</span><span class="value">${safe.signerEmail}</span></div>
+              <div class="row"><span class="label">Teléfono / WhatsApp:</span><span class="value">${safe.signerPhone}</span></div>
               <div class="row"><span class="label">Fecha y Hora de Firma:</span><span class="value">${new Date(params.signedAt).toLocaleString("es-MX")}</span></div>
             </div>
 
@@ -438,7 +473,7 @@ async function notifyManagementOfSignedDelivery(params: {
       body: JSON.stringify({
         from,
         to: ["direccion@alfait.com.mx"],
-        subject: `🔔 Proyecto Entregado: ${params.projectName} - ${params.clientName} (${isPendingDebt ? "Saldo Pendiente: " + pendingFormatted : "Al Corriente"})`,
+        subject: singleLine(`🔔 Proyecto Entregado: ${params.projectName} - ${params.clientName} (${isPendingDebt ? "Saldo Pendiente: " + pendingFormatted : "Al Corriente"})`),
         html,
       }),
     });
@@ -454,6 +489,8 @@ export async function submitDeliverySignature(input: SubmitDeliverySignatureInpu
   if (!isValidContractSignaturePng(input.signatureDataUrl)) {
     throw new Error("La firma debe ser una imagen PNG válida de hasta 200 KB.");
   }
+  const ineFront = parseIneAttachment(input.ineFrontDataUrl, "frente");
+  const ineBack = parseIneAttachment(input.ineBackDataUrl, "reverso");
   const supabase = createSupabaseAdminClient();
 
   const { data: link, error: linkError } = await supabase
@@ -517,41 +554,26 @@ export async function submitDeliverySignature(input: SubmitDeliverySignatureInpu
     throw new Error("No se pudo guardar la firma digital en el servidor.");
   }
 
-  // 2. Subir INE Frontal si viene
-  let ineFrontStoragePath: string | null = null;
-  if (input.ineFrontDataUrl && input.ineFrontDataUrl.startsWith("data:image/")) {
-    try {
-      const { buffer: ineFrontBuffer, mime: ineFrontMime } = dataUrlToBuffer(input.ineFrontDataUrl);
-      ineFrontStoragePath = `project-deliveries/${projectId}/${deliveryId}/client-ine-front-${timestamp}.png`;
-      await supabase.storage
-        .from("project-photos")
-        .upload(ineFrontStoragePath, ineFrontBuffer, {
-          contentType: ineFrontMime || "image/png",
-          upsert: false,
-          cacheControl: "3600",
-        });
-    } catch (e) {
-      console.error("Error guardando foto INE frontal:", e);
+  // 2. Subir INE (ya validada); extension y contentType salen del tipo real.
+  // La ruta solo se registra si el archivo realmente se guardo.
+  const uploadIne = async (image: NonNullable<typeof ineFront>, side: "front" | "back") => {
+    const storagePath = `project-deliveries/${projectId}/${deliveryId}/client-ine-${side}-${timestamp}.${image.ext}`;
+    const { error } = await supabase.storage
+      .from("project-photos")
+      .upload(storagePath, image.buffer, {
+        contentType: image.mime,
+        upsert: false,
+        cacheControl: "3600",
+      });
+    if (error) {
+      console.error(`Error guardando foto INE (${side}):`, error);
+      return null;
     }
-  }
+    return storagePath;
+  };
 
-  // 3. Subir INE Reverso si viene
-  let ineBackStoragePath: string | null = null;
-  if (input.ineBackDataUrl && input.ineBackDataUrl.startsWith("data:image/")) {
-    try {
-      const { buffer: ineBackBuffer, mime: ineBackMime } = dataUrlToBuffer(input.ineBackDataUrl);
-      ineBackStoragePath = `project-deliveries/${projectId}/${deliveryId}/client-ine-back-${timestamp}.png`;
-      await supabase.storage
-        .from("project-photos")
-        .upload(ineBackStoragePath, ineBackBuffer, {
-          contentType: ineBackMime || "image/png",
-          upsert: false,
-          cacheControl: "3600",
-        });
-    } catch (e) {
-      console.error("Error guardando foto INE reverso:", e);
-    }
-  }
+  const ineFrontStoragePath = ineFront ? await uploadIne(ineFront, "front") : null;
+  const ineBackStoragePath = ineBack ? await uploadIne(ineBack, "back") : null;
 
   const signedAt = new Date().toISOString();
   const signerName = input.signerName.trim();

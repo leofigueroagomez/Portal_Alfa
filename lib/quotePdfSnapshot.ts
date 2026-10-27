@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isMissingDiagnosticContextSchema } from "@/lib/quoteDiagnosticContext";
+import { fetchRemoteImageAsDataUrl, isPublicFetchableUrl } from "@/lib/ssrfGuard";
 import {
   CLIENT_EXISTING_SUPPLY_TYPE,
   NEW_EQUIPMENT_SUPPLY_TYPE,
@@ -308,54 +309,15 @@ function getPublicProductImageUrl(supabase: SupabaseClient, imageUrl: string | n
   return data.publicUrl || null;
 }
 
-function isPublicFetchableUrl(value: string) {
-  try {
-    const url = new URL(value);
-    if (!["http:", "https:"].includes(url.protocol)) return false;
+// Solo formatos raster que Chromium pinta; un data:image/svg+xml se descarta.
+const EMBEDDABLE_IMAGE_DATA_URL = /^data:image\/(?:png|jpe?g|webp|gif);base64,/i;
 
-    const host = url.hostname.toLowerCase();
-    if (
-      host === "localhost" ||
-      host === "::1" ||
-      host.startsWith("127.") ||
-      host.startsWith("10.") ||
-      host.startsWith("192.168.")
-    ) {
-      return false;
-    }
-
-    const match172 = host.match(/^172\.(\d+)\./);
-    if (match172) {
-      const secondOctet = Number(match172[1]);
-      if (secondOctet >= 16 && secondOctet <= 31) return false;
-    }
-
-    return true;
-  } catch {
-    return false;
-  }
-}
-
+// La descarga va por `lib/ssrfGuard` (https publico, DNS validado, redirecciones
+// revalidadas, tope de bytes). Si falla, la imagen se omite: Chromium nunca
+// recibe una URL remota para cargarla por su cuenta.
 async function fetchImageAsDataUrl(url: string) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 6_000);
-
-  try {
-    const response = await fetch(url, { signal: controller.signal });
-    if (!response.ok) return null;
-
-    const contentType = response.headers.get("content-type") || "";
-    if (!contentType.startsWith("image/")) return null;
-
-    const bytes = Buffer.from(await response.arrayBuffer());
-    if (bytes.byteLength > 3 * 1024 * 1024) return null;
-
-    return `data:${contentType};base64,${bytes.toString("base64")}`;
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timeout);
-  }
+  const image = await fetchRemoteImageAsDataUrl(url, { maxBytes: 3 * 1024 * 1024, timeoutMs: 6_000 });
+  return image?.dataUrl || null;
 }
 
 async function resolveQuoteItemImage(
@@ -368,7 +330,7 @@ async function resolveQuoteItemImage(
     return { src: null, sourceUrl: null, status: "missing", alt };
   }
 
-  if (/^data:image\//i.test(sourceUrl)) {
+  if (EMBEDDABLE_IMAGE_DATA_URL.test(sourceUrl)) {
     return { src: sourceUrl, sourceUrl, status: "embedded", alt };
   }
 
@@ -381,7 +343,7 @@ async function resolveQuoteItemImage(
     return { src: dataUrl, sourceUrl, status: "embedded", alt };
   }
 
-  return { src: sourceUrl, sourceUrl, status: "remote", alt };
+  return { src: null, sourceUrl, status: "failed", alt };
 }
 
 async function resolveDiagnosticImage(
@@ -393,8 +355,11 @@ async function resolveDiagnosticImage(
     return { src: null, sourceUrl: null, status: "missing", alt };
   }
 
-  if (/^data:image\//i.test(imageUrl)) {
+  if (EMBEDDABLE_IMAGE_DATA_URL.test(imageUrl)) {
     return { src: imageUrl, sourceUrl: imageUrl, status: "embedded", alt };
+  }
+  if (/^data:/i.test(imageUrl)) {
+    return { src: null, sourceUrl: null, status: "failed", alt };
   }
 
   let sourceUrl = imageUrl;
@@ -420,7 +385,7 @@ async function resolveDiagnosticImage(
     return { src: dataUrl, sourceUrl: imageUrl, status: "embedded", alt };
   }
 
-  return { src: sourceUrl, sourceUrl: imageUrl, status: "remote", alt };
+  return { src: null, sourceUrl: imageUrl, status: "failed", alt };
 }
 
 function isGoogleDrivePreviewUrl(value: string) {

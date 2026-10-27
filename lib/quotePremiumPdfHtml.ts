@@ -11,6 +11,7 @@ import {
 } from "@/lib/quoteItemPresentation";
 import type { QuotePdfSnapshot } from "@/lib/quotePdfSnapshot";
 import { MISC_LINE_LABEL } from "@/lib/quoteIndirectCosts";
+import { isPublicFetchableUrl } from "@/lib/ssrfGuard";
 
 type QuotePdfItem = QuotePdfSnapshot["sections"][number]["items"][number];
 type QuotePdfSection = QuotePdfSnapshot["sections"][number];
@@ -34,6 +35,27 @@ function escapeHtml(value: string | number | null | undefined) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+const DEFAULT_PRIMARY_COLOR = "#9e1b32";
+const DEFAULT_SECONDARY_COLOR = "#15171c";
+const HEX_COLOR_PATTERN = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
+const LOGO_DATA_URL_PATTERN = /^data:image\/(?:png|jpe?g|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/i;
+
+// Los colores del aliado se interpolan dentro de <style>: solo hex estricto.
+export function safeHexColor(value: unknown, fallback: string) {
+  const color = typeof value === "string" ? value.trim() : "";
+  return HEX_COLOR_PATTERN.test(color) ? color : fallback;
+}
+
+// Logo de aliado: data URL raster o https publico (el renderer lo descarga con
+// el guard SSRF; Chromium no tiene red). Cualquier otra cosa se descarta.
+function getBrandingLogoSrc(branding?: QuotePremiumPdfBranding) {
+  if (!branding) return getLogoDataUrl();
+  const logoUrl = typeof branding.logoUrl === "string" ? branding.logoUrl.trim() : "";
+  if (!logoUrl) return getLogoDataUrl();
+  if (LOGO_DATA_URL_PATTERN.test(logoUrl) || isPublicFetchableUrl(logoUrl)) return logoUrl;
+  return null;
 }
 
 function formatDate(value: string | null | undefined) {
@@ -174,7 +196,7 @@ function buildCover(snapshot: QuotePdfSnapshot, branding?: QuotePremiumPdfBrandi
   const title = snapshot.quote.quoteNumber || `Cotizacion #${snapshot.quote.id}`;
   const contact = getContactDisplay(snapshot);
   const project = getProjectDisplay(snapshot);
-  const logoSrc = branding?.logoUrl || getLogoDataUrl();
+  const logoSrc = getBrandingLogoSrc(branding);
   const logoAlt = branding?.name || "ALFA";
   const displayTotals = getDisplayTotals(snapshot, branding);
 
@@ -183,7 +205,11 @@ function buildCover(snapshot: QuotePdfSnapshot, branding?: QuotePremiumPdfBrandi
       <div>
         <div class="cover-logo-row">
           <div>
-            <img class="cover-logo" src="${escapeHtml(logoSrc)}" alt="${escapeHtml(logoAlt)}" />
+            ${
+              logoSrc
+                ? `<img class="cover-logo" src="${escapeHtml(logoSrc)}" alt="${escapeHtml(logoAlt)}" />`
+                : `<div class="cover-kicker">${escapeHtml(logoAlt)}</div>`
+            }
             <div class="cover-kicker">Propuesta comercial</div>
           </div>
           <div class="cover-folio">
@@ -575,8 +601,8 @@ export function buildQuotePremiumPdfHtml(
   const sectionsHtml = snapshot.sections
     .map((section) => buildSection(section, snapshot.exchangeRate.value))
     .join("");
-  const primaryColor = branding?.primaryColor || "#9e1b32";
-  const secondaryColor = branding?.secondaryColor || "#15171c";
+  const primaryColor = safeHexColor(branding?.primaryColor, DEFAULT_PRIMARY_COLOR);
+  const secondaryColor = safeHexColor(branding?.secondaryColor, DEFAULT_SECONDARY_COLOR);
 
   return `<!doctype html>
 <html lang="es">
