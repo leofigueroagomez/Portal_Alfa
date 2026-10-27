@@ -162,6 +162,10 @@ export default async function ClientPortalProjectPage({
 
   const { supabase, portalUser } = await getClientPortalContext();
   const project = await getAccessibleClientProject(supabase, portalUser, projectId);
+  // service_role: las tablas de negocio son solo internas por RLS
+  // (sql/20261001e_rls_internal_only_p1_fiscal_pii.sql, sql/20261001_quotes_rls_internal_only.sql).
+  // El proyecto ya fue validado por getAccessibleClientProject; cada select es
+  // explicito y filtra por project.id o portalUser.client_id.
   const adminSupabase = createSupabaseAdminClient();
 
   const [
@@ -174,19 +178,19 @@ export default async function ClientPortalProjectPage({
     { data: approvedQuotes },
     { data: authorizedPlans },
   ] = await Promise.all([
-    supabase
+    adminSupabase
       .from("clients")
       .select("id, name, billing_email")
       .eq("id", portalUser.client_id)
       .maybeSingle(),
-    supabase
+    adminSupabase
       .from("project_invoices")
       .select("id, internal_folio, invoice_date, total_mxn, total, status, sat_uuid, facturama_id")
       .eq("client_project_id", project.id)
       .in("status", ["issued", "paid"])
       .order("invoice_date", { ascending: false })
       .order("created_at", { ascending: false }),
-    supabase
+    adminSupabase
       .from("project_payments")
       .select(
         "id, payment_date, payment_method, payment_reference, currency, amount, amount_mxn, exchange_rate, notes"
@@ -194,14 +198,14 @@ export default async function ClientPortalProjectPage({
       .eq("client_project_id", project.id)
       .order("payment_date", { ascending: false })
       .order("created_at", { ascending: false }),
-    supabase
+    adminSupabase
       .from("project_deliveries")
       .select("id, delivery_date, status, delivered_to_name, observations")
       .eq("client_project_id", project.id)
       .in("status", ["delivered", "accepted"])
       .order("delivery_date", { ascending: false })
       .order("created_at", { ascending: false }),
-    supabase
+    adminSupabase
       .from("project_warranties")
       .select(
         "id, warranty_date, status, equipment_warranty_end_date, installation_warranty_end_date, preventive_maintenance_frequency_months, support_email"
@@ -215,7 +219,7 @@ export default async function ClientPortalProjectPage({
       .select("token, document_type, project_delivery_id, project_warranty_id, quote_id, document_id, project_invoice_id, file_format")
       .eq("client_project_id", project.id)
       .is("expires_at", null),
-    supabase
+    adminSupabase
       .from("quotes")
       .select("id, quote_number, created_at, total_mxn, grand_total")
       .eq("client_project_id", project.id)

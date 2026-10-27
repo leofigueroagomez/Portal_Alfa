@@ -36,7 +36,7 @@ Estado inferido: activo y critico por exposicion de datos de clientes, documento
 | `services/profile.ts` | Normaliza perfil actual y separa usuario interno vs `client_portal`. | Cambios de roles, perfiles o metadata de Auth. | Critico: base de todas las decisiones de acceso. |
 | `lib/permissions.ts` | Define roles internos y helpers de permisos. | Nuevos roles o permisos administrativos. | Alto: no tratar `client` como rol interno. |
 | `lib/apiAuth.ts` | Guards server/API, rate limit basico, `requirePortalProjectAccess*`, `requireFiscalProjectAccess*`. | APIs nuevas de portal, fiscal o documentos. | Critico: toda API sensible debe validar proyecto/recurso. |
-| `lib/clientPortal.ts` | Contexto portal, validacion de proyecto accesible y calculos de estado de cuenta. | Cambios en dashboard, detalle proyecto, saldos o estados. | Alto: errores aqui afectan todo el portal autenticado. |
+| `lib/clientPortal.ts` | Contexto portal (`supabase` = sesion para tablas self; `db` = service role para tablas de negocio), validacion de proyecto accesible y calculos de estado de cuenta. | Cambios en dashboard, detalle proyecto, saldos o estados. | Alto: errores aqui afectan todo el portal autenticado; `db` sin filtro por cliente/proyecto expone datos ajenos. |
 | `lib/publicDocumentLinks.ts` | Crea o reutiliza tokens publicos con expiracion por tipo. | Nuevos tipos de documento o reglas de expiracion. | Critico: no crear tokens sin identidad de recurso y proyecto. |
 | `lib/publicDocuments.ts` | Lee token, valida expiracion/revocacion y registra auditoria. | Cambios de seguridad, auditoria o eventos de acceso. | Critico: rutas publicas dependen de este helper. |
 | `app/portal/page.tsx` | Dashboard cliente con proyectos, garantias, saldos y servicios. | Nuevas tarjetas/resumenes del portal. | Alto: filtrar por cliente y proyectos asignados. |
@@ -162,6 +162,11 @@ Confirmado desde migraciones y codigo. Si se necesita el esquema completo, consu
 - Cotizaciones publicas deben estar aprobadas y enlazadas por `quote_groups.approved_quote_id`.
 - Si se toca storage privado, mantener URLs firmadas de corta duracion y no persistir signed URLs como fuente de verdad.
 - No usar service role en rutas cliente salvo que el handler haga validaciones estrictas de alcance.
+- **RLS de tablas de negocio (2026-10-01):** las menciones de "RLS vigente en `20260615`" de este documento describen el **sandbox**. En produccion esas tablas siguen con `beta_authenticated_*` = `true`. Las migraciones propuestas `sql/20261001e_*` (P1) y `sql/20261001f_*` (P2) las dejan solo internas, y el portal ya no las lee con la sesion:
+  - `ctx.supabase` (sesion) queda para auth y tablas "self": `client_portal_users`, `client_portal_project_access`, `contractor_portal_users` y `contractor_signed_agreements`.
+  - `ctx.db` (service role) es para todo lo demas, siempre filtrando por `portalUser.client_id`, por los proyectos asignados o por `portalUser.contractor_id`.
+  - Lecturas nuevas del portal: usar `ctx.db` con select explicito, nunca una policy de fila para `client`/`contractor` (expone todas las columnas via PostgREST).
+  - Detalle e inventario en [`../../ai/SECURITY_RULES.md`](../../ai/SECURITY_RULES.md).
 
 ## Archivos Que Suelen Cambiar Juntos
 
@@ -212,6 +217,9 @@ Confirmado desde migraciones y codigo. Si se necesita el esquema completo, consu
 - Cambios de storage pueden romper imagenes/evidencias del portal, PDF de entregas/garantias y otros flujos que dependen de `project-photos`.
 
 ## Pendientes De Confirmar
+
+- **Drift detectado 2026-10-01:** `sql/20260615_critical_rls_hardening.sql` NO esta aplicado en produccion, solo en sandbox. Las menciones de "RLS vigente en 20260615" de este documento describen el sandbox. En produccion, `clients`, `client_projects`, `project_invoices`, `project_payments`, `public_document_links` y unas 50 tablas mas siguen con `beta_authenticated_*` = `true`. Ver [`../../ai/SECURITY_RULES.md`](../../ai/SECURITY_RULES.md).
+- Cotizacion autorizada en `app/portal/projects/[id]/page.tsx`: se lee con service role porque `quotes` pasara a ser solo interna (`sql/20261001_quotes_rls_internal_only.sql`).
 
 - Esquema completo base de `client_projects`.
 - RLS real en produccion para `project_deliveries` y `project_warranties`.

@@ -98,26 +98,34 @@ create unique index if not exists inventory_movements_project_event_key
   on public.inventory_movements(project_purchase_event_id)
   where project_purchase_event_id is not null;
 
--- RLS: lectura para usuarios autenticados; sin policies de escritura.
+-- RLS: lectura solo para usuarios internos; sin policies de escritura (las
+-- escrituras van por service_role desde el servidor). Clientes y contratistas
+-- tambien son `authenticated`, por eso la policy filtra con is_internal_user():
+-- el almacen trae costos promedio, proveedores y proyectos de otros clientes.
 alter table public.inventory_items enable row level security;
 alter table public.inventory_movements enable row level security;
 
 drop policy if exists beta_authenticated_select on public.inventory_items;
-create policy beta_authenticated_select
+drop policy if exists inventory_items_internal_select on public.inventory_items;
+create policy inventory_items_internal_select
 on public.inventory_items
 for select
 to authenticated
-using (true);
+using (public.is_internal_user());
 
 drop policy if exists beta_authenticated_select on public.inventory_movements;
-create policy beta_authenticated_select
+drop policy if exists inventory_movements_internal_select on public.inventory_movements;
+create policy inventory_movements_internal_select
 on public.inventory_movements
 for select
 to authenticated
-using (true);
+using (public.is_internal_user());
 
-revoke all on public.inventory_items from anon;
-revoke all on public.inventory_movements from anon;
+-- TRUNCATE/REFERENCES/TRIGGER no pasan por RLS: solo SELECT al rol authenticated.
+revoke all on public.inventory_items from anon, authenticated;
+revoke all on public.inventory_movements from anon, authenticated;
+grant select on public.inventory_items to authenticated;
+grant select on public.inventory_movements to authenticated;
 
 -- Vista de existencias (respeta RLS del llamante).
 create or replace view public.inventory_v_stock
@@ -138,7 +146,7 @@ select
 from public.inventory_items i
 join public.products p on p.id = i.product_id;
 
-revoke all on public.inventory_v_stock from anon;
+revoke all on public.inventory_v_stock from anon, authenticated;
 grant select on public.inventory_v_stock to authenticated;
 
 -- Item por producto + ubicacion (crea si no existe) y lo bloquea.

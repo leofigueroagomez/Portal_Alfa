@@ -107,7 +107,7 @@ export default async function PortalServiceDetailPage({
     }
 
     const { service, photos: rawPhotos } = await getAccessibleContractorService(
-      contractorCtx.supabase,
+      contractorCtx.db,
       contractorCtx.portalUser.contractor_id,
       serviceId
     );
@@ -116,7 +116,7 @@ export default async function PortalServiceDetailPage({
       rawPhotos.map(async (photo) => ({
         ...photo,
         displayUrl: await resolveServicePhotoUrl(
-          contractorCtx.supabase.storage,
+          contractorCtx.db.storage,
           photo.image_url
         ),
       }))
@@ -137,9 +137,12 @@ export default async function PortalServiceDetailPage({
     notFound();
   }
 
-  const { supabase, portalUser } = clientCtx;
+  const { supabase, db, portalUser } = clientCtx;
+  // service_role (db): service_reports, project_invoices y service_report_photos
+  // son solo internas por RLS. Se filtra por portalUser.client_id y se valida el
+  // proyecto contra client_portal_project_access (sesion) antes de leer el resto.
   const [{ data: service }, { data: accessRows }] = await Promise.all([
-    supabase
+    db
       .from("service_reports")
       .select(
         "id, service_number, client_id, client_project_id, service_date, performed_by_name, solution_description, recommendations, required_parts_notes, status, labor_sale_mxn, client_projects(name)"
@@ -169,14 +172,14 @@ export default async function PortalServiceDetailPage({
   }
 
   const [{ data: invoices }, { data: rawPhotos }] = await Promise.all([
-    supabase
+    db
       .from("project_invoices")
       .select("id, internal_folio, invoice_date, total_mxn, total, status, sat_uuid, source_service_report_id")
       .eq("source_service_report_id", serviceId)
       .in("status", ["issued", "paid"])
       .order("invoice_date", { ascending: false })
       .order("created_at", { ascending: false }),
-    supabase
+    db
       .from("service_report_photos")
       .select("id, image_url, caption, sort_order")
       .eq("service_report_id", serviceId)
@@ -190,7 +193,7 @@ export default async function PortalServiceDetailPage({
   const photos = await Promise.all(
     ((rawPhotos || []) as Omit<ServicePhoto, "displayUrl">[]).map(async (photo) => ({
       ...photo,
-      displayUrl: await resolveServicePhotoUrl(supabase.storage, photo.image_url),
+      displayUrl: await resolveServicePhotoUrl(db.storage, photo.image_url),
     }))
   );
 

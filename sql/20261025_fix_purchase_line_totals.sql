@@ -40,6 +40,9 @@
 -- create table if not exists public.bkp_20261025_purchase_line_totals as
 --   select id, total_purchased_cost, total_pending_cost, updated_at
 --   from public.project_purchase_lines;
+-- -- Sin esto la tabla queda expuesta por PostgREST (default privileges):
+-- alter table public.bkp_20261025_purchase_line_totals enable row level security;
+-- revoke all on public.bkp_20261025_purchase_line_totals from anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Calculo compartido por ambas secciones

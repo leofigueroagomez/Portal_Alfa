@@ -84,7 +84,9 @@ Confirmado por SQL:
 
 Estado por entorno: Sprint 1 esta aplicado y validado en sandbox `pkqwlvqosooewbejbktx`; produccion sigue pendiente y no debe consumir este backend hasta aplicar y validar primero el esquema.
 
-Pendiente de confirmar: migracion base completa de `quotes`, constraints, defaults originales, triggers y RLS final en produccion.
+Pendiente de confirmar: migracion base completa de `quotes`, constraints, defaults originales y triggers.
+
+RLS en produccion (auditado 2026-10-01): `quotes` y sus tablas hijas siguen con `beta_authenticated_*` = `true`, asi que cualquier usuario autenticado, incluidos portal y contratistas, puede leerlas y escribirlas. Hay una propuesta lista, no aplicada: `sql/20261001_quotes_rls_internal_only.sql`, que deja todo con `is_internal_user()`, sin policy de portal. Su rollback esta en `sql/20261001_quotes_rls_internal_only_rollback.sql`. El portal y los documentos publicos leen cotizaciones solo con service role despues de validar proyecto o token. Detalle en [`../../ai/SECURITY_RULES.md`](../../ai/SECURITY_RULES.md).
 
 ### `quote_groups`
 

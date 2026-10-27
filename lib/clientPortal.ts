@@ -5,6 +5,7 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { addMonthsToMexicoDate } from "@/lib/mexicoDate";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { getCurrentUserProfile } from "@/services/profile";
+import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 
 export type ClientPortalUser = {
   id: number;
@@ -23,7 +24,15 @@ export type ClientPortalProject = {
 };
 
 export type ClientPortalContext = {
+  /** Sesion del usuario: solo auth y tablas "self" (client_portal_users, client_portal_project_access). */
   supabase: SupabaseClient;
+  /**
+   * service_role: las tablas de negocio (clients, client_projects, project_*,
+   * service_*) son solo internas por RLS (sql/20261001e_rls_internal_only_p1_fiscal_pii.sql).
+   * Usar solo despues de validar acceso, filtrando SIEMPRE por
+   * portalUser.client_id o por proyectos validados, con select explicito.
+   */
+  db: SupabaseClient;
   user: User;
   portalUser: ClientPortalUser;
 };
@@ -57,6 +66,7 @@ export async function findClientPortalContext(): Promise<ClientPortalContext | n
 
   return {
     supabase,
+    db: createSupabaseAdminClient(),
     user,
     portalUser: portalUser as ClientPortalUser,
   };
@@ -87,7 +97,9 @@ export async function getAccessibleClientProject(
     notFound();
   }
 
-  const { data: project, error: projectError } = await supabase
+  // service_role: client_projects es solo interna por RLS. El acceso ya se
+  // valido arriba con la sesion y se filtra por client_id del usuario portal.
+  const { data: project, error: projectError } = await createSupabaseAdminClient()
     .from("client_projects")
     .select("id, client_id, name, sales_stage, estimated_value_mxn, expected_close_date")
     .eq("id", projectId)

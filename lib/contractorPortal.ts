@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { getCurrentUserProfile } from "@/services/profile";
+import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 
 export type ContractorPortalUser = {
   id: number;
@@ -86,7 +87,12 @@ export async function getContractorPortalContext() {
     return null;
   }
 
-  const { data: contractor } = await supabase
+  // service_role: contractors, service_reports, work_orders, clients y
+  // client_projects son solo internas por RLS (sql/20261001e_rls_internal_only_p1_fiscal_pii.sql).
+  // `db` solo se usa filtrando por portalUser.contractor_id ya validado.
+  const db = createSupabaseAdminClient();
+
+  const { data: contractor } = await db
     .from("contractors")
     .select("id, name, phone, email, specialty")
     .eq("id", portalUser.contractor_id)
@@ -94,6 +100,7 @@ export async function getContractorPortalContext() {
 
   return {
     supabase,
+    db,
     user,
     portalUser: portalUser as ContractorPortalUser,
     contractor: contractor as ContractorInfo | null,
@@ -124,12 +131,14 @@ export async function getContractorSignedAgreement(
   return data as ContractorSignedAgreement | null;
 }
 
+// `db` debe ser el cliente service_role del contexto contratista; el filtro por
+// contractor_id es la unica barrera de acceso.
 export async function getAccessibleContractorService(
-  supabase: SupabaseClient,
+  db: SupabaseClient,
   contractorId: number,
   serviceId: number
 ) {
-  const { data: service, error } = await supabase
+  const { data: service, error } = await db
     .from("service_reports")
     .select(
       `
@@ -167,7 +176,7 @@ export async function getAccessibleContractorService(
     notFound();
   }
 
-  const { data: photos } = await supabase
+  const { data: photos } = await db
     .from("service_report_photos")
     .select("id, image_url, caption, sort_order")
     .eq("service_report_id", serviceId)

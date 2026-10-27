@@ -127,7 +127,7 @@ export default async function PortalPage() {
   // 1. Check if logged in as a Subcontractor
   const contractorCtx = await getContractorPortalContext();
   if (contractorCtx) {
-    const { supabase, portalUser, contractor, user } = contractorCtx;
+    const { supabase, db, portalUser, contractor, user } = contractorCtx;
 
     // Bloqueo de Onboarding: Requerir firma de NDA y Responsiva Laboral
     const signedAgreement = await getContractorSignedAgreement(
@@ -140,8 +140,9 @@ export default async function PortalPage() {
       redirect("/portal/contractor-agreement");
     }
 
+    // service_role (db): filtrado por el contractor_id validado en el contexto.
     const [{ data: services }, { data: workOrders }] = await Promise.all([
-      supabase
+      db
         .from("service_reports")
         .select(
           `
@@ -169,7 +170,7 @@ export default async function PortalPage() {
         .eq("contractor_id", portalUser.contractor_id)
         .order("service_date", { ascending: false })
         .order("created_at", { ascending: false }),
-      supabase
+      db
         .from("work_orders")
         .select(
           `
@@ -409,11 +410,14 @@ export default async function PortalPage() {
     );
   }
 
-  const { supabase, portalUser } = clientCtx;
+  const { supabase, db, portalUser } = clientCtx;
 
+  // Tablas de negocio con service_role (db), siempre filtradas por
+  // portalUser.client_id o por los proyectos asignados (projectIds), que se
+  // leen con la sesion desde client_portal_project_access.
   const [{ data: client }, { data: accessRows, error: accessError }] =
     await Promise.all([
-      supabase
+      db
         .from("clients")
         .select("id, name")
         .eq("id", portalUser.client_id)
@@ -455,7 +459,7 @@ export default async function PortalPage() {
     { data: services },
   ] = await Promise.all([
     projectIds.length
-      ? supabase
+      ? db
           .from("client_projects")
           .select("id, client_id, name, sales_stage, estimated_value_mxn, expected_close_date")
           .eq("client_id", portalUser.client_id)
@@ -463,7 +467,7 @@ export default async function PortalPage() {
           .order("updated_at", { ascending: false })
       : Promise.resolve({ data: [] }),
     projectIds.length
-      ? supabase
+      ? db
           .from("project_deliveries")
           .select("client_project_id, delivery_date")
           .in("client_project_id", projectIds)
@@ -472,7 +476,7 @@ export default async function PortalPage() {
           .order("created_at", { ascending: false })
       : Promise.resolve({ data: [] }),
     projectIds.length
-      ? supabase
+      ? db
           .from("project_warranties")
           .select(
             "client_project_id, installation_warranty_end_date, equipment_warranty_end_date, preventive_maintenance_frequency_months"
@@ -483,21 +487,21 @@ export default async function PortalPage() {
           .order("created_at", { ascending: false })
       : Promise.resolve({ data: [] }),
     projectIds.length
-      ? supabase
+      ? db
           .from("project_invoices")
           .select("id, internal_folio, invoice_date, total_mxn, total, status, sat_uuid, client_project_id")
           .in("client_project_id", projectIds)
           .in("status", ["issued", "paid"])
       : Promise.resolve({ data: [] }),
     projectIds.length
-      ? supabase
+      ? db
           .from("project_payments")
           .select(
             "id, payment_date, payment_method, payment_reference, currency, amount, amount_mxn, exchange_rate, notes, client_project_id"
           )
           .in("client_project_id", projectIds)
       : Promise.resolve({ data: [] }),
-    supabase
+    db
       .from("service_reports")
       .select("id, service_number, client_project_id, service_date, solution_description, status, labor_sale_mxn")
       .eq("client_id", portalUser.client_id)
@@ -519,7 +523,7 @@ export default async function PortalPage() {
     (service) => !service.client_project_id || projectIds.includes(service.client_project_id)
   );
   const { data: serviceInvoices } = serviceList.length
-    ? await supabase
+    ? await db
         .from("project_invoices")
         .select("source_service_report_id, total_mxn, total, status")
         .in(
