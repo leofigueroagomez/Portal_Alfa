@@ -198,6 +198,21 @@ Uso confirmado desde Portal Cliente y facturacion:
 
 Ver contrato fiscal completo en [`../facturacion/MODULE_CONTEXT.md`](../facturacion/MODULE_CONTEXT.md).
 
+### `project_purchase_lines` / `project_purchase_events` (moneda de los totales)
+
+Desde 2026-10-25 (fix de moneda mezclada):
+
+- `total_purchased_cost` esta en la moneda de la **linea** (`cost_currency`). Cada evento se convierte antes de sumar: MXN -> USD divide entre `project_purchase_events.exchange_rate`; USD -> MXN multiplica. Si el evento no trae TC (las compras en MXN y los consumos de almacen nunca lo guardan) se usa el TC de referencia `project_operational_items.exchange_rate` de la partida ligada, el mismo que usa `getPurchaseLineVariation`. Sin TC de referencia el evento queda fuera de ese total.
+- `total_purchased_cost_mxn` (columna nueva, la crea `sql/20261025_fix_purchase_line_totals.sql`): cada evento en MXN con su propia moneda y TC. Es el numero exacto cuando la conversion uso TC de referencia.
+- `total_pending_cost`: misma formula de siempre (requerido - cantidad comprada x costo estimado), en moneda de la linea.
+- Unica funcion que reescribe esos totales: `recalculatePurchaseLineTotals(supabase, lineId, options)` en `lib/projectPurchases.ts` (lee linea + todos sus eventos + TC de la partida y recalcula desde cero; la parte pura es `computePurchaseLineTotals`). La usan: registro de compra (`ProjectPurchaseActions.tsx`), edicion (`PATCH /api/projects/[id]/purchases/events/[eventId]`), consumo de almacen (`app/(admin)/inventory/actions.ts`) y el ejecutor Vigia `fusionar_linea_huerfana` (apply y revert). No hay ruta de borrado de eventos; si se agrega, debe llamar esta funcion.
+- Si la columna `total_purchased_cost_mxn` aun no existe, la funcion reintenta el UPDATE sin ella, asi que el codigo puede desplegarse antes que el SQL.
+- Pantallas: `/projects/[id]/purchases` no muestra `total_purchased_cost` (lo real comprado sale de `getPurchaseLineVariation`, en MXN por evento). El director-dashboard ("compras por proveedor") ahora suma los eventos en MXN con `convertPurchaseEventCost` en lugar de `total_purchased_cost x TC`.
+- Vigia: `vigia_v_cst01_purchase_overrun`, `vigia_v_cst05_project_purchase_overrun_total` e `vigia_v_int04_purchase_over_operational` no leen `total_purchased_cost` (CST-01/05 convierten evento por evento; INT-04 solo usa cantidades). No requieren cambio. INT-02 solo lo copia como evidencia.
+- Rentabilidad (`lib/projectProfitability.ts`, decision de Leo 2026-10-25): el costo de equipo (`equipmentPurchaseTotalMxn`) suma `total_purchased_cost_mxn` por linea via `getPurchasedMxnByLine`. Respaldo cuando viene null o la columna aun no existe: lo calcula desde los eventos de la linea con `convertPurchaseEventCost` (misma conversion). Ya no lee `total_purchased_cost`, que esta en moneda de la linea. Si una compra en USD no tiene ningun TC queda fuera y se agrega un aviso en `warnings`. Antes sumaba `total_purchased_cost` como si fuera MXN: las compras en USD se contaban como pesos. Impacto medido en prod al cambiar: solo Sauces 21 (+3,522.27 MXN) y Genki Poke (+1,175.64 MXN); el resto queda igual antes y despues del SQL. Los reportes ya guardados en `project_profitability_reports` no se recalculan solos.
+- Pendiente: el ejecutor Vigia `recalcular_lineas_de_compra` (INT-09) puede cambiar `cost_currency` de una linea sin recalcular `total_purchased_cost`.
+- Prueba: `npm run test:purchases` (`tests/projectPurchasesCurrency.test.ts`: USD con evento MXN, MXN con evento USD, sin TC, reintento sin columna, y rentabilidad con columna guardada / null / inexistente / USD sin TC).
+
 ### Estimado de compra = presupuesto cotizado prorrateado (2026-10-25)
 
 Antes, sustituir un producto o cambiar una cantidad en Traduccion tecnica sobrescribia `unit_cost` y `total_required_cost` de la linea de compra con el costo del producto nuevo, y se perdia lo cotizado. Ahora:
@@ -222,6 +237,10 @@ Ver contrato completo en [`../cotizaciones/MODULE_CONTEXT.md`](../cotizaciones/M
 
 ## Reglas De Visibilidad Y Seguridad
 
+- Auditoria 2026-09-16: despacho/correo de garantia exige `requireWorkOrderRole`; la consulta comprueba garantia y proyecto antes de generar enlaces publicos o leer resumen financiero privilegiado. Los textos variables del correo de garantia se escapan como HTML. Cambios locales pendientes de sandbox/despliegue; ver [informe](../../audits/2026-09-16-security-audit.md).
+
+- Auditoria 2026-09-16: las dos acciones de `work-orders/actions.ts` exigen perfil interno activo y `canManageWorkOrders`; la reasignacion valida ID de orden y proyecto juntos y rechaza cero coincidencias. `deliveries/[deliveryId]/actions.ts` exige `requireWorkOrderRole` tanto para preview como envio antes de consultas, tokens, PDFs o correo. Pruebas aisladas incluidas en `tests/securityAuth.test.mjs`.
+- Auditoria 2026-09-16: todas las acciones exportadas de `app/(admin)/projects/[id]/contract/actions.ts`, incluido `getContractDispatchContext`, exigen perfil interno activo y `canApproveQuotes` (`admin`, `direccion`, `comercial`) antes de leer o escribir con service role. Prueba aislada: `node --test tests/securityAuth.test.mjs`. La matriz de quienes pueden firmar en representacion de ALFA sigue pendiente de revision operativa; este cambio reutiliza el permiso comercial existente. Cambios locales pendientes de sandbox y despliegue.
 - Admin interno accede a `/projects` por proteccion general de `proxy.ts`.
 - Portal Cliente accede a `/portal/projects/[id]` solo con `client_portal_users.is_active = true`, `client_portal_project_access.is_active = true` y `client_projects.client_id = portalUser.client_id`.
 - No basta con recibir `projectId` por URL; las rutas deben validar pertenencia por `client_id`, `client_project_id` o acceso portal.
@@ -327,3 +346,4 @@ Ver contrato completo en [`../cotizaciones/MODULE_CONTEXT.md`](../cotizaciones/M
 - [`../servicios-postventa/MODULE_CONTEXT.md`](../servicios-postventa/MODULE_CONTEXT.md)
 - [`../cotizaciones/MODULE_CONTEXT.md`](../cotizaciones/MODULE_CONTEXT.md)
 - [`../facturacion/MODULE_CONTEXT.md`](../facturacion/MODULE_CONTEXT.md)
+- [`../inventario/MODULE_CONTEXT.md`](../inventario/MODULE_CONTEXT.md) — sobrantes de compras a almacen y consumo de almacen desde `/projects/[id]/purchases`.

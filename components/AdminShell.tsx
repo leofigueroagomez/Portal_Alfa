@@ -23,6 +23,7 @@ import {
   SlidersHorizontal,
   Users,
   UserCog,
+  Warehouse,
   Wrench,
   X,
   type LucideIcon,
@@ -33,6 +34,7 @@ import type { UserProfile } from "@/services/profile";
 import {
   canManageContractors,
   canManageProductTaxonomy,
+  canManagePurchases,
   canManageServices,
   canViewFinancials,
   canManageUsers,
@@ -110,6 +112,12 @@ export default function AdminShell({
   const operationsItems: NavLink[] = [
     { href: "/vigia", label: "El Vigía", icon: Radar },
     { href: "/projects", label: "Proyectos", icon: FolderOpen },
+    {
+      href: "/inventory",
+      label: "Almacén",
+      icon: Warehouse,
+      visible: canManagePurchases(role),
+    },
     { href: "/post-sale", label: "Postventa", icon: Handshake },
     {
       href: "/contractors",

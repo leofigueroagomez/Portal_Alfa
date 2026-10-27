@@ -26,6 +26,7 @@ Pendiente de confirmar: version exacta desplegada en produccion y variables acti
 - Portal cliente: `app/portal/`, `app/(client)/`, `lib/clientPortal.ts`.
 - Proyectos y operaciones: `app/(admin)/projects/`, `lib/project*`.
 - Servicios: `app/(admin)/services/`, `app/portal/services/`.
+- Inventario/Almacen: `app/(admin)/inventory/`, `lib/inventory*.ts`; ver [`../modules/inventario/MODULE_CONTEXT.md`](../modules/inventario/MODULE_CONTEXT.md).
 - Compras, contratistas y productos: `app/(admin)/contractors/`, `app/(admin)/products/`, librerias relacionadas.
 - Leads, landing publica y documentos publicos: `app/page.tsx`, `app/public/`, `app/(admin)/leads/`.
 - Usuarios, roles y seguridad: `proxy.ts`, `services/profile.ts`, `lib/permissions.ts`, `lib/apiAuth.ts`.

@@ -1,9 +1,16 @@
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Warehouse } from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { getCurrentInternalUserProfile } from "@/services/profile";
 import { formatCurrency, formatNumber } from "@/lib/format";
-import { normalizeRole } from "@/lib/permissions";
+import { canManagePurchases, normalizeRole } from "@/lib/permissions";
+import {
+  getInventoryGeneratedPurchaseEventIds,
+  getInventoryStockByProduct,
+  getLeftoverQuantityByPurchaseEvent,
+  type InventoryStockRow,
+} from "@/lib/inventory";
+import { getPurchaseEventUnitCostMxn } from "@/lib/inventoryContract";
 import { syncProjectOperationalItems } from "@/lib/projectOperationalItems";
 import {
   getPurchaseBudgetEstimate,
@@ -21,6 +28,10 @@ import ProjectPurchaseActions, {
   WarehouseEventActions,
 } from "./ProjectPurchaseActions";
 import RecalculatePurchaseLinesButton from "./RecalculatePurchaseLinesButton";
+import {
+  ConsumeFromInventoryButton,
+  LeftoverToInventoryButton,
+} from "./InventoryPurchaseActions";
 
 type ClientProject = {
   id: number;
@@ -217,6 +228,7 @@ export default async function ProjectPurchasesPage({
   const profile = await getCurrentInternalUserProfile();
   const currentRole = normalizeRole(profile?.role);
   const canEditPurchaseEvents = currentRole === "admin";
+  const canManageInventory = canManagePurchases(currentRole);
 
   const { data: project, error } = await supabase
     .from("client_projects")
@@ -432,7 +444,6 @@ export default async function ProjectPurchasesPage({
         const unitCost = estimate.unit_cost;
         const totalRequiredCost = estimate.total_required_cost;
 
-
         return {
           client_project_id: projectData.id,
           quote_item_id: item.source_quote_item_id,
@@ -530,7 +541,6 @@ export default async function ProjectPurchasesPage({
     return Number(equipmentTotalByQuoteItem.get(line.quote_item_id) || 0) * exchangeRate;
   }
 
-
   const lineIds = lines.map((line) => line.id);
   const { data: rawEvents } =
     !purchaseSqlError && lineIds.length > 0
@@ -550,6 +560,30 @@ export default async function ProjectPurchasesPage({
     const existing = eventsByLine.get(eventItem.project_purchase_line_id) || [];
     eventsByLine.set(eventItem.project_purchase_line_id, [...existing, eventItem]);
   });
+
+  // Almacen: existencias por producto, sobrantes ya registrados por evento y
+  // eventos generados por consumo de almacen. Si la migracion de inventario no
+  // esta aplicada, la vista de compras sigue funcionando sin estas acciones.
+  let inventoryStockByProduct = new Map<number, InventoryStockRow[]>();
+  let leftoverByEvent = new Map<number, number>();
+  let inventoryGeneratedEventIds = new Set<number>();
+  if (canManageInventory && !purchaseSqlError) {
+    try {
+      const lineProductIds = Array.from(
+        new Set(lines.map((line) => line.product_id).filter(Boolean) as number[])
+      );
+      const eventIds = events.map((eventItem) => eventItem.id);
+      [inventoryStockByProduct, leftoverByEvent, inventoryGeneratedEventIds] =
+        await Promise.all([
+          getInventoryStockByProduct(supabase, lineProductIds),
+          getLeftoverQuantityByPurchaseEvent(supabase, eventIds),
+          getInventoryGeneratedPurchaseEventIds(supabase, eventIds),
+        ]);
+    } catch (inventoryError) {
+      console.warn("[purchases] inventario no disponible", inventoryError);
+    }
+  }
+  const productIdByLineId = new Map(lines.map((line) => [line.id, line.product_id]));
 
   const totalsByCurrency = summarizePurchaseTotalsByCurrency(lines);
   const pendingBySupplier = summarizePendingBySupplier(lines);
@@ -733,6 +767,15 @@ export default async function ProjectPurchasesPage({
         </div>
 
         <div className="flex flex-wrap gap-3 xl:justify-end">
+          {canManageInventory ? (
+            <Link
+              href="/inventory"
+              className="inline-flex w-fit items-center gap-2 rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-2.5 text-sm font-semibold text-[#E5E5EA] hover:text-white"
+            >
+              <Warehouse size={18} />
+              Almacén
+            </Link>
+          ) : null}
           <RecalculatePurchaseLinesButton projectId={projectData.id} />
           <ProjectPurchaseActions lines={actionLines} events={actionEvents} />
         </div>
@@ -845,6 +888,20 @@ export default async function ProjectPurchasesPage({
                       Number(line.quantity_purchased || 0),
                     0
                   );
+                  const consumableStock = representative.product_id
+                    ? inventoryStockByProduct.get(representative.product_id) || []
+                    : [];
+                  const consumableLines = line.childLines
+                    .map((childLine) => ({
+                      id: childLine.id,
+                      label: childLine.system_name || `Linea #${childLine.id}`,
+                      pendingQuantity: Math.max(
+                        Number(childLine.quantity_required || 0) -
+                          Number(childLine.quantity_purchased || 0),
+                        0
+                      ),
+                    }))
+                    .filter((childLine) => childLine.pendingQuantity > 0);
                   const variationIsVisible =
                     line.variation.status !== "no_purchases" &&
                     line.variation.status !== "missing_exchange_rate";
@@ -974,6 +1031,15 @@ export default async function ProjectPurchasesPage({
                             triggerLineId={line.actionLine.id}
                             triggerLabel="Comprar"
                           />
+                          {canManageInventory &&
+                          consumableStock.length > 0 &&
+                          consumableLines.length > 0 ? (
+                            <ConsumeFromInventoryButton
+                              projectId={projectData.id}
+                              lines={consumableLines}
+                              stock={consumableStock}
+                            />
+                          ) : null}
                           {line.events.length > 0 ? (
                             <details className="rounded-lg border border-[#2A2A30] bg-[#101114] px-2 py-1">
                               <summary className="cursor-pointer text-[11px] font-semibold text-[#B3B3B8]">
@@ -1003,6 +1069,9 @@ export default async function ProjectPurchasesPage({
                                       {eventItem.invoice_reference || "Sin referencia"} -{" "}
                                       {getWarehouseLabel(eventItem.warehouse_status)}
                                     </p>
+                                    {inventoryGeneratedEventIds.has(eventItem.id) ? (
+                                      <p className="text-[#AFCBFF]">Salió del almacén</p>
+                                    ) : null}
                                     <div className="mt-2">
                                       <div className="flex flex-wrap gap-2">
                                         <WarehouseEventActions
@@ -1010,7 +1079,23 @@ export default async function ProjectPurchasesPage({
                                           lineId={eventItem.project_purchase_line_id}
                                           currentStatus={eventItem.warehouse_status}
                                         />
-                                        {canEditPurchaseEvents ? (
+                                        {canManageInventory &&
+                                        !inventoryGeneratedEventIds.has(eventItem.id) &&
+                                        productIdByLineId.get(
+                                          eventItem.project_purchase_line_id
+                                        ) ? (
+                                          <LeftoverToInventoryButton
+                                            projectId={projectData.id}
+                                            purchaseEventId={eventItem.id}
+                                            chargedQuantity={Number(eventItem.quantity || 0)}
+                                            unitCostMxn={getPurchaseEventUnitCostMxn(eventItem)}
+                                            alreadyInWarehouse={
+                                              leftoverByEvent.get(eventItem.id) || 0
+                                            }
+                                          />
+                                        ) : null}
+                                        {canEditPurchaseEvents &&
+                                        !inventoryGeneratedEventIds.has(eventItem.id) ? (
                                           <EditPurchaseEventAction
                                             projectId={projectData.id}
                                             event={eventItem}

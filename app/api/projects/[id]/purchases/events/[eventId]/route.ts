@@ -7,6 +7,7 @@ import {
   requireInternalUser,
 } from "@/lib/apiAuth";
 import { normalizeRole } from "@/lib/permissions";
+import { recalculatePurchaseLineTotals } from "@/lib/projectPurchases";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
@@ -15,30 +16,7 @@ type PurchaseLineForRecalculation = {
   id: number;
   client_project_id: number;
   supplier: string | null;
-  quantity_required: number | null;
-  unit_cost: number | null;
-  total_required_cost: number | null;
 };
-
-type PurchaseEventForRecalculation = {
-  quantity: number | null;
-  unit_cost: number | null;
-  supplier: string | null;
-};
-
-function getStatus(quantityPurchased: number, quantityRequired: number) {
-  if (quantityPurchased <= 0) return "pending";
-  if (quantityPurchased >= quantityRequired) return "purchased";
-  return "partial";
-}
-
-function getEstimatedUnitCost(line: PurchaseLineForRecalculation) {
-  const quantityRequired = Number(line.quantity_required || 0);
-
-  return quantityRequired > 0
-    ? Number(line.total_required_cost || 0) / quantityRequired
-    : Number(line.unit_cost || 0);
-}
 
 export async function PATCH(
   request: Request,
@@ -108,10 +86,31 @@ export async function PATCH(
       return NextResponse.json({ error: "Compra no encontrada." }, { status: 404 });
     }
 
+    // Un consumo de almacen se corrige con un ajuste en /inventory, no editando
+    // el evento (desalinearia existencias y costo). Si la tabla aun no existe,
+    // el error se ignora y la edicion sigue como antes.
+    const { data: inventoryMovement, error: inventoryReadError } = await supabase
+      .from("inventory_movements")
+      .select("id")
+      .eq("project_purchase_event_id", purchaseEventId)
+      .maybeSingle();
+
+    if (!inventoryReadError && inventoryMovement) {
+      return NextResponse.json(
+        {
+          error:
+            "Esta compra salio del almacen (movimiento #" +
+            inventoryMovement.id +
+            "). Corrigela con un ajuste de inventario.",
+        },
+        { status: 409 }
+      );
+    }
+
     const lineId = Number(purchaseEvent.project_purchase_line_id);
     const { data: lineData, error: lineReadError } = await supabase
       .from("project_purchase_lines")
-      .select("id, client_project_id, supplier, quantity_required, unit_cost, total_required_cost")
+      .select("id, client_project_id, supplier")
       .eq("id", lineId)
       .maybeSingle();
 
@@ -140,46 +139,7 @@ export async function PATCH(
 
     if (updateEventError) throw updateEventError;
 
-    const { data: lineEventsData, error: eventsReadError } = await supabase
-      .from("project_purchase_events")
-      .select("quantity, unit_cost, supplier")
-      .eq("project_purchase_line_id", line.id);
-
-    if (eventsReadError) throw eventsReadError;
-
-    const lineEvents = (lineEventsData || []) as PurchaseEventForRecalculation[];
-    const quantityPurchased = lineEvents.reduce(
-      (sum, eventItem) => sum + Number(eventItem.quantity || 0),
-      0
-    );
-    const totalPurchasedCost = lineEvents.reduce(
-      (sum, eventItem) =>
-        sum + Number(eventItem.quantity || 0) * Number(eventItem.unit_cost || 0),
-      0
-    );
-    const estimatedPurchasedCost = quantityPurchased * getEstimatedUnitCost(line);
-    const totalPendingCost = Math.max(
-      Number(line.total_required_cost || 0) - estimatedPurchasedCost,
-      0
-    );
-    const nextSupplier =
-      lineEvents.find((eventItem) => eventItem.supplier?.trim())?.supplier ||
-      line.supplier ||
-      null;
-
-    const { error: updateLineError } = await supabase
-      .from("project_purchase_lines")
-      .update({
-        supplier: nextSupplier,
-        quantity_purchased: quantityPurchased,
-        total_purchased_cost: totalPurchasedCost,
-        total_pending_cost: totalPendingCost,
-        purchase_status: getStatus(quantityPurchased, Number(line.quantity_required || 0)),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", line.id);
-
-    if (updateLineError) throw updateLineError;
+    await recalculatePurchaseLineTotals(supabase, line.id, { syncSupplierFromEvents: true });
 
     return NextResponse.json({ ok: true });
   } catch (error) {
