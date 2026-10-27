@@ -1,5 +1,7 @@
 "use client";
 
+import { isSensitiveTrackingPath, sanitizeAttributionReferrer } from "@/lib/routeGate";
+
 export interface AttributionData {
   utm_source?: string;
   utm_medium?: string;
@@ -23,6 +25,12 @@ export function initAttribution(): AttributionData {
   if (typeof window === "undefined") return {};
 
   try {
+    // Nunca guardar rutas con tokens (/public/*, /auth/*, /portal/*, /login).
+    if (isSensitiveTrackingPath(window.location.pathname)) {
+      const raw = sessionStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    }
+
     const searchParams = new URLSearchParams(window.location.search);
     const existingRaw = sessionStorage.getItem(STORAGE_KEY);
     let stored: AttributionData = existingRaw ? JSON.parse(existingRaw) : {};
@@ -49,7 +57,9 @@ export function initAttribution(): AttributionData {
         utm_content: utm_content || stored.utm_content,
         gclid: gclid || stored.gclid,
         fbclid: fbclid || stored.fbclid,
-        referrer: stored.referrer || document.referrer || undefined,
+        referrer:
+          stored.referrer ||
+          sanitizeAttributionReferrer(document.referrer, window.location.origin),
         landing_page: stored.landing_page || window.location.pathname + window.location.search,
         timestamp: stored.timestamp || new Date().toISOString(),
       };

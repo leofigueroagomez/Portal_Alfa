@@ -6,6 +6,7 @@ import {
   parsePositiveInteger,
   requireInternalUser,
 } from "@/lib/apiAuth";
+import { canApproveQuotes } from "@/lib/permissions";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 import { generateProjectContractPdf } from "@/lib/contractPdf";
 
@@ -25,8 +26,11 @@ export async function GET(
   // Esta ruta es solo para uso interno (panel de ALFA, ver ProjectContractCard.tsx).
   // El flujo publico para clientes vive en app/api/public/contracts/[token]/pdf,
   // que valida por token en vez de por rol.
-  const { response: authResponse } = await requireInternalUser();
+  const { profile, response: authResponse } = await requireInternalUser();
   if (authResponse) return authResponse;
+  // El contrato trae RFC, CURP, INE y firmas y se lee con service_role: mismo
+  // permiso que las acciones de contrato (projects/[id]/contract/actions.ts).
+  if (!profile || !canApproveQuotes(profile.role)) return jsonError("Forbidden", 403);
 
   const adminClient = createSupabaseAdminClient();
   const { data: contract, error } = await adminClient

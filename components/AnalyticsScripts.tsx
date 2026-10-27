@@ -1,19 +1,30 @@
 "use client";
 
 import Script from "next/script";
+import { usePathname } from "next/navigation";
 import { useEffect } from "react";
+import { isSensitiveTrackingPath } from "@/lib/routeGate";
 import { initAttribution } from "@/lib/utmTracking";
 
 export default function AnalyticsScripts() {
+  const pathname = usePathname();
   const gtmId = process.env.NEXT_PUBLIC_GTM_ID;
   const gaId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
   const pixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID;
+  // Firmas/documentos por token, auth, portal y login: sin trackers de terceros
+  // ni atribucion (la URL lleva capability tokens o datos del cliente).
+  const isSensitive = isSensitiveTrackingPath(pathname);
 
   useEffect(() => {
-    initAttribution();
-  }, []);
+    if (!isSensitive) initAttribution();
+  }, [isSensitive]);
 
   const googleAdsId = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID;
+
+  // Nota: si el usuario entro por una ruta publica y luego navega en cliente a
+  // una sensible, los scripts ya cargados siguen vivos; el caso de riesgo
+  // (abrir un enlace con token) siempre es carga directa, sin trackers.
+  if (isSensitive) return null;
 
   return (
     <>

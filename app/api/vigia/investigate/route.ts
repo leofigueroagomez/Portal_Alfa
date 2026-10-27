@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isAuthorizedCronRequest } from "@/lib/cronAuth";
 import { normalizeRole } from "@/lib/permissions";
 import { investigateFinding, runAutoInvestigations } from "@/lib/vigia/investigate";
 import { getCurrentInternalUserProfile } from "@/services/profile";
@@ -14,17 +15,13 @@ export const maxDuration = 300;
  *   POST /api/vigia/investigate            { "findingId": 42 }   -> investiga ese hallazgo
  *   POST /api/vigia/investigate?auto=1                            -> corre runAutoInvestigations()
  *
- * Auth: CRON_SECRET (header Bearer o ?key=) para automatizaciones, o sesion
- * interna con rol admin/direccion.
+ * Auth: header `Authorization: Bearer CRON_SECRET` para automatizaciones, o
+ * sesion interna con rol admin/direccion. No acepta ?key=.
  */
 async function authorize(request: Request): Promise<{ ok: boolean; actor: string }> {
-  const cronSecret = process.env.CRON_SECRET;
-  const url = new URL(request.url);
-  const authHeader = request.headers.get("authorization");
-  if (
-    cronSecret &&
-    (authHeader === `Bearer ${cronSecret}` || url.searchParams.get("key") === cronSecret)
-  ) {
+  // Solo header Bearer en tiempo constante (lib/cronAuth.ts). Ya no se acepta
+  // ?key=: no hay ningun llamador externo y el secreto quedaba en logs/historial.
+  if (isAuthorizedCronRequest(request, process.env.CRON_SECRET)) {
     return { ok: true, actor: "cron" };
   }
 

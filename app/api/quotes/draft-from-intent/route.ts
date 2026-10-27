@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getAppBaseUrl } from "@/lib/appUrl";
-import { normalizeRole } from "@/lib/permissions";
+import { isAuthorizedCronRequest } from "@/lib/cronAuth";
+import { canManageQuotes } from "@/lib/permissions";
+import { secretsMatch } from "@/lib/routeGateSecret";
 import { runVoiceDraft } from "@/lib/quotes/voiceDraft";
 import { getCurrentInternalUserProfile } from "@/services/profile";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
@@ -15,8 +17,8 @@ export const maxDuration = 300;
  *   POST /api/quotes/draft-from-intent
  *   body: { "transcript": "cotizacion para Guillermo de 4 camaras Hikvision..." }
  *
- * Auth: QUOTE_VOICE_SECRET / CRON_SECRET (header Bearer o ?key=) para el Atajo
- * de Siri, o sesion interna de ALFA OS.
+ * Auth: QUOTE_VOICE_SECRET (header Bearer, o ?key= solo por el Atajo de Siri),
+ * o sesion interna con rol que arma cotizaciones (canManageQuotes).
  *
  * Respuesta:
  *   { ok, status: "completada", quote_id, url, grand_total_mxn, assumptions, warnings }
@@ -24,21 +26,20 @@ export const maxDuration = 300;
  *   { ok:false, status: "error" | "sin_presupuesto", error }
  */
 async function authorize(request: Request): Promise<{ ok: boolean; actor: string }> {
-  const secret = process.env.QUOTE_VOICE_SECRET || process.env.CRON_SECRET;
-  const url = new URL(request.url);
-  const authHeader = request.headers.get("authorization");
-  if (
-    secret &&
-    (authHeader === `Bearer ${secret}` || url.searchParams.get("key") === secret)
-  ) {
+  // Secreto dedicado del Atajo: ya no cae a CRON_SECRET (ese es solo para crons).
+  const secret = process.env.QUOTE_VOICE_SECRET;
+  if (isAuthorizedCronRequest(request, secret)) {
+    return { ok: true, actor: "voz" };
+  }
+  // El Atajo de Siri documentado (ia-cowork/ideas/idea-IA-20260901-011.md)
+  // manda ?key=. Se conserva por compatibilidad, en tiempo constante; preferir
+  // el header Authorization: Bearer al reconfigurar el Atajo.
+  if (secretsMatch(new URL(request.url).searchParams.get("key"), secret)) {
     return { ok: true, actor: "voz" };
   }
   const profile = await getCurrentInternalUserProfile();
-  if (profile) {
-    const role = normalizeRole(profile.role);
-    if (role !== "client" && role !== "contractor") {
-      return { ok: true, actor: profile.email || profile.full_name || "operador" };
-    }
+  if (profile && canManageQuotes(profile.role)) {
+    return { ok: true, actor: profile.email || profile.full_name || "operador" };
   }
   return { ok: false, actor: "" };
 }

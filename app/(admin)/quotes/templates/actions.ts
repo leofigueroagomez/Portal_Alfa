@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { normalizeRole } from "@/lib/permissions";
+import { canManageQuotes, normalizeRole } from "@/lib/permissions";
 import { buildDraftFromTemplate } from "@/lib/quotes/templates";
 import type { QuoteTemplateInput } from "@/lib/quotes/templates";
 import { getCurrentInternalUserProfile } from "@/services/profile";
@@ -20,6 +20,10 @@ async function checkManageAuth() {
 async function checkUseAuth() {
   const profile = await getCurrentInternalUserProfile();
   if (!profile) throw new Error("No autenticado en ALFA OS.");
+  // Crea una cotizacion con service_role: solo roles que arman cotizaciones.
+  if (!canManageQuotes(profile.role)) {
+    throw new Error("Tu rol no puede crear cotizaciones desde plantillas.");
+  }
   return profile;
 }
 

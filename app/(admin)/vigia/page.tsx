@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { normalizeRole } from "@/lib/permissions";
 import { getCurrentInternalUserProfile } from "@/services/profile";
 import {
   getVigiaAuditLogs,
@@ -22,6 +23,13 @@ export default async function VigiaPage() {
   const profile = await getCurrentInternalUserProfile();
   if (!profile) {
     redirect("/portal");
+  }
+
+  // Mismo gate que sus server actions: las consultas de abajo usan service_role
+  // (margenes, desvios de costo), asi que solo admin/direccion.
+  const role = normalizeRole(profile.role);
+  if (role !== "admin" && role !== "direccion") {
+    redirect("/dashboard");
   }
 
   const [overview, findings, auditLogs] = await Promise.all([

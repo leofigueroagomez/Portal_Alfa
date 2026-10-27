@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ArrowRight, CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
+import { parseInviteLinkType } from "@/lib/routeGate";
 import { supabase } from "@/services/supabase";
 
 type InviteState =
@@ -43,18 +44,24 @@ export default function AcceptInvitePage() {
 
   useEffect(() => {
     let isMounted = true;
+    // true cuando Supabase consumió un enlace de recuperación en esta carga
+    // (evento PASSWORD_RECOVERY); evita marcar "invalid" después.
+    let recoveryConsumed = false;
 
     async function acceptInviteSession() {
       try {
         const hashParams = getHashParams();
         const searchParams = getSearchParams();
 
-        // Extraer parámetros de hash o query
-        const accessToken = hashParams.get("access_token") || searchParams.get("access_token");
-        const refreshToken = hashParams.get("refresh_token") || searchParams.get("refresh_token");
+        // Extraer parámetros. Los tokens de sesión solo se aceptan del hash
+        // (así los redirige Supabase); nunca de la query, que queda en logs.
+        const accessToken = hashParams.get("access_token");
+        const refreshToken = hashParams.get("refresh_token");
         const code = searchParams.get("code");
         const tokenHash = searchParams.get("token_hash") || searchParams.get("token");
-        const type = searchParams.get("type") || hashParams.get("type") || "invite";
+        const rawType = searchParams.get("type") || hashParams.get("type");
+        // Solo los tipos que genera ALFA: invite, recovery y magiclink.
+        const linkType = parseInviteLinkType(rawType);
         const errorDesc = hashParams.get("error_description") || searchParams.get("error_description");
 
         // 1. Si Supabase devolvió un error explícito en el hash
@@ -67,11 +74,20 @@ export default function AcceptInvitePage() {
           return;
         }
 
+        if (rawType && !linkType) {
+          if (isMounted) {
+            setMessage("Este tipo de enlace no es válido para activar una cuenta.");
+            setState("invalid");
+          }
+          return;
+        }
+
         // 2. Si viene el token_hash directo (Enlace protegido contra robots de WhatsApp)
         if (tokenHash) {
           const { data, error } = await supabase.auth.verifyOtp({
             token_hash: tokenHash,
-            type: (type as any) || "invite",
+            // Sin type se asume invite; Supabase valida que coincida con el token.
+            type: linkType ?? "invite",
           });
 
           if (!error && data?.session?.user) {
@@ -97,8 +113,9 @@ export default function AcceptInvitePage() {
           }
         }
 
-        // 4. Si vienen tokens de acceso en el hash (redirección clásica de Supabase)
-        if (accessToken && refreshToken) {
+        // 4. Si vienen tokens de acceso en el hash (redirección clásica de Supabase,
+        // que siempre incluye type=invite|recovery|magiclink).
+        if (accessToken && refreshToken && linkType) {
           const { data, error } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
@@ -114,17 +131,10 @@ export default function AcceptInvitePage() {
           }
         }
 
-        // 5. Verificar si ya existe una sesión activa persistida
-        const { data: sessionData } = await supabase.auth.getSession();
-        if (sessionData?.session?.user) {
-          if (isMounted) {
-            setUserEmail(sessionData.session.user.email || null);
-            setState("ready");
-          }
-          return;
-        }
-
-        if (isMounted) {
+        // Sin token consumido en este flujo no se ofrece cambiar contraseña,
+        // aunque el navegador ya tenga otra sesión abierta: eso permitiría
+        // cambiar la contraseña de esa sesión sin invitación válida.
+        if (isMounted && !recoveryConsumed) {
           setMessage("El enlace de acceso o invitación no es válido o ha expirado. Solicita uno nuevo por WhatsApp.");
           setState("invalid");
         }
@@ -136,11 +146,14 @@ export default function AcceptInvitePage() {
       }
     }
 
-    // Escuchar también eventos de cambio de estado de autenticación
+    // Solo PASSWORD_RECOVERY: lo emite Supabase al consumir un enlace de
+    // recuperación en esta carga. SIGNED_IN e INITIAL_SESSION también se
+    // disparan con una sesión ya guardada, así que no prueban invitación.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user && (event === "SIGNED_IN" || event === "PASSWORD_RECOVERY" || event === "INITIAL_SESSION")) {
+      if (session?.user && event === "PASSWORD_RECOVERY") {
+        recoveryConsumed = true;
         if (isMounted) {
           setUserEmail(session.user.email || null);
           setState("ready");

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { normalizeRole } from "@/lib/permissions";
+import { canManageQuotes, normalizeRole } from "@/lib/permissions";
 import { listQuoteTemplates } from "@/lib/quotes/templates";
 import { getCurrentInternalUserProfile } from "@/services/profile";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
@@ -26,6 +26,9 @@ export const metadata: Metadata = {
 export default async function QuoteTemplatesPage() {
   const profile = await getCurrentInternalUserProfile();
   if (!profile) redirect("/portal");
+  // Vuelca clientes/productos/plantillas con service_role: solo roles que
+  // arman cotizaciones.
+  if (!canManageQuotes(profile.role)) redirect("/quotes");
 
   const role = normalizeRole(profile.role);
   const canManage = role === "admin" || role === "direccion";

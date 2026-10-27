@@ -18,8 +18,11 @@ export default async function BrandRulesPage() {
   const profile = await getCurrentInternalUserProfile();
   if (!profile) redirect("/portal");
 
+  // Expone el % de utilidad de aliados con service_role: mismo gate que sus
+  // server actions (admin/direccion), no solo "usuario interno".
   const role = normalizeRole(profile.role);
   const canManage = role === "admin" || role === "direccion";
+  if (!canManage) redirect("/quotes");
 
   const supabase = createSupabaseAdminClient();
   const [rulesRes, brandsRes] = await Promise.all([
