@@ -43,3 +43,14 @@ next-env.d.ts
 
 .vercel
 .env*.local
+
+# config local de agentes / MCP (puede traer tokens y project refs)
+.mcp.json
+.claude/
+
+# logs y respaldos locales: traen datos reales de clientes, costos y proyectos
+/tmp/
+/backups/
+docs/audits/*-backup-*.json
+sql/*_seed_*.sql
+/*.pdf
