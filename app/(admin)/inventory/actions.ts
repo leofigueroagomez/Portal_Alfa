@@ -106,11 +106,34 @@ export async function registerPurchaseLeftoverAction(
     const supabase = createSupabaseAdminClient();
     const { data: purchaseEvent, error: eventError } = await supabase
       .from("project_purchase_events")
-      .select("id, project_purchase_line_id, supplier, invoice_reference")
+      .select("id, project_purchase_line_id, quantity, supplier, invoice_reference")
       .eq("id", input.purchaseEventId)
       .maybeSingle();
     if (eventError) throw eventError;
     if (!purchaseEvent) return { ok: false, error: "Compra no encontrada." };
+
+    // Los sobrantes acumulados de una compra nunca pueden superar lo comprado.
+    // Pendiente: replicar esta regla dentro de inventory_register_entry (SQL)
+    // para cerrarla tambien ante registros concurrentes.
+    const { data: previousLeftovers, error: leftoversError } = await supabase
+      .from("inventory_movements")
+      .select("quantity")
+      .eq("source_purchase_event_id", input.purchaseEventId)
+      .eq("movement_type", "in");
+    if (leftoversError) throw leftoversError;
+
+    const purchasedQuantity = Number(purchaseEvent.quantity || 0);
+    const leftoverQuantity = (previousLeftovers || []).reduce(
+      (sum, movement) => sum + Number(movement.quantity || 0),
+      0
+    );
+    if (leftoverQuantity + input.quantity > purchasedQuantity + 0.0001) {
+      const available = Math.max(purchasedQuantity - leftoverQuantity, 0);
+      return {
+        ok: false,
+        error: `Esta compra fue de ${purchasedQuantity} pzas y ya tiene ${leftoverQuantity} como sobrante; solo puedes regresar ${available} mas al almacen.`,
+      };
+    }
 
     const { data: line, error: lineError } = await supabase
       .from("project_purchase_lines")

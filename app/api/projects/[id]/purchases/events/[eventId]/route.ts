@@ -6,7 +6,7 @@ import {
   parsePositiveInteger,
   requireInternalUser,
 } from "@/lib/apiAuth";
-import { normalizeRole } from "@/lib/permissions";
+import { isAdminLike } from "@/lib/permissions";
 import { recalculatePurchaseLineTotals } from "@/lib/projectPurchases";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 
@@ -18,6 +18,10 @@ type PurchaseLineForRecalculation = {
   supplier: string | null;
 };
 
+function isMissingTableError(error: { code?: string | null }) {
+  return error.code === "42P01" || error.code === "PGRST205";
+}
+
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string; eventId: string }> }
@@ -26,9 +30,9 @@ export async function PATCH(
   const { profile, response } = await requireInternalUser();
   if (response) return response;
 
-  if (!profile || normalizeRole(profile.role) !== "admin") {
+  if (!profile || !isAdminLike(profile.role)) {
     return NextResponse.json(
-      { error: "Solo administradores pueden editar compras registradas." },
+      { error: "Solo administracion o direccion pueden editar compras registradas." },
       { status: 403 }
     );
   }
@@ -87,13 +91,18 @@ export async function PATCH(
     }
 
     // Un consumo de almacen se corrige con un ajuste en /inventory, no editando
-    // el evento (desalinearia existencias y costo). Si la tabla aun no existe,
-    // el error se ignora y la edicion sigue como antes.
+    // el evento (desalinearia existencias y costo). Solo se tolera que la tabla
+    // aun no exista (42P01 / PGRST205); cualquier otro error falla cerrado.
     const { data: inventoryMovement, error: inventoryReadError } = await supabase
       .from("inventory_movements")
       .select("id")
       .eq("project_purchase_event_id", purchaseEventId)
+      .limit(1)
       .maybeSingle();
+
+    if (inventoryReadError && !isMissingTableError(inventoryReadError)) {
+      throw inventoryReadError;
+    }
 
     if (!inventoryReadError && inventoryMovement) {
       return NextResponse.json(

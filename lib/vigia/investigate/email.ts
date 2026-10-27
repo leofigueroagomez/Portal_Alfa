@@ -2,20 +2,13 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getAppBaseUrl } from "@/lib/appUrl";
+import { escapeHtml } from "@/lib/escapeHtml";
 import type { Interpretation, InvestigationFinding } from "./types";
 
 /**
  * Correo aparte de la investigacion a fondo (Sprint B2). No se mezcla con el
  * brief diario: asunto propio y llega en cuanto termina la investigacion.
  */
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
 
 const CONF_LABEL: Record<string, string> = {
   alta: "Confianza alta",
@@ -62,10 +55,10 @@ export function buildInvestigationHtml(
     : `<span style="display:inline-block;padding:3px 10px;border-radius:999px;background-color:#3A2A14;color:#F4C66A;font-size:11px;font-weight:bold;">Requiere mano humana</span>`;
 
   const keep = interpretation.partidas_a_conservar?.length
-    ? `<div style="margin-top:6px;font-size:13px;color:#8CE0B6;">Conservar: ${interpretation.partidas_a_conservar.join(", ")}</div>`
+    ? `<div style="margin-top:6px;font-size:13px;color:#8CE0B6;">Conservar: ${escapeHtml(interpretation.partidas_a_conservar.join(", "))}</div>`
     : "";
   const drop = interpretation.partidas_a_eliminar?.length
-    ? `<div style="margin-top:2px;font-size:13px;color:#F0A6A6;">Eliminar / desactivar: ${interpretation.partidas_a_eliminar.join(", ")}</div>`
+    ? `<div style="margin-top:2px;font-size:13px;color:#F0A6A6;">Eliminar / desactivar: ${escapeHtml(interpretation.partidas_a_eliminar.join(", "))}</div>`
     : "";
 
   const html = `

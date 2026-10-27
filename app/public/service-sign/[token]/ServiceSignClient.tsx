@@ -381,30 +381,36 @@ export default function ServiceSignClient({ token, context }: Props) {
               </div>
 
               <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 text-xs">
-                <div>
-                  <span className="text-[#8E8E93]">Banco Receptor:</span>
-                  <p className="font-semibold text-white">{bankAccounts.bankName}</p>
-                </div>
-                <div>
-                  <span className="text-[#8E8E93]">Beneficiario:</span>
-                  <p className="font-semibold text-white">{bankAccounts.beneficiary}</p>
-                </div>
-                <div className="sm:col-span-2 rounded-lg border border-[#322514] bg-[#221A0F] p-2.5 flex items-center justify-between">
+                {bankAccounts.configured ? (
+                  <>
                   <div>
-                    <span className="text-[11px] text-[#F4C66A] uppercase font-semibold">CLABE Interbancaria:</span>
-                    <p className="font-mono text-sm font-bold text-white tracking-wider">
-                      {bankAccounts.clabe}
-                    </p>
+                    <span className="text-[#8E8E93]">Banco Receptor:</span>
+                    <p className="font-semibold text-white">{bankAccounts.bankName}</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={copyClabeToClipboard}
-                    className="inline-flex items-center gap-1 rounded-md bg-[#9E1B32] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#B91C3C] transition"
-                  >
-                    <Copy size={12} />
-                    {copiedClabe ? "¡Copiada!" : "Copiar CLABE"}
-                  </button>
-                </div>
+                  <div>
+                    <span className="text-[#8E8E93]">Beneficiario:</span>
+                    <p className="font-semibold text-white">{bankAccounts.beneficiary}</p>
+                  </div>
+                  <div className="sm:col-span-2 rounded-lg border border-[#322514] bg-[#221A0F] p-2.5 flex items-center justify-between">
+                    <div>
+                      <span className="text-[11px] text-[#F4C66A] uppercase font-semibold">CLABE Interbancaria:</span>
+                      <p className="font-mono text-sm font-bold text-white tracking-wider">
+                        {bankAccounts.clabe}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={copyClabeToClipboard}
+                      className="inline-flex items-center gap-1 rounded-md bg-[#9E1B32] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#B91C3C] transition"
+                    >
+                      <Copy size={12} />
+                      {copiedClabe ? "¡Copiada!" : "Copiar CLABE"}
+                    </button>
+                  </div>
+                  </>
+                ) : (
+                  <p className="sm:col-span-2 text-[#8E8E93]">{bankAccounts.notes}</p>
+                )}
                 <div>
                   <span className="text-[#8E8E93]">Concepto / Referencia:</span>
                   <p className="font-semibold text-[#8CE0B6]">{serviceNumber}</p>

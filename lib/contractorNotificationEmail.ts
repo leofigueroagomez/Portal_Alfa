@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getAppBaseUrl } from "@/lib/appUrl";
+import { escapeHtml, safeHrefUrl } from "@/lib/escapeHtml";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 
 export interface ContractorServiceEmailParams {
@@ -117,10 +118,11 @@ export async function sendContractorServiceAssignmentEmail({
       ? `${service.scheduled_time_start} a ${service.scheduled_time_end}`
       : service.scheduled_time_start || "Horario por coordinar";
 
-  const mapsButtonHtml = service.google_maps_url
+  const mapsHref = safeHrefUrl(service.google_maps_url);
+  const mapsButtonHtml = mapsHref
     ? `
       <div style="margin: 16px 0;">
-        <a href="${service.google_maps_url}" target="_blank" style="background-color: #27272A; color: #FFFFFF; text-decoration: none; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; display: inline-block; border: 1px solid #3F3F46;">
+        <a href="${mapsHref}" target="_blank" style="background-color: #27272A; color: #FFFFFF; text-decoration: none; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; display: inline-block; border: 1px solid #3F3F46;">
           📍 Abrir ubicación en Google Maps
         </a>
       </div>
@@ -134,7 +136,7 @@ export async function sendContractorServiceAssignmentEmail({
     <html lang="es">
     <head>
       <meta charset="utf-8">
-      <title>${subject}</title>
+      <title>${escapeHtml(subject)}</title>
     </head>
     <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0F0F0F; color: #FFFFFF; margin: 0; padding: 24px;">
       <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #18181B; border-radius: 12px; border: 1px solid #27272A; overflow: hidden;">
@@ -146,7 +148,7 @@ export async function sendContractorServiceAssignmentEmail({
               ALFA OS · Asignación Técnica
             </div>
             <h1 style="font-size: 20px; font-weight: 600; color: #FFFFFF; margin: 0;">
-              Nuevo Servicio Asignado: <span style="color: #F0B8C0;">${folio}</span>
+              Nuevo Servicio Asignado: <span style="color: #F0B8C0;">${escapeHtml(folio)}</span>
             </h1>
           </td>
         </tr>
@@ -155,13 +157,13 @@ export async function sendContractorServiceAssignmentEmail({
         <tr>
           <td style="padding: 32px;">
             <p style="font-size: 15px; line-height: 24px; color: #D4D4D8; margin-top: 0; margin-bottom: 20px;">
-              Hola <strong>${recipientName || contractor.name}</strong>, se te ha asignado la ejecución del siguiente servicio técnico en ALFA OS:
+              Hola <strong>${escapeHtml(recipientName || contractor.name)}</strong>, se te ha asignado la ejecución del siguiente servicio técnico en ALFA OS:
             </p>
 
             <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #27272A; border-radius: 8px; padding: 18px; margin-bottom: 24px;">
               <tr>
                 <td style="padding: 6px 0; font-size: 13px; color: #A1A1AA;" width="35%"><strong>Cliente / Sitio:</strong></td>
-                <td style="padding: 6px 0; font-size: 14px; color: #FFFFFF; font-weight: 500;">${clientName} (${projectName})</td>
+                <td style="padding: 6px 0; font-size: 14px; color: #FFFFFF; font-weight: 500;">${escapeHtml(clientName)} (${escapeHtml(projectName)})</td>
               </tr>
               <tr>
                 <td style="padding: 6px 0; font-size: 13px; color: #A1A1AA;"><strong>Fecha Programada:</strong></td>
@@ -169,7 +171,7 @@ export async function sendContractorServiceAssignmentEmail({
               </tr>
               <tr>
                 <td style="padding: 6px 0; font-size: 13px; color: #A1A1AA;"><strong>Horario Estimado:</strong></td>
-                <td style="padding: 6px 0; font-size: 14px; color: #FFFFFF; font-weight: 500;">${scheduleText}</td>
+                <td style="padding: 6px 0; font-size: 14px; color: #FFFFFF; font-weight: 500;">${escapeHtml(scheduleText)}</td>
               </tr>
               <tr>
                 <td style="padding: 6px 0; font-size: 13px; color: #A1A1AA;"><strong>Modalidad:</strong></td>
@@ -180,7 +182,7 @@ export async function sendContractorServiceAssignmentEmail({
                   ? `
                 <tr>
                   <td style="padding: 6px 0; font-size: 13px; color: #A1A1AA;"><strong>Dirección:</strong></td>
-                  <td style="padding: 6px 0; font-size: 14px; color: #FFFFFF;">${service.service_location}</td>
+                  <td style="padding: 6px 0; font-size: 14px; color: #FFFFFF;">${escapeHtml(service.service_location)}</td>
                 </tr>
               `
                   : ""
@@ -190,8 +192,8 @@ export async function sendContractorServiceAssignmentEmail({
                   ? `
                 <tr>
                   <td style="padding: 6px 0; font-size: 13px; color: #A1A1AA;"><strong>Contacto en Sitio:</strong></td>
-                  <td style="padding: 6px 0; font-size: 14px; color: #FFFFFF;">${service.requester_name || "Contacto"} ${
-                      service.requester_phone ? `(${service.requester_phone})` : ""
+                  <td style="padding: 6px 0; font-size: 14px; color: #FFFFFF;">${escapeHtml(service.requester_name || "Contacto")} ${
+                      service.requester_phone ? `(${escapeHtml(service.requester_phone)})` : ""
                     }</td>
                 </tr>
               `
@@ -209,9 +211,9 @@ export async function sendContractorServiceAssignmentEmail({
                 <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: #F0B8C0; margin-bottom: 6px;">
                   Descripción del Requerimiento / Falla:
                 </div>
-                <div style="font-size: 14px; line-height: 22px; color: #E4E4E7; white-space: pre-wrap;">${
+                <div style="font-size: 14px; line-height: 22px; color: #E4E4E7; white-space: pre-wrap;">${escapeHtml(
                   service.background || service.diagnosis
-                }</div>
+                )}</div>
               </div>
             `
                 : ""
@@ -219,7 +221,7 @@ export async function sendContractorServiceAssignmentEmail({
 
             <!-- CTA Button -->
             <div style="text-align: center; margin: 32px 0 16px 0;">
-              <a href="${portalServiceUrl}" target="_blank" style="background-color: #7A1F2B; color: #FFFFFF; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-size: 14px; font-weight: 600; display: inline-block; box-shadow: 0 4px 12px rgba(122, 31, 43, 0.4);">
+              <a href="${safeHrefUrl(portalServiceUrl)}" target="_blank" style="background-color: #7A1F2B; color: #FFFFFF; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-size: 14px; font-weight: 600; display: inline-block; box-shadow: 0 4px 12px rgba(122, 31, 43, 0.4);">
                 Ver Servicio y Subir Evidencias en ALFA OS →
               </a>
             </div>

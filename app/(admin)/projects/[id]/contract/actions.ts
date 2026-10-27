@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { getCurrentInternalUserProfile } from "@/services/profile";
-import { canApproveQuotes } from "@/lib/permissions";
+import { canApproveQuotes, isAdminLike, normalizeRole } from "@/lib/permissions";
+import { isValidContractSignaturePng } from "@/lib/contractPublicValidation";
+import { escapeHtml, safeHrefUrl } from "@/lib/escapeHtml";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 import { getAppBaseUrl } from "@/lib/appUrl";
 import {
@@ -223,9 +225,21 @@ export async function signContractAsAlfaAction(
 ) {
   const profile = await getCurrentInternalUserProfile();
 
-  if (!profile || !canApproveQuotes(profile.role)) {
-    return { ok: false, error: "No autorizado." };
+  // Firmar como ALFA compromete legalmente a la empresa: solo admin/direccion
+  // (mismos privilegios), nunca comercial ni otros roles internos.
+  if (!profile || !isAdminLike(profile.role)) {
+    return { ok: false, error: "No autorizado: solo administración o dirección pueden firmar en nombre de ALFA." };
   }
+
+  if (!isValidContractSignaturePng(signatureDataUrl)) {
+    return { ok: false, error: "La firma no es una imagen PNG válida." };
+  }
+
+  // admin = Leo (representante legal); direccion firma con su propio nombre.
+  const signerName =
+    normalizeRole(profile.role) === "admin"
+      ? "Ing. Leonardo Figueroa Gómez"
+      : profile.full_name?.trim() || "Dirección ALFA IT";
 
   const adminClient = createSupabaseAdminClient();
 
@@ -235,7 +249,7 @@ export async function signContractAsAlfaAction(
     .update({
       alfa_signature_image_url: signatureDataUrl,
       alfa_signed_at: new Date().toISOString(),
-      alfa_signer_name: "Ing. Leonardo Figueroa Gómez",
+      alfa_signer_name: signerName,
     })
     .eq("id", contractId);
 
@@ -359,12 +373,12 @@ export async function sendContractReminderAction(contractId: number) {
         <p style="color: #9e1b32; margin: 4px 0 0 0; font-size: 11px; font-weight: bold; letter-spacing: 1px;">RECORDATORIO DE CONTRATO DE PROYECTO</p>
       </div>
       <div style="padding: 24px; background-color: #ffffff;">
-        <p style="font-size: 15px; line-height: 1.5;">Estimado(a) <strong>${clientName}</strong>,</p>
+        <p style="font-size: 15px; line-height: 1.5;">Estimado(a) <strong>${escapeHtml(clientName)}</strong>,</p>
         <p style="font-size: 14px; line-height: 1.5; color: #444;">
-          Con motivo de tu proyecto <strong>${projectName}</strong> (Folio: <strong>${contract.contract_number}</strong>), te recordamos que ${actionDescription}
+          Con motivo de tu proyecto <strong>${escapeHtml(projectName)}</strong> (Folio: <strong>${escapeHtml(contract.contract_number)}</strong>), te recordamos que ${actionDescription}
         </p>
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${targetUrl}" style="background-color: #9e1b32; color: #ffffff; padding: 14px 28px; text-decoration: none; font-weight: bold; font-size: 14px; border-radius: 8px; display: inline-block;">
+          <a href="${safeHrefUrl(targetUrl)}" style="background-color: #9e1b32; color: #ffffff; padding: 14px 28px; text-decoration: none; font-weight: bold; font-size: 14px; border-radius: 8px; display: inline-block;">
             ${buttonText}
           </a>
         </div>

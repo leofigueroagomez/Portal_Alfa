@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 import { getAppBaseUrl } from "@/lib/appUrl";
 import { isAuthorizedCronRequest } from "@/lib/cronAuth";
+import { escapeHtml, safeHrefUrl } from "@/lib/escapeHtml";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -91,12 +92,12 @@ async function handleContractDailyReminders(request: Request) {
           <p style="color: #9e1b32; margin: 4px 0 0 0; font-size: 11px; font-weight: bold; letter-spacing: 1px;">RECORDATORIO DE FORMALIZACIÓN CONTRACTUAL</p>
         </div>
         <div style="padding: 24px; background-color: #ffffff;">
-          <p style="font-size: 15px; line-height: 1.5;">Estimado(a) <strong>${clientName}</strong>,</p>
+          <p style="font-size: 15px; line-height: 1.5;">Estimado(a) <strong>${escapeHtml(clientName)}</strong>,</p>
           <p style="font-size: 14px; line-height: 1.5; color: #444;">
-            Te recordamos que para dar inicio a los trabajos y aprovisionamiento del proyecto <strong>${projectName}</strong> (Folio: <strong>${c.contract_number}</strong>), es indispensable completar los datos fiscales y del representante legal para emitir tu contrato oficial.
+            Te recordamos que para dar inicio a los trabajos y aprovisionamiento del proyecto <strong>${escapeHtml(projectName)}</strong> (Folio: <strong>${escapeHtml(c.contract_number)}</strong>), es indispensable completar los datos fiscales y del representante legal para emitir tu contrato oficial.
           </p>
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${onboardingUrl}" style="background-color: #9e1b32; color: #ffffff; padding: 14px 28px; text-decoration: none; font-weight: bold; font-size: 14px; border-radius: 8px; display: inline-block;">
+            <a href="${safeHrefUrl(onboardingUrl)}" style="background-color: #9e1b32; color: #ffffff; padding: 14px 28px; text-decoration: none; font-weight: bold; font-size: 14px; border-radius: 8px; display: inline-block;">
               Completar Datos del Contrato
             </a>
           </div>
@@ -171,12 +172,12 @@ async function handleContractDailyReminders(request: Request) {
           <p style="color: #9e1b32; margin: 4px 0 0 0; font-size: 11px; font-weight: bold; letter-spacing: 1px;">RECORDATORIO DE FIRMA DIGITAL</p>
         </div>
         <div style="padding: 24px; background-color: #ffffff;">
-          <p style="font-size: 15px; line-height: 1.5;">Estimado(a) <strong>${clientName}</strong>,</p>
+          <p style="font-size: 15px; line-height: 1.5;">Estimado(a) <strong>${escapeHtml(clientName)}</strong>,</p>
           <p style="font-size: 14px; line-height: 1.5; color: #444;">
-            Tu <strong>Contrato de Servicios e Integración Tecnológica</strong> para el proyecto <strong>${projectName}</strong> (${c.contract_number}) se encuentra listo y pendiente de tu firma digital de conformidad.
+            Tu <strong>Contrato de Servicios e Integración Tecnológica</strong> para el proyecto <strong>${escapeHtml(projectName)}</strong> (${escapeHtml(c.contract_number)}) se encuentra listo y pendiente de tu firma digital de conformidad.
           </p>
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${signingUrl}" style="background-color: #9e1b32; color: #ffffff; padding: 14px 28px; text-decoration: none; font-weight: bold; font-size: 14px; border-radius: 8px; display: inline-block;">
+            <a href="${safeHrefUrl(signingUrl)}" style="background-color: #9e1b32; color: #ffffff; padding: 14px 28px; text-decoration: none; font-weight: bold; font-size: 14px; border-radius: 8px; display: inline-block;">
               Revisar y Firmar Contrato Digitalmente
             </a>
           </div>

@@ -9,7 +9,8 @@ import {
 import { formatCurrency, formatNumber } from "@/lib/format";
 import { getAppBaseUrl } from "@/lib/appUrl";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
-import { getCurrentUserProfile } from "@/services/profile";
+import { getCurrentInternalUserProfile } from "@/services/profile";
+import { escapeHtml, safeHrefUrl } from "@/lib/escapeHtml";
 
 function parseMoney(value: FormDataEntryValue | null) {
   const parsed = Number(String(value || "0").replace(/,/g, ""));
@@ -28,8 +29,9 @@ function parseEmails(value: string | null | undefined) {
 }
 
 async function assertFinancialAccess() {
-  const profile = await getCurrentUserProfile();
-  if (!profile?.is_active || !canViewFinancials(profile.role)) {
+  // Perfil interno activo (no basta con estar logueado: excluye portal cliente/contratista).
+  const profile = await getCurrentInternalUserProfile();
+  if (!profile || !canViewFinancials(profile.role)) {
     throw new Error("No tienes permisos para ver rentabilidad de proyectos.");
   }
 
@@ -160,8 +162,8 @@ export async function sendProfitabilityReportToDirector(projectId: number) {
   const html = `
     <div style="font-family: Arial, sans-serif; color: #111318; line-height: 1.6;">
       <h1 style="font-size: 22px;">Reporte interno de rentabilidad</h1>
-      <p><strong>Cliente:</strong> ${client?.name || "Sin cliente"}</p>
-      <p><strong>Proyecto:</strong> ${project.name || `Proyecto ${projectId}`}</p>
+      <p><strong>Cliente:</strong> ${escapeHtml(client?.name || "Sin cliente")}</p>
+      <p><strong>Proyecto:</strong> ${escapeHtml(project.name || `Proyecto ${projectId}`)}</p>
       <table style="border-collapse: collapse; width: 100%; max-width: 620px;">
         <tr><td style="padding: 8px; border-bottom: 1px solid #ddd;">Total vendido</td><td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">${formatCurrency(report.total_sold_mxn, "MXN")}</td></tr>
         <tr><td style="padding: 8px; border-bottom: 1px solid #ddd;">Compras de equipos</td><td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">${formatCurrency(report.equipment_purchase_total_mxn, "MXN")}</td></tr>
@@ -170,7 +172,7 @@ export async function sendProfitabilityReportToDirector(projectId: number) {
         <tr><td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>Utilidad operativa</strong></td><td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;"><strong>${formatCurrency(report.operating_profit_mxn, "MXN")}</strong></td></tr>
         <tr><td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>Margen real</strong></td><td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;"><strong>${formatNumber(report.operating_margin_percent)}%</strong></td></tr>
       </table>
-      <p><a href="${reportUrl}">Abrir reporte interno</a></p>
+      <p><a href="${safeHrefUrl(reportUrl)}">Abrir reporte interno</a></p>
       <p style="color:#666">Este reporte es interno de direccion. No reenviar al cliente.</p>
     </div>
   `;

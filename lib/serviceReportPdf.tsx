@@ -12,7 +12,7 @@ import {
 } from "@react-pdf/renderer";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveServicePhotoUrl } from "@/lib/serviceReports";
-import { getAlfaBankAccounts } from "@/lib/bankAccounts";
+import { BANK_DETAILS_UNAVAILABLE_MESSAGE, getAlfaBankAccounts } from "@/lib/bankAccounts";
 
 const logoPath = path.join(process.cwd(), "public", "logo-print.png");
 const logoSrc = fs.existsSync(logoPath) ? logoPath : null;
@@ -325,6 +325,7 @@ export function ServiceReportPdfDocument({
   const projectName = report.client_projects?.name || "Servicio Técnico Directo";
   const isSolved = report.solution_status === "solved";
   const totalMxn = Number(report.labor_sale_mxn || 0);
+  const bank = getAlfaBankAccounts();
 
   return (
     <Document title={`Reporte de Servicio ${folio}`} author="ALFA IT Soluciones">
@@ -434,15 +435,23 @@ export function ServiceReportPdfDocument({
               </Text>
             </View>
             <View style={styles.bankGrid}>
-              <Text>
-                Banco: <Text style={{ fontWeight: 700 }}>BBVA México</Text>
-              </Text>
-              <Text>
-                Beneficiario: <Text style={{ fontWeight: 700 }}>ALFA IT Soluciones S.A. de C.V.</Text>
-              </Text>
-              <Text>
-                CLABE: <Text style={{ fontWeight: 700 }}>012180015894123567</Text>
-              </Text>
+              {bank.configured ? (
+                <>
+                  {bank.bankName ? (
+                    <Text>
+                      Banco: <Text style={{ fontWeight: 700 }}>{bank.bankName}</Text>
+                    </Text>
+                  ) : null}
+                  <Text>
+                    Beneficiario: <Text style={{ fontWeight: 700 }}>{bank.beneficiary}</Text>
+                  </Text>
+                  <Text>
+                    CLABE: <Text style={{ fontWeight: 700 }}>{bank.clabe}</Text>
+                  </Text>
+                </>
+              ) : (
+                <Text>{BANK_DETAILS_UNAVAILABLE_MESSAGE}</Text>
+              )}
               <Text>
                 Referencia: <Text style={{ fontWeight: 700 }}>{folio}</Text>
               </Text>

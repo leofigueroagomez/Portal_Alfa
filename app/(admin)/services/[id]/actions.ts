@@ -5,10 +5,12 @@ import { getCurrentInternalUserProfile } from "@/services/profile";
 import { canManageServices } from "@/lib/permissions";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 import { getAppBaseUrl } from "@/lib/appUrl";
-import { getAlfaBankAccounts } from "@/lib/bankAccounts";
+import { ALFA_BANK_DETAILS_CONTACT_EMAIL, getAlfaBankAccounts } from "@/lib/bankAccounts";
+import { escapeHtml, safeHrefUrl } from "@/lib/escapeHtml";
+import { extractCheckoutSessionIdFromUrl } from "@/lib/finIntegrityStripe";
 import { getOrCreateServiceSigningLink, getOrCreateServiceReportPublicLink } from "@/lib/publicDocumentLinks";
 import { generateServiceReportPdf } from "@/lib/serviceReportPdf";
-import { getOrCreateServiceStripeCheckout } from "@/lib/stripe";
+import { getOrCreateServiceStripeCheckout, getStripeClient } from "@/lib/stripe";
 import {
   buildGoogleCalendarUrl,
   buildTechnicianAssignmentWhatsAppMessage,
@@ -67,6 +69,49 @@ export async function updateServiceAmountAction(
   const adminClient = createSupabaseAdminClient();
   const safeAmount = Math.max(Number(amountMxn) || 0, 0);
 
+  const { data: current, error: readError } = await adminClient
+    .from("service_reports")
+    .select("labor_sale_mxn, payment_link_url")
+    .eq("id", serviceId)
+    .maybeSingle();
+
+  if (readError || !current) {
+    console.error("Error leyendo monto actual del servicio:", readError);
+    return { ok: false, error: "No se pudo leer el servicio." };
+  }
+
+  // La Checkout Session anterior conserva el monto viejo y abajo se suelta su
+  // payment_link_url: se expira en Stripe para que el cliente no pueda pagarla
+  // despues del cambio (ni quedar con dos sesiones abiertas si el monto es igual).
+  const previousSessionId = extractCheckoutSessionIdFromUrl(current.payment_link_url);
+  let stripeWarning = "";
+
+  if (previousSessionId) {
+    const stripe = getStripeClient();
+    if (!stripe) {
+      stripeWarning = " No se pudo expirar el link de pago anterior (Stripe no configurado).";
+    } else {
+      try {
+        const previousSession = await stripe.checkout.sessions.retrieve(previousSessionId);
+        if (previousSession.status === "complete" && previousSession.payment_status === "paid") {
+          return {
+            ok: false,
+            error:
+              "El link de pago anterior ya fue pagado en Stripe. Verifica el pago antes de cambiar el monto.",
+          };
+        }
+        if (previousSession.status === "open") {
+          await stripe.checkout.sessions.expire(previousSessionId);
+        }
+      } catch (stripeError) {
+        // Expirada/completada en paralelo o inexistente: el webhook igual rechaza
+        // pagos cuyo importe no coincida con el monto nuevo.
+        console.error(`No se pudo expirar la Checkout Session ${previousSessionId}:`, stripeError);
+        stripeWarning = " No se pudo confirmar la expiración del link de pago anterior en Stripe.";
+      }
+    }
+  }
+
   // Al cambiar el monto, invalidamos el payment_link_url anterior para que se regenere con el nuevo monto
   const { error } = await adminClient
     .from("service_reports")
@@ -83,7 +128,7 @@ export async function updateServiceAmountAction(
 
   revalidatePath(`/services/${serviceId}`);
   revalidatePath("/services");
-  return { ok: true, message: "Monto del servicio actualizado correctamente." };
+  return { ok: true, message: `Monto del servicio actualizado correctamente.${stripeWarning}` };
 }
 
 export async function completeServiceReportAction(serviceId: number) {
@@ -220,10 +265,11 @@ export async function sendServicePaymentReminderEmailAction(
     const pdfFilename = `Reporte_Servicio_${folio}.pdf`;
 
     let stripeButtonHtml = "";
-    if (report.payment_link_url) {
+    const paymentHref = safeHrefUrl(report.payment_link_url);
+    if (paymentHref) {
       stripeButtonHtml = `
         <div style="text-align: center; margin: 16px 0;">
-          <a href="${report.payment_link_url}" style="display: inline-block; background-color: #25D366; color: #000000; font-weight: bold; padding: 12px 24px; border-radius: 10px; text-decoration: none; font-size: 14px;">
+          <a href="${paymentHref}" style="display: inline-block; background-color: #25D366; color: #000000; font-weight: bold; padding: 12px 24px; border-radius: 10px; text-decoration: none; font-size: 14px;">
             💳 Pagar en Línea con Tarjeta de Crédito / Débito
           </a>
         </div>
@@ -255,23 +301,25 @@ export async function sendServicePaymentReminderEmailAction(
               <div class="title">Recordatorio de Pago de Servicio 📋</div>
             </div>
             <div class="content">
-              <p>Estimado(a) <strong>${clientName}</strong>,</p>
+              <p>Estimado(a) <strong>${escapeHtml(clientName)}</strong>,</p>
               <p>
-                Le enviamos un cordial saludo. Le recordamos amablemente que se encuentra pendiente de liquidación el servicio técnico <strong>${folio}</strong> realizado en sus instalaciones.
+                Le enviamos un cordial saludo. Le recordamos amablemente que se encuentra pendiente de liquidación el servicio técnico <strong>${escapeHtml(folio)}</strong> realizado en sus instalaciones.
               </p>
 
               <div class="bank-card">
                 <div style="font-size: 11px; text-transform: uppercase; color: #F4C66A; font-weight: bold; margin-bottom: 8px;">Cuentas Bancarias para Transferencia (SPEI)</div>
-                <div>• <strong>Banco:</strong> ${bank.bankName}</div>
-                <div>• <strong>Beneficiario:</strong> ${bank.beneficiary}</div>
-                <div>• <strong>CLABE Interbancaria:</strong> <span class="highlight" style="font-family: monospace; font-size: 15px;">${bank.clabe}</span></div>
+                ${bank.configured
+                  ? `${bank.bankName ? `<div>• <strong>Banco:</strong> ${escapeHtml(bank.bankName)}</div>` : ""}
+                <div>• <strong>Beneficiario:</strong> ${escapeHtml(bank.beneficiary)}</div>
+                <div>• <strong>CLABE Interbancaria:</strong> <span class="highlight" style="font-family: monospace; font-size: 15px;">${escapeHtml(bank.clabe)}</span></div>`
+                  : `<div>Solicite los datos bancarios oficiales a <strong>${ALFA_BANK_DETAILS_CONTACT_EMAIL}</strong> indicando su referencia.</div>`}
                 <div>• <strong>Importe a Liquidar:</strong> <span class="highlight">${formattedAmount}</span> (+ IVA)</div>
-                <div>• <strong>Concepto / Referencia:</strong> ${folio}</div>
+                <div>• <strong>Concepto / Referencia:</strong> ${escapeHtml(folio)}</div>
               </div>
 
               ${stripeButtonHtml}
 
-              ${customMessage ? `<p style="font-style: italic; background-color: #1C1D22; padding: 12px; border-radius: 8px; border-left: 3px solid #9E1B32;">${customMessage}</p>` : ""}
+              ${customMessage ? `<p style="font-style: italic; background-color: #1C1D22; padding: 12px; border-radius: 8px; border-left: 3px solid #9E1B32;">${escapeHtml(customMessage)}</p>` : ""}
 
               <p>
                 Adjuntamos a este correo el <strong>Reporte de Servicio Técnico en PDF</strong> con el detalle y constancia de los trabajos ejecutados.
@@ -462,9 +510,13 @@ export async function getServiceDispatchContext(serviceId: number) {
     `💰 *Monto a Liquidar:* ${formattedAmount} (+ IVA)`,
     "",
     "🏦 *Datos Bancarios para Transferencia (SPEI):*",
-    `• Banco: *${bank.bankName}*`,
-    `• Beneficiario: *${bank.beneficiary}*`,
-    `• CLABE: *${bank.clabe}*`,
+    ...(bank.configured
+      ? [
+          bank.bankName ? `• Banco: *${bank.bankName}*` : "",
+          `• Beneficiario: *${bank.beneficiary}*`,
+          `• CLABE: *${bank.clabe}*`,
+        ]
+      : [`• Solicita los datos bancarios oficiales a ${ALFA_BANK_DETAILS_CONTACT_EMAIL}`]),
     `• Referencia: *${folio}*`,
     paymentLinkUrl ? `\n💳 *O Paga en Línea con Tarjeta:*\n${paymentLinkUrl}` : "",
     "",

@@ -11,7 +11,7 @@ import {
   renderToBuffer,
 } from "@react-pdf/renderer";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getAlfaBankAccounts } from "@/lib/bankAccounts";
+import { BANK_DETAILS_UNAVAILABLE_MESSAGE, getAlfaBankAccounts } from "@/lib/bankAccounts";
 import type { PaymentMilestone, ProjectContractRecord } from "@/lib/contracts";
 
 const logoPath = path.join(process.cwd(), "public", "logo-print.png");
@@ -419,7 +419,9 @@ export function ContractPdfDocument({
         <View style={styles.highlightBox}>
           <Text style={styles.highlightTitle}>DATOS BANCARIOS OFICIALES PARA TRANSFERENCIA (SPEI)</Text>
           <Text style={styles.highlightText}>
-            • Banco: {bank.bankName}  • Beneficiario: {bank.beneficiary}  • CLABE: {bank.clabe}  • Referencia: {contract.contract_number}
+            {bank.configured
+              ? `${bank.bankName ? `• Banco: ${bank.bankName}  ` : ""}• Beneficiario: ${bank.beneficiary}  • CLABE: ${bank.clabe}  • Referencia: ${contract.contract_number}`
+              : `• ${BANK_DETAILS_UNAVAILABLE_MESSAGE}  • Referencia: ${contract.contract_number}`}
           </Text>
         </View>
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
-import { getAlfaBankAccounts } from "@/lib/bankAccounts";
+import { ALFA_BANK_DETAILS_CONTACT_EMAIL, getAlfaBankAccounts } from "@/lib/bankAccounts";
+import { escapeHtml, safeHrefUrl } from "@/lib/escapeHtml";
 import { generateServiceReportPdf } from "@/lib/serviceReportPdf";
 import { getOrCreateServiceStripeCheckout } from "@/lib/stripe";
 import { isAuthorizedCronRequest } from "@/lib/cronAuth";
@@ -104,10 +105,11 @@ async function handleCronPaymentReminders(request: Request) {
     }
 
     let stripeButtonHtml = "";
-    if (paymentLinkUrl) {
+    const paymentHref = safeHrefUrl(paymentLinkUrl);
+    if (paymentHref) {
       stripeButtonHtml = `
         <div style="text-align: center; margin: 16px 0;">
-          <a href="${paymentLinkUrl}" style="display: inline-block; background-color: #25D366; color: #000000; font-weight: bold; padding: 12px 24px; border-radius: 10px; text-decoration: none; font-size: 14px;">
+          <a href="${paymentHref}" style="display: inline-block; background-color: #25D366; color: #000000; font-weight: bold; padding: 12px 24px; border-radius: 10px; text-decoration: none; font-size: 14px;">
             💳 Pagar en Línea con Tarjeta de Crédito / Débito
           </a>
         </div>
@@ -142,18 +144,20 @@ async function handleCronPaymentReminders(request: Request) {
                 <div class="title">Recordatorio Diario de Pago 💳</div>
               </div>
               <div class="content">
-                <p>Estimado(a) <strong>${clientName}</strong>,</p>
+                <p>Estimado(a) <strong>${escapeHtml(clientName)}</strong>,</p>
                 <p>
-                  Le enviamos un cordial saludo. Le recordamos que continúa pendiente de pago el servicio técnico <strong>${folio}</strong> realizado en sus instalaciones.
+                  Le enviamos un cordial saludo. Le recordamos que continúa pendiente de pago el servicio técnico <strong>${escapeHtml(folio)}</strong> realizado en sus instalaciones.
                 </p>
 
                 <div class="bank-card">
                   <div style="font-size: 11px; text-transform: uppercase; color: #F4C66A; font-weight: bold; margin-bottom: 8px;">Cuentas Bancarias para Transferencia (SPEI)</div>
-                  <div>• <strong>Banco:</strong> ${bank.bankName}</div>
-                  <div>• <strong>Beneficiario:</strong> ${bank.beneficiary}</div>
-                  <div>• <strong>CLABE Interbancaria:</strong> <span class="highlight" style="font-family: monospace; font-size: 15px;">${bank.clabe}</span></div>
+                  ${bank.configured
+                    ? `${bank.bankName ? `<div>• <strong>Banco:</strong> ${escapeHtml(bank.bankName)}</div>` : ""}
+                  <div>• <strong>Beneficiario:</strong> ${escapeHtml(bank.beneficiary)}</div>
+                  <div>• <strong>CLABE Interbancaria:</strong> <span class="highlight" style="font-family: monospace; font-size: 15px;">${escapeHtml(bank.clabe)}</span></div>`
+                    : `<div>Solicite los datos bancarios oficiales a <strong>${ALFA_BANK_DETAILS_CONTACT_EMAIL}</strong> indicando su referencia.</div>`}
                   <div>• <strong>Importe a Liquidar:</strong> <span class="highlight">${formattedAmount}</span> (+ IVA)</div>
-                  <div>• <strong>Concepto / Referencia:</strong> ${folio}</div>
+                  <div>• <strong>Concepto / Referencia:</strong> ${escapeHtml(folio)}</div>
                 </div>
 
                 ${stripeButtonHtml}

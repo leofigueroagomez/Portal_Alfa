@@ -61,10 +61,12 @@ export default function SendDeliveryEmailButton({
   const [message, setMessage] = useState(lastError || "");
   const [isOpen, setIsOpen] = useState(false);
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [extraMessage, setExtraMessage] = useState("");
   const [isPending, startTransition] = useTransition();
 
   function openPreview() {
     setMessage("");
+    setExtraMessage("");
     setIsOpen(true);
     startTransition(async () => {
       try {
@@ -109,7 +111,7 @@ export default function SendDeliveryEmailButton({
         to: draft.to,
         cc: draft.cc,
         subject: draft.subject,
-        html: draft.html,
+        message: extraMessage,
       });
       setMessage(result.message);
       if (result.ok) setIsOpen(false);
@@ -298,14 +300,24 @@ export default function SendDeliveryEmailButton({
                 </div>
 
                 <div className="space-y-4">
-                  <Field label="Cuerpo HTML">
+                  <Field label="Mensaje adicional (opcional)">
                     <textarea
-                      value={draft.html}
-                      onChange={(event) => updateDraft("html", event.target.value)}
-                      className="field min-h-64 font-mono text-xs"
+                      value={extraMessage}
+                      onChange={(event) => setExtraMessage(event.target.value)}
+                      maxLength={2000}
+                      className="field min-h-28 text-sm"
+                      placeholder="Texto que se agrega al inicio del correo."
                     />
                   </Field>
+                  <p className="text-xs text-[#77777D]">
+                    El cuerpo del correo se genera con la plantilla oficial. Solo se puede enviar a los
+                    correos del cliente del proyecto o a cuentas @alfait.com.mx.
+                  </p>
+                  {/* HTML generado y escapado en el servidor (getEmailDraft), no editable. */}
                   <section className="rounded-xl border border-[#2A2A30] bg-white p-4 text-[#111318]">
+                    {extraMessage.trim() ? (
+                      <p className="mb-4 whitespace-pre-wrap">{extraMessage.trim()}</p>
+                    ) : null}
                     <div dangerouslySetInnerHTML={{ __html: draft.html }} />
                   </section>
                 </div>

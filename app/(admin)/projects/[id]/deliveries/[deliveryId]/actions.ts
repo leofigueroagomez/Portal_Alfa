@@ -9,6 +9,7 @@ import { getProjectFinancialSummary } from "@/lib/projectFinancials";
 import { getProjectDeliverySystemsForDisplay } from "@/lib/projectDeliverySystems";
 import { addMonthsToMexicoDate, getMexicoDate } from "@/lib/mexicoDate";
 import { generateProjectDeliveryPdf, generateWarrantyLetterPdf } from "@/lib/postSalePdf";
+import { escapeHtml, safeHrefUrl } from "@/lib/escapeHtml";
 
 type Delivery = {
   id: number;
@@ -47,6 +48,8 @@ type Attachment = {
 type EmailDraft = {
   to: string;
   cc: string[];
+  /** Destinatarios permitidos (correos del cliente + CC configurados), en minusculas. */
+  allowedRecipients: string[];
   subject: string;
   html: string;
   attachmentNames: string[];
@@ -84,12 +87,15 @@ function parseEmails(value: string | null | undefined) {
     .filter(Boolean);
 }
 
-function escapeHtml(value: string | null | undefined) {
-  return (value || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+// Ademas de los correos del cliente, solo se permite copiar a cuentas internas.
+const INTERNAL_EMAIL_DOMAIN = "@alfait.com.mx";
+const MAX_EXTRA_MESSAGE_LENGTH = 2000;
+const MAX_SUBJECT_LENGTH = 200;
+
+function isAllowedDeliveryRecipient(email: string, allowedRecipients: string[]) {
+  const normalized = email.trim().toLowerCase();
+  if (!/^[^\s@<>,;"]+@[^\s@<>,;"]+\.[^\s@<>,;"]+$/.test(normalized)) return false;
+  return allowedRecipients.includes(normalized) || normalized.endsWith(INTERNAL_EMAIL_DOMAIN);
 }
 
 function requireAppUrl() {
@@ -374,17 +380,28 @@ async function getEmailDraft(projectId: number, deliveryId: number): Promise<Ema
       <p>Contacto de soporte: ${escapeHtml(process.env.ALFA_SUPPORT_EMAIL || "soporte@alfait.com")}</p>
       ${
         warrantyData
-          ? `<p><strong>Acta de entrega:</strong> <a href="${deliveryUrl}">${deliveryUrl}</a></p>
-             <p><strong>Carta de garantia:</strong> <a href="${warrantyUrl}">${warrantyUrl}</a></p>
+          ? `<p><strong>Acta de entrega:</strong> <a href="${safeHrefUrl(deliveryUrl)}">${escapeHtml(deliveryUrl)}</a></p>
+             <p><strong>Carta de garantia:</strong> <a href="${safeHrefUrl(warrantyUrl)}">${escapeHtml(warrantyUrl)}</a></p>
              <p style="color:#666">Se adjuntan PDFs formales del acta de entrega y carta de garantia. Los enlaces publicos funcionan sin iniciar sesion.</p>`
-          : `<p style="color:#9E1B32"><strong>La garantia no ha sido generada todavia.</strong> Generala antes de enviar este correo: <a href="${warrantyCreateUrl}">${warrantyCreateUrl}</a></p>`
+          : `<p style="color:#9E1B32"><strong>La garantia no ha sido generada todavia.</strong> Generala antes de enviar este correo: <a href="${safeHrefUrl(warrantyCreateUrl)}">${escapeHtml(warrantyCreateUrl)}</a></p>`
       }
     </div>
   `;
 
+  const allowedRecipients = Array.from(
+    new Set(
+      [
+        ...parseEmails(clientData?.billing_email),
+        ...parseEmails(clientData?.email),
+        ...cc,
+      ].map((email) => email.toLowerCase())
+    )
+  );
+
   return {
     to,
     cc,
+    allowedRecipients,
     subject,
     html,
     attachmentNames: warrantyData
@@ -494,10 +511,13 @@ export async function previewProjectDeliveryEmail(projectId: number, deliveryId:
   }
 }
 
+// El cuerpo HTML siempre se arma en el servidor (getEmailDraft); el cliente
+// solo puede elegir destinatarios del proyecto/internos, ajustar el asunto y
+// agregar un mensaje en texto plano. Evita usar el dominio como relay.
 export async function sendProjectDeliveryEmail(
   projectId: number,
   deliveryId: number,
-  values: { to: string; cc: string; subject: string; html: string }
+  values: { to: string; cc: string; subject: string; message?: string }
 ) {
   const { profile, response } = await requireWorkOrderRole();
   if (response || !profile) {
@@ -511,14 +531,33 @@ export async function sendProjectDeliveryEmail(
   if ("error" in draft) return { ok: false, message: draft.error };
   const emailDraft = draft;
 
-  const to = values.to.trim();
-  const cc = parseEmails(values.cc);
-  const subject = values.subject.trim();
-  const html = values.html.trim();
+  const to = String(values.to || "").trim();
+  const cc = parseEmails(String(values.cc || ""));
+  const subject = String(values.subject || "")
+    .replace(/[\r\n]+/g, " ")
+    .trim()
+    .slice(0, MAX_SUBJECT_LENGTH);
+  const extraMessage = String(values.message || "").trim();
 
   if (!to) return { ok: false, message: "Captura un destinatario." };
   if (!subject) return { ok: false, message: "Captura un asunto." };
-  if (!html) return { ok: false, message: "El cuerpo del correo no puede estar vacio." };
+  if (extraMessage.length > MAX_EXTRA_MESSAGE_LENGTH) {
+    return { ok: false, message: `El mensaje adicional no puede pasar de ${MAX_EXTRA_MESSAGE_LENGTH} caracteres.` };
+  }
+
+  const blockedRecipients = [to, ...cc].filter(
+    (email) => !isAllowedDeliveryRecipient(email, emailDraft.allowedRecipients)
+  );
+  if (blockedRecipients.length > 0) {
+    return {
+      ok: false,
+      message: `Solo se puede enviar a los correos del cliente del proyecto o a cuentas ${INTERNAL_EMAIL_DOMAIN}. No permitido: ${blockedRecipients.join(", ")}.`,
+    };
+  }
+
+  const html = extraMessage
+    ? `<div style="font-family: Arial, sans-serif; color: #111318; line-height: 1.6; white-space: pre-wrap; margin-bottom: 16px;">${escapeHtml(extraMessage)}</div>${emailDraft.html}`
+    : emailDraft.html;
   if (!emailDraft.warrantyUrl) {
     return {
       ok: false,
