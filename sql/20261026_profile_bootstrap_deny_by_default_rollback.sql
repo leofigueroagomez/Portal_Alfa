@@ -152,3 +152,5 @@ $$;
 
 grant execute on function public.next_project_invoice_internal_folio() to anon;
 grant execute on function public.next_project_profitability_report_number() to anon;
+grant execute on function public.handle_new_user_profile() to anon, authenticated;
+grant execute on function public.ensure_current_user_profile() to anon;

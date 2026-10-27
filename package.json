@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:security": "node --test tests/securityAuth.test.mjs tests/securityHardening.test.mjs && tsx --conditions=react-server --test tests/securityRoutes.test.ts tests/securityPublicSignatures.test.ts",
+    "test:security": "node --test tests/securityAuth.test.mjs tests/securityHardening.test.mjs && node --conditions=react-server --experimental-strip-types --test tests/mfa.test.mjs tests/finIntegrity.test.mjs tests/routeGate.test.mjs && tsx --conditions=react-server --test tests/securityRoutes.test.ts tests/securityPublicSignatures.test.ts tests/authzPortal.test.ts tests/ssrfUpload.test.ts",
     "smoke:quote-blinds": "node scripts/smoke-quote-blinds.mjs",
     "test:quote-blinds": "node --experimental-strip-types --test tests/quoteBlinds.test.mjs tests/quoteBlindsPdf.test.mjs tests/quoteBlindsStorage.test.mjs",
     "test:inventory": "node --experimental-strip-types --test tests/inventory.test.mjs",

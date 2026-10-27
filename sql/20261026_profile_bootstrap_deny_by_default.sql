@@ -182,4 +182,11 @@ $$;
 revoke execute on function public.next_project_invoice_internal_folio() from public, anon;
 revoke execute on function public.next_project_profitability_report_number() from public, anon;
 
+-- Advisors de produccion (2026-10-26): estas SECURITY DEFINER se exponian como
+-- RPC a anon. El trigger no necesita EXECUTE para dispararse; ensure_* solo
+-- tiene sentido con sesion. is_internal_user/has_internal_role/current_profile_role
+-- se dejan: devuelven false/null para anon y las usan policies.
+revoke execute on function public.handle_new_user_profile() from public, anon, authenticated;
+revoke execute on function public.ensure_current_user_profile() from public, anon;
+
 commit;

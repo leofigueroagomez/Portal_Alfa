@@ -2,6 +2,23 @@
 
 Reglas criticas para agentes. No debilitar seguridad para resolver errores de producto.
 
+## Auditoria 2026-10-26: remediacion en rama `fix/auditoria-seguridad-20261026`
+
+Informe: [`docs/audits/2026-10-26-admin-console-and-repo-security-audit.md`](../audits/2026-10-26-admin-console-and-repo-security-audit.md). Codigo en rama, sin desplegar; SQL propuesto, sin aplicar.
+
+- **Datos bancarios:** `lib/bankAccounts.ts` ya no tiene valores de respaldo. Sin `ALFA_BANK_CLABE` (18 digitos con digito verificador valido) y `ALFA_BANK_BENEFICIARY`, `configured` es `false` y contratos, PDFs, firma de servicio y recordatorios piden los datos por correo. Nunca volver a poner una CLABE o RFC por defecto en codigo.
+- **MFA (TOTP):** opcional por usuario en `/settings/security`. Quien tiene un factor verificado debe llegar a AAL2 en `proxy.ts`, `app/(admin)/layout.tsx` y `requireInternalUser()`; sin factores no cambia nada. Requiere TOTP habilitado en Supabase Auth. Si alguien pierde el telefono, se borra su factor en Supabase Dashboard > Auth > Users.
+- **Rutas internas:** `/vigia` (solo admin/direccion) y `/suppliers` (`canManagePurchases`, escrituras por server action) estan en `proxy.ts`. Plantillas, voz y borrador por intencion exigen `canManageQuotes`; reglas de marca, admin/direccion; PDF de contrato, `canApproveQuotes`.
+- **Secretos:** `draft-from-intent` usa solo `QUOTE_VOICE_SECRET` (header Bearer; `?key=` se conserva por el atajo de Siri, comparado en tiempo constante). `vigia/investigate` solo Bearer con `CRON_SECRET`.
+- **Invitaciones:** `/auth/accept-invite` acepta solo `invite`, `recovery` y `magiclink`, tokens solo por hash y no reutiliza una sesion previa del navegador.
+- **Analitica:** `AnalyticsScripts` y `utmTracking` no corren en `/public`, `/auth`, `/portal`, `/login` ni en rutas con segmentos tipo token (`lib/routeGate.ts`).
+- **Stripe:** el webhook liquida solo si moneda `mxn`, importe y sesion coinciden con el servicio y `payment_status = 'pending_payment'`; error de BD responde 500 para reintento. Cambiar el monto expira la Checkout Session anterior.
+- **Correo saliente:** usar `lib/escapeHtml.ts` (`escapeHtml`, `safeHrefUrl`) para todo dato de clientes, firmantes o contratistas. El correo de entregas ya no acepta HTML del navegador y solo envia a contactos del cliente, `POSTSALE_CC_EMAILS` o `@alfait.com.mx`.
+- **Subidas y SSRF:** imagenes de PDF de cotizacion solo por fetch validado (DNS, IPs privadas, redirects) e incrustadas como `data:`; adjuntos con validacion de magic bytes y tamano.
+- **Usuarios:** `isInternalRole(null)` es `false`; `POST /api/admin/users` escribe `user_type='internal'`/`is_internal=true` explicitos; PATCH/DELETE solo sobre internos; `canManageUsers` = admin o direccion. Portal de clientes y contratistas valida pertenencia (`client_id`/`contractor_id`) antes de asignar, revocar o reenviar.
+- **Orden de despliegue de BD:** 1) desplegar esta rama (portal lee con `ctx.db`), 2) en sandbox y luego produccion: `20261001_quotes_rls_internal_only`, `20261001e`, `20261001f`, `20261001d`, `20261001g`, `20261026_profile_bootstrap_deny_by_default`, y `20261025_inventory` solo si se libera inventario. Cada una tiene rollback exacto.
+- Comprobado en produccion el 2026-10-26 (solo lectura): `disable_signup = true`; advisors con 22 vistas `vigia_v_*` SECURITY DEFINER, funciones SECURITY DEFINER ejecutables por `anon` y proteccion de contrasenas filtradas apagada.
+
 ## Auditoria 2026-09-16: correcciones locales y pendientes productivos
 
 Ver [informe consolidado](../audits/2026-09-16-security-audit.md), sus informes de

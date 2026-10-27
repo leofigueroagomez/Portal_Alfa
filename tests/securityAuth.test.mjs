@@ -30,9 +30,13 @@ const internalProfile = {
   role: "finanzas", is_active: true, is_internal: true, user_type: "internal",
 };
 
-function loadGuards(profile, createClient = async () => {
-  throw new Error("The guard must deny before consulting project data");
-}) {
+function loadGuards(profile, createClient = async () => ({
+  // La consulta de MFA solo usa auth; cualquier lectura de datos falla la prueba.
+  auth: {},
+  from() {
+    throw new Error("The guard must deny before consulting project data");
+  },
+})) {
   return loadModule("../lib/apiAuth.ts", {
     "server-only": {},
     "next/server": { NextResponse },
@@ -43,6 +47,7 @@ function loadGuards(profile, createClient = async () => {
     },
     "@/services/supabaseServer": { createSupabaseServerClient: createClient },
     "@/lib/rateLimit": {},
+    "@/lib/mfa": { getAssuranceState: async () => ({ needsChallenge: false }) },
   });
 }
 
@@ -158,6 +163,9 @@ function loadBusinessActions(relativePath, profile, dependencies = {}) {
     "@/lib/googleCalendar": {},
     "@/lib/googleCalendarSync": {},
     "@/lib/contractorNotificationEmail": {},
+    "@/lib/contractPublicValidation": {},
+    "@/lib/escapeHtml": { escapeHtml: String, safeHrefUrl: String },
+    "@/lib/finIntegrityStripe": {},
     ...dependencies,
   });
 }
@@ -267,6 +275,9 @@ test("portal contexts reject missing or inactive profiles before reading linked 
       "next/navigation": { redirect() { throw new Error("Unexpected redirect"); } },
       "@/lib/mexicoDate": {},
       "@/services/profile": { getCurrentUserProfile: async () => profile },
+      "@/services/supabaseAdmin": {
+        createSupabaseAdminClient() { throw new Error("Inactive user reached service role"); },
+      },
       "@/services/supabaseServer": {
         createSupabaseServerClient: async () => ({
           auth: { getUser: async () => ({ data: { user: { id: internalProfile.id } } }) },
