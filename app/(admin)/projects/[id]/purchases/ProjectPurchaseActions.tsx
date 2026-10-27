@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PackageCheck, Pencil, Plus, Truck, X } from "lucide-react";
 import { getMexicoDate } from "@/lib/mexicoDate";
+import { recalculatePurchaseLineTotals } from "@/lib/projectPurchases";
 import { supabase } from "@/services/supabase";
 
 export type PurchaseLineAction = {
@@ -71,18 +72,6 @@ function reportError(step: string, error: unknown) {
 
   console.error(`Error en ${step}:`, error);
   alert(`Error en ${step}: ${JSON.stringify(error)}${message}`);
-}
-
-function getStatus(quantityPurchased: number, quantityRequired: number) {
-  if (quantityPurchased <= 0) return "pending";
-  if (quantityPurchased >= quantityRequired) return "purchased";
-  return "partial";
-}
-
-function getEstimatedUnitCost(line: PurchaseLineAllocation | PurchaseLineAction) {
-  return Number(line.quantity_required || 0) > 0
-    ? Number(line.total_required_cost || 0) / Number(line.quantity_required || 0)
-    : Number(line.unit_cost || 0);
 }
 
 export default function ProjectPurchaseActions({
@@ -231,34 +220,12 @@ export default function ProjectPurchaseActions({
 
     for (const allocation of allocations) {
       const targetLine = allocation.line;
-      const estimatedUnitCost = getEstimatedUnitCost(targetLine);
-      const nextQuantityPurchased =
-        Number(targetLine.quantity_purchased || 0) + allocation.quantity;
-      const nextPurchasedCost =
-        Number(targetLine.total_purchased_cost || 0) +
-        allocation.quantity * numericUnitCost;
-      const estimatedPurchasedCost = nextQuantityPurchased * estimatedUnitCost;
-      const nextPendingCost = Math.max(
-        Number(targetLine.total_required_cost || 0) - estimatedPurchasedCost,
-        0
-      );
 
-      const { error: lineError } = await supabase
-        .from("project_purchase_lines")
-        .update({
+      try {
+        await recalculatePurchaseLineTotals(supabase, targetLine.id, {
           supplier: supplier.trim() || selectedLine.supplier || targetLine.supplier || null,
-          quantity_purchased: nextQuantityPurchased,
-          total_purchased_cost: nextPurchasedCost,
-          total_pending_cost: nextPendingCost,
-          purchase_status: getStatus(
-            nextQuantityPurchased,
-            Number(targetLine.quantity_required || 0)
-          ),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", targetLine.id);
-
-      if (lineError) {
+        });
+      } catch (lineError) {
         setSaving(false);
         reportError("actualizar linea de compra", lineError);
         return;

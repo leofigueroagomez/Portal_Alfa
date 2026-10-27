@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { formatCurrency, formatNumber } from "@/lib/format";
 import { normalizeRole } from "@/lib/permissions";
 import {
+  convertPurchaseEventCost,
   getPurchaseProgressPercent,
   summarizePurchaseVariationMxn,
 } from "@/lib/projectPurchases";
@@ -434,14 +435,18 @@ export default async function DirectorDashboardPage() {
     const supplier = line.supplier?.trim() || "Sin proveedor";
     const current = pendingBySupplier.get(supplier) || { mxn: 0, usdWithoutTc: 0, purchasedMxn: 0 };
     const pending = Number(line.total_pending_cost || 0);
-    const purchased = Number(line.total_purchased_cost || 0);
     const currency = (line.cost_currency || "USD").toUpperCase();
     const rate = Number(line.exchange_rate || 0);
+
+    // Lo comprado se toma de los eventos, cada uno en MXN con su propia moneda y
+    // TC, no de total_purchased_cost (que puede venir de eventos en otra moneda).
+    (purchaseEventsByLine.get(line.id) || []).forEach((eventItem) => {
+      current.purchasedMxn += convertPurchaseEventCost(eventItem, "MXN", rate).amount || 0;
+    });
 
     if (currency === "USD") {
       if (rate > 0) {
         current.mxn += pending * rate;
-        current.purchasedMxn += purchased * rate;
         pendingPurchasesMxn += pending * rate;
       } else {
         current.usdWithoutTc += pending;
@@ -449,7 +454,6 @@ export default async function DirectorDashboardPage() {
       }
     } else {
       current.mxn += pending;
-      current.purchasedMxn += purchased;
       pendingPurchasesMxn += pending;
     }
 

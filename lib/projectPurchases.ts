@@ -213,14 +213,6 @@ export function summarizePurchaseVariationMxn(
   return totals;
 }
 
-function normalizeCurrency(value: string | null | undefined, fallback = "USD") {
-  return (value || fallback).toUpperCase() === "MXN" ? "MXN" : "USD";
-}
-
-function roundMoney(value: number) {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
-}
-
 // ---------------------------------------------------------------------------
 // Estimado de compra desde el presupuesto cotizado
 // ---------------------------------------------------------------------------
@@ -369,4 +361,233 @@ export async function loadOriginalCostCurrencies(
       ];
     })
   );
+}
+
+export function getPurchaseLineStatus(quantityPurchased: number, quantityRequired: number) {
+  if (quantityPurchased <= 0) return "pending";
+  if (quantityPurchased >= quantityRequired) return "purchased";
+  return "partial";
+}
+
+// ---------------------------------------------------------------------------
+// Recalculo de una linea de compra desde sus eventos
+// ---------------------------------------------------------------------------
+// total_purchased_cost se guarda en la moneda de la LINEA. Cada evento se
+// convierte antes de sumar: MXN -> USD divide entre el tipo de cambio del
+// evento y USD -> MXN multiplica por el. Si el evento no trae TC (las compras
+// en MXN nunca lo guardan) se usa el de referencia: el TC de la partida
+// operativa, el mismo que usa getPurchaseLineVariation. Un total convertido con
+// TC de referencia es aproximado, asi que tambien se guarda
+// total_purchased_cost_mxn (cada evento en MXN con su propio TC) y la pantalla
+// muestra ese cuando la conversion no fue exacta.
+
+export type PurchaseLineRecalcInput = {
+  quantity_required: number | null;
+  unit_cost: number | null;
+  total_required_cost: number | null;
+  cost_currency: string | null;
+  supplier?: string | null;
+};
+
+export type PurchaseLineRecalcEvent = {
+  quantity: number | null;
+  unit_cost: number | null;
+  cost_currency: string | null;
+  exchange_rate?: number | null;
+  supplier?: string | null;
+};
+
+export type PurchaseFxSource = "same_currency" | "event" | "reference" | "missing";
+
+export type PurchaseLineTotals = {
+  quantity_purchased: number;
+  /** En la moneda de la linea. */
+  total_purchased_cost: number;
+  /** null solo si un evento en USD no tiene ningun TC para pasarlo a MXN. */
+  total_purchased_cost_mxn: number | null;
+  total_pending_cost: number;
+  purchase_status: string;
+  supplier_from_events: string | null;
+  /** true si ninguna conversion necesito el TC de referencia. */
+  fx_exact: boolean;
+  /** true si algun evento no se pudo convertir a la moneda de la linea (queda fuera del total). */
+  missing_exchange_rate: boolean;
+};
+
+function normalizeCurrency(value: string | null | undefined, fallback = "USD") {
+  return (value || fallback).toUpperCase() === "MXN" ? "MXN" : "USD";
+}
+
+function roundMoney(value: number) {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+/** Costo (cantidad x costo unitario) de un evento convertido a la moneda indicada. */
+export function convertPurchaseEventCost(
+  eventItem: PurchaseLineRecalcEvent,
+  targetCurrency: string,
+  referenceExchangeRate?: number | null
+): { amount: number | null; fxSource: PurchaseFxSource } {
+  const target = normalizeCurrency(targetCurrency);
+  const eventCurrency = normalizeCurrency(eventItem.cost_currency, target);
+  const amount = Number(eventItem.quantity || 0) * Number(eventItem.unit_cost || 0);
+
+  if (eventCurrency === target) return { amount, fxSource: "same_currency" };
+
+  const eventRate = Number(eventItem.exchange_rate || 0);
+  const referenceRate = Number(referenceExchangeRate || 0);
+  const rate = eventRate > 0 ? eventRate : referenceRate;
+  const fxSource: PurchaseFxSource =
+    eventRate > 0 ? "event" : referenceRate > 0 ? "reference" : "missing";
+
+  if (rate <= 0) return { amount: null, fxSource };
+
+  return {
+    amount: eventCurrency === "MXN" ? amount / rate : amount * rate,
+    fxSource,
+  };
+}
+
+/** Totales de una linea a partir de TODOS sus eventos de compra. */
+export function computePurchaseLineTotals(
+  line: PurchaseLineRecalcInput,
+  events: PurchaseLineRecalcEvent[],
+  referenceExchangeRate?: number | null
+): PurchaseLineTotals {
+  const lineCurrency = normalizeCurrency(line.cost_currency);
+  const quantityRequired = Number(line.quantity_required || 0);
+  const estimatedUnitCost =
+    quantityRequired > 0
+      ? Number(line.total_required_cost || 0) / quantityRequired
+      : Number(line.unit_cost || 0);
+  let quantityPurchased = 0;
+  let totalPurchasedCost = 0;
+  let totalPurchasedCostMxn: number | null = 0;
+  let fxExact = true;
+  let missingExchangeRate = false;
+
+  events.forEach((eventItem) => {
+    quantityPurchased += Number(eventItem.quantity || 0);
+
+    const inLineCurrency = convertPurchaseEventCost(
+      eventItem,
+      lineCurrency,
+      referenceExchangeRate
+    );
+    if (inLineCurrency.amount === null) {
+      missingExchangeRate = true;
+    } else {
+      totalPurchasedCost += inLineCurrency.amount;
+    }
+    if (inLineCurrency.fxSource === "reference" || inLineCurrency.fxSource === "missing") {
+      fxExact = false;
+    }
+
+    const inMxn = convertPurchaseEventCost(eventItem, "MXN", referenceExchangeRate);
+    totalPurchasedCostMxn =
+      totalPurchasedCostMxn === null || inMxn.amount === null
+        ? null
+        : totalPurchasedCostMxn + inMxn.amount;
+  });
+
+  return {
+    quantity_purchased: quantityPurchased,
+    total_purchased_cost: roundMoney(totalPurchasedCost),
+    total_purchased_cost_mxn:
+      totalPurchasedCostMxn === null ? null : roundMoney(totalPurchasedCostMxn),
+    total_pending_cost: roundMoney(
+      Math.max(Number(line.total_required_cost || 0) - quantityPurchased * estimatedUnitCost, 0)
+    ),
+    purchase_status: getPurchaseLineStatus(quantityPurchased, quantityRequired),
+    supplier_from_events:
+      events.find((eventItem) => eventItem.supplier?.trim())?.supplier || null,
+    fx_exact: fxExact,
+    missing_exchange_rate: missingExchangeRate,
+  };
+}
+
+/** true si el error de PostgREST es porque total_purchased_cost_mxn aun no existe. */
+export function isMissingMxnColumnError(error: { code?: string; message?: string } | null) {
+  if (!error) return false;
+  return (
+    (error.code === "PGRST204" || error.code === "42703") &&
+    String(error.message || "").includes("total_purchased_cost_mxn")
+  );
+}
+
+/**
+ * Unica funcion que reescribe los totales de una linea de compra. Lee la linea,
+ * todos sus eventos y el TC de su partida operativa, y guarda el resultado.
+ * Llamarla despues de crear, editar, mover o borrar eventos de compra.
+ *
+ * - supplier: valor explicito para la linea. Si se omite y
+ *   syncSupplierFromEvents es true, toma el primer proveedor de los eventos.
+ * - Si la columna total_purchased_cost_mxn aun no existe (script
+ *   sql/20261025_fix_purchase_line_totals.sql sin aplicar) reintenta sin ella.
+ */
+export async function recalculatePurchaseLineTotals(
+  supabase: SupabaseClient,
+  lineId: number,
+  options: { supplier?: string | null; syncSupplierFromEvents?: boolean } = {}
+): Promise<PurchaseLineTotals> {
+  const { data: line, error: lineError } = await supabase
+    .from("project_purchase_lines")
+    .select(
+      "id, quantity_required, unit_cost, total_required_cost, cost_currency, supplier, project_operational_item_id"
+    )
+    .eq("id", lineId)
+    .single();
+  if (lineError) throw lineError;
+
+  const { data: eventsData, error: eventsError } = await supabase
+    .from("project_purchase_events")
+    .select("quantity, unit_cost, cost_currency, exchange_rate, supplier")
+    .eq("project_purchase_line_id", lineId)
+    .order("id", { ascending: true });
+  if (eventsError) throw eventsError;
+
+  let referenceExchangeRate: number | null = null;
+  if (line.project_operational_item_id) {
+    const { data: operationalItem, error: operationalError } = await supabase
+      .from("project_operational_items")
+      .select("exchange_rate")
+      .eq("id", line.project_operational_item_id)
+      .maybeSingle();
+    if (operationalError) throw operationalError;
+    referenceExchangeRate = Number(operationalItem?.exchange_rate || 0) || null;
+  }
+
+  const totals = computePurchaseLineTotals(
+    line as PurchaseLineRecalcInput,
+    (eventsData || []) as PurchaseLineRecalcEvent[],
+    referenceExchangeRate
+  );
+  const update: Record<string, unknown> = {
+    quantity_purchased: totals.quantity_purchased,
+    total_purchased_cost: totals.total_purchased_cost,
+    total_purchased_cost_mxn: totals.total_purchased_cost_mxn,
+    total_pending_cost: totals.total_pending_cost,
+    purchase_status: totals.purchase_status,
+    updated_at: new Date().toISOString(),
+  };
+  if (options.supplier !== undefined) {
+    update.supplier = options.supplier;
+  } else if (options.syncSupplierFromEvents) {
+    update.supplier = totals.supplier_from_events || line.supplier || null;
+  }
+
+  let { error: updateError } = await supabase
+    .from("project_purchase_lines")
+    .update(update)
+    .eq("id", lineId);
+  if (isMissingMxnColumnError(updateError)) {
+    delete update.total_purchased_cost_mxn;
+    ({ error: updateError } = await supabase
+      .from("project_purchase_lines")
+      .update(update)
+      .eq("id", lineId));
+  }
+  if (updateError) throw updateError;
+
+  return totals;
 }

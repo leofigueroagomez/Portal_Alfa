@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   getPurchaseBudgetEstimate,
   loadOriginalCostCurrencies,
+  recalculatePurchaseLineTotals,
 } from "@/lib/projectPurchases";
 
 /**
@@ -76,55 +77,6 @@ async function saveBackup(
     .single();
   if (error) throw error;
   return (data as { id: number }).id;
-}
-
-type PurchaseEventRow = {
-  quantity: number | null;
-  unit_cost: number | null;
-  supplier: string | null;
-};
-
-/** Recalculo de una linea de compra desde sus eventos (misma formula que
- *  app/api/projects/[id]/purchases/events/[eventId]/route.ts). */
-function recomputeLineFromEvents(
-  line: {
-    quantity_required: number | null;
-    unit_cost: number | null;
-    total_required_cost: number | null;
-    supplier: string | null;
-  },
-  events: PurchaseEventRow[],
-) {
-  const quantityPurchased = events.reduce((s, e) => s + num(e.quantity), 0);
-  const totalPurchasedCost = events.reduce(
-    (s, e) => s + num(e.quantity) * num(e.unit_cost),
-    0,
-  );
-  const estUnit =
-    num(line.quantity_required) > 0
-      ? num(line.total_required_cost) / num(line.quantity_required)
-      : num(line.unit_cost);
-  const totalPendingCost = Math.max(
-    num(line.total_required_cost) - quantityPurchased * estUnit,
-    0,
-  );
-  const quantityRequired = num(line.quantity_required);
-  const purchase_status =
-    quantityPurchased <= 0
-      ? "pending"
-      : quantityPurchased >= quantityRequired
-        ? "purchased"
-        : "partial";
-  const supplier =
-    events.find((e) => e.supplier?.trim())?.supplier || line.supplier || null;
-
-  return {
-    quantity_purchased: quantityPurchased,
-    total_purchased_cost: totalPurchasedCost,
-    total_pending_cost: totalPendingCost,
-    purchase_status,
-    supplier,
-  };
 }
 
 // ---------------------------------------------------------------------------
@@ -212,7 +164,6 @@ const recalcularLineasDeCompra: Executor = {
             : "No se pudo leer la moneda del presupuesto cotizado.",
       };
     }
-
 
     const productIds = Array.from(
       new Set(
@@ -480,25 +431,12 @@ const fusionarLineaHuerfana: Executor = {
       .eq("project_purchase_line_id", orphanId);
     if (moveErr) return { ok: false, error: moveErr.message };
 
-    // 2. recalcular la linea sana
-    const { data: healthyEventsData } = await supabase
-      .from("project_purchase_events")
-      .select("quantity, unit_cost, supplier")
-      .eq("project_purchase_line_id", healthy.id);
-    const recomputed = recomputeLineFromEvents(
-      {
-        quantity_required: healthy.quantity_required,
-        unit_cost: healthy.unit_cost,
-        total_required_cost: healthy.total_required_cost,
-        supplier: healthy.supplier,
-      },
-      (healthyEventsData ?? []) as PurchaseEventRow[],
-    );
-    const { error: recErr } = await supabase
-      .from("project_purchase_lines")
-      .update({ ...recomputed, updated_at: new Date().toISOString() })
-      .eq("id", healthy.id);
-    if (recErr) return { ok: false, error: recErr.message };
+    // 2. recalcular la linea sana (convierte cada evento a la moneda de la linea)
+    try {
+      await recalculatePurchaseLineTotals(supabase, healthy.id, { syncSupplierFromEvents: true });
+    } catch (recErr) {
+      return { ok: false, error: recErr instanceof Error ? recErr.message : String(recErr) };
+    }
 
     // 3. borrar la huerfana
     const { error: delErr } = await supabase
@@ -539,6 +477,14 @@ const fusionarLineaHuerfana: Executor = {
       .update({ ...healthyPre, updated_at: new Date().toISOString() })
       .eq("id", healthyId);
     if (hErr) return { ok: false, error: hErr.message };
+
+    // 4. totales desde los eventos que quedaron en cada linea
+    try {
+      await recalculatePurchaseLineTotals(supabase, healthyId);
+      await recalculatePurchaseLineTotals(supabase, orphanLine.id as number);
+    } catch (recErr) {
+      return { ok: false, error: recErr instanceof Error ? recErr.message : String(recErr) };
+    }
 
     return { ok: true };
   },

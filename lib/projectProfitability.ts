@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getProjectFinancialSummary } from "@/lib/projectFinancials";
+import { convertPurchaseEventCost, isMissingMxnColumnError } from "@/lib/projectPurchases";
 
 export type ProfitabilityReport = {
   id: number;
@@ -36,8 +37,102 @@ export type ProfitabilitySnapshot = {
 };
 
 type PurchaseLine = {
-  total_purchased_cost: number | null;
+  id: number;
+  project_operational_item_id: number | null;
+  total_purchased_cost_mxn?: number | null;
 };
+
+type PurchaseEvent = {
+  project_purchase_line_id: number;
+  quantity: number | null;
+  unit_cost: number | null;
+  cost_currency: string | null;
+  exchange_rate: number | null;
+};
+
+/**
+ * Comprado en MXN por linea. Usa total_purchased_cost_mxn (cada evento en MXN
+ * con su propia moneda y TC, ver recalculatePurchaseLineTotals). Respaldo cuando
+ * viene null o la columna aun no existe: lo calcula desde los eventos de la
+ * linea con la misma conversion. total_purchased_cost NO se usa porque esta en
+ * la moneda de la linea (puede ser USD).
+ */
+export async function getPurchasedMxnByLine(supabase: SupabaseClient, projectId: number) {
+  const selectLines = async (columns: string) => {
+    const { data, error } = await supabase
+      .from("project_purchase_lines")
+      .select(columns)
+      .eq("client_project_id", projectId);
+    return { data: (data || []) as unknown as PurchaseLine[], error };
+  };
+  let linesResult = await selectLines(
+    "id, project_operational_item_id, total_purchased_cost_mxn"
+  );
+  if (isMissingMxnColumnError(linesResult.error)) {
+    linesResult = await selectLines("id, project_operational_item_id");
+  }
+  if (linesResult.error) throw linesResult.error;
+
+  const lines = linesResult.data;
+  const purchasedMxnByLine = new Map<number, number>();
+  const fallbackLines: PurchaseLine[] = [];
+
+  lines.forEach((line) => {
+    if (line.total_purchased_cost_mxn === null || line.total_purchased_cost_mxn === undefined) {
+      fallbackLines.push(line);
+    } else {
+      purchasedMxnByLine.set(line.id, Number(line.total_purchased_cost_mxn || 0));
+    }
+  });
+
+  let eventsMissingExchangeRate = 0;
+  if (fallbackLines.length > 0) {
+    const operationalIds = fallbackLines
+      .map((line) => line.project_operational_item_id)
+      .filter(Boolean) as number[];
+    const [eventsResult, operationalResult] = await Promise.all([
+      supabase
+        .from("project_purchase_events")
+        .select("project_purchase_line_id, quantity, unit_cost, cost_currency, exchange_rate")
+        .in(
+          "project_purchase_line_id",
+          fallbackLines.map((line) => line.id)
+        ),
+      operationalIds.length > 0
+        ? supabase
+            .from("project_operational_items")
+            .select("id, exchange_rate")
+            .in("id", operationalIds)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+    if (eventsResult.error) throw eventsResult.error;
+    if (operationalResult.error) throw operationalResult.error;
+
+    const rateByOperationalId = new Map(
+      ((operationalResult.data || []) as { id: number; exchange_rate: number | null }[]).map(
+        (item) => [item.id, Number(item.exchange_rate || 0) || null]
+      )
+    );
+    const lineById = new Map(fallbackLines.map((line) => [line.id, line]));
+
+    fallbackLines.forEach((line) => purchasedMxnByLine.set(line.id, 0));
+    ((eventsResult.data || []) as PurchaseEvent[]).forEach((eventItem) => {
+      const line = lineById.get(eventItem.project_purchase_line_id);
+      if (!line) return;
+      const referenceRate = line.project_operational_item_id
+        ? rateByOperationalId.get(line.project_operational_item_id) ?? null
+        : null;
+      const { amount } = convertPurchaseEventCost(eventItem, "MXN", referenceRate);
+      if (amount === null) {
+        eventsMissingExchangeRate += 1;
+        return;
+      }
+      purchasedMxnByLine.set(line.id, Number(purchasedMxnByLine.get(line.id) || 0) + amount);
+    });
+  }
+
+  return { purchasedMxnByLine, eventsMissingExchangeRate };
+}
 
 type WorkOrder = {
   contractor_amount_mxn: number | null;
@@ -84,12 +179,9 @@ export async function calculateProjectProfitability(
   projectId: number,
   otherCostsMxn = 0
 ): Promise<ProfitabilitySnapshot> {
-  const [financialSummary, purchasesResult, workOrdersResult] = await Promise.all([
+  const [financialSummary, purchases, workOrdersResult] = await Promise.all([
     getProjectFinancialSummary(supabase, projectId),
-    supabase
-      .from("project_purchase_lines")
-      .select("total_purchased_cost")
-      .eq("client_project_id", projectId),
+    getPurchasedMxnByLine(supabase, projectId),
     supabase
       .from("work_orders")
       .select("contractor_amount_mxn")
@@ -97,16 +189,12 @@ export async function calculateProjectProfitability(
       .neq("status", "cancelled"),
   ]);
 
-  if (purchasesResult.error) throw purchasesResult.error;
   if (workOrdersResult.error) throw workOrdersResult.error;
 
-  const purchaseLines = (purchasesResult.data || []) as PurchaseLine[];
+  const purchasedMxnValues = Array.from(purchases.purchasedMxnByLine.values());
   const workOrders = (workOrdersResult.data || []) as WorkOrder[];
   const equipmentPurchaseTotalMxn = roundCurrency(
-    purchaseLines.reduce(
-      (sum, line) => sum + Number(line.total_purchased_cost || 0),
-      0
-    )
+    purchasedMxnValues.reduce((sum, purchasedMxn) => sum + purchasedMxn, 0)
   );
   const workOrdersTotalMxn = roundCurrency(
     workOrders.reduce(
@@ -124,9 +212,7 @@ export async function calculateProjectProfitability(
   );
   const operatingMarginPercent =
     totalSoldMxn > 0 ? roundPercent((operatingProfitMxn / totalSoldMxn) * 100) : 0;
-  const purchaseLineCount = purchaseLines.filter(
-    (line) => Number(line.total_purchased_cost || 0) > 0
-  ).length;
+  const purchaseLineCount = purchasedMxnValues.filter((purchasedMxn) => purchasedMxn > 0).length;
   const workOrderCostCount = workOrders.filter(
     (order) => Number(order.contractor_amount_mxn || 0) > 0
   ).length;
@@ -136,6 +222,9 @@ export async function calculateProjectProfitability(
       : "",
     workOrderCostCount === 0
       ? "No hay costos de ordenes de trabajo; la utilidad puede estar sobreestimada."
+      : "",
+    purchases.eventsMissingExchangeRate > 0
+      ? `${purchases.eventsMissingExchangeRate} compra(s) en USD sin tipo de cambio quedaron fuera del costo de equipo; la utilidad puede estar sobreestimada.`
       : "",
   ].filter(Boolean);
 
