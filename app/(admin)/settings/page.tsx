@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bell, Boxes, Coins, Hammer, Handshake, Layers, SlidersHorizontal, Tags, Truck, UserCog, Wrench } from "lucide-react";
+import { Bell, Boxes, Coins, Hammer, Handshake, Layers, ShieldCheck, SlidersHorizontal, Tags, Truck, UserCog, Wrench } from "lucide-react";
 
 const settingsLinks = [
   {
@@ -25,6 +25,12 @@ const settingsLinks = [
     title: "Costos y precios",
     description: "Costo indirecto de empresa aplicado automáticamente a cada cotización nueva.",
     icon: Coins,
+  },
+  {
+    href: "/settings/security",
+    title: "Seguridad de tu cuenta",
+    description: "Verificación en dos pasos con app de autenticación para tu acceso a ALFA OS.",
+    icon: ShieldCheck,
   },
   {
     href: "/users",

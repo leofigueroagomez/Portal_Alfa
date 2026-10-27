@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getConfiguredPortalHost, getCurrentHost } from "@/lib/hosts";
+import { buildMfaChallengeUrl, getAssuranceState } from "@/lib/mfa";
 
 const portalRoutes = ["/portal"];
 
@@ -27,6 +28,8 @@ const internalRoutes = [
   "/product-tags",
   "/director-dashboard",
   "/commercial-partners",
+  "/vigia",
+  "/suppliers",
 ];
 
 function matchesRoute(pathname: string, routes: string[]) {
@@ -121,6 +124,19 @@ export async function proxy(request: NextRequest) {
     if (profileError || !profile || isExternalPortal || !isInternal) {
       return NextResponse.redirect(new URL("/portal", request.url));
     }
+
+    // MFA: solo quien ya inscribio un factor debe llegar a AAL2 (sin factores no cambia).
+    if (data.claims.aal !== "aal2") {
+      const assurance = await getAssuranceState(supabase);
+      if (assurance.needsChallenge) {
+        return NextResponse.redirect(
+          new URL(
+            buildMfaChallengeUrl(`${request.nextUrl.pathname}${request.nextUrl.search}`),
+            request.url
+          )
+        );
+      }
+    }
   }
 
   return response;
@@ -152,5 +168,7 @@ export const config = {
     "/product-tags/:path*",
     "/director-dashboard/:path*",
     "/commercial-partners/:path*",
+    "/vigia/:path*",
+    "/suppliers/:path*",
   ],
 };

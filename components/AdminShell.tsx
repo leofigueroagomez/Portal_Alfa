@@ -20,6 +20,7 @@ import {
   ReceiptText,
   Ruler,
   Settings,
+  ShieldCheck,
   SlidersHorizontal,
   Users,
   UserCog,
@@ -143,6 +144,7 @@ export default function AdminShell({
   ];
 
   const settingsItems: NavLink[] = [
+    { href: "/settings/security", label: "Seguridad de la cuenta", icon: ShieldCheck, visible: true },
     { href: "/users", label: "Usuarios", icon: UserCog, visible: canManageUsers(role) },
     {
       href: "/notifications/recipients",

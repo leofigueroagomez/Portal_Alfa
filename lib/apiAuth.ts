@@ -21,6 +21,7 @@ const notificationRoles = new Set([
 ]);
 
 import { checkMemoryRateLimit, checkRateLimit } from "@/lib/rateLimit";
+import { getAssuranceState } from "@/lib/mfa";
 export { checkRateLimit };
 
 export function createRequestId() {
@@ -28,7 +29,13 @@ export function createRequestId() {
 }
 
 export function jsonError(
-  error: "Unauthorized" | "Forbidden" | "Bad Request" | "Not Found" | "Too Many Requests",
+  error:
+    | "Unauthorized"
+    | "Forbidden"
+    | "Bad Request"
+    | "Not Found"
+    | "Too Many Requests"
+    | "MFA required",
   status: 400 | 401 | 403 | 404 | 429
 ) {
   return NextResponse.json({ error }, { status });
@@ -41,6 +48,15 @@ export async function requireInternalUser() {
     return {
       profile: null,
       response: jsonError("Unauthorized", 401),
+    };
+  }
+
+  // MFA: quien ya inscribio un factor debe llegar con sesion AAL2.
+  const assurance = await getAssuranceState(await createSupabaseServerClient());
+  if (assurance.needsChallenge) {
+    return {
+      profile: null,
+      response: jsonError("MFA required", 403),
     };
   }
 

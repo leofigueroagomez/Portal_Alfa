@@ -1,5 +1,7 @@
 import AdminShell from "@/components/AdminShell";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { buildMfaChallengeUrl, getAssuranceState } from "@/lib/mfa";
 import { getCurrentInternalUserProfile } from "@/services/profile";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
@@ -15,6 +17,23 @@ export default async function AdminLayout({
 
   if (!profile) {
     redirect("/portal");
+  }
+
+  // MFA: solo usuarios con un factor verificado (nextLevel = aal2) deben subir
+  // la sesion a AAL2. Sin factores, nextLevel = aal1 y nada cambia.
+  const assurance = await getAssuranceState(await createSupabaseServerClient());
+
+  if (assurance.error) {
+    console.warn("[admin-layout] mfa assurance lookup failed; not enforcing", {
+      error: assurance.error,
+    });
+  }
+
+  if (assurance.needsChallenge) {
+    // Los layouts no reciben pathname; si el proxy expone la ruta original se
+    // conserva como destino (saneado), si no se vuelve a /dashboard.
+    const requestHeaders = await headers();
+    redirect(buildMfaChallengeUrl(requestHeaders.get("x-alfa-pathname")));
   }
 
   try {
