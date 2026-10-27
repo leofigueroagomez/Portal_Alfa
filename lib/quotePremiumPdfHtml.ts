@@ -63,13 +63,41 @@ function getLogoDataUrl() {
   return logoDataUrl;
 }
 
-function buildTermsList(snapshot: QuotePdfSnapshot) {
+// Anticipo de equipos ya con descuentos: lo que se cobra, no el precio de lista.
+// El descuento al cliente se guarda como un solo monto (equipo + mano de obra),
+// asi que se reparte en proporcion al peso del equipo en el subtotal; con un %
+// general sin excepciones por partida es exacto. En la version ALFA de una
+// cotizacion de aliado tambien se resta la parte del aliado sobre equipo.
+function getEquipmentAdvanceUsd(
+  snapshot: QuotePdfSnapshot,
+  branding?: QuotePremiumPdfBranding
+) {
+  const totals = getDisplayTotals(snapshot, branding);
+  const exchangeRate = snapshot.exchangeRate.value;
+  if (!(exchangeRate > 0) || !(totals.subtotalMxn > 0)) {
+    return totals.equipmentTotalUsd;
+  }
+
+  const equipmentMxn = totals.equipmentTotalUsd * exchangeRate;
+  const equipmentShare = Math.min(equipmentMxn / totals.subtotalMxn, 1);
+  const equipmentNetMxn =
+    equipmentMxn -
+    totals.discountMxn * equipmentShare -
+    totals.partnerEquipmentDiscountMxn;
+
+  return Math.max(equipmentNetMxn, 0) / exchangeRate;
+}
+
+function buildTermsList(
+  snapshot: QuotePdfSnapshot,
+  branding?: QuotePremiumPdfBranding
+) {
   const terms = snapshot.terms;
   const lines = [
     terms.payment100Advance
       ? "Anticipo: 100% del total de la propuesta."
       : `Anticipo de equipos: ${formatCurrency(
-          snapshot.totals.equipmentTotalUsd,
+          getEquipmentAdvanceUsd(snapshot, branding),
           "USD"
         )}. Mano de obra conforme a condiciones comerciales acordadas.`,
     "Todos los precios de equipos estan expresados en USD y la mano de obra en MXN.",
@@ -521,20 +549,20 @@ function buildNotes(snapshot: QuotePdfSnapshot) {
   `;
 }
 
-function buildTerms(snapshot: QuotePdfSnapshot) {
+function buildTerms(snapshot: QuotePdfSnapshot, branding?: QuotePremiumPdfBranding) {
   return `
     <section class="closing-section">
       <h3>Condiciones comerciales</h3>
-      <ol>${buildTermsList(snapshot)}</ol>
+      <ol>${buildTermsList(snapshot, branding)}</ol>
     </section>
   `;
 }
 
-function buildClosing(snapshot: QuotePdfSnapshot) {
+function buildClosing(snapshot: QuotePdfSnapshot, branding?: QuotePremiumPdfBranding) {
   return `
     <section class="closing">
       ${buildNotes(snapshot)}
-      ${buildTerms(snapshot)}
+      ${buildTerms(snapshot, branding)}
     </section>
   `;
 }
@@ -961,7 +989,7 @@ export function buildQuotePremiumPdfHtml(
     ${buildExecutiveSummary(snapshot, branding)}
     ${buildDiagnosticContext(snapshot)}
     ${sectionsHtml}
-    ${buildClosing(snapshot)}
+    ${buildClosing(snapshot, branding)}
   </body>
 </html>`;
 }
