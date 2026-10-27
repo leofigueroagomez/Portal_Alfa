@@ -4,7 +4,13 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getAppBaseUrl } from "@/lib/appUrl";
 import { getSafeErrorMessage } from "@/lib/adminUsers";
-import { canManageUsers, isInternalRole } from "@/lib/permissions";
+import {
+  getPortalProfileKind,
+  isProtectedInternalProfile,
+  normalizeEmail,
+  parsePositiveId,
+} from "@/lib/authzPortal";
+import { canManageUsers } from "@/lib/permissions";
 import { getCurrentInternalUserProfile } from "@/services/profile";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 
@@ -93,16 +99,8 @@ async function ensureClientPortalProfile(
 
   if (existingError) throw existingError;
 
-  const existingRole = String(existingProfile?.role || "");
-  const isExistingInternal =
-    existingProfile?.is_internal === true || isInternalRole(existingRole);
-
-  if (
-    existingProfile &&
-    isExistingInternal &&
-    existingRole !== "client" &&
-    !allowInternalConversion
-  ) {
+  // Solo un usuario recien invitado (perfil creado por el trigger) puede convertirse.
+  if (isProtectedInternalProfile(existingProfile) && !allowInternalConversion) {
     throw new Error(
       "Este correo ya pertenece a un usuario interno ALFA. Usa otro correo para el Portal Cliente."
     );
@@ -120,6 +118,41 @@ async function ensureClientPortalProfile(
   });
 
   if (error) throw error;
+}
+
+// Verifica que el usuario portal pertenezca al cliente antes de tocar accesos.
+async function getClientPortalMembership(
+  clientId: number,
+  portalUserId: number,
+  options: { requireClientPortalProfile: boolean }
+) {
+  const admin = createSupabaseAdminClient();
+  const { data: portalUser, error } = await admin
+    .from("client_portal_users")
+    .select("id, user_id, client_id")
+    .eq("id", portalUserId)
+    .eq("client_id", clientId)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!portalUser?.user_id) {
+    throw new Error("El usuario portal no pertenece a este cliente.");
+  }
+
+  if (options.requireClientPortalProfile) {
+    const { data: profile, error: profileError } = await admin
+      .from("profiles")
+      .select("id, role, is_internal, user_type")
+      .eq("id", portalUser.user_id)
+      .maybeSingle();
+
+    if (profileError) throw profileError;
+    if (getPortalProfileKind(profile) !== "client") {
+      throw new Error("El usuario no es un usuario del Portal Cliente.");
+    }
+  }
+
+  return { portalUserId: Number(portalUser.id), userId: String(portalUser.user_id) };
 }
 
 async function validateClientProjectIds(clientId: number, projectIds: number[]) {
@@ -214,8 +247,12 @@ export async function createClientPortalUser(clientId: number, formData: FormDat
 export async function deactivateClientPortalUser(clientId: number, formData: FormData) {
   await assertCanManagePortalUsers();
 
-  const portalUserId = Number(formData.get("portal_user_id"));
+  const portalUserId = parsePositiveId(formData.get("portal_user_id"));
   if (!portalUserId) throw new Error("Usuario portal invalido.");
+
+  await getClientPortalMembership(clientId, portalUserId, {
+    requireClientPortalProfile: false,
+  });
 
   const admin = createSupabaseAdminClient();
   const { error } = await admin
@@ -243,13 +280,19 @@ export async function deactivateClientPortalUser(clientId: number, formData: For
 export async function assignPortalProjectAccess(clientId: number, formData: FormData) {
   await assertCanManagePortalUsers();
 
-  const portalUserId = Number(formData.get("portal_user_id"));
-  const projectId = Number(formData.get("project_id"));
+  const requestedPortalUserId = parsePositiveId(formData.get("portal_user_id"));
+  const projectId = parsePositiveId(formData.get("project_id"));
 
-  if (!portalUserId || !projectId) throw new Error("Acceso invalido.");
+  if (!requestedPortalUserId || !projectId) throw new Error("Acceso invalido.");
 
   const [validProjectId] = await validateClientProjectIds(clientId, [projectId]);
   if (!validProjectId) throw new Error("El proyecto no pertenece al cliente.");
+
+  const { portalUserId } = await getClientPortalMembership(
+    clientId,
+    requestedPortalUserId,
+    { requireClientPortalProfile: true }
+  );
 
   const admin = createSupabaseAdminClient();
   const { error } = await admin.from("client_portal_project_access").upsert(
@@ -270,10 +313,20 @@ export async function assignPortalProjectAccess(clientId: number, formData: Form
 export async function revokePortalProjectAccess(clientId: number, formData: FormData) {
   await assertCanManagePortalUsers();
 
-  const portalUserId = Number(formData.get("portal_user_id"));
-  const projectId = Number(formData.get("project_id"));
+  const requestedPortalUserId = parsePositiveId(formData.get("portal_user_id"));
+  const projectId = parsePositiveId(formData.get("project_id"));
 
-  if (!portalUserId || !projectId) throw new Error("Acceso invalido.");
+  if (!requestedPortalUserId || !projectId) throw new Error("Acceso invalido.");
+
+  const [validProjectId] = await validateClientProjectIds(clientId, [projectId]);
+  if (!validProjectId) throw new Error("El proyecto no pertenece al cliente.");
+
+  // Revocar no exige perfil de portal: siempre debe poder retirarse un acceso.
+  const { portalUserId } = await getClientPortalMembership(
+    clientId,
+    requestedPortalUserId,
+    { requireClientPortalProfile: false }
+  );
 
   const admin = createSupabaseAdminClient();
   const { error } = await admin
@@ -283,7 +336,7 @@ export async function revokePortalProjectAccess(clientId: number, formData: Form
       updated_at: new Date().toISOString(),
     })
     .eq("client_portal_user_id", portalUserId)
-    .eq("client_project_id", projectId);
+    .eq("client_project_id", validProjectId);
 
   if (error) throw error;
 
@@ -293,15 +346,30 @@ export async function revokePortalProjectAccess(clientId: number, formData: Form
 export async function resendClientPortalInvitation(clientId: number, formData: FormData) {
   await assertCanManagePortalUsers();
 
-  const portalUserId = Number(formData.get("portal_user_id"));
-  const email = getString(formData.get("email")).toLowerCase();
+  const requestedPortalUserId = parsePositiveId(formData.get("portal_user_id"));
+  const email = normalizeEmail(getString(formData.get("email")));
   const fullName = getString(formData.get("full_name"));
 
-  if (!portalUserId || !email) throw new Error("Usuario portal invalido.");
+  if (!requestedPortalUserId || !email) throw new Error("Usuario portal invalido.");
+
+  // Pertenencia y correo real se validan antes de enviar cualquier invitacion.
+  const { portalUserId, userId } = await getClientPortalMembership(
+    clientId,
+    requestedPortalUserId,
+    { requireClientPortalProfile: true }
+  );
 
   const admin = createSupabaseAdminClient();
+  const { data: authData, error: authError } = await admin.auth.admin.getUserById(userId);
+  if (authError) throw authError;
+
+  const authEmail = normalizeEmail(authData.user?.email);
+  if (!authEmail || authEmail !== email) {
+    throw new Error("El correo no coincide con el usuario portal de este cliente.");
+  }
+
   try {
-    await invitePortalUser(email, fullName);
+    await invitePortalUser(authEmail, fullName);
     const { error } = await admin
       .from("client_portal_users")
       .update({

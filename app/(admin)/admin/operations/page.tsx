@@ -1,6 +1,14 @@
+import { redirect } from "next/navigation";
+import { isAdminLike } from "@/lib/permissions";
+import { getCurrentInternalUserProfile } from "@/services/profile";
 import RegenerateOperationalBaseButton from "./RegenerateOperationalBaseButton";
 
-export default function AdminOperationsPage() {
+export default async function AdminOperationsPage() {
+  const profile = await getCurrentInternalUserProfile();
+  if (!profile || !isAdminLike(profile.role)) {
+    redirect("/dashboard");
+  }
+
   return (
     <main className="min-h-screen bg-[#0B0D0F] p-4 text-white md:p-8 xl:p-10">
       <section className="mb-10">

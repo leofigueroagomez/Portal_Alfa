@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { canManageFiscalPayments } from "@/lib/permissions";
-import { getCurrentUserProfile } from "@/services/profile";
+import { getCurrentInternalUserProfile } from "@/services/profile";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 
 type ProjectPaymentForEdit = {
@@ -57,8 +57,8 @@ export async function editProjectPayment(
   formData: FormData
 ): Promise<EditProjectPaymentResult> {
   try {
-    const profile = await getCurrentUserProfile();
-    if (!profile?.is_active || !canManageFiscalPayments(profile.role)) {
+    const profile = await getCurrentInternalUserProfile();
+    if (!profile || !canManageFiscalPayments(profile.role)) {
       throw new Error("Solo admin o finanzas pueden editar pagos.");
     }
 

@@ -35,7 +35,7 @@ import {
   isDuplicateInternalFolioError,
 } from "@/lib/invoiceFolios";
 import { getMexicoDate } from "@/lib/mexicoDate";
-import { getCurrentUserProfile } from "@/services/profile";
+import { getCurrentInternalUserProfile } from "@/services/profile";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 
 type InvoiceClient = {
@@ -440,9 +440,9 @@ export async function stampProjectInvoice(
   let receiverDiagnostic: CfdiReceiverDiagnostic | null = null;
 
   try {
-    const profile = await getCurrentUserProfile();
+    const profile = await getCurrentInternalUserProfile();
 
-    if (!profile?.is_active || !canViewFinancials(profile.role)) {
+    if (!profile || !canViewFinancials(profile.role)) {
       throw new Error("No tienes permisos para timbrar facturas.");
     }
 
@@ -899,9 +899,9 @@ export async function deleteDraftInvoice(
   invoiceId: number
 ): Promise<DeleteDraftInvoiceResult> {
   try {
-    const profile = await getCurrentUserProfile();
+    const profile = await getCurrentInternalUserProfile();
 
-    if (!profile?.is_active || !canViewFinancials(profile.role)) {
+    if (!profile || !canViewFinancials(profile.role)) {
       throw new Error("No tienes permisos para eliminar facturas.");
     }
 
@@ -962,9 +962,9 @@ export async function cancelProjectInvoice(
   let supabase: SupabaseAdminClient | null = null;
 
   try {
-    const profile = await getCurrentUserProfile();
+    const profile = await getCurrentInternalUserProfile();
 
-    if (!profile?.is_active || !canCancelInvoices(profile.role)) {
+    if (!profile || !canCancelInvoices(profile.role)) {
       throw new Error("Solo Direccion o Admin pueden cancelar facturas.");
     }
 
@@ -1116,9 +1116,9 @@ export async function checkInvoiceCancellationStatus(
   let supabase: SupabaseAdminClient | null = null;
 
   try {
-    const profile = await getCurrentUserProfile();
+    const profile = await getCurrentInternalUserProfile();
 
-    if (!profile?.is_active || !canCancelInvoices(profile.role)) {
+    if (!profile || !canCancelInvoices(profile.role)) {
       throw new Error("Solo Direccion o Admin pueden consultar el estado de cancelacion.");
     }
 
@@ -1253,9 +1253,9 @@ export async function setInvoiceCfdiUse(
   cfdiUseCode: string
 ): Promise<SetInvoiceCfdiUseResult> {
   try {
-    const profile = await getCurrentUserProfile();
+    const profile = await getCurrentInternalUserProfile();
 
-    if (!profile?.is_active || !canViewFinancials(profile.role)) {
+    if (!profile || !canViewFinancials(profile.role)) {
       throw new Error("No tienes permisos para editar facturas.");
     }
 
@@ -1352,9 +1352,9 @@ export async function createReplacementInvoiceDraft(
   originalInvoiceId: number
 ): Promise<CreateReplacementInvoiceDraftResult> {
   try {
-    const profile = await getCurrentUserProfile();
+    const profile = await getCurrentInternalUserProfile();
 
-    if (!profile?.is_active || !canViewFinancials(profile.role)) {
+    if (!profile || !canViewFinancials(profile.role)) {
       throw new Error("No tienes permisos para crear facturas.");
     }
 

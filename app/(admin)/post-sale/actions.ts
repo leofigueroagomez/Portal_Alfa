@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { canManageUsers } from "@/lib/permissions";
-import { getCurrentUserProfile } from "@/services/profile";
+import { getCurrentInternalUserProfile } from "@/services/profile";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 
 type ProjectIdRow = {
@@ -10,9 +10,9 @@ type ProjectIdRow = {
 };
 
 export async function syncPostSaleProjectStages() {
-  const profile = await getCurrentUserProfile();
+  const profile = await getCurrentInternalUserProfile();
 
-  if (!canManageUsers(profile?.role)) {
+  if (!profile || !canManageUsers(profile.role)) {
     return {
       ok: false,
       message: "Solo administradores pueden sincronizar estados de postventa.",

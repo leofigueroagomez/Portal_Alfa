@@ -24,7 +24,7 @@ import {
 } from "@/lib/paymentComplements";
 import type { FiscalClientData } from "@/lib/fiscalData";
 import type { ProjectInvoice } from "@/lib/invoices";
-import { getCurrentUserProfile } from "@/services/profile";
+import { getCurrentInternalUserProfile } from "@/services/profile";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 
 type ProjectPayment = {
@@ -104,8 +104,8 @@ export async function createPaymentComplementDraft(
       throw new Error("Los complementos de pago estan deshabilitados.");
     }
 
-    const profile = await getCurrentUserProfile();
-    if (!profile?.is_active || !canViewFinancials(profile.role)) {
+    const profile = await getCurrentInternalUserProfile();
+    if (!profile || !canViewFinancials(profile.role)) {
       throw new Error("No tienes permisos para crear complementos de pago.");
     }
 
@@ -326,8 +326,8 @@ export async function stampPaymentComplementDraft(
     if (!config.stampingEnabled) {
       throw new Error("El timbrado de complementos esta deshabilitado.");
     }
-    const profile = await getCurrentUserProfile();
-    if (!profile?.is_active || !canViewFinancials(profile.role)) {
+    const profile = await getCurrentInternalUserProfile();
+    if (!profile || !canViewFinancials(profile.role)) {
       throw new Error("No tienes permisos para timbrar complementos de pago.");
     }
 
@@ -592,8 +592,8 @@ export async function cancelPaymentComplement(
   let supabase: SupabaseAdminClient | null = null;
 
   try {
-    const profile = await getCurrentUserProfile();
-    if (!profile?.is_active || !canCancelInvoices(profile.role)) {
+    const profile = await getCurrentInternalUserProfile();
+    if (!profile || !canCancelInvoices(profile.role)) {
       throw new Error("Solo Direccion o Admin pueden cancelar complementos de pago.");
     }
 
@@ -721,8 +721,8 @@ export async function checkPaymentComplementCancellationStatus(
   let supabase: SupabaseAdminClient | null = null;
 
   try {
-    const profile = await getCurrentUserProfile();
-    if (!profile?.is_active || !canCancelInvoices(profile.role)) {
+    const profile = await getCurrentInternalUserProfile();
+    if (!profile || !canCancelInvoices(profile.role)) {
       throw new Error(
         "Solo Direccion o Admin pueden consultar el estado de cancelacion."
       );

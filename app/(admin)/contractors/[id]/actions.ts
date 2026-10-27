@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { canManageContractors } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
-import { getCurrentUserProfile } from "@/services/profile";
+import { getCurrentInternalUserProfile } from "@/services/profile";
 
 const deletableMovementTypes = ["advance_payment", "adjustment", "refund"];
 
@@ -11,9 +11,9 @@ export async function deleteContractorMovement(
   contractorId: number,
   movementId: number
 ) {
-  const profile = await getCurrentUserProfile();
+  const profile = await getCurrentInternalUserProfile();
 
-  if (!profile?.is_active || !canManageContractors(profile.role)) {
+  if (!profile || !canManageContractors(profile.role)) {
     return {
       ok: false,
       message: "No tienes permisos para eliminar movimientos de contratistas.",

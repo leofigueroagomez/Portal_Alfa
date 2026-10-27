@@ -25,22 +25,41 @@ export function normalizeRole(role: string | null | undefined): AlfaRole {
   return "comercial";
 }
 
-export function isInternalRole(role: string | null | undefined) {
-  return internalAlfaRoles.includes(normalizeRole(role) as InternalAlfaRole);
+// Estricto: null, vacio o desconocido no es rol interno (normalizeRole cae a
+// "comercial" y no sirve para decidir pertenencia).
+export function parseInternalRole(role: unknown): InternalAlfaRole | null {
+  if (typeof role !== "string" || !role) return null;
+  const canonical =
+    role === "sales" ? "comercial" : role === "engineering" ? "ingenieria" : role;
+  return internalAlfaRoles.includes(canonical as InternalAlfaRole)
+    ? (canonical as InternalAlfaRole)
+    : null;
 }
 
-function isAdminLike(role: string | null | undefined) {
+export function isInternalRole(role: string | null | undefined) {
+  return parseInternalRole(role) !== null;
+}
+
+// admin y direccion tienen los mismos privilegios.
+export function isAdminLike(role: string | null | undefined) {
   const normalized = normalizeRole(role);
   return normalized === "admin" || normalized === "direccion";
 }
 
+// admin y direccion tienen los mismos privilegios.
 export function canManageUsers(role: string | null | undefined) {
-  return normalizeRole(role) === "admin";
+  return isAdminLike(role);
 }
 
 export function canApproveQuotes(role: string | null | undefined) {
   const normalized = normalizeRole(role);
   return ["admin", "direccion", "comercial"].includes(normalized);
+}
+
+// Arman/editan cotizaciones: admin, direccion, comercial, ingenieria (mismo set
+// que las policies de escritura de cotizaciones y canManageBlindQuotes).
+export function canManageQuotes(role: string | null | undefined) {
+  return canManageBlindQuotes(role);
 }
 
 export function canManageBlindQuotes(role: string | null | undefined) {

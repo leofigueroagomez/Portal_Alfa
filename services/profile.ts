@@ -19,11 +19,18 @@ type RawUserProfile = Omit<UserProfile, "role" | "is_internal"> & {
 function normalizeProfile(profile: RawUserProfile): UserProfile {
   const role = normalizeRole(profile.role);
 
+  // Deny-by-default: si is_internal viene nulo solo cuenta un rol interno real
+  // (sin pasar por normalizeRole) y un user_type que no sea portal.
+  const isPortalType =
+    profile.user_type === "client_portal" || profile.user_type === "contractor_portal";
+
   return {
     ...profile,
     role,
     user_type: profile.user_type || null,
-    is_internal: Boolean(profile.is_internal ?? isInternalRole(role)),
+    is_internal: Boolean(
+      profile.is_internal ?? (!isPortalType && isInternalRole(profile.role))
+    ),
   };
 }
 

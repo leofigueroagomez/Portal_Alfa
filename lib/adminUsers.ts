@@ -75,7 +75,10 @@ export async function listAdminUsers(): Promise<AdminUserPayload[]> {
   return authUsers.flatMap((user) => {
     const profile = profileById.get(user.id);
     const role = normalizeRole(profile?.role);
-    const isInternal = Boolean(profile?.is_internal ?? isInternalRole(role));
+    // Sin perfil no es interno; con is_internal null decide el rol crudo.
+    const isInternal = profile
+      ? Boolean(profile.is_internal ?? isInternalRole(profile.role))
+      : false;
 
     if (!isInternal) return [];
 

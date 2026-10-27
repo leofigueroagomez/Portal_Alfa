@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/services/supabase";
 import { invoiceStatusLabels, normalizeInvoiceStatus } from "@/lib/invoices";
+import { updateInvoiceStatusAction } from "./invoiceStatusActions";
 
 type Props = {
   invoiceId: number;
@@ -34,15 +34,16 @@ export default function InvoiceStatusSelect({ invoiceId, currentStatus }: Props)
     setSaving(true);
     setErrorMessage(null);
 
-    const { error } = await supabase
-      .from("project_invoices")
-      .update({ status: nextStatus })
-      .eq("id", invoiceId);
+    // Permisos y estados permitidos se validan en el servidor.
+    const result = await updateInvoiceStatusAction(invoiceId, nextStatus).catch(() => ({
+      ok: false as const,
+      error: "No se pudo actualizar la factura.",
+    }));
 
     setSaving(false);
 
-    if (error) {
-      setErrorMessage(`Error actualizando factura: ${error.message}`);
+    if (!result.ok) {
+      setErrorMessage(`Error actualizando factura: ${result.error}`);
       setStatus(normalizedCurrent);
       return;
     }

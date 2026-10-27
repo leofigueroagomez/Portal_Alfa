@@ -3,7 +3,7 @@ import { ArrowLeft, Warehouse } from "lucide-react";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { getCurrentInternalUserProfile } from "@/services/profile";
 import { formatCurrency, formatNumber } from "@/lib/format";
-import { canManagePurchases, normalizeRole } from "@/lib/permissions";
+import { canManagePurchases, isAdminLike, normalizeRole } from "@/lib/permissions";
 import {
   getInventoryGeneratedPurchaseEventIds,
   getInventoryStockByProduct,
@@ -227,7 +227,7 @@ export default async function ProjectPurchasesPage({
   const { id } = await params;
   const profile = await getCurrentInternalUserProfile();
   const currentRole = normalizeRole(profile?.role);
-  const canEditPurchaseEvents = currentRole === "admin";
+  const canEditPurchaseEvents = isAdminLike(currentRole);
   const canManageInventory = canManagePurchases(currentRole);
 
   const { data: project, error } = await supabase

@@ -3,7 +3,7 @@ import {
   listAdminUsers,
   requireAdminProfile,
 } from "@/lib/adminUsers";
-import { alfaRoles, normalizeRole } from "@/lib/permissions";
+import { parseInternalRole } from "@/lib/permissions";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
   const email = String(body?.email || "").trim().toLowerCase();
   const password = String(body?.password || "");
   const fullName = String(body?.full_name || "").trim();
-  const role = normalizeRole(body?.role);
+  const role = parseInternalRole(body?.role);
   const isActive = Boolean(body?.is_active ?? true);
 
   if (!email || !email.includes("@")) {
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!alfaRoles.includes(role as (typeof alfaRoles)[number])) {
+  if (!role) {
     return NextResponse.json({ error: "Rol invalido" }, { status: 400 });
   }
 
@@ -68,6 +68,9 @@ export async function POST(request: Request) {
       email,
       full_name: fullName || email,
       role,
+      // Explicito: no depender de defaults del trigger para marcar usuarios internos.
+      user_type: "internal",
+      is_internal: true,
       is_active: isActive,
       updated_at: new Date().toISOString(),
     });

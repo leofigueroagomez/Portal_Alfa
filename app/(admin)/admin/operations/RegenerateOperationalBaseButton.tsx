@@ -2,11 +2,8 @@
 
 import { useState } from "react";
 import { RefreshCw } from "lucide-react";
-import {
-  syncAllApprovedProjectOperationalItems,
-  type SyncAllProjectOperationalItemsResult,
-} from "@/lib/projectOperationalItems";
-import { supabase } from "@/services/supabase";
+import type { SyncAllProjectOperationalItemsResult } from "@/lib/projectOperationalItems";
+import { regenerateOperationalBaseAction } from "./actions";
 
 function reportError(step: string, error: unknown) {
   const message =
@@ -35,23 +32,14 @@ export default function RegenerateOperationalBaseButton() {
     setRunning(true);
     setResult(null);
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError) {
-      setRunning(false);
-      reportError("leer usuario actual", userError);
-      return;
-    }
-
     try {
-      const syncResult = await syncAllApprovedProjectOperationalItems(
-        supabase,
-        user?.id || null
-      );
-      setResult(syncResult);
+      // El rol admin/direccion se valida en el servidor.
+      const response = await regenerateOperationalBaseAction();
+      if (!response.ok) {
+        reportError("regenerar proyectos", { message: response.error });
+        return;
+      }
+      setResult(response.result);
     } catch (error) {
       reportError("regenerar proyectos", error);
     } finally {
