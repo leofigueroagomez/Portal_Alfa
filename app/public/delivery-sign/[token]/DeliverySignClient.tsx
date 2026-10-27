@@ -72,39 +72,6 @@ function fileToResizedDataUrl(file: File, maxSize = 1600): Promise<string> {
   });
 }
 
-function getGeolocation(): Promise<{
-  latitude: number;
-  longitude: number;
-  accuracy: number;
-  timestamp: string;
-} | null> {
-  return new Promise((resolve) => {
-    if (!navigator.geolocation) {
-      resolve(null);
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        resolve({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy,
-          timestamp: new Date(position.timestamp).toISOString(),
-        });
-      },
-      () => {
-        // En caso de que el usuario decline o no responda, resolvemos null
-        resolve(null);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 7000,
-        maximumAge: 0,
-      }
-    );
-  });
-}
-
 export default function DeliverySignClient({ token, context }: Props) {
   const { delivery, project, client, systems, pendingItems, evidences, isAlreadySigned } = context;
 
@@ -282,10 +249,7 @@ export default function DeliverySignClient({ token, context }: Props) {
     setSubmitting(true);
 
     try {
-      // 1. Obtener ubicación GPS en tiempo real
-      const geolocation = await getGeolocation();
-
-      // 2. Extraer firma en Base64
+      // Extraer firma en Base64
       const signatureDataUrl = canvasRef.current.toDataURL("image/png");
 
       const response = await fetch(`/api/public/deliveries/${token}/sign`, {
@@ -299,7 +263,6 @@ export default function DeliverySignClient({ token, context }: Props) {
           signerPhone: signerPhone.trim(),
           ineFrontDataUrl,
           ineBackDataUrl,
-          geolocation,
           privacyConsentAccepted: true,
         }),
       });
@@ -395,7 +358,7 @@ export default function DeliverySignClient({ token, context }: Props) {
               </h2>
               <p className="mt-1 text-sm text-[#8CE0B6]">
                 Este proyecto ha sido revisado y firmado digitalmente de conformidad con respaldo de
-                identificación oficial y geolocalización.
+                identificación oficial.
               </p>
               {signedAtDate && (
                 <p className="mt-2 text-xs text-[#8CE0B6]/80 flex items-center justify-center gap-1.5">
@@ -813,7 +776,7 @@ export default function DeliverySignClient({ token, context }: Props) {
               </p>
             </div>
 
-            {/* Paso 4: Consentimiento LFPDPPP & Geolocalización */}
+            {/* Paso 4: Consentimiento LFPDPPP */}
             <div className="space-y-2">
               <label className="flex items-start gap-3 rounded-xl border border-[#2A2A30] bg-[#1C1D22] p-3.5 cursor-pointer">
                 <input
@@ -825,7 +788,7 @@ export default function DeliverySignClient({ token, context }: Props) {
                 />
                 <span className="text-xs text-[#B3B3B8] leading-relaxed select-none">
                   Consiento expresamente el tratamiento de mis datos personales, fotografía de
-                  identificación oficial (INE) y geolocalización satelital en tiempo real,
+                  identificación oficial (INE),
                   exclusivamente para fines de verificación de identidad, recepción técnica y validez
                   contractual de la entrega del proyecto <strong>{project?.name}</strong>, conforme a la
                   Ley Federal de Protección de Datos Personales en Posesión de los Particulares
@@ -846,7 +809,7 @@ export default function DeliverySignClient({ token, context }: Props) {
             >
               <Send size={16} />
               {submitting
-                ? "Validando ubicación y enviando firma..."
+                ? "Enviando firma..."
                 : "Firmar y Recibir Proyecto"}
             </button>
           </form>

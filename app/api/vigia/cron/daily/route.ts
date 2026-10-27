@@ -3,6 +3,7 @@ import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 import { runVigia } from "@/lib/vigia/runner";
 import { renderVigiaBrief, sendVigiaBrief } from "@/lib/vigia/brief";
 import { runAutoInvestigations } from "@/lib/vigia/investigate";
+import { isAuthorizedCronRequest } from "@/lib/cronAuth";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -17,14 +18,10 @@ export async function POST(request: Request) {
 }
 
 async function handleVigiaDaily(request: Request) {
-  const authHeader = request.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
   const url = new URL(request.url);
 
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    if (url.searchParams.get("key") !== cronSecret) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (!isAuthorizedCronRequest(request, process.env.CRON_SECRET)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const dryRun = url.searchParams.get("dry") === "1";

@@ -1,10 +1,19 @@
 "use server";
 
 import { headers } from "next/headers";
-import { revalidatePath } from "next/cache";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
+import { getContractTokenColumn } from "@/lib/contractTokens";
+import {
+  canSubmitContractSignature,
+  isValidContractCoordinates,
+  isValidContractSignaturePng,
+  isValidContractSignerName,
+} from "@/lib/contractPublicValidation";
 
 export async function getContractBySigningToken(token: string) {
+  if (getContractTokenColumn(token) !== "signing_token") {
+    throw new Error("El enlace de firma no es válido.");
+  }
   const adminClient = createSupabaseAdminClient();
 
   const { data: contract, error } = await adminClient
@@ -16,6 +25,7 @@ export async function getContractBySigningToken(token: string) {
       clients:client_id (name, company_name, email, phone, tax_business_name, tax_rfc, tax_regime, tax_zip_code, address)
     `)
     .eq("signing_token", token)
+    .in("status", ["pending_signatures", "signed"])
     .maybeSingle();
 
   if (error || !contract) {
@@ -45,6 +55,14 @@ export async function submitClientContractSignatureAction(
     longitude?: number | null;
   }
 ) {
+  if (getContractTokenColumn(token) !== "signing_token") {
+    return { ok: false, error: "Token de firma inválido." };
+  }
+  if (!payload || !isValidContractSignaturePng(payload.signatureDataUrl) ||
+      !isValidContractSignerName(payload.signerName) ||
+      !isValidContractCoordinates(payload.latitude, payload.longitude)) {
+    return { ok: false, error: "La firma o los datos del firmante no son válidos." };
+  }
   const adminClient = createSupabaseAdminClient();
 
   // 1. Obtener IP
@@ -57,32 +75,43 @@ export async function submitClientContractSignatureAction(
   // 2. Verificar contrato
   const { data: contract, error: findError } = await adminClient
     .from("project_contracts")
-    .select("id, status")
+    .select("id, status, client_signed_at")
     .eq("signing_token", token)
     .maybeSingle();
 
   if (findError || !contract) {
     return { ok: false, error: "Contrato no encontrado o token inválido." };
   }
+  if (!canSubmitContractSignature(contract)) {
+    return { ok: false, error: "El contrato ya fue firmado o no está disponible para firma." };
+  }
 
   // 3. Registrar firma
-  const { error: updateError } = await adminClient
+  const { data: updated, error: updateError } = await adminClient
     .from("project_contracts")
     .update({
       client_signature_image_url: payload.signatureDataUrl,
-      client_signer_name: payload.signerName,
+      client_signer_name: payload.signerName.trim(),
       client_signed_at: new Date().toISOString(),
       client_signature_ip: clientIp,
-      client_signature_latitude: payload.latitude || null,
-      client_signature_longitude: payload.longitude || null,
+      client_signature_latitude: payload.latitude ?? null,
+      client_signature_longitude: payload.longitude ?? null,
       status: "signed",
       updated_at: new Date().toISOString(),
     })
-    .eq("id", contract.id);
+    .eq("id", contract.id)
+    .eq("signing_token", token)
+    .eq("status", "pending_signatures")
+    .is("client_signed_at", null)
+    .select("id")
+    .maybeSingle();
 
   if (updateError) {
     console.error("Error guardando firma de contrato:", updateError);
     return { ok: false, error: "No se pudo guardar la firma digital." };
+  }
+  if (!updated) {
+    return { ok: false, error: "El contrato cambió o ya fue firmado. Actualiza la página." };
   }
 
   return { ok: true, message: "Contrato firmado digitalmente con éxito." };

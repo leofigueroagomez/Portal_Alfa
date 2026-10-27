@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { supabase } from "@/services/supabase";
+import { getLoginErrorMessage } from "@/lib/authMessages";
 
 export default function HomeLoginForm() {
   const router = useRouter();
@@ -26,7 +27,7 @@ export default function HomeLoginForm() {
     setIsLoading(false);
 
     if (error) {
-      setErrorMessage(error.message);
+      setErrorMessage(getLoginErrorMessage(error));
       return;
     }
 

@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/services/supabase";
+import { getLoginErrorMessage, getPasswordRecoveryMessage } from "@/lib/authMessages";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -23,7 +24,7 @@ export default function LoginPage() {
     });
 
     if (error) {
-      setMessage(error.message);
+      setMessage(getLoginErrorMessage(error));
       return;
     }
 
@@ -45,12 +46,7 @@ export default function LoginPage() {
 
     setSendingRecovery(false);
 
-    if (error) {
-      setMessage(error.message || "No se pudo enviar el correo de recuperacion.");
-      return;
-    }
-
-    setMessage("Te enviamos un enlace para restablecer tu contrasena.");
+    setMessage(getPasswordRecoveryMessage(error));
   }
 
   return (

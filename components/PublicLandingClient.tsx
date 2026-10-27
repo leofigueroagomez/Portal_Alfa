@@ -5,6 +5,7 @@ import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { trackEvent } from "@/lib/analytics";
 import { getStoredAttribution } from "@/lib/utmTracking";
+import TurnstileWidget from "@/components/TurnstileWidget";
 import {
   ArrowRight,
   Building2,
@@ -295,6 +296,8 @@ type SubmitState = "idle" | "sending" | "success" | "error";
 export default function PublicLanding() {
   const [form, setForm] = useState(initialForm);
   const [submitState, setSubmitState] = useState<SubmitState>("idle");
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileReset, setTurnstileReset] = useState(0);
   const [isServicesMenuOpen, setIsServicesMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -313,6 +316,7 @@ export default function PublicLanding() {
       attribution,
       source: "Landing Web",
       status: "nuevo",
+      turnstileToken,
     };
 
     try {
@@ -339,6 +343,8 @@ export default function PublicLanding() {
     } catch (error) {
       console.error("lead submit failed:", error);
       setSubmitState("error");
+    } finally {
+      setTurnstileReset((current) => current + 1);
     }
   }
 
@@ -1175,6 +1181,12 @@ export default function PublicLanding() {
                 placeholder="Comparte detalles, ubicación aproximada o etapa del proyecto."
               />
             </Field>
+
+            <TurnstileWidget
+              onToken={setTurnstileToken}
+              resetSignal={turnstileReset}
+              className="sm:col-span-2"
+            />
 
             <div className="flex flex-col gap-3 sm:col-span-2 sm:flex-row">
               <button

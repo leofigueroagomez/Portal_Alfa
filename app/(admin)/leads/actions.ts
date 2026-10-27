@@ -3,6 +3,8 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
+import { getCurrentInternalUserProfile } from "@/services/profile";
+import { canApproveQuotes } from "@/lib/permissions";
 
 type LeadForConversion = {
   id: number;
@@ -52,9 +54,14 @@ async function getNextClientNumber() {
 }
 
 export async function convertLeadToClient(formData: FormData) {
+  const profile = await getCurrentInternalUserProfile();
+  if (!profile || !canApproveQuotes(profile.role)) {
+    throw new Error("No autorizado.");
+  }
+
   const leadId = Number(formData.get("leadId") || 0);
 
-  if (!leadId) return;
+  if (!Number.isSafeInteger(leadId) || leadId <= 0) return;
 
   const supabase = createSupabaseAdminClient();
   const { data: lead, error: leadError } = await supabase

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { X, CheckCircle2, Phone, Sparkles, Send, Loader2 } from "lucide-react";
 import { PortfolioProject } from "@/lib/portfolio";
+import TurnstileWidget from "@/components/TurnstileWidget";
 
 type Props = {
   project: PortfolioProject;
@@ -22,6 +23,8 @@ export default function ProjectQuoteModal({ project, isOpen, onClose }: Props) {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileReset, setTurnstileReset] = useState(0);
 
   if (!isOpen) return null;
 
@@ -42,6 +45,7 @@ export default function ProjectQuoteModal({ project, isOpen, onClose }: Props) {
         message: `${message}\n\n[Referencia de Portafolio: ${project.title} (Slug: ${project.slug})]`,
         source: "Landing Web",
         status: "nuevo",
+        turnstileToken,
       };
 
       const res = await fetch("/api/leads", {
@@ -60,6 +64,7 @@ export default function ProjectQuoteModal({ project, isOpen, onClose }: Props) {
       setError("Ocurrió un error al enviar tu solicitud. Intenta por WhatsApp o llámanos.");
     } finally {
       setLoading(false);
+      setTurnstileReset((current) => current + 1);
     }
   }
 
@@ -200,6 +205,8 @@ export default function ProjectQuoteModal({ project, isOpen, onClose }: Props) {
                   className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:border-[#9E1B32] outline-none transition resize-none"
                 />
               </div>
+
+              <TurnstileWidget onToken={setTurnstileToken} resetSignal={turnstileReset} />
 
               <button
                 type="submit"

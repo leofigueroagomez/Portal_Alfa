@@ -141,7 +141,7 @@ export async function requirePortalProjectAccess(projectId: number) {
 export async function requireAuthenticatedUser() {
   const profile = await getCurrentUserProfile();
 
-  if (!profile) {
+  if (!profile?.is_active) {
     return {
       profile: null,
       response: jsonError("Unauthorized", 401),
@@ -155,7 +155,7 @@ export async function requirePortalProjectAccessForProfile(
   profile: Awaited<ReturnType<typeof getCurrentUserProfile>>,
   projectId: number
 ) {
-  if (!profile) {
+  if (!profile?.is_active) {
     return {
       profile: null,
       response: jsonError("Unauthorized", 401),
@@ -212,7 +212,7 @@ export async function requireFiscalProjectAccessForProfile(
   profile: Awaited<ReturnType<typeof getCurrentUserProfile>>,
   projectId: number
 ) {
-  if (!profile) {
+  if (!profile?.is_active) {
     return {
       profile: null,
       response: jsonError("Unauthorized", 401),

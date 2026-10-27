@@ -3,17 +3,21 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 import { generateProjectSpecializedWorkOrders } from "@/lib/workOrdersAutomation";
+import { getCurrentInternalUserProfile } from "@/services/profile";
+import { canManageWorkOrders } from "@/lib/permissions";
 
 export async function autoGenerateWorkOrdersAction(projectId: number) {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const profile = await getCurrentInternalUserProfile();
 
-  if (!user) {
+  if (!profile || !canManageWorkOrders(profile.role)) {
     return { ok: false, error: "No autorizado." };
   }
 
+  if (!Number.isSafeInteger(projectId) || projectId <= 0) {
+    return { ok: false, error: "Proyecto invalido." };
+  }
+
+  const supabase = await createSupabaseServerClient();
   const result = await generateProjectSpecializedWorkOrders(supabase, projectId);
   if (!result.ok) {
     return { ok: false, error: result.error || "No se pudieron generar las órdenes de trabajo." };
@@ -39,15 +43,21 @@ export async function updateWorkOrderAssignmentAction({
   assignedToName?: string | null;
   assignedToPhone?: string | null;
 }) {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const profile = await getCurrentInternalUserProfile();
 
-  if (!user) {
+  if (!profile || !canManageWorkOrders(profile.role)) {
     return { ok: false, error: "No autorizado." };
   }
 
+  if (
+    !Number.isSafeInteger(workOrderId) || workOrderId <= 0 ||
+    !Number.isSafeInteger(projectId) || projectId <= 0 ||
+    !["subcontractor", "internal_staff"].includes(executionType)
+  ) {
+    return { ok: false, error: "Asignacion invalida." };
+  }
+
+  const supabase = await createSupabaseServerClient();
   const updateData: Record<string, unknown> = {
     execution_type: executionType,
     updated_at: new Date().toISOString(),
@@ -66,13 +76,20 @@ export async function updateWorkOrderAssignmentAction({
     updateData.assigned_to_phone = assignedToPhone || null;
   }
 
-  const { error } = await supabase
+  const { data: updatedOrder, error } = await supabase
     .from("work_orders")
     .update(updateData)
-    .eq("id", workOrderId);
+    .eq("id", workOrderId)
+    .eq("client_project_id", projectId)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     return { ok: false, error: error.message };
+  }
+
+  if (!updatedOrder) {
+    return { ok: false, error: "Orden no encontrada en el proyecto autorizado." };
   }
 
   revalidatePath(`/projects/${projectId}/work-orders`);

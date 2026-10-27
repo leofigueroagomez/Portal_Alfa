@@ -7,6 +7,13 @@ import { getAppBaseUrl } from "@/lib/appUrl";
 import { generateWarrantyLetterPdf } from "@/lib/postSalePdf";
 import { getProjectFinancialSummary } from "@/lib/projectFinancials";
 import { getOrCreateWarrantyPublicLink } from "@/lib/publicDocumentLinks";
+import { requireWorkOrderRole } from "@/lib/apiAuth";
+
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[character]!);
+}
 
 type SendWarrantyEmailInput = {
   projectId: number;
@@ -17,16 +24,16 @@ type SendWarrantyEmailInput = {
 };
 
 export async function sendProjectWarrantyEmailAction(input: SendWarrantyEmailInput) {
-  const supabase = await createSupabaseServerClient();
-  const adminClient = createSupabaseAdminClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+  const { response } = await requireWorkOrderRole();
+  if (response) {
     return { ok: false, error: "No autorizado. Inicia sesión para continuar." };
   }
+  if (!Number.isSafeInteger(input.projectId) || input.projectId <= 0 ||
+      !Number.isSafeInteger(input.warrantyId) || input.warrantyId <= 0) {
+    return { ok: false, error: "Proyecto o garantía inválidos." };
+  }
+  const supabase = await createSupabaseServerClient();
+  const adminClient = createSupabaseAdminClient();
 
   const { data: warranty, error: warrantyError } = await supabase
     .from("project_warranties")
@@ -94,9 +101,9 @@ export async function sendProjectWarrantyEmailAction(input: SendWarrantyEmailInp
               <div class="title">Carta de Garantía Oficial</div>
             </div>
             <div class="content">
-              <p>Estimado(a) <strong>${clientName}</strong>,</p>
+              <p>Estimado(a) <strong>${escapeHtml(clientName)}</strong>,</p>
               <p>
-                Por medio del presente le hacemos entrega de la <strong>Carta de Garantía Oficial</strong> correspondiente a la conclusión de los trabajos y sistemas instalados para el proyecto <strong>${project?.name || "Proyecto"}</strong> (Folio <strong>${folioText}</strong>).
+                Por medio del presente le hacemos entrega de la <strong>Carta de Garantía Oficial</strong> correspondiente a la conclusión de los trabajos y sistemas instalados para el proyecto <strong>${escapeHtml(project?.name || "Proyecto")}</strong> (Folio <strong>${folioText}</strong>).
               </p>
 
               <div class="card">
@@ -106,7 +113,7 @@ export async function sendProjectWarrantyEmailAction(input: SendWarrantyEmailInp
                 <div>• <strong>Documento Oficial:</strong> Archivo PDF formal adjunto a este correo.</div>
               </div>
 
-              ${input.customMessage ? `<p style="font-style: italic; background-color: #1C1D22; padding: 12px; border-radius: 8px; border-left: 3px solid #9E1B32;">${input.customMessage}</p>` : ""}
+              ${input.customMessage ? `<p style="font-style: italic; background-color: #1C1D22; padding: 12px; border-radius: 8px; border-left: 3px solid #9E1B32;">${escapeHtml(input.customMessage)}</p>` : ""}
 
               <p>
                 El archivo PDF oficial se encuentra debidamente adjunto a este correo para su consulta, archivo o impresión formal.
@@ -118,7 +125,7 @@ export async function sendProjectWarrantyEmailAction(input: SendWarrantyEmailInp
               </p>
             </div>
             <div class="footer">
-              ALFA IT • Soluciones de Alto Nivel • Soporte: ${warranty.support_email || "soporte@alfait.com"}
+              ALFA IT • Soluciones de Alto Nivel • Soporte: ${escapeHtml(warranty.support_email || "soporte@alfait.com")}
             </div>
           </div>
         </body>
@@ -157,7 +164,8 @@ export async function sendProjectWarrantyEmailAction(input: SendWarrantyEmailInp
     await adminClient
       .from("project_warranties")
       .update({ status: "issued" })
-      .eq("id", input.warrantyId);
+      .eq("id", input.warrantyId)
+      .eq("client_project_id", input.projectId);
 
     revalidatePath(`/projects/${input.projectId}/warranty/${input.warrantyId}`);
     revalidatePath(`/projects/${input.projectId}/warranty`);
@@ -171,15 +179,17 @@ export async function sendProjectWarrantyEmailAction(input: SendWarrantyEmailInp
 }
 
 export async function getWarrantyDispatchContext(projectId: number, warrantyId: number) {
+  const { response } = await requireWorkOrderRole();
+  if (response) throw new Error("No autorizado.");
+  if (!Number.isSafeInteger(projectId) || projectId <= 0 ||
+      !Number.isSafeInteger(warrantyId) || warrantyId <= 0) {
+    throw new Error("Proyecto o garantía inválidos.");
+  }
   const supabase = await createSupabaseServerClient();
-  const adminClient = createSupabaseAdminClient();
 
   const [
-    { data: warranty },
-    { data: project },
-    { data: latestDelivery },
-    financialSummary,
-    publicLink,
+    { data: warranty, error: warrantyError },
+    { data: project, error: projectError },
   ] = await Promise.all([
     supabase
       .from("project_warranties")
@@ -192,6 +202,14 @@ export async function getWarrantyDispatchContext(projectId: number, warrantyId: 
       .select("id, name, client_id, clients(name, company_name, email, phone)")
       .eq("id", projectId)
       .maybeSingle(),
+  ]);
+  if (warrantyError || projectError || !warranty || !project) {
+    throw new Error("Carta de garantía no encontrada en este proyecto.");
+  }
+
+  // Validate the resource relationship before creating a public capability.
+  const adminClient = createSupabaseAdminClient();
+  const [{ data: latestDelivery }, financialSummary, publicLink] = await Promise.all([
     supabase
       .from("project_deliveries")
       .select("id, client_signer_name, client_signer_email, client_signer_phone, client_signed_at")

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import crypto from "node:crypto";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
+import { requireWorkOrderRole } from "@/lib/apiAuth";
 import { formatCurrency } from "@/lib/format";
 import { getProjectFinancialSummary } from "@/lib/projectFinancials";
 import { getProjectDeliverySystemsForDisplay } from "@/lib/projectDeliverySystems";
@@ -448,6 +449,11 @@ async function sendResendEmail({
 }
 
 export async function previewProjectDeliveryEmail(projectId: number, deliveryId: number) {
+  const { response } = await requireWorkOrderRole();
+  if (response) {
+    return { ok: false, error: "No autorizado.", message: "No autorizado." };
+  }
+
   try {
     const draft = await getEmailDraft(projectId, deliveryId);
     if ("error" in draft) {
@@ -493,6 +499,12 @@ export async function sendProjectDeliveryEmail(
   deliveryId: number,
   values: { to: string; cc: string; subject: string; html: string }
 ) {
+  const { profile, response } = await requireWorkOrderRole();
+  if (response || !profile) {
+    return { ok: false, message: "No autorizado." };
+  }
+
+  const actorUserId = profile.id;
   const supabase = await createSupabaseServerClient();
   const draft = await getEmailDraft(projectId, deliveryId);
 
@@ -513,10 +525,6 @@ export async function sendProjectDeliveryEmail(
       message: "La garantia no ha sido generada todavia. Genera la garantia antes de enviar.",
     };
   }
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
   async function createEmailAttachments() {
     if (!emailDraft.warrantyId) {
@@ -555,7 +563,7 @@ export async function sendProjectDeliveryEmail(
       status,
       error_message: errorMessage,
       resend_response: response || null,
-      created_by_user_id: user?.id || null,
+      created_by_user_id: actorUserId,
     });
   }
 

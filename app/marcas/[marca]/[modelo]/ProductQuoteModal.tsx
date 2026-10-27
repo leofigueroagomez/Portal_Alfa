@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CatalogProduct } from "@/lib/catalog";
 import { brandLeadInterest } from "@/lib/catalogBrandUi";
+import TurnstileWidget from "@/components/TurnstileWidget";
 import { Check, Send, Sparkles, X, ShieldCheck, Phone } from "lucide-react";
 
 type Props = {
@@ -21,6 +22,8 @@ export default function ProductQuoteModal({ product }: Props) {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileReset, setTurnstileReset] = useState(0);
 
   const whatsappMsg = encodeURIComponent(
     `Hola ALFA, me interesa cotizar el equipo oficial ${product.brand_name} ${product.model} (${product.name}) para mi proyecto.`
@@ -51,6 +54,7 @@ export default function ProductQuoteModal({ product }: Props) {
           message: `${message}\n\n[Producto SKU: ${product.sku || product.model} - Slug: ${product.slug}]`,
           source: "Landing Web",
           status: "nuevo",
+          turnstileToken,
         }),
       });
 
@@ -63,6 +67,7 @@ export default function ProductQuoteModal({ product }: Props) {
       setErrorMsg(err?.message || "Ocurrió un error al procesar tu solicitud.");
     } finally {
       setLoading(false);
+      setTurnstileReset((current) => current + 1);
     }
   }
 
@@ -214,6 +219,8 @@ export default function ProductQuoteModal({ product }: Props) {
                       className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white placeholder-zinc-500 outline-none focus:border-[#9E1B32] transition resize-none"
                     />
                   </div>
+
+                  <TurnstileWidget onToken={setTurnstileToken} resetSignal={turnstileReset} />
 
                   <button
                     type="submit"

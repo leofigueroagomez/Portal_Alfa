@@ -1,0 +1,4 @@
+Contact: mailto:leo@alfait.com.mx
+Expires: 2027-10-17T00:00:00.000Z
+Preferred-Languages: es, en
+Canonical: https://www.alfait.com.mx/.well-known/security.txt

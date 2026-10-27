@@ -3,6 +3,7 @@ import "server-only";
 import { notFound, redirect } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
+import { getCurrentUserProfile } from "@/services/profile";
 
 export type ContractorPortalUser = {
   id: number;
@@ -66,6 +67,11 @@ export async function getContractorPortalContext() {
 
   if (!user) {
     redirect("/login");
+  }
+
+  const profile = await getCurrentUserProfile();
+  if (!profile?.is_active) {
+    return null;
   }
 
   const { data: portalUser, error } = await supabase

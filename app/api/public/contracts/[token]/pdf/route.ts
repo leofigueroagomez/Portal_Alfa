@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 import { generateProjectContractPdf } from "@/lib/contractPdf";
+import { getContractTokenColumn } from "@/lib/contractTokens";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -11,7 +12,8 @@ export async function GET(
   { params }: { params: Promise<{ token: string }> }
 ) {
   const { token } = await params;
-  if (!token) {
+  const tokenColumn = getContractTokenColumn(token);
+  if (!tokenColumn) {
     return NextResponse.json({ error: "Token inválido" }, { status: 400 });
   }
 
@@ -19,7 +21,8 @@ export async function GET(
   const { data: contract, error } = await adminClient
     .from("project_contracts")
     .select("id, contract_number, onboarding_token, signing_token")
-    .or(`onboarding_token.eq.${token},signing_token.eq.${token}`)
+    .eq(tokenColumn, token)
+    .neq("status", "cancelled")
     .maybeSingle();
 
   if (error || !contract) {

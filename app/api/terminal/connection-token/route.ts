@@ -1,18 +1,12 @@
 import { NextResponse } from "next/server";
 import { getStripeClient } from "@/lib/stripe";
-import { createSupabaseServerClient } from "@/services/supabaseServer";
+import { requireServicesRole } from "@/lib/apiAuth";
 
 export const dynamic = "force-dynamic";
 
 export async function POST() {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
+  const { response } = await requireServicesRole();
+  if (response) return response;
 
   const stripe = getStripeClient();
   if (!stripe) {
@@ -27,10 +21,13 @@ export async function POST() {
       location: locationId,
     });
 
-    return NextResponse.json({
-      secret: connectionToken.secret,
-      locationId: connectionToken.location || locationId,
-    });
+    return NextResponse.json(
+      {
+        secret: connectionToken.secret,
+        locationId: connectionToken.location || locationId,
+      },
+      { headers: { "Cache-Control": "no-store" } }
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Error generando token de Terminal";
     return NextResponse.json({ error: message }, { status: 500 });

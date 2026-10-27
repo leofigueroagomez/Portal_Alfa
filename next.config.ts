@@ -9,6 +9,7 @@ const cspHeader = `
   object-src 'none';
   base-uri 'self';
   form-action 'self';
+  frame-ancestors 'self';
   frame-src 'self' https://challenges.cloudflare.com https://www.googletagmanager.com;
   connect-src 'self' https://*.supabase.co https://api.facturama.com.mx https://apisandbox.facturama.com.mx https://challenges.cloudflare.com https://api.resend.com https://www.google-analytics.com https://analytics.google.com https://region1.google-analytics.com https://*.google-analytics.com https://www.facebook.com;
 `

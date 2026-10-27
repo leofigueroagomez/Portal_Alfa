@@ -1,6 +1,8 @@
 import "server-only";
 
 const memoryBuckets = new Map<string, { count: number; resetAt: number }>();
+const MAX_MEMORY_BUCKETS = 10_000;
+let nextCleanupAt = 0;
 
 type UpstashCommandResult = {
   result: number | string | null;
@@ -30,6 +32,7 @@ async function checkRedisRateLimit(
       ]),
       // Rate limit calls must be fast and never cached
       cache: "no-store",
+      signal: AbortSignal.timeout(2_000),
     });
 
     if (!response.ok) {
@@ -37,7 +40,10 @@ async function checkRedisRateLimit(
     }
 
     const json = (await response.json()) as UpstashCommandResult[];
-    const currentCount = Number(json?.[0]?.result || 0);
+    const currentCount = Number(json?.[0]?.result);
+    if (json?.some((item) => item.error) || !Number.isSafeInteger(currentCount) || currentCount < 1) {
+      return null;
+    }
 
     return currentCount <= limit;
   } catch {
@@ -52,9 +58,17 @@ export function checkMemoryRateLimit(
   windowMs = 60_000
 ): boolean {
   const now = Date.now();
+  if (now >= nextCleanupAt) {
+    for (const [storedKey, value] of memoryBuckets) {
+      if (value.resetAt <= now) memoryBuckets.delete(storedKey);
+    }
+    nextCleanupAt = now + 60_000;
+  }
   const bucket = memoryBuckets.get(key);
 
   if (!bucket || bucket.resetAt <= now) {
+    // Do not evict live buckets: doing so would reset an attacker's allowance.
+    if (!bucket && memoryBuckets.size >= MAX_MEMORY_BUCKETS) return false;
     memoryBuckets.set(key, { count: 1, resetAt: now + windowMs });
     return true;
   }

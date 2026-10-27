@@ -190,6 +190,8 @@ Pendiente de confirmar: contratos de datos completos de esos submodulos; deben d
 
 ## Reglas De Seguridad Y Acceso
 
+- Auditoria 2026-09-16: `requireAuthenticatedUser`, `requirePortalProjectAccessForProfile` y `requireFiscalProjectAccessForProfile` rechazan perfiles inactivos antes de comprobar permisos o consultar accesos. Pruebas aisladas: `node --test tests/securityAuth.test.mjs`.
+- Cierre de sesion del portal: `POST /auth/signout` exige `Origin` del mismo sitio, revoca la sesion actual con Supabase y responde 303 a `/login`. No acepta destino de redireccion del solicitante. Cambios locales pendientes de validacion integrada y despliegue.
 - `/users`, `/settings` y `/admin/operations` estan en `internalRoutes` de `proxy.ts`.
 - `proxy.ts` debe incluir cualquier nueva ruta administrativa que no cuelgue de una ruta ya protegida.
 - Usuario con `role = client`, `user_type = client_portal` o `is_internal = false` no debe acceder a rutas internas.

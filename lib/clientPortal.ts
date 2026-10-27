@@ -1,9 +1,10 @@
 import "server-only";
 
-import { notFound, redirect } from "next/navigation";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { notFound } from "next/navigation";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { addMonthsToMexicoDate } from "@/lib/mexicoDate";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
+import { getCurrentUserProfile } from "@/services/profile";
 
 export type ClientPortalUser = {
   id: number;
@@ -23,7 +24,7 @@ export type ClientPortalProject = {
 
 export type ClientPortalContext = {
   supabase: SupabaseClient;
-  user: any;
+  user: User;
   portalUser: ClientPortalUser;
 };
 
@@ -34,6 +35,11 @@ export async function findClientPortalContext(): Promise<ClientPortalContext | n
   } = await supabase.auth.getUser();
 
   if (!user) {
+    return null;
+  }
+
+  const profile = await getCurrentUserProfile();
+  if (!profile?.is_active) {
     return null;
   }
 

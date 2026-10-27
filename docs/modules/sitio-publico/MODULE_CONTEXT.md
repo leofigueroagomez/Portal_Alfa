@@ -93,6 +93,11 @@ duplica en el código.
 
 ## 4. Cómo verificar
 
+Auditoría 2026-09-16: CSP agrega `frame-ancestors 'self'` y el service worker
+limita caché a rutas estáticas explícitas, sin queries ni respuestas privadas.
+Ver [informe de seguridad](../../audits/2026-09-16-security-audit.md) para límites
+pendientes de CSP, tracking y validación de despliegue.
+
 ```
 npx tsc --noEmit
 npm run build

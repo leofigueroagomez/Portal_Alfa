@@ -53,7 +53,6 @@ export default function ClientContractSignCanvas({ token, contract, quoteItems }
   // Canvas
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   const quoteNumber = contract.quotes?.quote_number || "COT-0000";
   const projectName = contract.client_projects?.name || "Proyecto ALFA IT";
@@ -62,17 +61,6 @@ export default function ClientContractSignCanvas({ token, contract, quoteItems }
 
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat("es-MX", { style: "currency", currency: contract.currency || "MXN" }).format(val);
-
-  useEffect(() => {
-    // Intentar capturar coordenadas
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => {},
-        { timeout: 5000 }
-      );
-    }
-  }, []);
 
   // Inicializar canvas
   useEffect(() => {
@@ -172,8 +160,6 @@ export default function ClientContractSignCanvas({ token, contract, quoteItems }
       const res = await submitClientContractSignatureAction(token, {
         signerName,
         signatureDataUrl,
-        latitude: coords?.lat,
-        longitude: coords?.lng,
       });
 
       if (res.ok) {

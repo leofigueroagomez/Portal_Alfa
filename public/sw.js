@@ -1,10 +1,9 @@
 // ALFA OS Service Worker - PWA offline fallback and core caching
-const CACHE_NAME = 'alfa-os-v1';
+const CACHE_NAME = 'alfa-os-v2';
 const STATIC_ASSETS = [
-  '/',
   '/favicon.ico',
   '/icon.png',
-  '/apple-touch-icon.png',
+  '/apple-icon.png',
 ];
 
 self.addEventListener('install', (event) => {
@@ -21,7 +20,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) => {
       return Promise.all(
         keys.map((key) => {
-          if (key !== CACHE_NAME) {
+          if (key.startsWith('alfa-os-') && key !== CACHE_NAME) {
             return caches.delete(key);
           }
         })
@@ -32,20 +31,24 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
-  if (!event.request.url.startsWith(self.location.origin)) return;
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) return;
 
   // Stale-while-revalidate for static assets
   if (
-    event.request.url.includes('/_next/static/') ||
-    event.request.url.includes('/catalog/') ||
-    event.request.url.includes('.png') ||
-    event.request.url.includes('.ico')
+    !url.search && (
+      url.pathname.startsWith('/_next/static/') ||
+      url.pathname.startsWith('/catalog/') ||
+      STATIC_ASSETS.includes(url.pathname)
+    )
   ) {
     event.respondWith(
       caches.match(event.request).then((cached) => {
         const fetchPromise = fetch(event.request)
           .then((networkResponse) => {
-            if (networkResponse && networkResponse.status === 200) {
+            if (networkResponse && networkResponse.status === 200 &&
+                !networkResponse.redirected &&
+                !/private|no-store/i.test(networkResponse.headers.get('cache-control') || '')) {
               const responseClone = networkResponse.clone();
               caches.open(CACHE_NAME).then((cache) => {
                 cache.put(event.request, responseClone);

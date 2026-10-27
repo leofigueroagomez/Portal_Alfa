@@ -2,6 +2,33 @@
 
 Reglas criticas para agentes. No debilitar seguridad para resolver errores de producto.
 
+## Auditoria 2026-09-16: correcciones locales y pendientes productivos
+
+Ver [informe consolidado](../audits/2026-09-16-security-audit.md), sus informes de
+auth/rutas/datos y el inventario SQL de solo lectura. Los cambios estan preparados
+localmente; no confundirlos con un despliegue o hardening de RLS ya aplicado.
+
+- Cada Server Action necesita perfil activo y permiso antes de usar service role,
+  emitir tokens, leer datos o contactar proveedores; el proxy no sustituye ese guard.
+- Perfiles inactivos se rechazan tambien en guards fiscales/portal y contextos de
+  cliente/contratista. Esto no reemplaza RLS ni revocacion de sesiones.
+- No interpolar tokens en filtros PostgREST `.or()`. Los contratos usan el formato
+  generado `onb_`/`sgn_` + 48 hex y igualdad sobre una columna fija.
+- Los crons fallan cerrados si falta `CRON_SECRET` y solo aceptan Bearer por header.
+- Firma publica requiere token del tipo de firma, estado elegible y UPDATE
+  condicionado que impida reemplazos concurrentes. Conservar pagos ya recibidos.
+- Nuevas firmas PNG se validan y acotan antes de guardar/renderizar. Esto no valida
+  automaticamente otros uploads/INE ni imagenes historicas.
+- `services/supabaseAdmin.ts` es `server-only`. No importarlo desde cliente.
+- Validacion reproducible del parche: `npm run test:security`, TypeScript, build,
+  lint dirigido y `git diff --check`; despues matriz completa en sandbox.
+
+**Urgente pendiente:** Auth productivo reporta registro email habilitado. El SQL
+versionado conserva defaults internos permisivos; falta consultar la definicion
+efectiva y corregir en conjunto trigger/RPC/RLS/API de altas. Sandbox reporta
+INACTIVE. No ejecutar migraciones historicas ni afirmar policies actuales seguras
+sin inventario, respaldo y pruebas.
+
 ## Auditoria de seguridad 2026-09-01 (Supabase + rutas API)
 
 Hallazgos y correcciones de una revision completa de RLS/grants en Supabase y de
@@ -54,7 +81,7 @@ Patrones a repetir/vigilar en cambios futuros:
 ## Autenticacion
 
 - La proteccion de rutas vive principalmente en `proxy.ts`.
-- Rutas internas protegidas detectadas: `/admin`, `/dashboard`, `/leads`, `/customers`, `/clients`, `/projects`, `/post-sale`, `/contractors`, `/services`, `/invoices`, `/products`, `/quotes`, `/engineering`, `/engineering-quotes`, `/users`, `/settings`, `/notifications`, `/product-categories`, `/product-tags`.
+- Rutas internas protegidas detectadas: `/admin`, `/dashboard`, `/leads`, `/customers`, `/clients`, `/projects`, `/inventory`, `/post-sale`, `/contractors`, `/services`, `/invoices`, `/products`, `/quotes`, `/engineering`, `/engineering-quotes`, `/users`, `/settings`, `/notifications`, `/product-categories`, `/product-tags`.
 - El portal cliente vive bajo `/portal` y debe mantenerse separado de rutas internas.
 - `proxy.ts` usa Supabase SSR y claims para decidir redirecciones.
 
@@ -97,11 +124,18 @@ Pendiente de confirmar: listado completo y actualizado de policies aplicadas en 
 ### El Vigia
 
 - Tablas `vigia_sensor_runs`, `vigia_findings`, `vigia_audit_log`: RLS activo, unica policy `select` para `authenticated`. La escritura la hace el runner con service_role. No abrir estas tablas a escritura por RLS.
-- Endpoint `app/api/vigia/cron/daily`: auth por `CRON_SECRET` (header Bearer que Vercel manda solo, o `?key=`). No quitar el candado. El endpoint corre sensores de solo lectura y puede enviar correo (Resend), asi que su ejecucion es un cambio que envia correos.
+- Endpoint `app/api/vigia/cron/daily`: auth por `CRON_SECRET` en header Bearer; niega secreto ausente y no acepta `?key=`. No quitar el candado. El endpoint corre sensores de solo lectura y puede enviar correo (Resend), asi que su ejecucion es un cambio que envia correos.
 - Los sensores (`lib/vigia/sensors.ts`) son solo lectura sobre tablas de negocio. Nunca escribir desde un sensor.
 - Ejecutores de 1 clic (`lib/vigia/executors.ts`, `app/(admin)/vigia/execute-actions.ts`): server actions con gate de rol `admin`/`direccion`. Cada uno guarda snapshot en `vigia_action_backups` antes de tocar nada y tiene `revert()`. Si hay cualquier duda, `canApply()` se niega.
 - Investigar a fondo (`lib/vigia/investigate/*`): los playbooks son solo lectura; la unica llamada a un modelo (Claude, via `ANTHROPIC_API_KEY`) solo interpreta el expediente y **propone** — nunca escribe en la base. Server action con gate de rol `admin`/`direccion`. Tope de costo mensual (`VIGIA_INVESTIGATE_MONTHLY_CAP_USD`). No enviar el contenido de `vigia_*` ni de las tablas de negocio a ningun otro servicio; el unico destino externo es la API de Anthropic para la interpretacion y Resend para el correo.
 - Tablas `vigia_action_backups` y `vigia_investigations`: RLS activo, `select` para `authenticated`. No abrir a escritura.
+
+### Inventario/Almacen
+
+- `inventory_items` e `inventory_movements`: RLS activo con solo `beta_authenticated_select`. No agregar policies de escritura: el saldo y el costo promedio solo se mueven por las funciones `inventory_*` (`sql/20261025_inventory.sql`).
+- Las funciones `inventory_*` estan revocadas a `public`/`anon`/`authenticated` y concedidas solo a `service_role`. Se llaman desde `app/(admin)/inventory/actions.ts` despues de validar perfil activo y `canManagePurchases`.
+- Vista `inventory_v_stock` con `security_invoker = true`, revocada a `anon`.
+- Ver [`../modules/inventario/MODULE_CONTEXT.md`](../modules/inventario/MODULE_CONTEXT.md).
 
 ## Storage
 

@@ -1,10 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createSupabaseServerClient } from "@/services/supabaseServer";
+import { getCurrentInternalUserProfile } from "@/services/profile";
+import { canManageServices } from "@/lib/permissions";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 import { getAppBaseUrl } from "@/lib/appUrl";
-import { getAlfaBankAccounts, formatBankTransferInstructions } from "@/lib/bankAccounts";
+import { getAlfaBankAccounts } from "@/lib/bankAccounts";
 import { getOrCreateServiceSigningLink, getOrCreateServiceReportPublicLink } from "@/lib/publicDocumentLinks";
 import { generateServiceReportPdf } from "@/lib/serviceReportPdf";
 import { getOrCreateServiceStripeCheckout } from "@/lib/stripe";
@@ -23,12 +24,9 @@ export async function markServiceAsPaidAction(
     paidAt?: string;
   }
 ) {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const profile = await getCurrentInternalUserProfile();
 
-  if (!user) {
+  if (!profile || !canManageServices(profile.role)) {
     return { ok: false, error: "No autorizado. Inicia sesión para continuar." };
   }
 
@@ -60,12 +58,9 @@ export async function updateServiceAmountAction(
   serviceId: number,
   amountMxn: number
 ) {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const profile = await getCurrentInternalUserProfile();
 
-  if (!user) {
+  if (!profile || !canManageServices(profile.role)) {
     return { ok: false, error: "No autorizado." };
   }
 
@@ -92,12 +87,9 @@ export async function updateServiceAmountAction(
 }
 
 export async function completeServiceReportAction(serviceId: number) {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const profile = await getCurrentInternalUserProfile();
 
-  if (!user) {
+  if (!profile || !canManageServices(profile.role)) {
     return { ok: false, error: "No autorizado." };
   }
 
@@ -121,12 +113,9 @@ export async function completeServiceReportAction(serviceId: number) {
 }
 
 export async function syncToGoogleCalendarAction(serviceId: number) {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const profile = await getCurrentInternalUserProfile();
 
-  if (!user) {
+  if (!profile || !canManageServices(profile.role)) {
     return { ok: false, error: "No autorizado." };
   }
 
@@ -180,12 +169,9 @@ export async function sendServicePaymentReminderEmailAction(
   serviceId: number,
   customMessage?: string
 ) {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const profile = await getCurrentInternalUserProfile();
 
-  if (!user) {
+  if (!profile || !canManageServices(profile.role)) {
     return { ok: false, error: "No autorizado." };
   }
 
@@ -352,7 +338,11 @@ export async function sendServicePaymentReminderEmailAction(
 }
 
 export async function getServiceDispatchContext(serviceId: number) {
-  const supabase = await createSupabaseServerClient();
+  const profile = await getCurrentInternalUserProfile();
+  if (!profile || !canManageServices(profile.role)) {
+    throw new Error("No autorizado.");
+  }
+
   const adminClient = createSupabaseAdminClient();
 
     const { data: report, error } = await adminClient
@@ -520,13 +510,30 @@ export async function notifyContractorAction(
   serviceId: number,
   contractorId: number
 ) {
+  const profile = await getCurrentInternalUserProfile();
+  if (!profile || !canManageServices(profile.role)) {
+    return { ok: false, error: "No autorizado." };
+  }
+
+  const adminClient = createSupabaseAdminClient();
+  const { data: service, error } = await adminClient
+    .from("service_reports")
+    .select("id")
+    .eq("id", serviceId)
+    .eq("contractor_id", contractorId)
+    .maybeSingle();
+
+  if (error || !service) {
+    return { ok: false, error: "Servicio no encontrado o no asignado al contratista." };
+  }
+
   try {
     const result = await sendContractorServiceAssignmentEmail({
       serviceId,
       contractorId,
     });
     return result;
-  } catch (err: any) {
-    return { ok: false, error: err.message };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "No se pudo enviar la notificación." };
   }
 }

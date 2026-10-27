@@ -215,6 +215,7 @@ Uso confirmado en servicios:
 
 ## Reglas De Visibilidad Y Seguridad
 
+- Auditoria 2026-09-16: todas las acciones exportadas de `app/(admin)/services/[id]/actions.ts`, incluido `getServiceDispatchContext`, exigen perfil interno activo y `canManageServices` antes de usar service role o integraciones. `notifyContractorAction` valida ademas que el servicio este asignado al contratista solicitado antes del correo. Prueba aislada: `node --test tests/securityAuth.test.mjs`. Pendiente de validacion integrada en sandbox y despliegue.
 - Rutas internas `/services` y `/post-sale` estan protegidas por `proxy.ts` como rutas internas.
 - APIs de correo de servicio usan `requireServicesRole`; roles permitidos por `canManageServices`: `admin`, `direccion`, `comercial`, `project_manager`.
 - APIs de fotos/PDF de entregas y garantias usan `requireWorkOrderRole`; roles permitidos por `canManageWorkOrders`: `admin`, `direccion`, `ingenieria`, `project_manager`, `instalador`.

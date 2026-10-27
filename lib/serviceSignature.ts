@@ -1,9 +1,10 @@
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 import { getAppBaseUrl } from "@/lib/appUrl";
-import { getAlfaBankAccounts, formatBankTransferInstructions } from "@/lib/bankAccounts";
+import { getAlfaBankAccounts } from "@/lib/bankAccounts";
 import { resolveServicePhotoUrl } from "@/lib/serviceReports";
 import { getServiceProposalTotals, type ServiceProposalQuoteItem } from "@/lib/serviceProposal";
 import { getOrCreateServiceStripeCheckout } from "@/lib/stripe";
+import { isValidContractSignaturePng } from "@/lib/contractPublicValidation";
 
 export type ServiceSigningContext = {
   serviceReport: {
@@ -76,6 +77,9 @@ export async function getServiceSigningContext(token: string): Promise<ServiceSi
   if (linkError || !link) {
     throw new Error("El enlace de firma es inválido o no existe.");
   }
+  if (!["service_report", "service_report_sign"].includes(link.document_type)) {
+    throw new Error("El enlace no corresponde a un reporte de servicio.");
+  }
 
   if (link.revoked_at) {
     throw new Error("Este enlace de firma ha sido revocado.");
@@ -108,6 +112,10 @@ export async function getServiceSigningContext(token: string): Promise<ServiceSi
 
   if (reportError || !report) {
     throw new Error("Reporte de servicio no encontrado.");
+  }
+  if (report.status === "cancelled" ||
+      (link.client_project_id && report.client_project_id !== link.client_project_id)) {
+    throw new Error("Reporte de servicio no disponible.");
   }
 
   // Cargar fotos de evidencias
@@ -209,15 +217,19 @@ export type SubmitServiceSignatureInput = {
 };
 
 export async function submitServiceSignature(input: SubmitServiceSignatureInput) {
+  if (!isValidContractSignaturePng(input.signatureDataUrl)) {
+    throw new Error("La firma debe ser una imagen PNG válida de hasta 200 KB.");
+  }
   const supabase = createSupabaseAdminClient();
 
   const { data: link, error: linkError } = await supabase
     .from("public_document_links")
-    .select("id, token, service_report_id, client_project_id, expires_at, revoked_at")
+    .select("id, token, document_type, service_report_id, client_project_id, expires_at, revoked_at")
     .eq("token", input.token)
+    .eq("document_type", "service_report_sign")
     .maybeSingle();
 
-  if (linkError || !link || !link.service_report_id) {
+  if (linkError || !link || link.document_type !== "service_report_sign" || !link.service_report_id) {
     throw new Error("Enlace de firma inválido.");
   }
 
@@ -227,15 +239,20 @@ export async function submitServiceSignature(input: SubmitServiceSignatureInput)
 
   const { data: report, error: reportError } = await supabase
     .from("service_reports")
-    .select("id, service_number, client_id, client_project_id, labor_sale_mxn, related_quote_id, clients(name, company_name, email), client_projects(name)")
+    .select("id, service_number, client_id, client_project_id, status, payment_status, client_signed_at, client_signature_image_url, labor_sale_mxn, related_quote_id, clients(name, company_name, email), client_projects(name)")
     .eq("id", link.service_report_id)
     .maybeSingle();
 
   if (reportError || !report) {
     throw new Error("Reporte de servicio no encontrado.");
   }
+  if (!["draft", "pending", "in_progress", "completed"].includes(report.status) ||
+      report.client_signed_at || report.client_signature_image_url ||
+      (link.client_project_id && report.client_project_id !== link.client_project_id)) {
+    throw new Error("El servicio ya fue firmado o no está disponible para firma.");
+  }
 
-  const timestamp = Date.now();
+  const timestamp = `${Date.now()}-${crypto.randomUUID()}`;
   const bucketName = "project-photos";
 
   // 1. Guardar firma en Storage
@@ -296,7 +313,7 @@ export async function submitServiceSignature(input: SubmitServiceSignatureInput)
   const signedAtIso = new Date().toISOString();
 
   // 4. Actualizar service_reports
-  const { error: updateError } = await supabase
+  let updateQuery = supabase
     .from("service_reports")
     .update({
       client_signature_image_url: sigStoragePath,
@@ -315,17 +332,27 @@ export async function submitServiceSignature(input: SubmitServiceSignatureInput)
       privacy_consent_accepted: input.privacyConsentAccepted,
       status: "completed",
       completed_at: signedAtIso,
-      payment_status: "pending_payment",
+      payment_status: report.payment_status === "paid" ? "paid" : "pending_payment",
     })
-    .eq("id", report.id);
+    .eq("id", report.id)
+    .eq("status", report.status)
+    .is("client_signed_at", null)
+    .is("client_signature_image_url", null);
+  updateQuery = report.payment_status == null
+    ? updateQuery.is("payment_status", null)
+    : updateQuery.eq("payment_status", report.payment_status);
+  const { data: updated, error: updateError } = await updateQuery.select("id").maybeSingle();
 
-  if (updateError) {
-    console.error("Error actualizando service_report:", updateError);
-    throw new Error("No se pudo registrar la firma en el reporte de servicio.");
+  if (updateError || !updated) {
+    await supabase.storage.from(bucketName).remove(
+      [sigStoragePath, ineFrontPath, ineBackPath].filter((path): path is string => Boolean(path))
+    );
+    if (updateError) console.error("Error actualizando service_report:", updateError);
+    throw new Error("No se pudo registrar la firma: el servicio cambió o ya fue firmado.");
   }
 
   // 5. Notificar a Dirección por correo sobre el servicio firmado y pendiente de cobro
-  notifyManagementOfSignedService({
+  if (report.payment_status !== "paid") notifyManagementOfSignedService({
     serviceId: report.id,
     serviceNumber: report.service_number || `SERV-${String(report.id).padStart(4, "0")}`,
     clientName: (report.clients as { name?: string; company_name?: string } | null)?.company_name || (report.clients as { name?: string } | null)?.name || input.signerName,

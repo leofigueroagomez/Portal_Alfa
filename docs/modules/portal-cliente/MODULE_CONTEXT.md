@@ -148,6 +148,10 @@ Confirmado desde migraciones y codigo. Si se necesita el esquema completo, consu
 
 ## Reglas De Visibilidad Y Seguridad
 
+- Auditoria 2026-09-16: `findClientPortalContext` y `getContractorPortalContext` validan tambien `profiles.is_active` mediante el helper central antes de leer datos vinculados del portal. Una vinculacion activa no basta si el perfil fue desactivado. Prueba aislada: `node --test tests/securityAuth.test.mjs`; validar tambien RLS y revocacion de sesiones en sandbox antes de desplegar.
+- Endurecimiento local 2026-09-16: contratos publicos validan tokens `onb_`/`sgn_` + 48 caracteres hex y usan igualdad exacta; nunca interpolar tokens en `.or()`. El PDF no entrega contratos cancelados. Onboarding solo acepta `draft`/`pending_client_data` sin firma previa; firma solo `pending_signatures`. Las actualizaciones comparan estado y firma vacia en la misma sentencia para impedir reescrituras concurrentes. La firma acepta PNG estructural de hasta 200 KiB y 4 millones de pixeles; no acepta URLs remotas ni rutas locales. Expiracion/revocacion especifica de tokens de contrato: **Pendiente de confirmar/implementar** (no se agregaron columnas ni se migraron datos).
+- Firmas publicas de servicios/entregas: un token de lectura `service_report`/`project_delivery` no autoriza el POST de firma; se exige `service_report_sign`/`project_delivery_sign`. Se bloquean registros ya firmados/cancelados y se compara el estado al escribir; un servicio previamente pagado conserva su pago. Pruebas locales: `npx tsx --conditions=react-server --test tests/securityRoutes.test.ts tests/securityPublicSignatures.test.ts`.
+
 - El portal autenticado se basa en `client_portal_users.is_active = true` y `client_portal_project_access.is_active = true`.
 - Un usuario con `profile.is_internal = false`, `user_type = 'client_portal'` o `role = 'client'` no debe acceder a rutas internas.
 - `proxy.ts` protege rutas internas y redirige clientes a `/portal`; agregar nuevas rutas internas al arreglo si corresponde.

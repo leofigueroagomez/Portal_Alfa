@@ -9,7 +9,6 @@ import {
   Camera,
   CheckCircle2,
   Clock,
-  Compass,
   ExternalLink,
   Laptop,
   Mail,
@@ -146,7 +145,6 @@ export default function ServiceReportForm({
 }: Props) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
-  const [locating, setLocating] = useState(false);
 
   // Ticket & Modalidad
   const [isRemote, setIsRemote] = useState(Boolean(initialReport?.is_remote));
@@ -295,45 +293,6 @@ export default function ServiceReportForm({
       cancelled = true;
     };
   }, [serviceDate, initialReport?.id]);
-
-  // Autocompletado / Geolocalización con GPS y Google Maps
-  async function handleGetCurrentLocation() {
-    if (!navigator.geolocation) {
-      alert("Tu navegador no soporta geolocalización.");
-      return;
-    }
-
-    setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude, longitude } = pos.coords;
-        const mapsLink = `https://www.google.com/maps?q=${latitude},${longitude}`;
-        setGoogleMapsUrl(mapsLink);
-
-        try {
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
-          );
-          if (res.ok) {
-            const data = await res.json();
-            if (data?.display_name && !serviceLocation.trim()) {
-              setServiceLocation(data.display_name);
-            }
-          }
-        } catch (e) {
-          console.warn("No se pudo obtener el nombre de la calle automáticamente:", e);
-        } finally {
-          setLocating(false);
-        }
-      },
-      (err) => {
-        setLocating(false);
-        console.error("Error obteniendo GPS:", err);
-        alert("No se pudo obtener la ubicación GPS. Por favor permite el acceso a ubicación o escríbela manualmente.");
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
-  }
 
   function handleGenerateMapsUrl() {
     if (!serviceLocation.trim()) {
@@ -894,16 +853,6 @@ export default function ServiceReportForm({
                     Domicilio / Sitio del Servicio
                   </label>
                   <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={handleGetCurrentLocation}
-                      disabled={locating}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-[#2A2A30] bg-[#1C1D22] px-3 py-1.5 text-xs font-medium text-[#8CE0B6] hover:bg-[#25262C]"
-                    >
-                      <Compass size={14} className={locating ? "animate-spin" : ""} />
-                      {locating ? "Localizando..." : "📍 Usar mi GPS"}
-                    </button>
-
                     {selectedProject?.site_address && (
                       <button
                         type="button"

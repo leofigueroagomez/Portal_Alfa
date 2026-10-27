@@ -1,10 +1,13 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
-import type { ProjectContractRecord } from "@/lib/contracts";
+import { getContractTokenColumn } from "@/lib/contractTokens";
+import { canSubmitContractOnboarding } from "@/lib/contractPublicValidation";
 
 export async function getContractByOnboardingToken(token: string) {
+  if (getContractTokenColumn(token) !== "onboarding_token") {
+    throw new Error("El enlace de onboarding no es válido.");
+  }
   const adminClient = createSupabaseAdminClient();
 
   const { data: contract, error } = await adminClient
@@ -16,6 +19,8 @@ export async function getContractByOnboardingToken(token: string) {
       clients:client_id (name, company_name, email, phone, tax_business_name, tax_rfc, tax_regime, tax_zip_code, address)
     `)
     .eq("onboarding_token", token)
+    .in("status", ["draft", "pending_client_data"])
+    .is("client_signed_at", null)
     .maybeSingle();
 
   if (error || !contract) {
@@ -63,21 +68,30 @@ export async function submitClientContractOnboardingAction(
     clientSignerIneBackUrl?: string;
   }
 ) {
+  if (getContractTokenColumn(token) !== "onboarding_token") {
+    return { ok: false, error: "Token de onboarding inválido." };
+  }
+  if (!payload || !["b2b", "b2c"].includes(payload.clientType)) {
+    return { ok: false, error: "Datos de contrato inválidos." };
+  }
   const adminClient = createSupabaseAdminClient();
 
   // 1. Validar que exista el contrato por onboarding_token
   const { data: contract, error: findError } = await adminClient
     .from("project_contracts")
-    .select("id, status, client_id")
+    .select("id, status, client_id, client_signed_at")
     .eq("onboarding_token", token)
     .maybeSingle();
 
   if (findError || !contract) {
     return { ok: false, error: "Contrato no encontrado o token inválido." };
   }
+  if (!canSubmitContractOnboarding(contract)) {
+    return { ok: false, error: "Los datos del contrato ya fueron enviados o el contrato no está disponible." };
+  }
 
   // 2. Actualizar contrato con los datos proporcionados por el cliente
-  const { error: updateError } = await adminClient
+  const { data: updated, error: updateError } = await adminClient
     .from("project_contracts")
     .update({
       client_type: payload.clientType,
@@ -113,11 +127,19 @@ export async function submitClientContractOnboardingAction(
       status: "pending_signatures",
       updated_at: new Date().toISOString(),
     })
-    .eq("id", contract.id);
+    .eq("id", contract.id)
+    .eq("onboarding_token", token)
+    .eq("status", contract.status)
+    .is("client_signed_at", null)
+    .select("id")
+    .maybeSingle();
 
   if (updateError) {
     console.error("Error guardando onboarding de contrato:", updateError);
     return { ok: false, error: "No se pudieron guardar los datos del contrato." };
+  }
+  if (!updated) {
+    return { ok: false, error: "El contrato cambió. Actualiza la página antes de continuar." };
   }
 
   // 3. Opcional: Actualizar datos fiscales del cliente en la tabla `clients` si no los tenía

@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createSupabaseServerClient } from "@/services/supabaseServer";
+import { getCurrentInternalUserProfile } from "@/services/profile";
+import { canApproveQuotes } from "@/lib/permissions";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 import { getAppBaseUrl } from "@/lib/appUrl";
 import {
@@ -14,12 +15,9 @@ import {
 } from "@/lib/contracts";
 
 export async function createOrGetProjectContractAction(quoteId: number) {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const profile = await getCurrentInternalUserProfile();
 
-  if (!user) {
+  if (!profile || !canApproveQuotes(profile.role)) {
     return { ok: false, error: "No autorizado." };
   }
 
@@ -139,6 +137,11 @@ export async function createOrGetProjectContractAction(quoteId: number) {
 }
 
 export async function getContractDispatchContext(contractId: number) {
+  const profile = await getCurrentInternalUserProfile();
+  if (!profile || !canApproveQuotes(profile.role)) {
+    throw new Error("No autorizado.");
+  }
+
   const adminClient = createSupabaseAdminClient();
 
   const { data: contract, error } = await adminClient
@@ -218,12 +221,9 @@ export async function signContractAsAlfaAction(
   contractId: number,
   signatureDataUrl: string
 ) {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const profile = await getCurrentInternalUserProfile();
 
-  if (!user) {
+  if (!profile || !canApproveQuotes(profile.role)) {
     return { ok: false, error: "No autorizado." };
   }
 
@@ -258,12 +258,9 @@ export async function updateContractSettingsAction(
     warrantyLaborMonths?: number;
   }
 ) {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const profile = await getCurrentInternalUserProfile();
 
-  if (!user) {
+  if (!profile || !canApproveQuotes(profile.role)) {
     return { ok: false, error: "No autorizado." };
   }
 
@@ -294,12 +291,9 @@ export async function updateContractSettingsAction(
 }
 
 export async function sendContractReminderAction(contractId: number) {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const profile = await getCurrentInternalUserProfile();
 
-  if (!user) {
+  if (!profile || !canApproveQuotes(profile.role)) {
     return { ok: false, error: "No autorizado." };
   }
 

@@ -13,8 +13,6 @@ import {
   HardHat,
   IdCard,
   Lock,
-  MapPin,
-  RefreshCw,
   RotateCcw,
   Scale,
   Shield,
@@ -76,16 +74,7 @@ export default function ContractorAgreementSignForm({
   const [ineBackData, setIneBackData] = useState<string | null>(null);
   const [taxConstancyData, setTaxConstancyData] = useState<string | null>(null);
 
-  // 5. Geolocalización
-  const [coords, setCoords] = useState<{
-    lat: number;
-    lng: number;
-    accuracy?: number;
-  } | null>(null);
-  const [isLocating, setIsLocating] = useState(false);
-  const [geoError, setGeoError] = useState<string | null>(null);
-
-  // 6. Consentimientos
+  // 5. Consentimientos
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [ndaAccepted, setNdaAccepted] = useState(false);
   const [dataPrivacyAccepted, setDataPrivacyAccepted] = useState(false);
@@ -97,39 +86,6 @@ export default function ContractorAgreementSignForm({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  // Solicitar ubicación GPS
-  const requestLocation = () => {
-    if (!navigator.geolocation) {
-      setGeoError("La geolocalización no está soportada en tu navegador.");
-      return;
-    }
-    setIsLocating(true);
-    setGeoError(null);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setCoords({
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          accuracy: pos.coords.accuracy,
-        });
-        setIsLocating(false);
-      },
-      (err) => {
-        setIsLocating(false);
-        setGeoError(
-          err.code === 1
-            ? "Permiso de ubicación denegado. Permite el acceso al GPS para certificar la firma."
-            : "No fue posible obtener la ubicación GPS precisa."
-        );
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
-  };
-
-  useEffect(() => {
-    requestLocation();
-  }, []);
 
   // Inicializar Canvas
   useEffect(() => {
@@ -301,12 +257,6 @@ export default function ContractorAgreementSignForm({
     if (ineFrontData) formData.append("ine_front_data", ineFrontData);
     if (ineBackData) formData.append("ine_back_data", ineBackData);
     if (taxConstancyData) formData.append("tax_constancy_data", taxConstancyData);
-
-    if (coords) {
-      formData.append("geo_lat", coords.lat.toString());
-      formData.append("geo_lng", coords.lng.toString());
-      if (coords.accuracy) formData.append("geo_accuracy", coords.accuracy.toString());
-    }
 
     formData.append("terms_accepted", "on");
     formData.append("nda_accepted", "on");
@@ -905,63 +855,7 @@ export default function ContractorAgreementSignForm({
         </div>
       </div>
 
-      {/* SECCIÓN 5: Ubicación GPS en Tiempo Real */}
-      <div className="rounded-3xl border border-[#2A2B32] bg-[#151518] p-6 sm:p-8 shadow-2xl space-y-4">
-        <div className="border-b border-[#222228] pb-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#7A1F2B]/20 text-[#E08A96]">
-              <MapPin className="h-5 w-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-white uppercase tracking-wider">
-                5. Ubicación GPS en Tiempo Real al Momento de la Firma
-              </h2>
-              <p className="text-xs text-[#8A8A93]">
-                Sello geográfico de atribución jurídica y no repudio.
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={requestLocation}
-            disabled={isLocating}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[#2A2B32] bg-[#1C1D22] px-3 py-1.5 text-xs text-zinc-300 hover:bg-[#282932] hover:text-white"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${isLocating ? "animate-spin" : ""}`} />
-            {isLocating ? "Obteniendo..." : "Actualizar GPS"}
-          </button>
-        </div>
-
-        {coords ? (
-          <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2 text-emerald-300 font-semibold">
-              <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />
-              <span>
-                Coordenadas Certificadas: {coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}
-              </span>
-            </div>
-            <span className="text-[11px] text-zinc-400">
-              Precisión satelital: ±{Math.round(coords.accuracy || 10)} metros
-            </span>
-          </div>
-        ) : (
-          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs">
-            <div className="text-amber-200">
-              {geoError || "Solicitando acceso a ubicación GPS..."}
-            </div>
-            <button
-              type="button"
-              onClick={requestLocation}
-              className="rounded-lg bg-amber-500/20 px-3 py-1.5 font-bold text-amber-300 hover:bg-amber-500/30"
-            >
-              Permitir GPS
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* SECCIÓN 6: Consentimientos Legales Obligatorios */}
+      {/* SECCIÓN 5: Consentimientos Legales Obligatorios */}
       <div className="rounded-3xl border border-[#2A2B32] bg-[#151518] p-6 sm:p-8 shadow-2xl space-y-4">
         <div className="border-b border-[#222228] pb-4 flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#7A1F2B]/20 text-[#E08A96]">
@@ -969,7 +863,7 @@ export default function ContractorAgreementSignForm({
           </div>
           <div>
             <h2 className="text-base font-bold text-white uppercase tracking-wider">
-              6. Consentimientos Expresos y Aceptación de Cláusulas (1 a 29)
+              5. Consentimientos Expresos y Aceptación de Cláusulas (1 a 29)
             </h2>
             <p className="text-xs text-[#8A8A93]">
               Aceptación expresa de las cláusulas aplicables a tu modalidad operativa.
@@ -1046,7 +940,7 @@ export default function ContractorAgreementSignForm({
         </label>
       </div>
 
-      {/* SECCIÓN 7: Firma Autógrafa Digital */}
+      {/* SECCIÓN 6: Firma Autógrafa Digital */}
       <div className="rounded-3xl border border-[#2A2B32] bg-[#151518] p-6 sm:p-8 shadow-2xl space-y-4">
         <div className="flex items-center justify-between border-b border-[#222228] pb-4">
           <div className="flex items-center gap-3">
@@ -1055,7 +949,7 @@ export default function ContractorAgreementSignForm({
             </div>
             <div>
               <h2 className="text-base font-bold text-white uppercase tracking-wider">
-                7. Firma Autógrafa Digital del Subcontratista
+                6. Firma Autógrafa Digital del Subcontratista
               </h2>
               <p className="text-xs text-[#8A8A93]">
                 Firma electrónica vinculante conforme al Código de Comercio.
@@ -1094,7 +988,7 @@ export default function ContractorAgreementSignForm({
         </div>
 
         <div className="flex flex-col sm:flex-row items-center justify-between text-[11px] text-zinc-500 pt-2 gap-2">
-          <span>🔒 Sello Criptográfico • IP y GPS Vinculados • Fecha y Hora Certificada</span>
+          <span>🔒 Sello Criptográfico • IP Vinculada • Fecha y Hora Certificada</span>
           <span>Jurisdicción: Tribunales de Guadalajara / Zapopan, Jal.</span>
         </div>
       </div>

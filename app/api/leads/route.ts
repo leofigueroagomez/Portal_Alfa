@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import {
-  checkBasicRateLimit,
   createRequestId,
   getClientIp,
   logApiError,
 } from "@/lib/apiAuth";
+import { checkRateLimit } from "@/lib/rateLimit";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
@@ -71,9 +71,14 @@ function normalizeSource(value: string) {
   return value === "pagina_web_alfa_high_end_services" ? "Landing Web" : value;
 }
 
-async function verifyTurnstileToken(token: string, ip: string): Promise<boolean> {
+// "unavailable" = Cloudflare no respondio. No se pierde un lead real por una
+// caida del proveedor: se guarda igual y queda en el log.
+async function verifyTurnstileToken(
+  token: string,
+  ip: string
+): Promise<"ok" | "failed" | "unavailable"> {
   const secretKey = process.env.TURNSTILE_SECRET_KEY;
-  if (!secretKey) return true;
+  if (!secretKey) return "ok";
 
   try {
     const formData = new URLSearchParams();
@@ -85,13 +90,14 @@ async function verifyTurnstileToken(token: string, ip: string): Promise<boolean>
       method: "POST",
       body: formData,
       cache: "no-store",
+      signal: AbortSignal.timeout(5_000),
     });
 
-    if (!result.ok) return false;
+    if (!result.ok) return "unavailable";
     const json = (await result.json()) as { success?: boolean };
-    return Boolean(json.success);
+    return json.success ? "ok" : "failed";
   } catch {
-    return false;
+    return "unavailable";
   }
 }
 
@@ -99,7 +105,8 @@ export async function POST(request: Request) {
   const requestId = createRequestId();
   const clientIp = getClientIp(request);
 
-  if (!checkBasicRateLimit(`lead-submit:${clientIp}`, 5, 60_000)) {
+  // Redis compartido entre instancias de Vercel; cae a memoria si no hay Redis.
+  if (!(await checkRateLimit(`lead-submit:${clientIp}`, 5, 60_000))) {
     return NextResponse.json(
       { error: "Demasiadas solicitudes. Intenta de nuevo más tarde.", requestId },
       { status: 429 }
@@ -127,12 +134,15 @@ export async function POST(request: Request) {
       );
     }
 
-    const isHuman = await verifyTurnstileToken(turnstileToken, clientIp);
-    if (!isHuman) {
+    const verification = await verifyTurnstileToken(turnstileToken, clientIp);
+    if (verification === "failed") {
       return NextResponse.json(
         { error: "Falló la verificación de seguridad.", requestId },
         { status: 400 }
       );
+    }
+    if (verification === "unavailable") {
+      logApiError(requestId, "turnstile siteverify unavailable; lead accepted", null);
     }
   }
 
@@ -172,6 +182,21 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "Nombre, telefono y objetivo son requeridos" },
       { status: 400 }
+    );
+  }
+
+  const phoneDigits = lead.phone.replace(/\D/g, "");
+  if (phoneDigits.length < 10 || phoneDigits.length > 15) {
+    return NextResponse.json(
+      { error: "Telefono invalido", requestId },
+      { status: 400 }
+    );
+  }
+
+  if (!(await checkRateLimit(`lead-phone:${phoneDigits}`, 3, 24 * 60 * 60_000))) {
+    return NextResponse.json(
+      { error: "Ya recibimos tu solicitud. Te contactaremos pronto.", requestId },
+      { status: 429 }
     );
   }
 

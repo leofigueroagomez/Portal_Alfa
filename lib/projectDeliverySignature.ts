@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
+import { isValidContractSignaturePng } from "@/lib/contractPublicValidation";
 import { getPublicDocumentLink, recordPublicDocumentAccess } from "@/lib/publicDocuments";
 import { getAppBaseUrl } from "@/lib/appUrl";
 import { getProjectFinancialSummary } from "@/lib/projectFinancials";
@@ -450,15 +451,19 @@ async function notifyManagementOfSignedDelivery(params: {
  * Procesa la firma digital enviada por el cliente desde su smartphone o navegador.
  */
 export async function submitDeliverySignature(input: SubmitDeliverySignatureInput) {
+  if (!isValidContractSignaturePng(input.signatureDataUrl)) {
+    throw new Error("La firma debe ser una imagen PNG válida de hasta 200 KB.");
+  }
   const supabase = createSupabaseAdminClient();
 
   const { data: link, error: linkError } = await supabase
     .from("public_document_links")
-    .select("id, client_project_id, project_delivery_id, expires_at, revoked_at")
+    .select("id, document_type, client_project_id, project_delivery_id, expires_at, revoked_at")
     .eq("token", input.token)
+    .eq("document_type", "project_delivery_sign")
     .maybeSingle();
 
-  if (linkError || !link) {
+  if (linkError || !link || link.document_type !== "project_delivery_sign") {
     throw new Error("El enlace de firma no es válido o ha expirado.");
   }
 
@@ -480,7 +485,7 @@ export async function submitDeliverySignature(input: SubmitDeliverySignatureInpu
   // Verificar que la entrega no esté ya firmada
   const { data: currentDelivery, error: currentDeliveryError } = await supabase
     .from("project_deliveries")
-    .select("id, client_signature_image_url, client_signed_at")
+    .select("id, status, client_signature_image_url, client_signed_at")
     .eq("id", deliveryId)
     .eq("client_project_id", projectId)
     .single();
@@ -489,11 +494,11 @@ export async function submitDeliverySignature(input: SubmitDeliverySignatureInpu
     throw new Error("Entrega no encontrada.");
   }
 
-  if (currentDelivery.client_signature_image_url || currentDelivery.client_signed_at) {
+  if (currentDelivery.status === "cancelled" || currentDelivery.client_signature_image_url || currentDelivery.client_signed_at) {
     throw new Error("Esta entrega ya fue firmada previamente.");
   }
 
-  const timestamp = Date.now();
+  const timestamp = `${Date.now()}-${crypto.randomUUID()}`;
 
   // 1. Subir firma digital
   const { buffer: sigBuffer, mime: sigMime } = dataUrlToBuffer(input.signatureDataUrl);
@@ -555,7 +560,7 @@ export async function submitDeliverySignature(input: SubmitDeliverySignatureInpu
   const signerPhone = input.signerPhone?.trim() || null;
 
   // Actualizar project_deliveries
-  const { error: updateDeliveryError } = await supabase
+  const { data: updatedDelivery, error: updateDeliveryError } = await supabase
     .from("project_deliveries")
     .update({
       client_signature_image_url: signatureStoragePath,
@@ -579,10 +584,19 @@ export async function submitDeliverySignature(input: SubmitDeliverySignatureInpu
       signature_method: "whatsapp_link",
       status: "delivered",
     })
-    .eq("id", deliveryId);
+    .eq("id", deliveryId)
+    .eq("client_project_id", projectId)
+    .eq("status", currentDelivery.status)
+    .is("client_signed_at", null)
+    .is("client_signature_image_url", null)
+    .select("id")
+    .maybeSingle();
 
-  if (updateDeliveryError) {
-    console.error("Error actualizando entrega con firma:", updateDeliveryError);
+  if (updateDeliveryError || !updatedDelivery) {
+    await supabase.storage.from("project-photos").remove(
+      [signatureStoragePath, ineFrontStoragePath, ineBackStoragePath].filter((path): path is string => Boolean(path))
+    );
+    if (updateDeliveryError) console.error("Error actualizando entrega con firma:", updateDeliveryError);
     throw new Error("No se pudo registrar la firma en la entrega.");
   }
 

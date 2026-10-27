@@ -3,6 +3,7 @@ import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 import { getAlfaBankAccounts } from "@/lib/bankAccounts";
 import { generateServiceReportPdf } from "@/lib/serviceReportPdf";
 import { getOrCreateServiceStripeCheckout } from "@/lib/stripe";
+import { isAuthorizedCronRequest } from "@/lib/cronAuth";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -17,16 +18,8 @@ export async function POST(request: Request) {
 }
 
 async function handleCronPaymentReminders(request: Request) {
-  const authHeader = request.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
-
-  // Si hay CRON_SECRET configurado, verificar token
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    const url = new URL(request.url);
-    const keyParam = url.searchParams.get("key");
-    if (keyParam !== cronSecret) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (!isAuthorizedCronRequest(request, process.env.CRON_SECRET)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const apiKey = process.env.RESEND_API_KEY;
