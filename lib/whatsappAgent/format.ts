@@ -10,6 +10,18 @@ export function phoneKey(value: string | null | undefined): string | null {
   return digits.slice(-10);
 }
 
+/**
+ * Telefonos a los que el agente si contesta (WHATSAPP_AGENT_ALLOWED_PHONES,
+ * separados por coma). null = sin lista: contesta a todos.
+ */
+export function allowedPhoneKeys(value: string | null | undefined): Set<string> | null {
+  const keys = String(value || "")
+    .split(",")
+    .map((item) => phoneKey(item))
+    .filter((item): item is string => Boolean(item));
+  return keys.length ? new Set(keys) : null;
+}
+
 const MAX_CHUNKS = 4;
 const MAX_CHUNK_CHARS = 1000;
 

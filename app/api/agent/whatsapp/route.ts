@@ -3,7 +3,7 @@ import { createRequestId, logApiError } from "@/lib/apiAuth";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 import { processWhatsAppConversation } from "@/lib/whatsappAgent/agent";
-import { secretsMatch } from "@/lib/whatsappAgent/format";
+import { allowedPhoneKeys, phoneKey, secretsMatch } from "@/lib/whatsappAgent/format";
 
 /**
  * Entrada del agente de WhatsApp. ManyChat la llama con un External Request
@@ -58,6 +58,13 @@ export async function POST(request: Request) {
   const text = clean(body?.text, 4000) || NON_TEXT_PLACEHOLDER;
   const phone = clean(body?.phone, 30).replace(/[^\d+]/g, "") || null;
   const name = clean(body?.name, 120) || null;
+
+  // Piloto: con WHATSAPP_AGENT_ALLOWED_PHONES solo se atiende a esos numeros;
+  // el resto se ignora sin guardar nada (ManyChat lo sigue atendiendo como antes).
+  const allowed = allowedPhoneKeys(process.env.WHATSAPP_AGENT_ALLOWED_PHONES);
+  if (allowed && !allowed.has(phoneKey(phone) || "")) {
+    return NextResponse.json({ ok: true, ignored: true, requestId });
+  }
 
   try {
     const supabase = createSupabaseAdminClient();

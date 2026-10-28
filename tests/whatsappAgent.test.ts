@@ -1,6 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { businessClock, phoneKey, secretsMatch, splitReply } from "../lib/whatsappAgent/format";
+import {
+  allowedPhoneKeys,
+  businessClock,
+  phoneKey,
+  secretsMatch,
+  splitReply,
+} from "../lib/whatsappAgent/format";
 import { POST } from "../app/api/agent/whatsapp/route";
 
 test("phoneKey normaliza telefonos mexicanos a 10 digitos", () => {
@@ -61,6 +67,30 @@ test("la ruta rechaza secreto ausente o incorrecto", async () => {
     (await POST(request({ subscriber_id: "1", text: "hola" }, "secreto-de-prueba"))).status,
     401
   );
+});
+
+test("allowedPhoneKeys arma la lista del piloto", () => {
+  assert.equal(allowedPhoneKeys(""), null);
+  assert.equal(allowedPhoneKeys(undefined), null);
+  const keys = allowedPhoneKeys("+52 1 33 1234 5678, 3398765432, basura");
+  assert.deepEqual([...(keys || [])].sort(), ["3312345678", "3398765432"]);
+});
+
+test("con lista de piloto, la ruta ignora otros numeros sin tocar la base", async () => {
+  process.env.WHATSAPP_AGENT_SECRET = "secreto-de-prueba";
+  process.env.WHATSAPP_AGENT_ALLOWED_PHONES = "3312345678";
+  try {
+    const response = await POST(
+      request(
+        { subscriber_id: "42", text: "hola", phone: "+5213300000000" },
+        "Bearer secreto-de-prueba"
+      )
+    );
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).ignored, true);
+  } finally {
+    delete process.env.WHATSAPP_AGENT_ALLOWED_PHONES;
+  }
 });
 
 test("la ruta valida subscriber_id antes de tocar la base", async () => {
