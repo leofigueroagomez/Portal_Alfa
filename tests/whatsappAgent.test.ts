@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   allowedPhoneKeys,
   businessClock,
+  parseInbound,
   phoneKey,
   secretsMatch,
   splitReply,
@@ -67,6 +68,29 @@ test("la ruta rechaza secreto ausente o incorrecto", async () => {
     (await POST(request({ subscriber_id: "1", text: "hola" }, "secreto-de-prueba"))).status,
     401
   );
+});
+
+test("parseInbound acepta la plantilla propia y Full Contact Data de ManyChat", () => {
+  assert.deepEqual(
+    parseInbound({ subscriber_id: "123", text: " hola ", phone: "+52 33 1234 5678", name: "Ana" }),
+    { subscriberId: "123", text: "hola", phone: "+523312345678", name: "Ana" }
+  );
+  const fullContact = {
+    id: 987654321,
+    first_name: "Leo",
+    last_name: "Figueroa",
+    whatsapp_phone: "+5213312345678",
+    last_input_text: "Hola\nquiero cotizar \"cámaras\"",
+    custom_fields: { secreto: "no se usa" },
+  };
+  assert.deepEqual(parseInbound(fullContact), {
+    subscriberId: "987654321",
+    text: "Hola\nquiero cotizar \"cámaras\"",
+    phone: "+5213312345678",
+    name: "Leo Figueroa",
+  });
+  assert.equal(parseInbound({ contact: fullContact }).subscriberId, "987654321");
+  assert.equal(parseInbound(null).subscriberId, "");
 });
 
 test("allowedPhoneKeys arma la lista del piloto", () => {

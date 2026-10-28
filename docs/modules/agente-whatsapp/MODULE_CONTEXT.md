@@ -64,10 +64,10 @@ Flujo "Atencion a Clientes": disparador "El usuario envía un mensaje" → bloqu
 
 - Metodo `POST`, URL `https://<dominio de ALFA OS>/api/agent/whatsapp`.
 - Header `Authorization: Bearer <WHATSAPP_AGENT_SECRET>`.
-- Body JSON con los campos del contacto: `subscriber_id` (ID del contacto), `text` (ultimo texto recibido), `phone` (telefono de WhatsApp), `name` (nombre completo).
+- Body: solo **"+ Añadir Full Contact Data"** (ManyChat arma y escapa el JSON). No usar una plantilla propia con "Ultima entrada de texto": ManyChat no escapa saltos de linea ni comillas y el JSON se rompe (comprobado 2026-10-28). `parseInbound` toma `id`, `last_input_text`, `whatsapp_phone`/`phone` y el nombre; descarta el resto.
 - Quitar el AI Step: si siguen los dos, el cliente recibe dos respuestas.
 
-Pendiente de confirmar con una prueba real: los nombres exactos de los campos de ManyChat para el body y el formato de `sendContent` para WhatsApp.
+Pendiente de confirmar con una prueba real: el formato de `sendContent` para WhatsApp y las etiquetas.
 
 ## Riesgos
 

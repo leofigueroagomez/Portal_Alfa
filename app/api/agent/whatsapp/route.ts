@@ -3,7 +3,7 @@ import { createRequestId, logApiError } from "@/lib/apiAuth";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 import { processWhatsAppConversation } from "@/lib/whatsappAgent/agent";
-import { allowedPhoneKeys, phoneKey, secretsMatch } from "@/lib/whatsappAgent/format";
+import { allowedPhoneKeys, parseInbound, phoneKey, secretsMatch } from "@/lib/whatsappAgent/format";
 
 /**
  * Entrada del agente de WhatsApp. ManyChat la llama con un External Request
@@ -11,7 +11,9 @@ import { allowedPhoneKeys, phoneKey, secretsMatch } from "@/lib/whatsappAgent/fo
  *
  *   POST /api/agent/whatsapp
  *   Authorization: Bearer <WHATSAPP_AGENT_SECRET>
- *   { "subscriber_id": "...", "text": "...", "phone": "...", "name": "..." }
+ *   <Full Contact Data de ManyChat>   (recomendado; ver parseInbound)
+ *
+ * Tambien acepta { "subscriber_id", "text", "phone", "name" }.
  *
  * Responde 200 de inmediato (ManyChat corta a los ~10 s) y corre al agente en
  * segundo plano con `after()`. La respuesta al cliente sale por la API de
@@ -25,11 +27,6 @@ export const maxDuration = 120;
 // seguidos y se contesta una sola vez a todos.
 const DEBOUNCE_MS = 5_000;
 const NON_TEXT_PLACEHOLDER = "[El cliente envió un mensaje sin texto: audio, foto, sticker o archivo]";
-
-function clean(value: unknown, max: number) {
-  if (typeof value === "number") return String(value);
-  return typeof value === "string" ? value.trim().slice(0, max) : "";
-}
 
 export async function POST(request: Request) {
   const requestId = createRequestId();
@@ -45,8 +42,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No autorizado", requestId }, { status: 401 });
   }
 
-  const body = await request.json().catch(() => null);
-  const subscriberId = clean(body?.subscriber_id, 40);
+  const inbound = parseInbound(await request.json().catch(() => null));
+  const subscriberId = inbound.subscriberId;
   if (!/^\d{1,40}$/.test(subscriberId)) {
     return NextResponse.json({ error: "subscriber_id invalido", requestId }, { status: 400 });
   }
@@ -55,9 +52,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Demasiados mensajes", requestId }, { status: 429 });
   }
 
-  const text = clean(body?.text, 4000) || NON_TEXT_PLACEHOLDER;
-  const phone = clean(body?.phone, 30).replace(/[^\d+]/g, "") || null;
-  const name = clean(body?.name, 120) || null;
+  const text = inbound.text || NON_TEXT_PLACEHOLDER;
+  const { phone, name } = inbound;
 
   // Piloto: con WHATSAPP_AGENT_ALLOWED_PHONES solo se atiende a esos numeros;
   // el resto se ignora sin guardar nada (ManyChat lo sigue atendiendo como antes).
