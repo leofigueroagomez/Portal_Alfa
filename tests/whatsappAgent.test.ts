@@ -5,6 +5,7 @@ import {
   businessClock,
   parseInbound,
   phoneKey,
+  sameTagName,
   secretsMatch,
   splitReply,
 } from "../lib/whatsappAgent/format";
@@ -91,6 +92,11 @@ test("parseInbound acepta la plantilla propia y Full Contact Data de ManyChat", 
   });
   assert.equal(parseInbound({ contact: fullContact }).subscriberId, "987654321");
   assert.equal(parseInbound(null).subscriberId, "");
+});
+
+test("sameTagName ignora acentos, mayusculas y espacios", () => {
+  assert.equal(sameTagName("Atención humana", "atencion humana "), true);
+  assert.equal(sameTagName("Atención humana", "Visita por agendar"), false);
 });
 
 test("allowedPhoneKeys arma la lista del piloto", () => {

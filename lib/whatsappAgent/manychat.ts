@@ -66,6 +66,57 @@ function subscriberIdParam(subscriberId: string) {
   return Number.isSafeInteger(asNumber) ? asNumber : subscriberId;
 }
 
+/** Etiqueta que pone el agente al pasar a una persona. Quitarla en ManyChat reactiva al agente. */
+export function handoffTagName() {
+  return process.env.MANYCHAT_TAG_HANDOFF?.trim() || "Atención humana";
+}
+
+export function leadTagName() {
+  return process.env.MANYCHAT_TAG_LEAD?.trim() || "Visita por agendar";
+}
+
+/** Campo de texto del contacto donde el agente deja el resumen para el equipo. */
+export function summaryFieldName() {
+  return process.env.MANYCHAT_FIELD_SUMMARY?.trim() || "Resumen para el equipo";
+}
+
+/**
+ * Nombres de las etiquetas del contacto, o null si ManyChat no respondio
+ * (quien llama debe tratar null como "no se sabe", no como "sin etiquetas").
+ */
+export async function getSubscriberTagNames(subscriberId: string): Promise<string[] | null> {
+  const token = getToken();
+  if (!token) return null;
+
+  try {
+    const url = `${MANYCHAT_API}/fb/subscriber/getInfo?subscriber_id=${encodeURIComponent(subscriberId)}`;
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+      signal: AbortSignal.timeout(10_000),
+    });
+    const json = (await response.json().catch(() => null)) as
+      | { status?: string; data?: { tags?: { name?: string }[] } }
+      | null;
+    if (!response.ok || json?.status !== "success" || !Array.isArray(json.data?.tags)) {
+      console.error(`[whatsapp-agent] ManyChat getInfo respondio ${response.status}`);
+      return null;
+    }
+    return json.data.tags.map((tag) => String(tag.name || ""));
+  } catch (error) {
+    console.error("[whatsapp-agent] ManyChat getInfo fallo:", error);
+    return null;
+  }
+}
+
+export function setCustomFieldByName(subscriberId: string, fieldName: string, value: string) {
+  return callManyChat("/fb/subscriber/setCustomFieldByName", {
+    subscriber_id: subscriberIdParam(subscriberId),
+    field_name: fieldName,
+    field_value: value,
+  });
+}
+
 export function sendWhatsAppTexts(subscriberId: string, texts: string[]) {
   return callManyChat("/fb/sending/sendContent", {
     subscriber_id: subscriberIdParam(subscriberId),

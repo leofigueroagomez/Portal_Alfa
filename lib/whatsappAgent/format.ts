@@ -52,6 +52,13 @@ export function parseInbound(body: unknown) {
   };
 }
 
+/** Compara nombres de etiqueta sin importar mayusculas, acentos ni espacios. */
+export function sameTagName(a: string, b: string) {
+  const norm = (value: string) =>
+    value.normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase();
+  return norm(a) === norm(b);
+}
+
 const MAX_CHUNKS = 4;
 const MAX_CHUNK_CHARS = 1000;
 

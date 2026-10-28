@@ -11,8 +11,13 @@ import type {
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 import { buildTurnContext, recognizeContact } from "./context";
-import { splitReply } from "./format";
-import { isManyChatConfigured, sendWhatsAppTexts } from "./manychat";
+import { sameTagName, splitReply } from "./format";
+import {
+  getSubscriberTagNames,
+  handoffTagName,
+  isManyChatConfigured,
+  sendWhatsAppTexts,
+} from "./manychat";
 import { WHATSAPP_AGENT_SYSTEM_PROMPT } from "./prompt";
 import { runWhatsAppTool, WHATSAPP_AGENT_TOOLS, type ToolConversation } from "./tools";
 
@@ -318,8 +323,14 @@ export async function processWhatsAppConversation(conversationId: number) {
         if (!pending.length) break;
 
         if (conversation.status === "handoff") {
-          const stillHandedOff =
+          let stillHandedOff =
             !conversation.handoff_until || new Date(conversation.handoff_until).getTime() > Date.now();
+          if (stillHandedOff) {
+            // Si alguien ya le quito la etiqueta en ManyChat, la persona termino:
+            // el agente retoma. Si ManyChat no responde, se respeta el handoff.
+            const tags = await getSubscriberTagNames(conversation.manychat_subscriber_id);
+            if (tags && !tags.some((tag) => sameTagName(tag, handoffTagName()))) stillHandedOff = false;
+          }
           if (stillHandedOff) {
             // Una persona lleva la conversacion: se registra pero no se contesta.
             await appendTranscript(

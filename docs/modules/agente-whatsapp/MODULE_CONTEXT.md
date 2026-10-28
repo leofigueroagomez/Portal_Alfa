@@ -21,7 +21,7 @@ ManyChat sigue siendo el canal (numero de WhatsApp, bandeja, etiquetas, asignaci
 | Herramienta | Que hace |
 | --- | --- |
 | `registrar_prospecto` | Crea o actualiza un lead (`source = 'WhatsApp'`) ligado a la conversacion y pone la etiqueta `MANYCHAT_TAG_LEAD` (por defecto "Visita por agendar"). |
-| `pasar_a_persona` | Marca la conversacion en `handoff` por 24 h (el agente deja de contestar) y pone la etiqueta `MANYCHAT_TAG_HANDOFF` (por defecto "Atención humana"). |
+| `pasar_a_persona` | Marca la conversacion en `handoff` (el agente deja de contestar) y pone la etiqueta `MANYCHAT_TAG_HANDOFF` (por defecto "Atención humana"). El agente retoma cuando alguien **quita esa etiqueta** en ManyChat (se revisa con `getInfo` en cada mensaje) o a las 24 h. |
 
 En ManyChat, las automatizaciones por etiqueta deciden que pasa despues (asignar a Leonardo Figueroa, marcar como abierta).
 
@@ -34,7 +34,7 @@ En ManyChat, las automatizaciones por etiqueta deciden que pasa despues (asignar
 | `lib/whatsappAgent/prompt.ts` | Prompt fijo (voz, flujo de ventas, pasos de soporte, limites). Cambiarlo invalida la cache una vez. |
 | `lib/whatsappAgent/context.ts` | Reconocimiento por telefono (clientes, contacto de obra, leads previos) y contexto por turno. |
 | `lib/whatsappAgent/tools.ts` | Definicion y ejecucion de herramientas. |
-| `lib/whatsappAgent/manychat.ts` | `sendContent` y `addTagByName` de la API de ManyChat. |
+| `lib/whatsappAgent/manychat.ts` | `sendContent`, `addTagByName`, `setCustomFieldByName` y `getInfo` (etiquetas) de la API de ManyChat. |
 | `lib/whatsappAgent/format.ts` | Utilidades puras (telefono, partir mensajes, horario, comparacion de secretos). |
 | `tests/whatsappAgent.test.ts` | `npm run test:whatsapp-agent`. |
 | `sql/20261028_whatsapp_agent.sql` | Tablas `whatsapp_agent_*` y `'WhatsApp'` en `leads_source_check`. Rollback: `_rollback.sql`. |
@@ -57,6 +57,7 @@ Las tres tienen RLS activo sin policies y sin grants para `anon`/`authenticated`
 | `WHATSAPP_AGENT_MODEL` | Opcional. Por defecto `claude-opus-5-5`. |
 | `WHATSAPP_AGENT_EFFORT` | Opcional. Por defecto `low` (chat). |
 | `MANYCHAT_TAG_LEAD`, `MANYCHAT_TAG_HANDOFF` | Opcionales. Nombres exactos de etiquetas en ManyChat. |
+| `MANYCHAT_FIELD_SUMMARY` | Opcional. Campo de texto del contacto (por defecto "Resumen para el equipo") donde el agente escribe el resumen al registrar un prospecto o pasar a persona. Debe existir en ManyChat. |
 
 ## Configuracion En ManyChat
 

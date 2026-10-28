@@ -2,7 +2,8 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { BetaTool } from "@anthropic-ai/sdk/resources/beta/messages/messages";
-import { addTagByName } from "./manychat";
+import { businessClock } from "./format";
+import { addTagByName, handoffTagName, leadTagName, setCustomFieldByName, summaryFieldName } from "./manychat";
 
 /**
  * Herramientas que el agente puede usar. El orden y el texto deben ser
@@ -82,6 +83,25 @@ function text(value: unknown, max: number) {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
 }
 
+const HANDOFF_REASON_LABELS: Record<string, string> = {
+  cliente_lo_pidio: "el cliente lo pidió",
+  emergencia: "EMERGENCIA",
+  cliente_molesto: "cliente molesto",
+  soporte_tecnico: "falla sin resolver",
+  fuera_de_alcance: "fuera de alcance del asistente",
+  otro: "otro",
+};
+
+/**
+ * Deja el resumen en un campo del contacto de ManyChat para que quien tome la
+ * conversacion lo lea sin recorrer el chat. Si falla, solo se registra.
+ */
+async function writeTeamSummary(conversation: ToolConversation, header: string, summary: string) {
+  const value = `${header} · ${businessClock(new Date()).label}\n${summary}`.slice(0, 1000);
+  const written = await setCustomFieldByName(conversation.manychat_subscriber_id, summaryFieldName(), value);
+  if (!written.ok) console.error("[whatsapp-agent] resumen para el equipo:", written.error);
+}
+
 async function registerLead(
   supabase: SupabaseClient,
   conversation: ToolConversation,
@@ -127,6 +147,7 @@ async function registerLead(
       .update({ ...row, updated_at: new Date().toISOString() })
       .eq("id", conversation.lead_id);
     if (error) throw error;
+    await writeTeamSummary(conversation, `Prospecto #${conversation.lead_id} (actualizado)`, row.message);
     return { content: `Prospecto #${conversation.lead_id} actualizado.`, leadId: conversation.lead_id };
   }
 
@@ -143,8 +164,8 @@ async function registerLead(
     .update({ lead_id: leadId, updated_at: new Date().toISOString() })
     .eq("id", conversation.id);
 
-  const tag = process.env.MANYCHAT_TAG_LEAD?.trim() || "Visita por agendar";
-  const tagged = await addTagByName(conversation.manychat_subscriber_id, tag);
+  await writeTeamSummary(conversation, `Prospecto #${leadId}`, row.message);
+  const tagged = await addTagByName(conversation.manychat_subscriber_id, leadTagName());
   if (!tagged.ok) console.error("[whatsapp-agent] etiqueta de prospecto:", tagged.error);
 
   return {
@@ -175,8 +196,10 @@ async function handOff(
     .eq("id", conversation.id);
   if (error) throw error;
 
-  const tag = process.env.MANYCHAT_TAG_HANDOFF?.trim() || "Atención humana";
-  const tagged = await addTagByName(conversation.manychat_subscriber_id, tag);
+  // El resumen va antes que la etiqueta: la regla de ManyChat asigna la
+  // conversacion al recibir la etiqueta y quien la abra ya debe verlo.
+  await writeTeamSummary(conversation, `Pasó a persona: ${HANDOFF_REASON_LABELS[reason] || reason}`, summary);
+  const tagged = await addTagByName(conversation.manychat_subscriber_id, handoffTagName());
   if (!tagged.ok) console.error("[whatsapp-agent] etiqueta de handoff:", tagged.error);
 
   return {
