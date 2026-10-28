@@ -67,7 +67,7 @@ Flujo "Atencion a Clientes": disparador "El usuario envía un mensaje" → bloqu
 - Body: solo **"+ Añadir Full Contact Data"** (ManyChat arma y escapa el JSON). No usar una plantilla propia con "Ultima entrada de texto": ManyChat no escapa saltos de linea ni comillas y el JSON se rompe (comprobado 2026-10-28). `parseInbound` toma `id`, `last_input_text`, `whatsapp_phone`/`phone` y el nombre; descarta el resto.
 - Quitar el AI Step: si siguen los dos, el cliente recibe dos respuestas.
 
-Pendiente de confirmar con una prueba real: el formato de `sendContent` para WhatsApp y las etiquetas.
+Confirmado el 2026-10-28 en produccion: External Request con Full Contact Data (el numero llega en `whatsapp_phone`; `phone` viene null) y respuesta entregada por `sendContent` v2. La condicion del flujo debe usar el campo **WhatsApp ID**, no "Telefono". Pendiente de confirmar: `addTagByName`.
 
 ## Riesgos
 
