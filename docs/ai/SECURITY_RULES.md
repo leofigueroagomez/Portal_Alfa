@@ -2,6 +2,15 @@
 
 Reglas criticas para agentes. No debilitar seguridad para resolver errores de producto.
 
+## Agente de WhatsApp (2026-10-28)
+
+Ver [`../modules/agente-whatsapp/MODULE_CONTEXT.md`](../modules/agente-whatsapp/MODULE_CONTEXT.md).
+
+- `POST /api/agent/whatsapp` es publica en red pero exige `Authorization: Bearer WHATSAPP_AGENT_SECRET` (comparacion en tiempo constante) y falla cerrada (503) sin el secreto. Nunca aceptar el secreto por query string.
+- Tablas `whatsapp_agent_*`: RLS sin policies y sin grants para `anon`/`authenticated`. Solo `service_role` desde la ruta.
+- El telefono de WhatsApp no autentica. El contexto que recibe el modelo se limita a nombre, proyectos y vigencia de garantia: no agregar direcciones, saldos, RFC, contactos ni documentos.
+- Lo que escribe el cliente es entrada no confiable: va como mensaje `user`; el contexto de ALFA OS va como mensaje `system`. No mezclar ambos en el mismo bloque.
+
 ## Auditoria de seguridad 2026-09-01 (Supabase + rutas API)
 
 Hallazgos y correcciones de una revision completa de RLS/grants en Supabase y de
