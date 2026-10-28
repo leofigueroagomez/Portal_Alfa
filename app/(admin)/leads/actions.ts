@@ -26,6 +26,8 @@ const sourceLabels: Record<string, string> = {
   Google: "Google",
   "Prospectación Directa": "Prospectación Directa",
   "Cliente Existente": "Cliente Existente",
+  // clients_source_check no incluye WhatsApp: el agente de WhatsApp prospecta.
+  WhatsApp: "Prospectación Directa",
 };
 
 function normalizeSource(value: string | null | undefined) {

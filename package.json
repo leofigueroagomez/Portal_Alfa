@@ -10,9 +10,11 @@
     "smoke:quote-blinds": "node scripts/smoke-quote-blinds.mjs",
     "test:quote-blinds": "node --experimental-strip-types --test tests/quoteBlinds.test.mjs tests/quoteBlindsPdf.test.mjs tests/quoteBlindsStorage.test.mjs",
     "test:draft-builder": "tsx --conditions=react-server --test lib/quotes/__tests__/draftBuilder.golden.test.ts",
+    "test:whatsapp-agent": "tsx --conditions=react-server --test tests/whatsappAgent.test.ts",
     "sat:import": "node scripts/import-sat-catalogs.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.3.0",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",

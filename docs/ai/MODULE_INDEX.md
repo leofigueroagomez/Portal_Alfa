@@ -21,6 +21,7 @@ Indice operativo para ubicar rapido donde trabajar. Los niveles de riesgo se bas
 | Ingenieria | Activo | `app/(admin)/engineering/`, `app/(admin)/engineering-quotes/` | rutas bajo `app/(admin)/engineering*` | Pendiente de crear | Medio |
 | Notificaciones | Activo | `app/(admin)/notifications/` | rutas/API relacionadas a notificaciones | Pendiente de crear | Medio |
 | Postventa | Activo | `app/(admin)/post-sale/` | rutas bajo `post-sale` | [`../modules/servicios-postventa/MODULE_CONTEXT.md`](../modules/servicios-postventa/MODULE_CONTEXT.md) | Alto |
+| Agente de WhatsApp (Claude) | Codigo en rama `feat/agente-whatsapp-claude` 2026-10-28; migracion `sql/20261028_whatsapp_agent.sql` aplicada en sandbox y produccion; piloto solo para el numero de Leo | `app/api/agent/whatsapp/` | `lib/whatsappAgent/*`, tablas `whatsapp_agent_*`, `tests/whatsappAgent.test.ts` | [`../modules/agente-whatsapp/MODULE_CONTEXT.md`](../modules/agente-whatsapp/MODULE_CONTEXT.md) | Alto |
 | El Vigia (capa de vigilancia autonoma) | Activo desde 2026-08-31. Fase 1 (15 sensores) + Bandeja `/vigia` + ejecutores 1 clic (B1) + Investigar a fondo (B2) | `app/api/vigia/cron/daily/`, `app/(admin)/vigia/` | `lib/vigia/*` (incl. `executors.ts`, `investigate/*`), tablas `vigia_*`, vistas `vigia_v_*`, `sql/2026090*_vigia_*`, `vercel.json` (cron) | [`../modules/vigia/MODULE_CONTEXT.md`](../modules/vigia/MODULE_CONTEXT.md) | Medio |
 
 ## Uso Para Agentes
