@@ -170,7 +170,8 @@ async function runTurn(
   supabase: SupabaseClient,
   client: Anthropic,
   conversation: Conversation,
-  pending: { id: number; text: string }[]
+  pending: { id: number; text: string }[],
+  resumedFromHandoff = false
 ) {
   const transcript = await loadTranscript(supabase, conversation.id);
   const nextSeq = transcript.length ? transcript[transcript.length - 1].seq + 1 : 1;
@@ -195,6 +196,7 @@ async function runTurn(
       contactName: conversation.contact_name,
       recognition,
       leadId: conversation.lead_id,
+      resumedFromHandoff,
     }),
   };
 
@@ -322,6 +324,7 @@ export async function processWhatsAppConversation(conversationId: number) {
         const pending = await loadPending(supabase, conversation);
         if (!pending.length) break;
 
+        let resumedFromHandoff = false;
         if (conversation.status === "handoff") {
           let stillHandedOff =
             !conversation.handoff_until || new Date(conversation.handoff_until).getTime() > Date.now();
@@ -347,9 +350,10 @@ export async function processWhatsAppConversation(conversationId: number) {
             .update({ status: "active", handoff_until: null })
             .eq("id", conversation.id);
           conversation.status = "active";
+          resumedFromHandoff = true;
         }
 
-        await runTurn(supabase, client, conversation, pending);
+        await runTurn(supabase, client, conversation, pending, resumedFromHandoff);
       }
     } finally {
       await releaseLock(supabase, conversationId, token);

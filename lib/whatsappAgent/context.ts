@@ -143,6 +143,7 @@ export function buildTurnContext(params: {
   contactName: string | null;
   recognition: ContactRecognition;
   leadId: number | null;
+  resumedFromHandoff?: boolean;
 }) {
   const clock = businessClock(params.now);
   const lines = [
@@ -151,6 +152,11 @@ export function buildTurnContext(params: {
   ];
   if (params.contactName) lines.push(`Nombre del contacto en WhatsApp: ${params.contactName}.`);
   lines.push(...params.recognition.lines);
+  if (params.resumedFromHandoff) {
+    lines.push(
+      "Una persona del equipo ya atendió esta conversación y te la regresó: vuelve a atender con normalidad. No digas que alguien más lo va a contactar, salvo que el cliente lo pida o haga falta otra vez."
+    );
+  }
   if (params.leadId) {
     lines.push(`Ya registraste a este prospecto (lead #${params.leadId}); si hay datos nuevos, actualízalo.`);
   }
