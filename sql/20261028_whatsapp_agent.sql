@@ -22,7 +22,8 @@
 --
 -- Aplicado en sandbox (alfa-os-sandbox) el 2026-10-28; en ese proyecto el
 -- check anterior tenia 'Prospectaci??n Directa' (acento corrompido) y quedo
--- corregido. NO APLICADO en produccion. Rollback exacto en
+-- corregido. Aplicado en produccion (Alfa IT) el 2026-10-28 con confirmacion
+-- de Leo. Rollback exacto en
 -- 20261028_whatsapp_agent_rollback.sql.
 
 -- ---------------------------------------------------------------------------
