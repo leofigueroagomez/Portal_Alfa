@@ -10,6 +10,8 @@ import {
   splitReply,
 } from "../lib/whatsappAgent/format";
 import { POST } from "../app/api/agent/whatsapp/route";
+import { recognizeContact } from "../lib/whatsappAgent/context";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 test("phoneKey normaliza telefonos mexicanos a 10 digitos", () => {
   assert.equal(phoneKey("+52 1 33 1234 5678"), "3312345678");
@@ -129,4 +131,44 @@ test("la ruta valida subscriber_id antes de tocar la base", async () => {
     request({ subscriber_id: "abc;drop", text: "hola" }, "Bearer secreto-de-prueba")
   );
   assert.equal(response.status, 400);
+});
+
+// Supabase minimo: cada tabla devuelve sus filas sin importar los filtros.
+function fakeSupabase(tables: Record<string, unknown[]>) {
+  return {
+    from(table: string) {
+      const rows = tables[table] || [];
+      const builder: Record<string, unknown> = {
+        then: (resolve: (value: unknown) => void) => resolve({ data: rows, error: null }),
+        maybeSingle: async () => ({ data: rows[0] ?? null, error: null }),
+      };
+      for (const method of ["select", "eq", "not", "in", "order", "limit"]) builder[method] = () => builder;
+      return builder;
+    },
+  } as unknown as SupabaseClient;
+}
+
+test("recognizeContact reconoce al aliado comercial antes que al cliente", async () => {
+  const supabase = fakeSupabase({
+    commercial_partners: [
+      { id: 2, commercial_name: "Kybit", contact_name: "Cesar Rico", contact_phone: "33 2367 5636" },
+    ],
+    clients: [{ id: 23, name: "Cesar Rico", company: null, company_name: "Kybit", phone: "3323675636" }],
+  });
+  const recognition = await recognizeContact(supabase, "+5213323675636", null);
+  assert.equal(recognition.clientId, null);
+  assert.equal(recognition.lines.length, 1);
+  assert.match(recognition.lines[0], /aliado comercial de ALFA: Cesar Rico, de Kybit/);
+});
+
+test("recognizeContact sigue reconociendo clientes que no son aliados", async () => {
+  const supabase = fakeSupabase({
+    commercial_partners: [
+      { id: 2, commercial_name: "Kybit", contact_name: "Cesar Rico", contact_phone: "33 2367 5636" },
+    ],
+    clients: [{ id: 9, name: "Ana", company: null, company_name: null, phone: "33 1111 2222" }],
+  });
+  const recognition = await recognizeContact(supabase, "+523311112222", null);
+  assert.equal(recognition.clientId, 9);
+  assert.match(recognition.lines[0], /coincide con un cliente de ALFA: Ana/);
 });

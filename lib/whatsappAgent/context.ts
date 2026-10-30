@@ -22,6 +22,7 @@ type WarrantyRow = {
   maintenance_policy_active: boolean | null;
 };
 type LeadRow = { id: number; created_at: string | null; service: string | null; phone: string | null };
+type PartnerRow = { id: number; commercial_name: string | null; contact_name: string | null; contact_phone: string | null };
 
 export type ContactRecognition = {
   clientId: number | null;
@@ -41,6 +42,25 @@ export async function recognizeContact(
 ): Promise<ContactRecognition> {
   const key = phoneKey(phone);
   if (!key && !knownClientId) return { clientId: null, lines: [] };
+
+  // Un aliado comercial (Kybit, HQE...) no es prospecto ni cliente final:
+  // va primero, aunque tambien exista como cliente en el CRM.
+  if (key) {
+    const { data: partners } = await supabase
+      .from("commercial_partners")
+      .select("id, commercial_name, contact_name, contact_phone")
+      .eq("is_active", true)
+      .not("contact_phone", "is", null);
+    const partner = ((partners || []) as PartnerRow[]).find((row) => phoneKey(row.contact_phone) === key);
+    if (partner) {
+      return {
+        clientId: null,
+        lines: [
+          `Su teléfono coincide con el contacto de un aliado comercial de ALFA: ${partner.contact_name || "sin nombre"}${partner.commercial_name ? `, de ${partner.commercial_name}` : ""}. No es prospecto ni cliente final: atiéndelo como aliado.`,
+        ],
+      };
+    }
+  }
 
   let clientId = knownClientId;
 

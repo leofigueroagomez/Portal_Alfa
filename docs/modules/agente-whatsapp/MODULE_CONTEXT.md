@@ -21,9 +21,13 @@ ManyChat sigue siendo el canal (numero de WhatsApp, bandeja, etiquetas, asignaci
 | Herramienta | Que hace |
 | --- | --- |
 | `registrar_prospecto` | Crea o actualiza un lead (`source = 'WhatsApp'`) ligado a la conversacion y pone la etiqueta `MANYCHAT_TAG_LEAD` (por defecto "Visita por agendar"). |
-| `pasar_a_persona` | Marca la conversacion en `handoff` (el agente deja de contestar) y pone la etiqueta `MANYCHAT_TAG_HANDOFF` (por defecto "Atención humana"). El agente retoma cuando alguien **quita esa etiqueta** en ManyChat (se revisa con `getInfo` en cada mensaje) o a las 24 h. |
+| `pasar_a_persona` | Motivos: `cliente_lo_pidio`, `emergencia`, `cliente_molesto`, `soporte_tecnico`, `fuera_de_alcance`, `aliado`, `otro`. Marca la conversacion en `handoff` (el agente deja de contestar) y pone la etiqueta `MANYCHAT_TAG_HANDOFF` (por defecto "Atención humana"). El agente retoma cuando alguien **quita esa etiqueta** en ManyChat (se revisa con `getInfo` en cada mensaje) o a las 24 h. |
 
 En ManyChat, las automatizaciones por etiqueta deciden que pasa despues (asignar a Leonardo Figueroa, marcar como abierta).
+
+## Tipos De Contacto
+
+El prompt distingue tres: **prospecto** (algo nuevo), **cliente** (ya tiene instalacion de ALFA: no se le vende como nuevo) y **aliado comercial** (integrador que vende proyectos de ALFA a sus clientes, tabla `commercial_partners`). `recognizeContact` busca primero el telefono en `commercial_partners.contact_phone` (activos); si coincide, el contexto dice que es aliado y no se buscan clientes, aunque tambien exista como cliente en el CRM. Con un aliado el agente no usa `registrar_prospecto` ni ofrece la visita: para proyectos nuevos, dudas tecnicas de una instalacion o temas comerciales usa `pasar_a_persona` con motivo `aliado`. Si el primer mensaje parece seguir una platica que el agente no ve, dice en primera persona que se le fue el hilo de lo que platicaban y pide que se lo recuerden, como si siguiera la misma platica (sin volver a saludar, sin hablar de "otra persona" ni de un sistema); no clasifica con preguntas de formulario ni pasa a persona solo por eso (criterio de Leo, 2026-10-30: debe sentirse como si el cliente siguiera hablando con el; Leo supervisa desde su celular). Si preguntan directo si es un bot, la regla de honestidad sigue igual. Origen: conversacion del 2026-10-30 con Cesar Rico (Kybit), atendido como cliente porque el reconocimiento no miraba aliados.
 
 ## Archivos
 
@@ -32,7 +36,7 @@ En ManyChat, las automatizaciones por etiqueta deciden que pasa despues (asignar
 | `app/api/agent/whatsapp/route.ts` | Entrada desde ManyChat: secreto Bearer, validacion, rate limit, cola y `after()`. |
 | `lib/whatsappAgent/agent.ts` | Candado, turnos, loop de herramientas con el SDK de Anthropic, transcripcion append-only, envio. |
 | `lib/whatsappAgent/prompt.ts` | Prompt fijo (voz, flujo de ventas, pasos de soporte, limites). Cambiarlo invalida la cache una vez. |
-| `lib/whatsappAgent/context.ts` | Reconocimiento por telefono (clientes, contacto de obra, leads previos) y contexto por turno. |
+| `lib/whatsappAgent/context.ts` | Reconocimiento por telefono (aliados comerciales, clientes, contacto de obra, leads previos) y contexto por turno. |
 | `lib/whatsappAgent/tools.ts` | Definicion y ejecucion de herramientas. |
 | `lib/whatsappAgent/manychat.ts` | `sendContent`, `addTagByName`, `setCustomFieldByName` y `getInfo` (etiquetas) de la API de ManyChat. |
 | `lib/whatsappAgent/format.ts` | Utilidades puras (telefono, partir mensajes, horario, comparacion de secretos). |

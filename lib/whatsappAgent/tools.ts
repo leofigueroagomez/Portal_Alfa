@@ -18,6 +18,7 @@ const HANDOFF_REASONS = [
   "cliente_molesto",
   "soporte_tecnico",
   "fuera_de_alcance",
+  "aliado",
   "otro",
 ] as const;
 
@@ -55,7 +56,7 @@ export const WHATSAPP_AGENT_TOOLS: BetaTool[] = [
   {
     name: "pasar_a_persona",
     description:
-      "Pasa la conversación a una persona del equipo de ALFA. Después de usarla ya no contestas en esta conversación: una persona continúa. Úsala si el cliente lo pide, si hay una emergencia (robo, alarma sonando, humo, chispas), si se nota molesto, si una falla no se resolvió con los pasos básicos o si piden algo que no puedes resolver.",
+      "Pasa la conversación a una persona del equipo de ALFA. Después de usarla ya no contestas en esta conversación: una persona continúa. Úsala si el cliente lo pide, si hay una emergencia (robo, alarma sonando, humo, chispas), si se nota molesto, si una falla no se resolvió con los pasos básicos, si un aliado comercial necesita al equipo o si piden algo que no puedes resolver.",
     strict: true,
     input_schema: {
       type: "object",
@@ -89,6 +90,7 @@ const HANDOFF_REASON_LABELS: Record<string, string> = {
   cliente_molesto: "cliente molesto",
   soporte_tecnico: "falla sin resolver",
   fuera_de_alcance: "fuera de alcance del asistente",
+  aliado: "aliado comercial",
   otro: "otro",
 };
 
