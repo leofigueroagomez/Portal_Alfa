@@ -238,7 +238,7 @@ export async function createPaymentComplementDraft(
 
     const { data: complementData, error: complementError } = await supabase
       .from("project_payment_complements")
-      .select("id, status, amount_paid_mxn, paid_amount_mxn, project_payment_id, manual_amount_override")
+      .select("id, status, amount_paid_mxn, paid_amount_mxn, project_payment_id, manual_amount_override, payment_date")
       .eq("project_invoice_id", invoice.id);
 
     if (complementError) {
@@ -311,6 +311,23 @@ export async function createPaymentComplementDraft(
 
     if (validationErrors.length > 0) {
       throw new Error(validationErrors.join(" | "));
+    }
+
+    // Evita reenviar el mismo formulario: el pago creado la vez anterior ya
+    // esta ligado a ese borrador y no aparece como duplicado "sin ligar".
+    const sameComplement = existingComplements.find(
+      (complement) =>
+        activeComplementStatuses.includes(String(complement.status)) &&
+        complement.payment_date === paymentDate &&
+        Math.abs(
+          Number(complement.paid_amount_mxn ?? complement.amount_paid_mxn ?? 0) -
+            calculation.paidAmountMxn
+        ) <= 1
+    );
+    if (paymentMode === "create" && sameComplement) {
+      throw new Error(
+        `Ya existe el complemento #${sameComplement.id} (${sameComplement.status}) de esta factura con la misma fecha y monto. Revisalo antes de crear otro pago.`
+      );
     }
 
     if (paymentMode === "create" && !confirmDuplicate) {

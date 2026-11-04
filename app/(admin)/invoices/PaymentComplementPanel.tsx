@@ -229,6 +229,14 @@ export default function PaymentComplementPanel({
     startTransition(async () => {
       const nextResult = await createPaymentComplementDraft(formData);
       setResult(nextResult);
+      if (nextResult.ok) {
+        // Limpia la captura para que un segundo envio no cree otro cobro igual.
+        setPaymentMode("create");
+        setSelectedPaymentId("");
+        setAmountPaidMxn("");
+        setPaymentReference("");
+        setConfirmDuplicate(false);
+      }
     });
   }
 

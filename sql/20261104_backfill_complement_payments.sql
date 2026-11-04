@@ -65,14 +65,14 @@ select
   t.complement_id,
   p.id as payment_id,
   case
-    when p.notes like '%backfill-complemento:' || t.complement_id || '%' then 'marker'
+    when p.notes ~ ('backfill-complemento:' || t.complement_id || '([^0-9]|$)') then 'marker'
     when p.payment_date = t.payment_date
       and abs(coalesce(p.amount_mxn, p.amount) - t.paid_amount_mxn) <= 1 then 'date_amount'
     else 'reference'
   end as matched_by
 from _bf_targets t
 join _bf_unlinked_payments p on p.client_project_id = t.client_project_id
-where p.notes like '%backfill-complemento:' || t.complement_id || '%'
+where p.notes ~ ('backfill-complemento:' || t.complement_id || '([^0-9]|$)')
    or (p.payment_date = t.payment_date
        and abs(coalesce(p.amount_mxn, p.amount) - t.paid_amount_mxn) <= 1)
    or (length(coalesce(t.payment_reference, '')) >= 6
