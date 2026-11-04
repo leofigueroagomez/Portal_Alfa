@@ -12,6 +12,7 @@ import SendServiceCompletedEmailButton from "./SendServiceCompletedEmailButton";
 import { getServiceDispatchContext } from "./actions";
 import ServiceCollectionPanel from "./ServiceCollectionPanel";
 import InvoiceForm from "@/app/(admin)/invoices/InvoiceForm";
+import { loadProjectPartnerBilling } from "@/lib/partnerBilling";
 import { canManageUsers } from "@/lib/permissions";
 import { getCurrentUserProfile } from "@/services/profile";
 
@@ -148,6 +149,10 @@ export default async function ServiceDetailPage({
   const existingInvoices = (existingInvoicesResult.data ||
     []) as ProjectInvoiceSummary[];
   const canInvoiceService = Boolean(fiscalClient && invoiceProject);
+  // Servicio de un proyecto vendido via aliado: se preselecciona el receptor del aliado.
+  const partnerBilling = invoiceProject
+    ? await loadProjectPartnerBilling(supabase, [invoiceProject.id])
+    : {};
 
   const { data: rawPhotos } = await supabase
     .from("service_report_photos")
@@ -248,6 +253,7 @@ export default async function ServiceDetailPage({
               defaultClientId={fiscalClient.id}
               allowManual={canManageUsers(profile?.role)}
               triggerLabel="Facturar servicio"
+              partnerBilling={partnerBilling}
               defaultServiceReport={{
                 id: reportData.id,
                 serviceNumber: reportData.service_number,
