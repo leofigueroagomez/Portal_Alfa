@@ -28,6 +28,7 @@ import {
   type PaymentComplementRecord,
 } from "@/lib/paymentComplements";
 import InvoiceForm from "@/app/(admin)/invoices/InvoiceForm";
+import { loadProjectPartnerBilling } from "@/lib/partnerBilling";
 import { type FiscalDocumentEmailLog } from "@/app/(admin)/invoices/InvoiceFileLinks";
 import type { PaymentFormCatalogItem } from "@/lib/paymentTerms";
 import ProjectInvoicesTableClient from "./ProjectInvoicesTableClient";
@@ -104,6 +105,7 @@ export default async function ProjectInvoicesPage({
   }
 
   const projectData = project as ClientProject;
+  const partnerBilling = await loadProjectPartnerBilling(supabase, [projectData.id]);
   const [
     clientResult,
     invoicesResult,
@@ -288,6 +290,7 @@ export default async function ProjectInvoicesPage({
           defaultProjectId={projectData.id}
           defaultClientId={projectData.client_id}
           allowManual={allowManualInvoices}
+          partnerBilling={partnerBilling}
         />
       </section>
 

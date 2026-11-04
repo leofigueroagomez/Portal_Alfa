@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/services/supabase";
 import {
@@ -9,6 +9,13 @@ import {
   salesStageLabels,
   salesStages,
 } from "@/lib/salesStages";
+import { getProjectPartnerSuggestion } from "@/lib/partnerBilling";
+
+type PartnerOption = {
+  id: number;
+  commercial_name: string;
+  is_active: boolean | null;
+};
 
 type Project = {
   id: number;
@@ -28,6 +35,64 @@ export default function EditOpportunityButton({ project }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Aliado comercial del proyecto (facturar al aliado). null = sin cargar o
+  // migracion 20261104130000 pendiente: no se muestra ni se guarda.
+  const [partnerOptions, setPartnerOptions] = useState<PartnerOption[] | null>(null);
+  const [savedPartnerId, setSavedPartnerId] = useState<number | null>(null);
+  const [partnerId, setPartnerId] = useState("");
+  const [quotePartnerId, setQuotePartnerId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+
+    async function loadPartnerContext() {
+      const projectResult = await supabase
+        .from("client_projects")
+        .select("id, commercial_partner_id")
+        .eq("id", project.id)
+        .maybeSingle();
+
+      if (cancelled || projectResult.error) return;
+
+      const [partnersResult, quotesResult] = await Promise.all([
+        supabase
+          .from("commercial_partners")
+          .select("id, commercial_name, is_active")
+          .order("commercial_name", { ascending: true }),
+        supabase
+          .from("quotes")
+          .select("id, commercial_partner_id")
+          .eq("client_project_id", project.id)
+          .eq("is_latest", true)
+          .not("commercial_partner_id", "is", null),
+      ]);
+
+      if (cancelled || partnersResult.error) return;
+
+      const current =
+        (projectResult.data as { commercial_partner_id: number | null } | null)
+          ?.commercial_partner_id ?? null;
+      const quotePartners = [
+        ...new Set(
+          ((quotesResult.data || []) as { commercial_partner_id: number }[]).map(
+            (quote) => quote.commercial_partner_id
+          )
+        ),
+      ];
+
+      setPartnerOptions((partnersResult.data || []) as PartnerOption[]);
+      setSavedPartnerId(current);
+      setPartnerId(current ? String(current) : "");
+      // Solo se propone si las cotizaciones vigentes coinciden en un aliado.
+      setQuotePartnerId(quotePartners.length === 1 ? quotePartners[0] : null);
+    }
+
+    loadPartnerContext();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, project.id]);
   const [form, setForm] = useState({
     sales_stage: normalizeSalesStage(project.sales_stage),
     estimated_value_mxn: String(project.estimated_value_mxn || ""),
@@ -83,9 +148,15 @@ export default function EditOpportunityButton({ project }: Props) {
     setSaving(true);
 
     const normalizedStage = normalizeSalesStage(form.sales_stage);
+    const nextPartnerId = partnerId ? Number(partnerId) : null;
+    const partnerPatch =
+      partnerOptions && nextPartnerId !== savedPartnerId
+        ? { commercial_partner_id: nextPartnerId }
+        : {};
     const { error } = await supabase
       .from("client_projects")
       .update({
+        ...partnerPatch,
         sales_stage: normalizedStage,
         estimated_value_mxn: Number(form.estimated_value_mxn) || 0,
         probability_percent: probability,
@@ -108,6 +179,13 @@ export default function EditOpportunityButton({ project }: Props) {
   }
 
   const currentStage = normalizeSalesStage(form.sales_stage);
+  const partnerSuggestion = getProjectPartnerSuggestion(
+    partnerId ? Number(partnerId) : null,
+    quotePartnerId
+  );
+  const suggestedPartner = partnerSuggestion
+    ? partnerOptions?.find((partner) => partner.id === partnerSuggestion.partnerId) || null
+    : null;
 
   return (
     <>
@@ -207,6 +285,45 @@ export default function EditOpportunityButton({ project }: Props) {
                   }
                 />
               </div>
+
+              {partnerOptions ? (
+                <div>
+                  <label className="mb-2 block text-sm text-[#B3B3B8]">
+                    Aliado comercial
+                  </label>
+                  <select
+                    className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] p-4 outline-none"
+                    value={partnerId}
+                    onChange={(event) => setPartnerId(event.target.value)}
+                  >
+                    <option value="">Venta directa (sin aliado)</option>
+                    {partnerOptions
+                      .filter(
+                        (partner) =>
+                          partner.is_active !== false || String(partner.id) === partnerId
+                      )
+                      .map((partner) => (
+                        <option key={partner.id} value={partner.id}>
+                          {partner.commercial_name}
+                        </option>
+                      ))}
+                  </select>
+                  <p className="mt-2 text-xs text-[#8A8A90]">
+                    Si el proyecto se vende via aliado, sus facturas se preparan a nombre del
+                    receptor fiscal del aliado. El cliente final no cambia.
+                  </p>
+                  {suggestedPartner ? (
+                    <button
+                      type="button"
+                      onClick={() => setPartnerId(String(suggestedPartner.id))}
+                      className="mt-3 rounded-xl border border-[#9E1B32]/50 px-3 py-2 text-xs font-semibold text-[#F2B8C2] hover:bg-[#9E1B32]/10"
+                    >
+                      La cotizacion vigente es via {suggestedPartner.commercial_name}: usar este
+                      aliado
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
 
               {currentStage === "lost" ? (
                 <div>

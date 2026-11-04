@@ -70,6 +70,15 @@ export function canManageCommercialPartners(role: string | null | undefined) {
   return ["admin", "direccion", "comercial"].includes(normalized);
 }
 
+/**
+ * Receptor fiscal del aliado (commercial_partners.default_billing_client_id /
+ * bill_to_partner). Solo admin/direccion; tambien lo exige el trigger
+ * commercial_partners_guard_billing_fields en la base.
+ */
+export function canManagePartnerBilling(role: string | null | undefined) {
+  return isAdminLike(role);
+}
+
 export function canGeneratePartnerQuotes(role: string | null | undefined) {
   return canManageCommercialPartners(role);
 }

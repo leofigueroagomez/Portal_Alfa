@@ -24,6 +24,7 @@ import { ClientFiscalDataButton } from "@/components/ClientFiscalDataModal";
 import type { FiscalClientData } from "@/lib/fiscalData";
 import InvoiceFileLinks from "@/app/(admin)/invoices/InvoiceFileLinks";
 import InvoiceForm from "@/app/(admin)/invoices/InvoiceForm";
+import { loadProjectPartnerBilling } from "@/lib/partnerBilling";
 import StampInvoiceButton from "@/app/(admin)/invoices/StampInvoiceButton";
 import ProjectPaymentForm from "./ProjectPaymentForm";
 import EditProjectPaymentButton from "./EditProjectPaymentButton";
@@ -141,6 +142,7 @@ export default async function ProjectAccountStatementPage({
   }
 
   const projectData = project as ClientProject;
+  const partnerBilling = await loadProjectPartnerBilling(supabase, [projectData.id]);
   const [
     { data: client },
     { data: approvedQuotes },
@@ -457,6 +459,7 @@ export default async function ProjectAccountStatementPage({
               defaultProjectId={projectData.id}
               defaultClientId={projectData.client_id}
               allowManual={allowManualInvoices}
+              partnerBilling={partnerBilling}
             />
             {clientData ? <ClientFiscalDataButton client={clientData} /> : null}
             <Link

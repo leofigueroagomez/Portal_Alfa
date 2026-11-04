@@ -35,6 +35,7 @@ import {
   isDuplicateInternalFolioError,
 } from "@/lib/invoiceFolios";
 import { getMexicoDate } from "@/lib/mexicoDate";
+import { validateBilledPartnerForStamp } from "@/lib/partnerBilling";
 import { getCurrentUserProfile } from "@/services/profile";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 
@@ -429,6 +430,54 @@ async function saveInvoiceStampMetadata(
   }
 }
 
+function isMissingBilledPartnerColumn(error: { code?: string; message?: string } | null) {
+  if (!error) return false;
+  return (
+    error.code === "42703" ||
+    /billed_partner_id|default_billing_client_id/i.test(error.message || "")
+  );
+}
+
+/** null = sin aliado o todo cuadra. Tolerante a la migracion pendiente. */
+async function getBilledPartnerStampError(
+  supabase: SupabaseAdminClient,
+  invoice: Pick<InvoiceForStamping, "id" | "client_id">
+) {
+  const { data, error } = await supabase
+    .from("project_invoices")
+    .select("billed_partner_id")
+    .eq("id", invoice.id)
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingBilledPartnerColumn(error)) return null;
+    throw new Error(`Error leyendo aliado de la factura: ${error.message}`);
+  }
+
+  const billedPartnerId = (data as { billed_partner_id: number | null } | null)?.billed_partner_id;
+  if (!billedPartnerId) return null;
+
+  const { data: partner, error: partnerError } = await supabase
+    .from("commercial_partners")
+    .select("id, commercial_name, default_billing_client_id")
+    .eq("id", billedPartnerId)
+    .maybeSingle();
+
+  if (partnerError) {
+    throw new Error(`Error leyendo aliado comercial: ${partnerError.message}`);
+  }
+
+  return validateBilledPartnerForStamp({
+    billedPartnerId,
+    invoiceClientId: invoice.client_id,
+    partner: partner as {
+      id: number;
+      commercial_name: string;
+      default_billing_client_id: number | null;
+    } | null,
+  });
+}
+
 export async function stampProjectInvoice(
   invoiceId: number
 ): Promise<StampProjectInvoiceResult> {
@@ -519,6 +568,12 @@ export async function stampProjectInvoice(
     if (!client) {
       throw new Error("La factura no tiene cliente asociado.");
     }
+
+    // Facturar al aliado: si la factura se marco como facturada al aliado, su
+    // receptor (client_id) debe seguir siendo el receptor fiscal del aliado.
+    // El receptor CFDI sigue saliendo de clients (abajo), esto solo valida.
+    const billedPartnerError = await getBilledPartnerStampError(supabase, invoice);
+    if (billedPartnerError) throw new Error(billedPartnerError);
 
     sandboxReceiver = getFacturamaSandboxReceiverOverride();
     clientRfcDiagnostic = getRfcDiagnostic(client.tax_rfc);
@@ -1433,6 +1488,23 @@ export async function createReplacementInvoiceDraft(
       replaces_invoice_id: originalInvoiceId,
       status: "draft",
     };
+
+    // La sustitucion conserva el mismo receptor (client_id) y, por lo tanto, la
+    // misma trazabilidad de aliado. Solo se copia si la columna existe y tiene valor.
+    const { data: originalPartner, error: originalPartnerError } = await supabase
+      .from("project_invoices")
+      .select("billed_partner_id")
+      .eq("id", originalInvoiceId)
+      .maybeSingle();
+    if (originalPartnerError && !isMissingBilledPartnerColumn(originalPartnerError)) {
+      throw new Error(`Error leyendo aliado de la factura: ${originalPartnerError.message}`);
+    }
+    const originalBilledPartnerId = (
+      originalPartner as { billed_partner_id: number | null } | null
+    )?.billed_partner_id;
+    if (originalBilledPartnerId) {
+      Object.assign(invoiceBase, { billed_partner_id: originalBilledPartnerId });
+    }
 
     // Folio interno calculado como en InvoiceForm (MAX+1), no via el default de
     // la tabla: la secuencia de la BD esta desfasada porque los borradores se

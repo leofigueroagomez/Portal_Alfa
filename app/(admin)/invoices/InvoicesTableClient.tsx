@@ -30,6 +30,8 @@ type TableInvoice = ProjectInvoice & {
 
 type Props = {
   invoices: TableInvoice[];
+  /** invoiceId -> aliado al que se facturo (project_invoices.billed_partner_id). */
+  billedPartnerNames?: Record<number, string>;
   emailLogsByInvoice: Record<number, FiscalDocumentEmailLog[]>;
   facturamaEnv: "sandbox" | "production";
   sandboxReceiverNotice: string | null;
@@ -51,6 +53,7 @@ function includesSearch(value: string | null | undefined, search: string) {
 
 export default function InvoicesTableClient({
   invoices,
+  billedPartnerNames = {},
   emailLogsByInvoice,
   facturamaEnv,
   sandboxReceiverNotice,
@@ -184,6 +187,11 @@ export default function InvoicesTableClient({
           {client?.name || "Sin cliente"}
           {client?.tax_rfc ? (
             <span className="mt-1 block text-xs text-[#77777D]">{client.tax_rfc}</span>
+          ) : null}
+          {billedPartnerNames[invoice.id] ? (
+            <span className="mt-1 block text-xs text-[#F2B8C2]">
+              vía {billedPartnerNames[invoice.id]}
+            </span>
           ) : null}
         </p>
         <Link

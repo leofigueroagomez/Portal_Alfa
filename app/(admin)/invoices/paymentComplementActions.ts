@@ -18,6 +18,7 @@ import {
 import {
   buildFacturamaPaymentComplementPayload,
   calculatePaymentComplement,
+  getComplementReceiverClient,
   getPaymentComplementValidationErrors,
   getPaymentComplementsConfig,
   type LinkedPaymentForValidation,
@@ -198,10 +199,8 @@ export async function createPaymentComplementDraft(
     if (!invoiceData) throw new Error("Factura no encontrada.");
 
     const invoice = invoiceData as unknown as ProjectInvoice;
-    const clientRelation = invoice.clients;
-    const client = Array.isArray(clientRelation)
-      ? clientRelation[0] || null
-      : clientRelation || null;
+    // Receptor = el de la factura origen, aunque el proyecto cambie de aliado.
+    const client = getComplementReceiverClient(invoice);
     if (!client) throw new Error("La factura no tiene cliente fiscal.");
 
     let projectPayment: ProjectPayment | null = null;
@@ -521,10 +520,8 @@ export async function stampPaymentComplementDraft(
       throw new Error("La factura debe tener UUID fiscal.");
     }
 
-    const clientRelation = invoice.clients;
-    const client = Array.isArray(clientRelation)
-      ? clientRelation[0] || null
-      : clientRelation || null;
+    // Receptor = el de la factura origen, aunque el proyecto cambie de aliado.
+    const client = getComplementReceiverClient(invoice);
     if (!client) throw new Error("La factura no tiene cliente fiscal.");
 
     const { data: issuedComplementsData, error: issuedComplementsError } = await supabase
