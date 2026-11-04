@@ -6,8 +6,8 @@
 -- Backfill: complementos de pago (CFDI tipo P) timbrados sin pago ligado.
 --
 -- Para cada complemento issued/stamped con project_payment_id is null:
---   * link      -> existe exactamente UN pago sin ligar del mismo proyecto con la
---                  misma fecha y monto a ±$1, o con la misma referencia
+--   * link      -> existe exactamente UN pago sin ligar del mismo proyecto con el
+--                  mismo monto a ±$1 con fecha a ±15 dias, o con la misma referencia
 --                  (referencias de menos de 6 caracteres, p.ej. "SPEI", no cuentan):
 --                  se liga ese pago y no se crea otro.
 --   * create    -> no hay candidato: se crea el pago con los datos del complemento
@@ -66,14 +66,14 @@ select
   p.id as payment_id,
   case
     when p.notes ~ ('backfill-complemento:' || t.complement_id || '([^0-9]|$)') then 'marker'
-    when p.payment_date = t.payment_date
+    when abs(p.payment_date - t.payment_date) <= 15
       and abs(coalesce(p.amount_mxn, p.amount) - t.paid_amount_mxn) <= 1 then 'date_amount'
     else 'reference'
   end as matched_by
 from _bf_targets t
 join _bf_unlinked_payments p on p.client_project_id = t.client_project_id
 where p.notes ~ ('backfill-complemento:' || t.complement_id || '([^0-9]|$)')
-   or (p.payment_date = t.payment_date
+   or (abs(p.payment_date - t.payment_date) <= 15
        and abs(coalesce(p.amount_mxn, p.amount) - t.paid_amount_mxn) <= 1)
    or (length(coalesce(t.payment_reference, '')) >= 6
        and upper(trim(coalesce(p.payment_reference, ''))) = upper(t.payment_reference));

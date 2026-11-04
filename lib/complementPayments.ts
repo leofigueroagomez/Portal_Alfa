@@ -36,6 +36,17 @@ export type NewComplementPaymentRow = {
 // Tolerancia para considerar "mismo monto" al buscar duplicados (pesos MXN).
 export const DUPLICATE_AMOUNT_TOLERANCE_MXN = 1;
 
+// El pago se suele capturar unos dias antes o despues de la fecha del
+// complemento (en produccion hubo diferencias de 3 a 13 dias).
+export const DUPLICATE_DATE_WINDOW_DAYS = 15;
+
+function getDaysBetween(first: string, second: string) {
+  const firstTime = Date.parse(`${first.slice(0, 10)}T00:00:00Z`);
+  const secondTime = Date.parse(`${second.slice(0, 10)}T00:00:00Z`);
+  if (!Number.isFinite(firstTime) || !Number.isFinite(secondTime)) return Infinity;
+  return Math.abs(firstTime - secondTime) / 86_400_000;
+}
+
 // Referencias genericas como "SPEI" o "EFECTIVO" no identifican un pago; solo
 // se compara la referencia cuando tiene al menos este numero de caracteres.
 export const MIN_REFERENCE_LENGTH_FOR_MATCH = 6;
@@ -98,9 +109,11 @@ export function findDuplicatePaymentCandidates(
     if (excluded.has(Number(payment.id))) return [];
 
     const matchedBy: DuplicatePaymentCandidate["matchedBy"] = [];
-    const sameDate = Boolean(payment.payment_date) && payment.payment_date === input.paymentDate;
+    const nearDate =
+      Boolean(payment.payment_date) &&
+      getDaysBetween(String(payment.payment_date), input.paymentDate) <= DUPLICATE_DATE_WINDOW_DAYS;
     const amountDiff = Math.abs(Number(payment.amount_mxn || 0) - Number(input.amountMxn || 0));
-    if (sameDate && amountDiff <= DUPLICATE_AMOUNT_TOLERANCE_MXN) {
+    if (nearDate && amountDiff <= DUPLICATE_AMOUNT_TOLERANCE_MXN) {
       matchedBy.push("date_amount");
     }
     if (compareReference && normalizePaymentReference(payment.payment_reference) === reference) {

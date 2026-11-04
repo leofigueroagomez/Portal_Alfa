@@ -118,6 +118,18 @@ const payments: PaymentCandidate[] = [
   { id: 505, payment_date: "2026-05-01", amount_mxn: 9_000, payment_reference: "SPEI" },
 ];
 
+test("duplicados: pago capturado dias despues con el mismo monto (caso FAC-0004)", () => {
+  const candidates = findDuplicatePaymentCandidates(
+    [
+      { id: 15, payment_date: "2026-06-06", amount_mxn: 6_068.63, payment_reference: "FAC-0004-CP1" },
+      { id: 16, payment_date: "2026-06-25", amount_mxn: 6_068.63, payment_reference: null },
+    ],
+    { paymentDate: "2026-06-03", amountMxn: 6_068.63, paymentReference: "SPEI" }
+  );
+  // 3 dias de diferencia entra en la ventana de ±15; 22 dias ya no.
+  assert.deepEqual(candidates.map((candidate) => candidate.id), [15]);
+});
+
 test("duplicados: misma fecha y monto a ±$1", () => {
   const candidates = findDuplicatePaymentCandidates(payments, {
     paymentDate: "2026-09-17",
