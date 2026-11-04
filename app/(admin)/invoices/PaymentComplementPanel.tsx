@@ -13,6 +13,11 @@ import {
   type StampPaymentComplementResult,
 } from "./paymentComplementActions";
 import { getMexicoDate } from "@/lib/mexicoDate";
+import {
+  findDuplicatePaymentCandidates,
+  type ComplementPaymentCategory,
+  type ComplementPaymentMode,
+} from "@/lib/complementPayments";
 
 type InvoiceForComplement = {
   id: number;
@@ -35,6 +40,7 @@ type ProjectPaymentForComplement = {
 
 type PaymentComplementForPanel = {
   id: number;
+  project_payment_id?: number | null;
   status: string | null;
   partiality_number: number | null;
   previous_balance_mxn: number | null;
@@ -111,6 +117,10 @@ export default function PaymentComplementPanel({
   canCancel = false,
 }: Props) {
   const [open, setOpen] = useState(false);
+  const [paymentMode, setPaymentMode] = useState<ComplementPaymentMode>("create");
+  const [paymentCategory, setPaymentCategory] =
+    useState<ComplementPaymentCategory>("equipment");
+  const [confirmDuplicate, setConfirmDuplicate] = useState(false);
   const [selectedPaymentId, setSelectedPaymentId] = useState("");
   const [amountPaidMxn, setAmountPaidMxn] = useState("");
   const [paymentDate, setPaymentDate] = useState(today());
@@ -140,7 +150,10 @@ export default function PaymentComplementPanel({
   );
   const pendingBalance = Math.max(getInvoiceTotal(invoice) - paidAmount, 0);
   const nextPartiality = stampedComplements.length + 1;
-  const selectedPayment = payments.find((payment) => String(payment.id) === selectedPaymentId);
+  const selectedPayment =
+    paymentMode === "link"
+      ? payments.find((payment) => String(payment.id) === selectedPaymentId)
+      : undefined;
   const sourcePaymentAmountMxn = selectedPayment
     ? Number(selectedPayment.amount_mxn || 0)
     : null;
@@ -157,6 +170,47 @@ export default function PaymentComplementPanel({
     invoice.status === "issued" &&
     Boolean(invoice.sat_uuid) &&
     pendingBalance > 0;
+  const linkedPaymentIds = useMemo(
+    () =>
+      complements
+        .filter((complement) => complement.status !== "cancelled" && complement.project_payment_id)
+        .map((complement) => Number(complement.project_payment_id)),
+    [complements]
+  );
+  // El servidor vuelve a revisar duplicados; aqui solo se avisa mientras se captura.
+  const duplicateCandidates = useMemo(() => {
+    if (paymentMode !== "create") return [];
+    if (result && !result.ok && result.duplicateCandidates?.length) {
+      return result.duplicateCandidates;
+    }
+    if (!paymentDate || !(fiscalPaidAmountMxn > 0)) return [];
+    return findDuplicatePaymentCandidates(payments, {
+      paymentDate,
+      amountMxn: fiscalPaidAmountMxn,
+      paymentReference,
+      excludePaymentIds: linkedPaymentIds,
+    });
+  }, [
+    paymentMode,
+    result,
+    payments,
+    paymentDate,
+    fiscalPaidAmountMxn,
+    paymentReference,
+    linkedPaymentIds,
+  ]);
+
+  function updatePaymentMode(nextMode: ComplementPaymentMode) {
+    setPaymentMode(nextMode);
+    setConfirmDuplicate(false);
+    setResult(null);
+    if (nextMode === "create") setSelectedPaymentId("");
+  }
+
+  function linkCandidate(paymentId: number) {
+    updatePaymentMode("link");
+    updateSelectedPayment(String(paymentId));
+  }
 
   function updateSelectedPayment(paymentId: string) {
     setSelectedPaymentId(paymentId);
@@ -175,6 +229,14 @@ export default function PaymentComplementPanel({
     startTransition(async () => {
       const nextResult = await createPaymentComplementDraft(formData);
       setResult(nextResult);
+      if (nextResult.ok) {
+        // Limpia la captura para que un segundo envio no cree otro cobro igual.
+        setPaymentMode("create");
+        setSelectedPaymentId("");
+        setAmountPaidMxn("");
+        setPaymentReference("");
+        setConfirmDuplicate(false);
+      }
     });
   }
 
@@ -357,7 +419,7 @@ export default function PaymentComplementPanel({
                     <button
                       type="button"
                       onClick={() => stampDraft(complement.id)}
-                      disabled={pending}
+                      disabled={pending || !complement.project_payment_id}
                       className="rounded-lg bg-[#9E1B32] px-3 py-2 text-xs font-semibold text-white hover:bg-[#B91C3C] disabled:bg-[#222228] disabled:text-[#77777D]"
                     >
                       {pending
@@ -427,6 +489,14 @@ export default function PaymentComplementPanel({
                     UUID: {complement.sat_uuid || "Pendiente en respuesta"}
                   </p>
                 ) : null}
+                {complement.project_payment_id ? (
+                  <p className="mt-2">Pago ligado #{complement.project_payment_id}</p>
+                ) : complement.status === "draft" ? (
+                  <p className="mt-2 text-[#F4C66A]">
+                    Sin pago ligado: no se puede timbrar. Crea un borrador nuevo que cree o
+                    ligue el pago.
+                  </p>
+                ) : null}
                 {stampResultById[complement.id] ? (
                   <StampResultMessage result={stampResultById[complement.id]} />
                 ) : null}
@@ -488,7 +558,9 @@ export default function PaymentComplementPanel({
                 label="Pago registrado"
                 value={
                   sourcePaymentAmountMxn == null
-                    ? "Manual"
+                    ? paymentMode === "create"
+                      ? "Se crea"
+                      : "Sin elegir"
                     : formatCurrency(sourcePaymentAmountMxn, "MXN")
                 }
               />
@@ -505,24 +577,60 @@ export default function PaymentComplementPanel({
               />
             </section>
 
+            <input type="hidden" name="paymentMode" value={paymentMode} />
+            <input type="hidden" name="confirmDuplicate" value={confirmDuplicate ? "1" : ""} />
+            <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <PaymentModeOption
+                active={paymentMode === "create"}
+                title="Crear pago con estos datos"
+                description="Registra el cobro en el estado de cuenta y lo liga al complemento."
+                onSelect={() => updatePaymentMode("create")}
+              />
+              <PaymentModeOption
+                active={paymentMode === "link"}
+                title="Ligar pago existente"
+                description="El cobro ya esta capturado en el estado de cuenta del proyecto."
+                onSelect={() => updatePaymentMode("link")}
+              />
+            </div>
+
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <label className="space-y-2">
-                <span className="text-sm text-[#B3B3B8]">Pago registrado</span>
-                <select
-                  name="projectPaymentId"
-                  className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none"
-                  value={selectedPaymentId}
-                  onChange={(event) => updateSelectedPayment(event.target.value)}
-                >
-                  <option value="">Captura manual</option>
-                  {payments.map((payment) => (
-                    <option key={payment.id} value={payment.id}>
-                      #{payment.id} / {payment.payment_date || "Sin fecha"} /{" "}
-                      {formatCurrency(Number(payment.amount_mxn || 0), "MXN")}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              {paymentMode === "link" ? (
+                <label className="space-y-2">
+                  <span className="text-sm text-[#B3B3B8]">Pago registrado</span>
+                  <select
+                    name="projectPaymentId"
+                    required
+                    className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none"
+                    value={selectedPaymentId}
+                    onChange={(event) => updateSelectedPayment(event.target.value)}
+                  >
+                    <option value="">Selecciona un pago</option>
+                    {payments.map((payment) => (
+                      <option key={payment.id} value={payment.id}>
+                        #{payment.id} / {payment.payment_date || "Sin fecha"} /{" "}
+                        {formatCurrency(Number(payment.amount_mxn || 0), "MXN")}
+                        {payment.payment_reference ? ` / ${payment.payment_reference}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <label className="space-y-2">
+                  <span className="text-sm text-[#B3B3B8]">Categoria del pago</span>
+                  <select
+                    name="paymentCategory"
+                    className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none"
+                    value={paymentCategory}
+                    onChange={(event) =>
+                      setPaymentCategory(event.target.value as ComplementPaymentCategory)
+                    }
+                  >
+                    <option value="equipment">Equipos</option>
+                    <option value="labor">Mano de obra</option>
+                  </select>
+                </label>
+              )}
 
               <label className="space-y-2">
                 <span className="text-sm text-[#B3B3B8]">Fecha de pago</span>
@@ -576,6 +684,46 @@ export default function PaymentComplementPanel({
               </label>
             </div>
 
+            {duplicateCandidates.length > 0 ? (
+              <div className="mt-5 rounded-xl border border-[#614620] bg-[#322514] p-4 text-sm text-[#F4C66A]">
+                <p className="font-semibold">
+                  Este cobro parece estar ya registrado en el estado de cuenta.
+                </p>
+                <p className="mt-1">
+                  Ligalo en lugar de crear otro pago para no duplicar el cobrado del proyecto.
+                </p>
+                <div className="mt-3 space-y-2">
+                  {duplicateCandidates.map((candidate) => (
+                    <div
+                      key={candidate.id}
+                      className="flex flex-col gap-2 rounded-lg border border-[#614620] bg-[#151518] p-3 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <p className="text-white">
+                        #{candidate.id} / {candidate.payment_date || "Sin fecha"} /{" "}
+                        {formatCurrency(Number(candidate.amount_mxn || 0), "MXN")}
+                        {candidate.payment_reference ? ` / ${candidate.payment_reference}` : ""}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => linkCandidate(candidate.id)}
+                        className="w-fit rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-xs font-semibold text-white hover:bg-white/15"
+                      >
+                        Ligar este pago
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <label className="mt-3 flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={confirmDuplicate}
+                    onChange={(event) => setConfirmDuplicate(event.target.checked)}
+                  />
+                  <span>Es un pago distinto: crearlo de todos modos.</span>
+                </label>
+              </div>
+            ) : null}
+
             {manualAmountOverride ? (
               <div className="mt-5 rounded-xl border border-[#6A2A2A] bg-[#351818] p-4 text-sm text-[#FFB4B4]">
                 <p className="font-semibold">
@@ -628,6 +776,11 @@ export default function PaymentComplementPanel({
                     <p className="font-semibold">
                       Borrador #{result.complementId} creado.
                     </p>
+                    <p className="mt-1">
+                      {result.paymentCreated
+                        ? `Pago #${result.projectPaymentId} registrado en el estado de cuenta y ligado.`
+                        : `Ligado al pago #${result.projectPaymentId}.`}
+                    </p>
                     {result.warning ? <p className="mt-1">{result.warning}</p> : null}
                     <pre className="mt-3 max-h-80 overflow-auto rounded-xl bg-black/30 p-3 text-xs text-white">
                       {JSON.stringify(result.payloadPreview, null, 2)}
@@ -659,16 +812,52 @@ export default function PaymentComplementPanel({
               </button>
               <button
                 type="submit"
-                disabled={pending}
+                disabled={
+                  pending ||
+                  (paymentMode === "link" && !selectedPaymentId) ||
+                  (paymentMode === "create" && duplicateCandidates.length > 0 && !confirmDuplicate)
+                }
                 className="rounded-xl bg-[#9E1B32] px-5 py-3 font-semibold hover:bg-[#B91C3C] disabled:bg-[#222228] disabled:text-[#77777D]"
               >
-                {pending ? "Validando..." : "Crear borrador y preview"}
+                {pending
+                  ? "Validando..."
+                  : paymentMode === "create"
+                    ? "Crear borrador y pago"
+                    : "Crear borrador ligado"}
               </button>
             </div>
           </form>
         </div>
       ) : null}
     </div>
+  );
+}
+
+function PaymentModeOption({
+  active,
+  title,
+  description,
+  onSelect,
+}: {
+  active: boolean;
+  title: string;
+  description: string;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-pressed={active}
+      className={`rounded-xl border p-4 text-left ${
+        active
+          ? "border-[#9E1B32] bg-[#2A1418] text-white"
+          : "border-[#2A2A30] bg-[#101114] text-[#B3B3B8] hover:text-white"
+      }`}
+    >
+      <p className="text-sm font-semibold">{title}</p>
+      <p className="mt-1 text-xs">{description}</p>
+    </button>
   );
 }
 

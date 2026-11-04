@@ -20,8 +20,16 @@ import {
   calculatePaymentComplement,
   getPaymentComplementValidationErrors,
   getPaymentComplementsConfig,
+  type LinkedPaymentForValidation,
   type PaymentComplementRecord,
 } from "@/lib/paymentComplements";
+import {
+  buildPaymentFromComplement,
+  findDuplicatePaymentCandidates,
+  type ComplementPaymentCategory,
+  type DuplicatePaymentCandidate,
+  type PaymentCandidate,
+} from "@/lib/complementPayments";
 import type { FiscalClientData } from "@/lib/fiscalData";
 import type { ProjectInvoice } from "@/lib/invoices";
 import { getCurrentUserProfile } from "@/services/profile";
@@ -41,6 +49,8 @@ export type CreatePaymentComplementDraftResult =
   | {
       ok: true;
       complementId: number;
+      projectPaymentId: number;
+      paymentCreated: boolean;
       payloadPreview: unknown;
       warning?: string;
     }
@@ -48,6 +58,8 @@ export type CreatePaymentComplementDraftResult =
       ok: false;
       error: string;
       payloadPreview?: unknown;
+      // Pagos del proyecto que parecen ser el mismo cobro: la UI ofrece ligarlos.
+      duplicateCandidates?: DuplicatePaymentCandidate[];
     };
 
 export type StampPaymentComplementResult =
@@ -95,6 +107,44 @@ function getFiscalComplementStatusFilter() {
   return ["issued", "stamped"];
 }
 
+const activeComplementStatuses = ["draft", "validated", "issued", "stamped"];
+
+// Pagos del proyecto que todavia no respaldan un complemento activo y que
+// coinciden (fecha + monto ±$1, o referencia) con el pago que se va a crear.
+async function findUnlinkedDuplicatePayments(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  input: {
+    clientProjectId: number;
+    paymentDate: string;
+    amountMxn: number;
+    paymentReference: string | null;
+  }
+) {
+  const [{ data: payments, error: paymentsError }, { data: linked, error: linkedError }] =
+    await Promise.all([
+      supabase
+        .from("project_payments")
+        .select("id, payment_date, amount_mxn, payment_reference")
+        .eq("client_project_id", input.clientProjectId),
+      supabase
+        .from("project_payment_complements")
+        .select("project_payment_id")
+        .eq("client_project_id", input.clientProjectId)
+        .in("status", activeComplementStatuses)
+        .not("project_payment_id", "is", null),
+    ]);
+
+  if (paymentsError) throw new Error(`Error buscando pagos duplicados: ${paymentsError.message}`);
+  if (linkedError) throw new Error(`Error buscando pagos ligados: ${linkedError.message}`);
+
+  return findDuplicatePaymentCandidates((payments || []) as PaymentCandidate[], {
+    paymentDate: input.paymentDate,
+    amountMxn: input.amountMxn,
+    paymentReference: input.paymentReference,
+    excludePaymentIds: (linked || []).map((row) => Number(row.project_payment_id)),
+  });
+}
+
 export async function createPaymentComplementDraft(
   formData: FormData
 ): Promise<CreatePaymentComplementDraftResult> {
@@ -110,8 +160,15 @@ export async function createPaymentComplementDraft(
     }
 
     const invoiceId = Number(getFormString(formData, "invoiceId"));
+    // "create" (default): se crea un pago con los datos del complemento.
+    // "link": se liga un pago ya registrado en el estado de cuenta.
+    const paymentMode = getFormString(formData, "paymentMode") === "link" ? "link" : "create";
     const projectPaymentIdValue = getFormString(formData, "projectPaymentId");
-    const projectPaymentId = projectPaymentIdValue ? Number(projectPaymentIdValue) : null;
+    const projectPaymentId =
+      paymentMode === "link" && projectPaymentIdValue ? Number(projectPaymentIdValue) : null;
+    const paymentCategory: ComplementPaymentCategory =
+      getFormString(formData, "paymentCategory") === "labor" ? "labor" : "equipment";
+    const confirmDuplicate = getFormString(formData, "confirmDuplicate") === "1";
     const paymentDate = getFormString(formData, "paymentDate");
     const paymentFormCode = getFormString(formData, "paymentFormCode");
     const paidAmountMxn = Number(getFormString(formData, "paidAmountMxn"));
@@ -119,8 +176,14 @@ export async function createPaymentComplementDraft(
     const manualOverrideReason = getFormString(formData, "manualOverrideReason");
 
     if (!invoiceId) throw new Error("Factura requerida.");
+    if (paymentMode === "link" && !projectPaymentId) {
+      throw new Error("Selecciona el pago registrado que quieres ligar.");
+    }
     if (!paymentDate) throw new Error("Fecha de pago requerida.");
     if (!paymentFormCode) throw new Error("Forma de pago requerida.");
+    if (!Number.isFinite(paidAmountMxn) || paidAmountMxn <= 0) {
+      throw new Error("Captura un monto valido para el complemento.");
+    }
 
     const supabase = createSupabaseAdminClient();
     const { data: invoiceData, error: invoiceError } = await supabase
@@ -175,7 +238,7 @@ export async function createPaymentComplementDraft(
 
     const { data: complementData, error: complementError } = await supabase
       .from("project_payment_complements")
-      .select("id, status, amount_paid_mxn, paid_amount_mxn, project_payment_id, manual_amount_override")
+      .select("id, status, amount_paid_mxn, paid_amount_mxn, project_payment_id, manual_amount_override, payment_date")
       .eq("project_invoice_id", invoice.id);
 
     if (complementError) {
@@ -233,6 +296,9 @@ export async function createPaymentComplementDraft(
       invoice,
       calculation,
       paymentAlreadyHasComplement,
+      // En modo "create" el pago se crea despues con el mismo importe.
+      linkedPayment: projectPayment ?? undefined,
+      manualAmountOverride,
     });
 
     if (
@@ -245,6 +311,43 @@ export async function createPaymentComplementDraft(
 
     if (validationErrors.length > 0) {
       throw new Error(validationErrors.join(" | "));
+    }
+
+    // Evita reenviar el mismo formulario: el pago creado la vez anterior ya
+    // esta ligado a ese borrador y no aparece como duplicado "sin ligar".
+    // Los borradores viejos sin pago no cuentan: hay que poder reemplazarlos.
+    const sameComplement = existingComplements.find(
+      (complement) =>
+        complement.project_payment_id != null &&
+        activeComplementStatuses.includes(String(complement.status)) &&
+        complement.payment_date === paymentDate &&
+        Math.abs(
+          Number(complement.paid_amount_mxn ?? complement.amount_paid_mxn ?? 0) -
+            calculation.paidAmountMxn
+        ) <= 1
+    );
+    if (paymentMode === "create" && sameComplement) {
+      throw new Error(
+        `Ya existe el complemento #${sameComplement.id} (${sameComplement.status}) de esta factura con la misma fecha y monto. Revisalo antes de crear otro pago.`
+      );
+    }
+
+    if (paymentMode === "create" && !confirmDuplicate) {
+      const duplicateCandidates = await findUnlinkedDuplicatePayments(supabase, {
+        clientProjectId: Number(invoice.client_project_id),
+        paymentDate,
+        amountMxn: calculation.paidAmountMxn,
+        paymentReference,
+      });
+
+      if (duplicateCandidates.length > 0) {
+        return {
+          ok: false,
+          error:
+            "Ya hay un pago registrado que parece ser este mismo cobro. Ligalo en lugar de crear otro, o confirma que es un pago distinto.",
+          duplicateCandidates,
+        };
+      }
     }
 
     const payloadPreview = buildFacturamaPaymentComplementPayload({
@@ -289,13 +392,53 @@ export async function createPaymentComplementDraft(
       throw new Error(`Error guardando borrador de complemento: ${insertError.message}`);
     }
 
+    const complementId = Number(inserted.id);
+    let linkedPaymentId = projectPaymentId;
+
+    if (paymentMode === "create") {
+      const newPayment = buildPaymentFromComplement({
+        complementId,
+        invoiceFolio: invoice.internal_folio || null,
+        clientProjectId: Number(invoice.client_project_id),
+        paymentDate,
+        paidAmountMxn: calculation.paidAmountMxn,
+        paymentFormCode: effectivePaymentFormCode,
+        paymentReference,
+        paymentCategory,
+        createdByUserId: profile.id,
+      });
+      // Inserta el pago y lo liga al borrador en una sola transaccion (RPC).
+      const { data: createdPaymentId, error: paymentRpcError } = await supabase.rpc(
+        "create_and_link_complement_payment",
+        { p_complement_id: complementId, p_payment: newPayment }
+      );
+
+      if (paymentRpcError || !createdPaymentId) {
+        // Compensacion: no dejar un borrador sin pago si no se pudo crear el pago.
+        await supabase
+          .from("project_payment_complements")
+          .delete()
+          .eq("id", complementId)
+          .eq("status", "draft");
+        throw new Error(
+          `No se pudo crear el pago del complemento: ${
+            paymentRpcError?.message || "sin respuesta"
+          }`
+        );
+      }
+
+      linkedPaymentId = Number(createdPaymentId);
+    }
+
     revalidatePath("/invoices");
     revalidatePath(`/projects/${invoice.client_project_id}/invoices`);
     revalidatePath(`/projects/${invoice.client_project_id}/account-statement`);
 
     return {
       ok: true,
-      complementId: Number(inserted.id),
+      complementId,
+      projectPaymentId: Number(linkedPaymentId),
+      paymentCreated: paymentMode === "create",
       payloadPreview,
       ...(config.stampingEnabled
         ? {
@@ -335,7 +478,7 @@ export async function stampPaymentComplementDraft(
     const { data: complementData, error: complementError } = await supabase
       .from("project_payment_complements")
       .select(
-        "id, project_invoice_id, project_payment_id, client_project_id, client_id, status, complement_env, facturama_id, partiality_number, previous_balance_mxn, amount_paid_mxn, paid_amount_mxn, outstanding_balance_mxn, payment_date, payment_form_code, payment_reference, payload_preview, source_payment_amount_mxn, manual_amount_override, manual_override_reason, project_invoices(id, internal_folio, client_project_id, client_id, total_mxn, total, status, sat_uuid, payment_method_code, clients(id, name, tax_rfc, tax_business_name, tax_regime, fiscal_regime, cfdi_use, default_cfdi_use, tax_zip_code, billing_email))"
+        "id, project_invoice_id, project_payment_id, client_project_id, client_id, status, complement_env, facturama_id, partiality_number, previous_balance_mxn, amount_paid_mxn, paid_amount_mxn, outstanding_balance_mxn, payment_date, payment_form_code, payment_reference, payload_preview, source_payment_amount_mxn, manual_amount_override, manual_override_reason, project_invoices(id, internal_folio, client_project_id, client_id, total_mxn, total, status, sat_uuid, payment_method_code, clients(id, name, tax_rfc, tax_business_name, tax_regime, fiscal_regime, cfdi_use, default_cfdi_use, tax_zip_code, billing_email)), project_payments(id, client_project_id, amount_mxn)"
       )
       .eq("id", complementId)
       .maybeSingle();
@@ -347,7 +490,14 @@ export async function stampPaymentComplementDraft(
 
     const complement = complementData as unknown as PaymentComplementRecord & {
       project_invoices: ProjectInvoice | ProjectInvoice[] | null;
+      project_payments: LinkedPaymentForValidation | LinkedPaymentForValidation[] | null;
     };
+    const linkedPaymentRelation = complement.project_payments;
+    const linkedPayment = complement.project_payment_id
+      ? (Array.isArray(linkedPaymentRelation)
+          ? linkedPaymentRelation[0]
+          : linkedPaymentRelation) || null
+      : null;
     projectId = Number(complement.client_project_id || 0) || null;
     const invoiceRelation = complement.project_invoices;
     const invoice = Array.isArray(invoiceRelation)
@@ -399,6 +549,8 @@ export async function stampPaymentComplementDraft(
       invoice,
       calculation,
       paymentAlreadyHasComplement: false,
+      linkedPayment,
+      manualAmountOverride: Boolean(complement.manual_amount_override),
     });
 
     if (validationErrors.length > 0) {
@@ -553,6 +705,7 @@ async function recomputeInvoicePaymentComplementStatus(
 type ComplementForCancel = {
   id: number;
   project_invoice_id: number | null;
+  project_payment_id: number | null;
   client_project_id: number | null;
   status: string | null;
   facturama_id: string | null;
@@ -574,6 +727,13 @@ function getComplementEnv(value: string | null): "sandbox" | "production" {
 function firstRelation<T>(relation: T | T[] | null | undefined) {
   if (Array.isArray(relation)) return relation[0] || null;
   return relation || null;
+}
+
+// Cancelar el CFDI no borra el pago: el dinero pudo haberse recibido igual.
+function getLinkedPaymentCancellationNote(projectPaymentId: number | null) {
+  return projectPaymentId
+    ? ` El pago #${projectPaymentId} sigue registrado en el estado de cuenta; si el cobro no procede, corrigelo o eliminalo ahi.`
+    : "";
 }
 
 export type CancelPaymentComplementResult =
@@ -607,7 +767,7 @@ export async function cancelPaymentComplement(
     const { data, error } = await supabase
       .from("project_payment_complements")
       .select(
-        "id, project_invoice_id, client_project_id, status, facturama_id, sat_uuid, complement_env, paid_amount_mxn, amount_paid_mxn, cancellation_status, project_invoices(id, total_mxn, total, clients(tax_rfc))"
+        "id, project_invoice_id, project_payment_id, client_project_id, status, facturama_id, sat_uuid, complement_env, paid_amount_mxn, amount_paid_mxn, cancellation_status, project_invoices(id, total_mxn, total, clients(tax_rfc))"
       )
       .eq("id", complementId)
       .maybeSingle();
@@ -676,7 +836,7 @@ export async function cancelPaymentComplement(
 
     const message =
       result.status === "canceled"
-        ? "Complemento de pago cancelado ante el SAT. Se recalculo el estado de la factura."
+        ? `Complemento de pago cancelado ante el SAT. Se recalculo el estado de la factura.${getLinkedPaymentCancellationNote(complement.project_payment_id)}`
         : result.status === "requested"
           ? "Cancelacion solicitada. Queda pendiente de aceptacion del receptor ante el SAT (hasta 72 horas)."
           : result.status === "rejected"
@@ -732,7 +892,7 @@ export async function checkPaymentComplementCancellationStatus(
     const { data, error } = await supabase
       .from("project_payment_complements")
       .select(
-        "id, project_invoice_id, client_project_id, status, facturama_id, sat_uuid, complement_env, paid_amount_mxn, amount_paid_mxn, cancellation_status, project_invoices(id, total_mxn, total, clients(tax_rfc))"
+        "id, project_invoice_id, project_payment_id, client_project_id, status, facturama_id, sat_uuid, complement_env, paid_amount_mxn, amount_paid_mxn, cancellation_status, project_invoices(id, total_mxn, total, clients(tax_rfc))"
       )
       .eq("id", complementId)
       .maybeSingle();
@@ -803,8 +963,7 @@ export async function checkPaymentComplementCancellationStatus(
       updatePayload.cancellation_status = "canceled";
       updatePayload.cancelled_at = new Date().toISOString();
       resolved = true;
-      message =
-        "El SAT confirma que el complemento esta cancelado. Se recalculo el estado de la factura.";
+      message = `El SAT confirma que el complemento esta cancelado. Se recalculo el estado de la factura.${getLinkedPaymentCancellationNote(complement.project_payment_id)}`;
     } else if (satStatus.normalized === "vigente") {
       message =
         complement.cancellation_status === "requested"

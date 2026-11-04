@@ -137,12 +137,45 @@ export function calculatePaymentComplement(input: {
   };
 }
 
+export type LinkedPaymentForValidation = {
+  id: number;
+  client_project_id: number | null;
+  amount_mxn: number | null;
+};
+
 export function getPaymentComplementValidationErrors(input: {
-  invoice: Pick<ProjectInvoice, "status" | "payment_method_code" | "sat_uuid" | "total_mxn" | "total">;
+  invoice: Pick<ProjectInvoice, "status" | "payment_method_code" | "sat_uuid" | "total_mxn" | "total"> & {
+    client_project_id?: number | null;
+  };
   calculation: PaymentComplementCalculation;
   paymentAlreadyHasComplement: boolean;
+  // undefined = no validar el pago ligado (borrador que todavia va a crearlo);
+  // null = no hay pago ligado, lo cual bloquea el timbrado.
+  linkedPayment?: LinkedPaymentForValidation | null;
+  manualAmountOverride?: boolean;
 }) {
   const errors: string[] = [];
+
+  if (input.linkedPayment === null) {
+    errors.push(
+      "El complemento no esta ligado a un pago del proyecto. Liga un pago existente o crea el pago antes de timbrar."
+    );
+  } else if (input.linkedPayment) {
+    if (
+      input.invoice.client_project_id != null &&
+      Number(input.linkedPayment.client_project_id) !== Number(input.invoice.client_project_id)
+    ) {
+      errors.push("El pago ligado no pertenece al proyecto de la factura.");
+    }
+    if (
+      Number(input.linkedPayment.amount_mxn || 0) + 0.01 < input.calculation.paidAmountMxn &&
+      !input.manualAmountOverride
+    ) {
+      errors.push(
+        "El pago ligado es menor que el importe del complemento. Si es parcial, captura un ajuste manual con su motivo."
+      );
+    }
+  }
   const invoiceTotalMxn = Number(input.invoice.total_mxn ?? input.invoice.total ?? 0);
 
   if (input.invoice.payment_method_code !== "PPD") {
