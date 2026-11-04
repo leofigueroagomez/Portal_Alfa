@@ -315,8 +315,10 @@ export async function createPaymentComplementDraft(
 
     // Evita reenviar el mismo formulario: el pago creado la vez anterior ya
     // esta ligado a ese borrador y no aparece como duplicado "sin ligar".
+    // Los borradores viejos sin pago no cuentan: hay que poder reemplazarlos.
     const sameComplement = existingComplements.find(
       (complement) =>
+        complement.project_payment_id != null &&
         activeComplementStatuses.includes(String(complement.status)) &&
         complement.payment_date === paymentDate &&
         Math.abs(
