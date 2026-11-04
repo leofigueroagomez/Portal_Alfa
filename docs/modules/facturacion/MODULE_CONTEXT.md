@@ -20,8 +20,8 @@ Gestiona facturacion interna por proyecto, facturas desde cotizacion o captura m
 | Consultar/descargar PDF/XML factura | `app/api/invoices/[id]/pdf/route.ts`, `app/api/invoices/[id]/xml/route.ts`, `lib/facturama.ts` | Valida auth/acceso fiscal al proyecto y descarga archivo desde Facturama si la factura esta `issued` o `paid`. |
 | Enviar factura por correo | `app/(admin)/invoices/InvoiceFileLinks.tsx`, `app/api/fiscal-documents/[type]/[id]/email-preview/route.ts`, `app/api/fiscal-documents/[type]/[id]/send-email/route.ts`, `lib/fiscalDocumentsEmail.ts` | Previsualiza y envia documentos fiscales PDF/XML; guarda logs en `fiscal_document_email_logs`. |
 | Envio legacy de factura por correo | `app/api/invoices/[id]/send-email/route.ts` | Envia PDF/XML de factura con Resend y registra `invoice_email_logs`. Pendiente confirmar si sigue en uso frente al flujo generico. |
-| Crear complemento de pago | `app/(admin)/invoices/PaymentComplementPanel.tsx`, `app/(admin)/invoices/paymentComplementActions.ts`, `lib/paymentComplements.ts` | Crea borrador en `project_payment_complements` para factura PPD emitida, opcionalmente asociado a `project_payments`. |
-| Timbrar complemento de pago | `app/(admin)/invoices/paymentComplementActions.ts`, `lib/paymentComplements.ts`, `lib/facturama.ts` | Valida complemento draft, factura PPD emitida, UUID fiscal y saldo; llama Facturama con CFDI tipo `P`. |
+| Crear complemento de pago | `app/(admin)/invoices/PaymentComplementPanel.tsx`, `app/(admin)/invoices/paymentComplementActions.ts`, `lib/paymentComplements.ts` | Crea borrador en `project_payment_complements` para factura PPD emitida y lo deja SIEMPRE ligado a un `project_payments`: "Crear pago con estos datos" (default; RPC `create_and_link_complement_payment` inserta el pago y lo liga en una transaccion, con compensacion que borra el borrador si falla) o "Ligar pago existente". Antes de crear, `lib/complementPayments.ts` busca duplicados (misma fecha y monto ±$1, o misma referencia de 6+ caracteres) y sugiere ligarlos. |
+| Timbrar complemento de pago | `app/(admin)/invoices/paymentComplementActions.ts`, `lib/paymentComplements.ts`, `lib/facturama.ts` | Valida complemento draft, factura PPD emitida, UUID fiscal, saldo y pago ligado (existe, mismo proyecto, monto >= importe salvo ajuste manual); llama Facturama con CFDI tipo `P`. |
 | Descargar PDF/XML complemento | `app/api/payment-complements/[id]/pdf/route.ts`, `app/api/payment-complements/[id]/xml/route.ts`, `lib/facturama.ts` | Valida auth/acceso fiscal y descarga complemento desde Facturama usando `complement_env`. |
 | Asociar pago a factura/complemento | `app/(admin)/invoices/paymentComplementActions.ts`, `app/(admin)/projects/[id]/account-statement/ProjectPaymentForm.tsx`, `app/(admin)/projects/[id]/account-statement/EditProjectPaymentButton.tsx` | Registra pagos de proyecto en `project_payments`; complemento puede referenciar `project_payment_id`. |
 | Vista por proyecto | `app/(admin)/projects/[id]/invoices/page.tsx` | Reutiliza formulario, timbrado, archivos y panel de complementos dentro del contexto de proyecto. |
@@ -30,7 +30,7 @@ Gestiona facturacion interna por proyecto, facturas desde cotizacion o captura m
 | Reemplazar factura (sustitucion, motivo 01) | `app/(admin)/invoices/ReplaceInvoiceButton.tsx`, `actions.ts` (`createReplacementInvoiceDraft`), `lib/facturama.ts` (`buildInvoicePayload` -> nodo `Relations`) | "Corregir y reemplazar": copia una factura timbrada a un borrador nuevo con `replaces_invoice_id`. Al timbrarlo agrega `Relations { Type:"04" }` al UUID original; despues se cancela la original con motivo 01. |
 | Consultar/resolver cancelacion pendiente | `app/(admin)/invoices/CancelInvoiceButton.tsx`, `actions.ts` (`checkInvoiceCancellationStatus`), `lib/facturama.ts` (`checkFacturamaCfdiSatStatus` -> `GET /cfdi/status`, `getFacturamaCfdiDetail`) | Cuando la cancelacion queda `requested` (hasta 72 h), consulta el estatus real ante el SAT y marca `status='cancelled'` si ya se cancelo. Solo rol `direccion` o `admin` (`canCancelInvoices` = `isAdminLike`). |
 | Descargar acuse de cancelacion | `app/api/invoices/[id]/cancellation-acuse/route.ts`, `app/api/payment-complements/[id]/cancellation-acuse/route.ts` | Descarga el XML del acuse SAT desde `cancellation_acuse_xml` (factura o complemento); valida auth + acceso fiscal al proyecto. |
-| Cancelar complemento de pago (REP) | `app/(admin)/invoices/CancelPaymentComplementButton.tsx`, `app/(admin)/invoices/paymentComplementActions.ts` (`cancelPaymentComplement`, `checkPaymentComplementCancellationStatus`), `lib/facturama.ts` (`cancelFacturamaCfdi`) | Cancela el CFDI tipo P ante el SAT usando `complement_env`. Rol `direccion`/`admin`. Al confirmarse: `project_payment_complements.status='cancelled'` + recalcula `project_invoices.payment_complement_status` de la factura PPD (pending/partial/completed segun los REP timbrados que queden). |
+| Cancelar complemento de pago (REP) | `app/(admin)/invoices/CancelPaymentComplementButton.tsx`, `app/(admin)/invoices/paymentComplementActions.ts` (`cancelPaymentComplement`, `checkPaymentComplementCancellationStatus`), `lib/facturama.ts` (`cancelFacturamaCfdi`) | Cancela el CFDI tipo P ante el SAT usando `complement_env`. Rol `direccion`/`admin`. No borra el pago ligado: el mensaje avisa que sigue en el estado de cuenta. Al confirmarse: `project_payment_complements.status='cancelled'` + recalcula `project_invoices.payment_complement_status` de la factura PPD (pending/partial/completed segun los REP timbrados que queden). |
 
 ## Responsabilidad De Archivos Clave
 
@@ -218,6 +218,8 @@ Confirmado por constraints SQL:
 - `previous_balance_mxn - paid_amount_mxn = outstanding_balance_mxn`.
 - Si hay override manual, `manual_override_reason` es requerido.
 - Indice unico evita mas de un complemento timbrado por `project_payment_id`.
+- Trigger `project_payment_complements_require_payment` (`supabase/migrations/20261104120000_payment_complement_requires_payment.sql`): impide insertar o pasar a `issued`/`stamped` sin `project_payment_id`, y desligar (o borrar) el pago de un complemento timbrado. Las filas historicas sin pago siguen pudiendo actualizarse/cancelarse.
+- CHECK `project_payment_complements_stamped_requires_payment` (`20261104120100_...`): se aplica despues del backfill `sql/20261104_backfill_complement_payments.sql`. Pendiente de confirmar: aplicado en produccion.
 
 ### Logs de correo fiscal
 
@@ -240,7 +242,7 @@ Pendiente de confirmar: si `invoice_email_logs` debe mantenerse o migrarse total
 - Regimen fiscal y uso CFDI: requeridos y validados contra catalogos activos; se valida compatibilidad con persona fisica/moral cuando aplica.
 - Forma/metodo de pago: PUE permite forma real del catalogo SAT; PPD obliga forma `99 - Por definir` y requiere complemento.
 - Complemento de pago: solo para facturas `PPD`, `issued`, con `sat_uuid` y saldo pendiente.
-- Relacion factura-pago: un complemento puede asociarse a `project_payment_id`; si el importe fiscal difiere del pago registrado, requiere permiso `canManageFiscalPayments` y motivo.
+- Relacion factura-pago: todo complemento timbrado debe estar ligado a `project_payment_id` (si no, el proyecto aparece sin cobro y el Vigia VTA-03 lo marca "ganado sin anticipo"); si el importe fiscal difiere del pago registrado, requiere permiso `canManageFiscalPayments` y motivo. Cancelar el complemento no borra el pago.
 - IVA/impuestos: factura valida sumas por concepto; `fiscal_object='02'` envia IVA 16% a Facturama.
 - Factura timbrada: `stampProjectInvoice` solo acepta `status='draft'` y sin `facturama_id`.
 - Archivos fiscales: PDF/XML se descargan desde Facturama bajo demanda usando `facturama_id`; rutas requieren auth y acceso fiscal al proyecto.
@@ -251,7 +253,7 @@ Pendiente de confirmar: si `invoice_email_logs` debe mantenerse o migrarse total
 
 - Timbrado CFDI: `app/(admin)/invoices/actions.ts`, `lib/facturama.ts`, `lib/fiscalData.ts`, `lib/productFiscalData.ts`, `lib/cfdiDescription.ts`, `lib/paymentTerms.ts`, SQL si cambia contrato.
 - Creacion de factura: `app/(admin)/invoices/InvoiceForm.tsx`, `lib/invoiceFolios.ts`, `lib/paymentTerms.ts`, `project_invoices`, `project_invoice_items`.
-- Complemento de pago: `app/(admin)/invoices/PaymentComplementPanel.tsx`, `app/(admin)/invoices/paymentComplementActions.ts`, `lib/paymentComplements.ts`, `lib/facturama.ts`, `project_payment_complements`, `project_payments`.
+- Complemento de pago: `app/(admin)/invoices/PaymentComplementPanel.tsx`, `app/(admin)/invoices/paymentComplementActions.ts`, `lib/paymentComplements.ts`, `lib/complementPayments.ts`, `lib/facturama.ts`, `project_payment_complements`, `project_payments`.
 - PDF/XML: `app/api/invoices/[id]/pdf/route.ts`, `app/api/invoices/[id]/xml/route.ts`, `app/api/payment-complements/[id]/pdf/route.ts`, `app/api/payment-complements/[id]/xml/route.ts`, `lib/facturama.ts`.
 - Correo fiscal: `app/(admin)/invoices/InvoiceFileLinks.tsx`, `app/api/fiscal-documents/[type]/[id]/*`, `lib/fiscalDocumentsEmail.ts`, logs SQL.
 - Datos fiscales de cliente: `lib/fiscalData.ts`, `InvoiceForm.tsx`, tablas `clients`, catalogos `fiscal_regime_catalog`, `cfdi_use_catalog`.
@@ -285,9 +287,12 @@ Checklist minimo segun tipo de cambio:
   - pago pertenece al mismo proyecto;
   - forma de pago real distinta de `99`;
   - saldo insoluto no queda negativo;
-  - duplicado por `project_payment_id` se bloquea salvo override permitido.
+  - duplicado por `project_payment_id` se bloquea salvo override permitido;
+  - modo crear genera el pago en `project_payments` (MXN, notas `Complemento P #<id> / <folio>`) y sugiere ligar duplicados;
+  - `npm run test:payment-complements`.
 - Timbrar complemento:
   - complemento `draft` sin `facturama_id`;
+  - `project_payment_id` presente, del mismo proyecto y con monto suficiente;
   - `PAYMENT_COMPLEMENTS_ENABLED` y `PAYMENT_COMPLEMENTS_STAMPING_ENABLED` activos;
   - parcialidad, saldo anterior, monto pagado y saldo insoluto cuadran;
   - `project_invoices.payment_complement_status` pasa a `partial` o `completed`.
