@@ -2,11 +2,11 @@
 
 Reglas criticas para agentes. No debilitar seguridad para resolver errores de producto.
 
-## Agente de WhatsApp (2026-10-28)
+## Agente de WhatsApp (2026-10-28, retirado 2026-11-05)
 
-Ver [`../modules/agente-whatsapp/MODULE_CONTEXT.md`](../modules/agente-whatsapp/MODULE_CONTEXT.md).
+Ver [`../modules/agente-whatsapp/MODULE_CONTEXT.md`](../modules/agente-whatsapp/MODULE_CONTEXT.md). El codigo se quito el 2026-11-05 (`/api/agent/whatsapp` ya no existe). Las reglas siguientes aplican si se vuelve a construir.
 
-- `POST /api/agent/whatsapp` es publica en red pero exige `Authorization: Bearer WHATSAPP_AGENT_SECRET` (comparacion en tiempo constante) y falla cerrada (503) sin el secreto. Nunca aceptar el secreto por query string.
+- `POST /api/agent/whatsapp` era publica en red pero exige `Authorization: Bearer WHATSAPP_AGENT_SECRET` (comparacion en tiempo constante) y falla cerrada (503) sin el secreto. Nunca aceptar el secreto por query string.
 - Tablas `whatsapp_agent_*`: RLS sin policies y sin grants para `anon`/`authenticated`. Solo `service_role` desde la ruta.
 - El telefono de WhatsApp no autentica. El contexto que recibe el modelo se limita a nombre, proyectos y vigencia de garantia: no agregar direcciones, saldos, RFC, contactos ni documentos.
 - Lo que escribe el cliente es entrada no confiable: va como mensaje `user`; el contexto de ALFA OS va como mensaje `system`. No mezclar ambos en el mismo bloque.
