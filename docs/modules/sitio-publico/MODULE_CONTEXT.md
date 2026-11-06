@@ -53,7 +53,57 @@ indexados. El código dejó de depender de esa variable para no repetirlo.
 armar enlaces internos — **pendiente de confirmar** si debería migrar a
 `getAppBaseUrl()`; se dejó intacto porque no afecta señales de SEO.
 
-## 2. Consumidores de `SITE_URL`
+## 2. NAP y datos locales (Fase 3)
+
+`lib/localBusiness.ts` es la fuente unica de verdad del NAP (Name / Address /
+Phone) y de la cobertura geografica. Google compara estos datos contra el Perfil
+de Negocio y contra los directorios: **si no coinciden caracter por caracter, la
+senal local se diluye**. Antes de cambiar cualquier valor aqui, cambiarlo
+tambien en el Perfil de Negocio.
+
+| Dato | Valor |
+| --- | --- |
+| Direccion | Franz Liszt 5160, Col. La Estancia, 45030 Zapopan, Jalisco |
+| Telefono | +52 33 1857 4884 |
+| Horario | 09:00 - 19:00 |
+
+El CP 45030 lo confirmo Leo el 2026-09-02. Queda **un campo pendiente de
+confirmar**, marcado como tal en el codigo:
+
+- `openDays`: se asumio lunes a viernes. Si ALFA atiende sabados, corregir
+  `NAP.openDays` **y** el texto visible "Lunes a viernes, 9:00 a 19:00" en
+  `app/lutron-guadalajara/page.tsx` y en el footer de
+  `components/PublicLandingClient.tsx`.
+
+`formatAddressOneLine()` arma la direccion visible en pantalla, para que el NAP
+que ve la persona y el que lee Google sean el mismo texto.
+
+`buildLocalBusinessJsonLd()` arma el JSON-LD `LocalBusiness` y lo inserta el
+componente `components/LocalBusinessJsonLd.tsx`. Todas las paginas comparten el
+mismo `@id` (`${SITE_URL}/#localbusiness`) para que Google las entienda como un
+solo negocio y no como negocios distintos por pagina.
+
+Va solo en paginas publicas de marketing: home, las 5 de `/servicios/*` y la
+landing de ciudad. **No usarlo** en portal, ALFA OS ni rutas administrativas.
+
+### Landing de ciudad
+
+`app/lutron-guadalajara/page.tsx` ataca "Lutron Guadalajara" / "Lutron Zapopan".
+Ademas del `LocalBusiness` lleva JSON-LD `Service`, `BreadcrumbList` y `FAQPage`
+(este ultimo lo emite `FaqAccordion`). Esta enlazada desde el footer de la
+landing y desde `/servicios/iluminacion` para que no quede huerfana, y esta dada
+de alta en `app/sitemap.ts`.
+
+### Titulos: usar `absolute`
+
+El layout raiz define `title.template = "%s | ALFA"`. Ese template **no** aplica
+a `app/page.tsx` (mismo segmento de ruta que el layout) pero **si** a todo
+segmento hijo. Las 5 paginas de `/servicios/*` traian un titulo que ya incluia
+la marca, asi que renderizaban `... | ALFA | ALFA`. Se corrigio pasando a
+`title: { absolute: "..." }`. Cualquier pagina publica nueva bajo un segmento
+hijo debe hacer lo mismo.
+
+## 3. Consumidores de `SITE_URL`
 
 | Archivo | Señal que emite |
 | --- | --- |
@@ -69,7 +119,7 @@ armar enlaces internos — **pendiente de confirmar** si debería migrar a
 Al agregar una página pública nueva, importar `SITE_URL` desde `@/lib/siteUrl`.
 **Nunca** volver a leer `process.env.NEXT_PUBLIC_SITE_URL` directo en `app/`.
 
-## 3. Redirecciones del sitio anterior
+## 4. Redirecciones del sitio anterior
 
 El sitio HTML estático previo dejó URLs que Google todavía conserva indexadas
 bajo `http://` y que hoy responderían 404. Se redirigen con **301 explícito**
@@ -91,7 +141,7 @@ y el trabajo de recuperación de indexación se apoya en 301.
 El paso apex → `www` y `http` → `https` ya lo resuelve Vercel con 308; no se
 duplica en el código.
 
-## 4. Cómo verificar
+## 5. Cómo verificar
 
 ```
 npx tsc --noEmit
@@ -123,7 +173,7 @@ curl -s https://www.alfait.com.mx/servicios/iluminacion | grep -o '<link rel="ca
 curl -s -o /dev/null -w "%{http_code} -> %{redirect_url}\n" https://www.alfait.com.mx/domotica.html
 ```
 
-## 5. Pendiente (fuera del código)
+## 6. Pendiente (fuera del código)
 
 Requiere acceso de Leo, no se puede hacer desde el repo:
 

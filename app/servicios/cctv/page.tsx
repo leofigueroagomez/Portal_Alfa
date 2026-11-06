@@ -4,9 +4,13 @@ import Link from "next/link";
 import { ArrowRight, CheckCircle2, ShieldCheck, Camera, Eye, HardDrive, Lock, Phone } from "lucide-react";
 import FaqAccordion, { FaqItem } from "@/components/FaqAccordion";
 import WhatsAppLeadButton from "@/components/WhatsAppLeadButton";
+import LocalBusinessJsonLd from "@/components/LocalBusinessJsonLd";
+import { SITE_URL } from "@/lib/siteUrl";
 
 export const metadata: Metadata = {
-  title: "CCTV y Cámaras de Seguridad IP | ALFA High End Services",
+  // `absolute` evita que el template "%s | ALFA" del layout raiz
+  // agregue un segundo sufijo de marca.
+  title: { absolute: "CCTV y Cámaras de Seguridad IP | ALFA High End Services" },
   description:
     "Diseño e instalación de CCTV, cámaras de seguridad IP, videovigilancia perimetral inteligente y monitoreo en tiempo real para residencias y empresas en Guadalajara y Zapopan.",
   alternates: {
@@ -125,6 +129,7 @@ const faqItems: FaqItem[] = [
 export default function CctvPage() {
   return (
     <main className="min-h-screen bg-[#0F0F0F] text-white">
+      <LocalBusinessJsonLd pageUrl={`${SITE_URL}/servicios/cctv`} />
       {/* Hero Section */}
       <section className="relative min-h-[88vh] overflow-hidden bg-[#0A0A0A]">
         <Image
