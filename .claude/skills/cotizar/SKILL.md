@@ -34,7 +34,7 @@ where row_to_json(c)::text ilike any (array['%<nombre>%','%<empresa>%']);
 | Concepto | Regla |
 |---|---|
 | Equipo | Margen 30% sobre precio: `venta = costo / 0.70` (`pricing_method='target_margin'`, `target_margin=30`). |
-| Mano de obra | Venta = 2 × costo, salvo que Leo diga el precio de venta. |
+| Mano de obra | Venta = 2 × costo, salvo que Leo diga el precio de venta. Costos del subcontratista René López (red, canalización, fibra, APs, obra civil): [tabulador-mo-rene.md](tabulador-mo-rene.md). |
 | Servicio ya cotizado por Leo ("cóbrale X") | Usa exactamente X + IVA. |
 | IVA | 16% sobre el subtotal. |
 | Costo indirecto | `company_settings.indirect_cost_percent` (hoy 0). |
@@ -57,11 +57,14 @@ Una sola sentencia con CTEs, para que todo quede o nada quede. Mismos campos y f
 
 - `quote_groups.base_number` = siguiente `ALFA-NNNN` (máximo + 1). `quote_number` = `<base>-V1`, `version 1`, `is_latest true`, `status 'draft'`, `currency 'USD'`.
 - Tipo de cambio: `https://open.er-api.com/v6/latest/USD` → `exchange_rate`, `exchange_rate_source 'open.er-api.com USD/MXN'`, `exchange_rate_date` = hoy.
+- Partida en USD (productos de Syscom): `unit_equipment_price = unit_equipment_price_usd` = venta USD, `equipment_total(_usd)` = venta × cantidad en USD, `line_total = round(equipment_total_usd × tc + labor_total, 2)`.
 - Partida en MXN: `unit_equipment_price` = venta MXN, `unit_equipment_price_usd = round(venta/tc, 6)`, `equipment_total(_usd) = round(venta*cant/tc, 6)`.
 - `unit_labor_price` = mano de obra por pieza; `labor_total` = mano de obra × cantidad; `line_total` = equipo MXN + mano de obra.
 - Una fila en `quote_item_labor_activities` por actividad, con costo interno y venta (`labor_activity_id` del catálogo: 2 Instalación, 9 Mano de obra general, etc.).
 - Sección: `equipment_total` en USD, `labor_total` en MXN, `total` en MXN.
 - Encabezado: `subtotal_mxn = taxable_base_mxn`, `iva_mxn = 16%`, `total_mxn = grand_total`, `equipment_total` en USD, `labor_total` en MXN, `is_partner_quote false`.
+- Una fila en `quote_terms_settings` (igual que `lib/quotes/draftBuilder.ts`). Sin ella, el PDF pone "No incluye canalizaciones ni cableados" aunque el alcance sí los incluya: marca `includes_conduit` e `includes_cabling` según el alcance.
+- Productos nuevos de Syscom: `node scripts/import-syscom.mjs --modelos <MODELOS-CON-GUIONES> --dry` y luego sin `--dry`. El CSV usa el modelo con guiones (`MB-86-PRO-A02`, no `MB86PROA02`). Compara el costo con el de `search_syscom_products` del día.
 - `invoice_description_snapshot` = marca + modelo + nombre: así sale el concepto de la factura.
 - `notes`: bloques `ALCANCE` y `SUPUESTOS` con viñetas `•`, en lenguaje del cliente (resultado, no equipo). Si el servicio ya se hizo, dilo.
 
