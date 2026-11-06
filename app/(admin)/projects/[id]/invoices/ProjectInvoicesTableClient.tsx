@@ -7,6 +7,7 @@ import {
   getInvoicePaymentFormLabel,
   getInvoicePaymentMethodLabel,
   getInvoiceSubtotal,
+  getInvoiceRelation,
   getInvoiceTotal,
   invoiceStatusClasses,
   invoiceStatusLabels,
@@ -103,7 +104,7 @@ type Props = {
 
 export default function ProjectInvoicesTableClient({
   invoices,
-  client,
+  client: projectClient,
   paymentComplementsEnabled,
   paymentComplementsStampingEnabled,
   complementEnv,
@@ -259,6 +260,9 @@ export default function ProjectInvoicesTableClient({
             <div className="min-w-[1420px] divide-y divide-[#2A2A30]">
               {filteredInvoices.map((invoice) => {
                 const status = normalizeInvoiceStatus(invoice.status);
+                // Receptor de ESTA factura (project_invoices.client_id): en
+                // proyectos via aliado es el aliado, no el cliente final.
+                const client = getInvoiceRelation(invoice.clients) || projectClient;
                 const invoiceComplements = paymentComplementsWithIssuers.filter(
                   (complement) =>
                     Number(complement.project_invoice_id) === Number(invoice.id)

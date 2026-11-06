@@ -7,11 +7,14 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --conditions=react-server --test tests/paymentComplements.test.ts tests/quoteLineDiscounts.test.ts tests/partnerBilling.test.ts",
     "smoke:quote-blinds": "node scripts/smoke-quote-blinds.mjs",
     "test:quote-blinds": "node --experimental-strip-types --test tests/quoteBlinds.test.mjs tests/quoteBlindsPdf.test.mjs tests/quoteBlindsStorage.test.mjs",
     "test:draft-builder": "tsx --conditions=react-server --test lib/quotes/__tests__/draftBuilder.golden.test.ts",
     "test:payment-complements": "tsx --conditions=react-server --test tests/paymentComplements.test.ts",
-    "sat:import": "node scripts/import-sat-catalogs.mjs"
+    "sat:import": "node scripts/import-sat-catalogs.mjs",
+    "test:partner-billing": "tsx --conditions=react-server --test tests/partnerBilling.test.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

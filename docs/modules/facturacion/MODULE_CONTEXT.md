@@ -78,6 +78,7 @@ Confirmado por `sql/20260602_internal_invoicing.sql`, `sql/20260603_invoice_paym
 - Uso CFDI por factura: `cfdi_use` (nullable; `NULL` = heredar del cliente al timbrar; se valida contra `cfdi_use_catalog` y tipo de persona).
 - Cancelacion fiscal: `cancellation_motive` (`01|02|03|04`), `cancellation_uuid_replacement`, `cancellation_status` (`requested|canceled|rejected`), `cancellation_acuse_xml` (base64), `cancelled_at`, `cancelled_by_user_id` (-> `profiles`).
 - Sustitucion: `replaces_invoice_id` (-> `project_invoices`; el sustituto que corrige una factura timbrada).
+- Aliado facturado: `billed_partner_id` (-> `commercial_partners`, nullable, FK `NOT VALID`; solo trazabilidad, migracion `20261104130000_commercial_partner_billing.sql` pendiente de aplicar). La sustitucion lo copia de la original.
 - Auditoria: `created_at`.
 
 Confirmado por constraints SQL:
@@ -248,6 +249,7 @@ Pendiente de confirmar: si `invoice_email_logs` debe mantenerse o migrarse total
 - Archivos fiscales: PDF/XML se descargan desde Facturama bajo demanda usando `facturama_id`; rutas requieren auth y acceso fiscal al proyecto.
 - Cancelacion fiscal: `cancelProjectInvoice` (rol `direccion` o `admin`) llama `DELETE cfdi/{id}` en Facturama con motivo SAT. Sustitucion (motivo 01) via `createReplacementInvoiceDraft` + relacion `04` en el timbrado. `checkInvoiceCancellationStatus` resuelve las que quedan `requested`. Endpoints Facturama verificados contra docs en vivo (2026-09-01): `DELETE cfdi/{id}?type=issued&motive=..&uuidReplacement=..`, `GET cfdi/status?uuid=&issuerRfc=&receiverRfc=&total=`, `GET cfdi/{id}?type=issued`, nodo `Relations { Type, Cfdis:[{Uuid}] }` en `POST 3/cfdis`.
 - Uso de CFDI: se timbra `resolveInvoiceCfdiUseCode(project_invoices.cfdi_use, cliente)` — el valor por factura manda sobre el del cliente.
+- Facturar al aliado (rama `feat/facturar-a-aliado`, migracion `20261104130000_commercial_partner_billing.sql` pendiente de aplicar): si `client_projects.commercial_partner_id` apunta a un aliado con `bill_to_partner` y `default_billing_client_id`, `InvoiceForm` preselecciona como receptor ese cliente (HQE -> Ali, cliente 48; Kybit -> NOWORANGE) y muestra "Proyecto vendido vía aliado X: se factura a RAZON (RFC). Cliente final: Y". El receptor se puede cambiar con confirmacion; en ese caso `billed_partner_id` queda null. Logica pura en `lib/partnerBilling.ts` (pruebas en `tests/partnerBilling.test.ts`). El receptor CFDI SIEMPRE sale de `project_invoices.client_id -> clients`; `billed_partner_id` es solo trazabilidad y `stampProjectInvoice` valida que el `client_id` siga siendo el receptor actual del aliado. El complemento de pago usa siempre el cliente de la factura origen (`getComplementReceiverClient`), nunca el aliado actual del proyecto. Solo admin/direccion cambian el receptor fiscal del aliado (UI + trigger `commercial_partners_guard_billing_fields`). Ojo: con el RLS actual `finanzas` no puede leer `commercial_partners`; el formulario le muestra el aviso de aliado sin receptor en vez de facturar en silencio al cliente final.
 
 ## Archivos Que Suelen Cambiar Juntos
 

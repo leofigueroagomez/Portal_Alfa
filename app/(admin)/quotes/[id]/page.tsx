@@ -543,6 +543,8 @@ export default async function QuoteDetailPage({
                 quoteGroupId={quoteData.quote_group_id}
                 clientProjectId={quoteData.client_project_id}
                 status={quoteData.status}
+                commercialPartnerId={quoteData.commercial_partner_id ?? null}
+                commercialPartnerName={commercialPartner?.commercial_name ?? null}
               />
             ) : null}
           </div>

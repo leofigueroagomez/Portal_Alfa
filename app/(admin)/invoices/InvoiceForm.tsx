@@ -44,6 +44,13 @@ import {
   validateCfdiDescription,
 } from "@/lib/cfdiDescription";
 import { getMexicoDate } from "@/lib/mexicoDate";
+import {
+  filterProjectsForReceiver,
+  getBilledPartnerIdForInvoice,
+  isReceiverOverride,
+  resolveInvoiceReceiver,
+  type ProjectPartnerBillingMap,
+} from "@/lib/partnerBilling";
 import { supabase } from "@/services/supabase";
 
 type Project = {
@@ -67,7 +74,27 @@ type Props = {
   allowManual?: boolean;
   defaultServiceReport?: SourceServiceReport | null;
   triggerLabel?: string;
+  /** Proyectos vendidos via aliado (lib/partnerBilling.loadProjectPartnerBilling). */
+  partnerBilling?: ProjectPartnerBillingMap;
 };
+
+const EMPTY_PARTNER_BILLING: ProjectPartnerBillingMap = {};
+
+function mergeBillingClients(
+  clients: FiscalClientData[],
+  partnerBilling: ProjectPartnerBillingMap
+) {
+  const known = new Set(clients.map((client) => client.id));
+  const extra: FiscalClientData[] = [];
+  for (const billing of Object.values(partnerBilling)) {
+    const billingClient = billing.billingClient;
+    if (billingClient && !known.has(billingClient.id)) {
+      known.add(billingClient.id);
+      extra.push(billingClient);
+    }
+  }
+  return extra.length ? [...clients, ...extra] : clients;
+}
 
 type InvoiceSourceType = "quote" | "advance" | "partial" | "balance" | "service" | "manual";
 
@@ -452,13 +479,28 @@ export default function InvoiceForm({
   allowManual = false,
   defaultServiceReport = null,
   triggerLabel = "Nueva factura",
+  partnerBilling = EMPTY_PARTNER_BILLING,
 }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [clientList, setClientList] = useState(clients);
+  const [clientList, setClientList] = useState(() =>
+    mergeBillingClients(clients, partnerBilling)
+  );
   const [projectId, setProjectId] = useState(String(defaultProjectId || ""));
-  const [clientId, setClientId] = useState(String(defaultClientId || ""));
+  // Proyecto vendido vía aliado: el receptor por defecto es el cliente del aliado.
+  const defaultProjectReceiverId = defaultProjectId
+    ? resolveInvoiceReceiver({
+        projectClientId: defaultClientId ?? null,
+        billing: partnerBilling[defaultProjectId],
+      }).receiverClientId
+    : null;
+  const initialClientId = String(
+    (defaultProjectId && partnerBilling[defaultProjectId]
+      ? defaultProjectReceiverId
+      : defaultClientId) || ""
+  );
+  const [clientId, setClientId] = useState(initialClientId);
   const [invoiceDate, setInvoiceDate] = useState(today());
   const [sourceType, setSourceType] = useState<InvoiceSourceType>(
     defaultServiceReport ? "service" : "quote"
@@ -489,10 +531,41 @@ export default function InvoiceForm({
     {}
   );
 
+  // Proyectos del cliente receptor y, si el receptor es un aliado, tambien los
+  // proyectos vendidos via ese aliado.
+  const selectedProject =
+    projects.find((project) => String(project.id) === projectId) || null;
+  const loadedProjectBilling = selectedProject ? partnerBilling[selectedProject.id] : undefined;
+  // Usa la version mas reciente del receptor (si se corrigieron sus datos
+  // fiscales en el modal, clientList ya los trae).
+  const selectedProjectBilling = useMemo(() => {
+    if (!loadedProjectBilling) return undefined;
+    const loadedClient = loadedProjectBilling.billingClient;
+    const billingClient = loadedClient
+      ? clientList.find((client) => client.id === loadedClient.id) || loadedClient
+      : null;
+    return { ...loadedProjectBilling, billingClient };
+  }, [loadedProjectBilling, clientList]);
   const availableProjects = useMemo(() => {
-    if (!clientId) return projects;
-    return projects.filter((project) => String(project.client_id || "") === clientId);
-  }, [clientId, projects]);
+    const filtered = filterProjectsForReceiver(
+      projects,
+      clientId ? Number(clientId) : null,
+      partnerBilling
+    );
+    // Proyecto via aliado con receptor cambiado a mano: sigue visible.
+    if (selectedProject && selectedProjectBilling && !filtered.includes(selectedProject)) {
+      return [...filtered, selectedProject];
+    }
+    return filtered;
+  }, [clientId, projects, partnerBilling, selectedProject, selectedProjectBilling]);
+  const receiverResolution = resolveInvoiceReceiver({
+    projectClientId: selectedProject?.client_id ?? null,
+    billing: selectedProjectBilling,
+  });
+  const receiverOverridden = isReceiverOverride(
+    receiverResolution,
+    clientId ? Number(clientId) : null
+  );
   const selectedClient =
     clientList.find((client) => String(client.id) === clientId) || null;
   // Uso de CFDI de esta factura: sigue al del cliente hasta que se elige otro.
@@ -669,8 +742,10 @@ export default function InvoiceForm({
   );
 
   useEffect(() => {
-    setClientList(clients);
-  }, [clients]);
+    // Conserva los receptores de aliados (en la vista de proyecto `clients`
+    // solo trae al cliente final).
+    setClientList(mergeBillingClients(clients, partnerBilling));
+  }, [clients, partnerBilling]);
 
   useEffect(() => {
     if (paymentMethodCode === "PPD") {
@@ -783,7 +858,47 @@ export default function InvoiceForm({
   function updateProject(nextProjectId: string) {
     setProjectId(nextProjectId);
     const project = projects.find((item) => String(item.id) === nextProjectId);
-    if (project?.client_id) setClientId(String(project.client_id));
+    if (project) {
+      // Proyecto via aliado -> receptor del aliado; si no, el cliente del proyecto.
+      const resolution = resolveInvoiceReceiver({
+        projectClientId: project.client_id,
+        billing: partnerBilling[project.id],
+      });
+      if (resolution.receiverClientId) {
+        setClientId(String(resolution.receiverClientId));
+      } else if (resolution.kind === "partner_incomplete") {
+        setClientId("");
+      }
+    }
+    setErrorMessage(null);
+  }
+
+  function updateReceiver(nextClientId: string) {
+    const nextId = nextClientId ? Number(nextClientId) : null;
+
+    if (
+      selectedProject &&
+      receiverResolution.kind !== "client" &&
+      nextId &&
+      isReceiverOverride(receiverResolution, nextId)
+    ) {
+      const nextClient = clientList.find((client) => client.id === nextId);
+      const confirmed = window.confirm(
+        `Este proyecto se vende vía ${receiverResolution.partnerName} y se factura al receptor del aliado. ¿Seguro que quieres facturar a ${
+          nextClient?.tax_business_name || nextClient?.name || `Cliente #${nextId}`
+        }? La factura no quedara marcada como facturada al aliado.`
+      );
+      if (!confirmed) return;
+    }
+
+    setClientId(nextClientId);
+    // Conserva el proyecto si sigue siendo facturable a este receptor.
+    const stillAvailable =
+      selectedProject &&
+      nextId !== null &&
+      (filterProjectsForReceiver([selectedProject], nextId, partnerBilling).length > 0 ||
+        Boolean(selectedProjectBilling));
+    if (!stillAvailable && !defaultProjectId) setProjectId("");
     setErrorMessage(null);
   }
 
@@ -938,6 +1053,11 @@ export default function InvoiceForm({
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setErrorMessage(null);
+
+    if (projectId && !clientId && receiverResolution.kind === "partner_incomplete") {
+      setErrorMessage(receiverResolution.error);
+      return;
+    }
 
     if (!projectId || !clientId) {
       setErrorMessage("Selecciona cliente y proyecto.");
@@ -1109,6 +1229,12 @@ export default function InvoiceForm({
     const ivaValue = roundMoney(iva);
     const totalValue = roundMoney(total);
     const paymentComplement = getPaymentComplementStatus(paymentMethodCode);
+    // Trazabilidad: solo si la factura va al receptor del aliado. Se omite la
+    // columna cuando es null para no depender de la migracion en ventas directas.
+    const billedPartnerId = getBilledPartnerIdForInvoice(
+      selectedProjectBilling,
+      Number(clientId)
+    );
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const internalFolio = await getNextInternalInvoiceFolio(supabase);
@@ -1134,6 +1260,7 @@ export default function InvoiceForm({
         payment_complement_status: paymentComplement.paymentComplementStatus,
         cfdi_use: cfdiUse.trim().toUpperCase() || null,
         status: "draft",
+        ...(billedPartnerId ? { billed_partner_id: billedPartnerId } : {}),
       };
       let result = await supabase
         .from("project_invoices")
@@ -1233,7 +1360,7 @@ export default function InvoiceForm({
 
     setOpen(false);
     setProjectId(String(defaultProjectId || ""));
-    setClientId(String(defaultClientId || ""));
+    setClientId(initialClientId);
     setInvoiceDate(today());
     setSourceType(defaultServiceReport ? "service" : "quote");
     setQuoteId("");
@@ -1291,6 +1418,37 @@ export default function InvoiceForm({
               </div>
             ) : null}
 
+            {receiverResolution.kind === "partner" ? (
+              <div
+                role="status"
+                className={`mb-5 rounded-xl border p-4 text-sm ${
+                  receiverOverridden
+                    ? "border-[#614620] bg-[#322514] text-[#F4C66A]"
+                    : "border-[#9E1B32]/60 bg-[#2A1218] text-[#F2D3D9]"
+                }`}
+              >
+                <p>{receiverResolution.notice}</p>
+                {receiverOverridden ? (
+                  <p className="mt-2 font-semibold">
+                    Receptor cambiado a mano: esta factura no quedara marcada como facturada
+                    al aliado.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
+            {receiverResolution.kind === "partner_incomplete" ? (
+              <div
+                role="alert"
+                className="mb-5 rounded-xl border border-[#6A2A2A] bg-[#351818] p-4 text-sm text-[#FFB4B4]"
+              >
+                <p className="font-semibold">
+                  Proyecto vendido vía aliado {receiverResolution.partnerName}.
+                </p>
+                <p className="mt-1">{receiverResolution.error}</p>
+              </div>
+            ) : null}
+
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <label className="space-y-2">
                 <span className="text-sm text-[#B3B3B8]">Fecha</span>
@@ -1303,16 +1461,19 @@ export default function InvoiceForm({
               </label>
 
               <label className="space-y-2">
-                <span className="text-sm text-[#B3B3B8]">Cliente</span>
+                <span className="text-sm text-[#B3B3B8]">
+                  {receiverResolution.kind === "client" ? "Cliente" : "Receptor"}
+                </span>
                 <select
                   className="w-full rounded-xl border border-[#2A2A30] bg-[#222228] px-4 py-3 outline-none"
                   value={clientId}
-                  disabled={Boolean(defaultClientId)}
-                  onChange={(event) => {
-                    setClientId(event.target.value);
-                    setProjectId("");
-                    setErrorMessage(null);
-                  }}
+                  // En la vista de un proyecto el receptor esta fijo, salvo que
+                  // el proyecto se venda via aliado (se puede cambiar con confirmacion).
+                  disabled={
+                    Boolean(defaultClientId) &&
+                    !(defaultProjectId && partnerBilling[defaultProjectId])
+                  }
+                  onChange={(event) => updateReceiver(event.target.value)}
                 >
                   <option value="">Seleccionar cliente</option>
                   {clientList.map((client) => (

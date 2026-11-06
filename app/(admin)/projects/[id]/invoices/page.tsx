@@ -28,6 +28,7 @@ import {
   type PaymentComplementRecord,
 } from "@/lib/paymentComplements";
 import InvoiceForm from "@/app/(admin)/invoices/InvoiceForm";
+import { loadProjectPartnerBilling } from "@/lib/partnerBilling";
 import { type FiscalDocumentEmailLog } from "@/app/(admin)/invoices/InvoiceFileLinks";
 import type { PaymentFormCatalogItem } from "@/lib/paymentTerms";
 import ProjectInvoicesTableClient from "./ProjectInvoicesTableClient";
@@ -104,6 +105,7 @@ export default async function ProjectInvoicesPage({
   }
 
   const projectData = project as ClientProject;
+  const partnerBilling = await loadProjectPartnerBilling(supabase, [projectData.id]);
   const [
     clientResult,
     invoicesResult,
@@ -124,7 +126,7 @@ export default async function ProjectInvoicesPage({
     supabase
       .from("project_invoices")
       .select(
-        "id, internal_folio, client_project_id, client_id, invoice_date, subtotal_mxn, iva_mxn, total_mxn, subtotal, iva, total, status, facturama_id, xml_url, pdf_url, sat_uuid, cfdi_use, replaces_invoice_id, cancellation_status, cancellation_motive, cancelled_at, cancellation_acuse_xml, payment_method_code, payment_form_code, requires_payment_complement, payment_complement_status, sat_payment_form_catalog(code, name, is_active)"
+        "id, internal_folio, client_project_id, client_id, invoice_date, subtotal_mxn, iva_mxn, total_mxn, subtotal, iva, total, status, facturama_id, xml_url, pdf_url, sat_uuid, cfdi_use, replaces_invoice_id, cancellation_status, cancellation_motive, cancelled_at, cancellation_acuse_xml, payment_method_code, payment_form_code, requires_payment_complement, payment_complement_status, sat_payment_form_catalog(code, name, is_active), clients(id, name, tax_rfc, tax_business_name, tax_regime, default_cfdi_use, fiscal_regime, cfdi_use, tax_zip_code, billing_email, phone)"
       )
       .eq("client_project_id", projectData.id)
       .order("invoice_date", { ascending: false })
@@ -288,6 +290,7 @@ export default async function ProjectInvoicesPage({
           defaultProjectId={projectData.id}
           defaultClientId={projectData.client_id}
           allowManual={allowManualInvoices}
+          partnerBilling={partnerBilling}
         />
       </section>
 

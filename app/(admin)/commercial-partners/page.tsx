@@ -4,6 +4,15 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ImagePlus, Save } from "lucide-react";
 import { supabase } from "@/services/supabase";
+import {
+  formatMissingFiscalFields,
+  getCfdiUseCode,
+  getFiscalRegimeCode,
+  getMissingFiscalFields,
+  type FiscalClientData,
+} from "@/lib/fiscalData";
+import { canManagePartnerBilling } from "@/lib/permissions";
+import { PARTNER_BILLING_CLIENT_FIELDS } from "@/lib/partnerBilling";
 
 type CommercialPartner = {
   id: number;
@@ -16,6 +25,8 @@ type CommercialPartner = {
   contact_email: string | null;
   contact_phone: string | null;
   is_active: boolean;
+  default_billing_client_id?: number | null;
+  bill_to_partner?: boolean | null;
 };
 
 type PartnerForm = {
@@ -29,7 +40,13 @@ type PartnerForm = {
   contact_email: string;
   contact_phone: string;
   is_active: boolean;
+  default_billing_client_id: string;
+  bill_to_partner: boolean;
 };
+
+const PARTNER_FIELDS =
+  "id, commercial_name, logo_url, logo_storage_path, primary_color, secondary_color, contact_name, contact_email, contact_phone, is_active";
+const PARTNER_BILLING_FIELDS = `${PARTNER_FIELDS}, default_billing_client_id, bill_to_partner`;
 
 const BUCKET = "commercial-partner-assets";
 const MAX_LOGO_SIZE_BYTES = 2 * 1024 * 1024;
@@ -46,7 +63,22 @@ const emptyForm: PartnerForm = {
   contact_email: "",
   contact_phone: "",
   is_active: true,
+  default_billing_client_id: "",
+  bill_to_partner: true,
 };
+
+function isMissingColumnError(error: { code?: string; message?: string } | null) {
+  if (!error) return false;
+  return (
+    error.code === "42703" ||
+    /column .* does not exist|could not find the .* column/i.test(error.message || "")
+  );
+}
+
+function getClientLabel(client: FiscalClientData) {
+  const name = client.name || `Cliente #${client.id}`;
+  return client.tax_rfc ? `${name} / ${client.tax_rfc}` : name;
+}
 
 function getLogoUrl(partner: Pick<CommercialPartner, "logo_url" | "logo_storage_path">) {
   if (partner.logo_url) return partner.logo_url;
@@ -67,20 +99,45 @@ export default function CommercialPartnersPage() {
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [message, setMessage] = useState("");
+  const [billingAvailable, setBillingAvailable] = useState(true);
+  const [canEditBilling, setCanEditBilling] = useState(false);
+  const [billingClients, setBillingClients] = useState<FiscalClientData[]>([]);
 
   const selectedPartner = useMemo(
     () => partners.find((partner) => partner.id === form.id) || null,
     [form.id, partners]
   );
 
+  const clientsById = useMemo(
+    () => new Map(billingClients.map((client) => [client.id, client])),
+    [billingClients]
+  );
+  const selectedBillingClient = form.default_billing_client_id
+    ? clientsById.get(Number(form.default_billing_client_id)) || null
+    : null;
+  const billingMissingFields = selectedBillingClient
+    ? getMissingFiscalFields(selectedBillingClient)
+    : [];
+
   async function loadPartners() {
     setLoading(true);
-    const { data, error } = await supabase
+    const withBilling = await supabase
       .from("commercial_partners")
-      .select(
-        "id, commercial_name, logo_url, logo_storage_path, primary_color, secondary_color, contact_name, contact_email, contact_phone, is_active"
-      )
+      .select(PARTNER_BILLING_FIELDS)
       .order("commercial_name", { ascending: true });
+    let data: unknown[] | null = withBilling.data;
+    let error = withBilling.error;
+
+    if (error && isMissingColumnError(error)) {
+      // Migracion 20261104130000_commercial_partner_billing.sql aun no aplicada.
+      setBillingAvailable(false);
+      const legacy = await supabase
+        .from("commercial_partners")
+        .select(PARTNER_FIELDS)
+        .order("commercial_name", { ascending: true });
+      data = legacy.data;
+      error = legacy.error;
+    }
 
     if (error) {
       setMessage(`Error cargando aliados: ${error.message}`);
@@ -92,8 +149,31 @@ export default function CommercialPartnersPage() {
     setLoading(false);
   }
 
+  async function loadBillingContext() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+      setCanEditBilling(canManagePartnerBilling(profile?.role || null));
+    }
+
+    const { data, error } = await supabase
+      .from("clients")
+      .select(PARTNER_BILLING_CLIENT_FIELDS)
+      .order("name", { ascending: true });
+
+    if (!error) setBillingClients((data || []) as FiscalClientData[]);
+  }
+
   useEffect(() => {
     loadPartners();
+    loadBillingContext();
   }, []);
 
   function editPartner(partner: CommercialPartner) {
@@ -108,6 +188,10 @@ export default function CommercialPartnersPage() {
       contact_email: partner.contact_email || "",
       contact_phone: partner.contact_phone || "",
       is_active: partner.is_active !== false,
+      default_billing_client_id: partner.default_billing_client_id
+        ? String(partner.default_billing_client_id)
+        : "",
+      bill_to_partner: partner.bill_to_partner !== false,
     });
     setMessage("");
   }
@@ -169,10 +253,31 @@ export default function CommercialPartnersPage() {
       return;
     }
 
+    const savedBillingClientId = selectedPartner?.default_billing_client_id
+      ? String(selectedPartner.default_billing_client_id)
+      : "";
+    const savedBillToPartner = selectedPartner ? selectedPartner.bill_to_partner !== false : true;
+    const billingChanged =
+      billingAvailable &&
+      (form.default_billing_client_id !== savedBillingClientId ||
+        form.bill_to_partner !== savedBillToPartner);
+
+    if (billingChanged && !canEditBilling) {
+      setMessage("Solo admin o direccion pueden cambiar el receptor fiscal del aliado.");
+      return;
+    }
+
+    if (billingChanged && selectedBillingClient && billingMissingFields.length > 0) {
+      setMessage(
+        `El cliente receptor tiene datos fiscales incompletos: ${formatMissingFiscalFields(billingMissingFields)}. Completalos en la ficha del cliente antes de asignarlo.`
+      );
+      return;
+    }
+
     setSaving(true);
     setMessage("");
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       commercial_name: form.commercial_name.trim(),
       logo_url: form.logo_url.trim() || null,
       logo_storage_path: form.logo_storage_path,
@@ -184,6 +289,13 @@ export default function CommercialPartnersPage() {
       is_active: form.is_active,
       updated_at: new Date().toISOString(),
     };
+
+    if (billingChanged) {
+      payload.default_billing_client_id = form.default_billing_client_id
+        ? Number(form.default_billing_client_id)
+        : null;
+      payload.bill_to_partner = form.bill_to_partner;
+    }
 
     const result = form.id
       ? await supabase.from("commercial_partners").update(payload).eq("id", form.id)
@@ -272,6 +384,19 @@ export default function CommercialPartnersPage() {
                       <p className="mt-1 text-xs text-[#666666]">
                         {partner.contact_email || partner.contact_phone || "Sin contacto"}
                       </p>
+                      {billingAvailable ? (
+                        <p className="mt-1 truncate text-xs text-[#7A1F2B]">
+                          {partner.bill_to_partner === false
+                            ? "Factura al cliente final"
+                            : partner.default_billing_client_id
+                              ? `Factura a ${
+                                  clientsById.get(partner.default_billing_client_id)
+                                    ?.tax_business_name ||
+                                  `cliente #${partner.default_billing_client_id}`
+                                }`
+                              : "Sin receptor fiscal"}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="flex items-center justify-end gap-2">
                       <span
@@ -426,10 +551,124 @@ export default function CommercialPartnersPage() {
                 />
                 Activo para cotizaciones
               </label>
+
+              {billingAvailable ? (
+                <PartnerBillingSection
+                  form={form}
+                  clients={billingClients}
+                  selectedClient={selectedBillingClient}
+                  missingFields={billingMissingFields}
+                  canEdit={canEditBilling}
+                  onChange={(patch) => setForm((current) => ({ ...current, ...patch }))}
+                />
+              ) : (
+                <p className="border-t border-black/10 pt-4 text-xs text-[#888888]">
+                  El receptor fiscal del aliado estara disponible al aplicar la migracion
+                  20261104130000_commercial_partner_billing.sql.
+                </p>
+              )}
             </div>
           </aside>
         </section>
       </div>
     </main>
+  );
+}
+
+function PartnerBillingSection({
+  form,
+  clients,
+  selectedClient,
+  missingFields,
+  canEdit,
+  onChange,
+}: {
+  form: PartnerForm;
+  clients: FiscalClientData[];
+  selectedClient: FiscalClientData | null;
+  missingFields: string[];
+  canEdit: boolean;
+  onChange: (patch: Partial<PartnerForm>) => void;
+}) {
+  const rows: [string, string][] = selectedClient
+    ? [
+        ["RFC", selectedClient.tax_rfc?.trim().toUpperCase() || "Pendiente"],
+        ["Razon social", selectedClient.tax_business_name?.trim() || "Pendiente"],
+        ["Regimen", getFiscalRegimeCode(selectedClient) || "Pendiente"],
+        ["CP fiscal", selectedClient.tax_zip_code?.trim() || "Pendiente"],
+        ["Uso CFDI", getCfdiUseCode(selectedClient) || "Pendiente"],
+      ]
+    : [];
+
+  return (
+    <div className="space-y-4 border-t border-black/10 pt-5">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#7A1F2B]">
+          Facturacion
+        </p>
+        <p className="mt-2 text-sm text-[#666666]">
+          Los proyectos vendidos via este aliado se facturan a este receptor. El cliente
+          final del proyecto no cambia.
+        </p>
+      </div>
+
+      <label className="flex items-center gap-3 text-sm text-[#666666]">
+        <input
+          type="checkbox"
+          checked={form.bill_to_partner}
+          disabled={!canEdit}
+          onChange={(event) => onChange({ bill_to_partner: event.target.checked })}
+        />
+        Facturar al aliado
+      </label>
+
+      <label className="block text-sm">
+        <span className="mb-2 block text-[#666666]">Cliente receptor</span>
+        <select
+          className="w-full border border-black/10 bg-[#F7F6F3] px-4 py-3 outline-none disabled:opacity-60"
+          value={form.default_billing_client_id}
+          disabled={!canEdit}
+          onChange={(event) => onChange({ default_billing_client_id: event.target.value })}
+        >
+          <option value="">Sin receptor</option>
+          {clients.map((client) => (
+            <option key={client.id} value={client.id}>
+              {getClientLabel(client)}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      {selectedClient ? (
+        <dl className="grid grid-cols-[110px_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm">
+          {rows.map(([label, value]) => (
+            <div key={label} className="contents">
+              <dt className="text-[#888888]">{label}</dt>
+              <dd className={value === "Pendiente" ? "text-[#9E1B32]" : "text-[#111111]"}>
+                {value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+
+      {selectedClient && missingFields.length > 0 ? (
+        <p className="text-sm text-[#9E1B32]">
+          Datos fiscales incompletos: {formatMissingFiscalFields(missingFields)}.
+        </p>
+      ) : null}
+
+      {form.bill_to_partner && !selectedClient ? (
+        <p className="text-sm text-[#9E1B32]">
+          Sin receptor: las facturas de este aliado no se podran preseleccionar.
+        </p>
+      ) : null}
+
+      {!canEdit ? (
+        <p className="text-xs text-[#888888]">
+          Solo admin o direccion pueden cambiar el receptor.
+        </p>
+      ) : null}
+    </div>
   );
 }

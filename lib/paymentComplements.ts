@@ -206,6 +206,24 @@ export function getPaymentComplementValidationErrors(input: {
   return errors;
 }
 
+/**
+ * Receptor del complemento de pago (REP): SIEMPRE el cliente de la factura
+ * origen (project_invoices.client_id -> clients). No mira el cliente final ni
+ * el aliado actual del proyecto: si el proyecto cambia de aliado despues de
+ * timbrar, el REP sigue saliendo al mismo RFC que la factura PPD.
+ * null si la relacion no viene o no corresponde al client_id de la factura.
+ */
+export function getComplementReceiverClient(
+  invoice: Pick<ProjectInvoice, "client_id" | "clients">
+): FiscalClientData | null {
+  const relation = Array.isArray(invoice.clients)
+    ? invoice.clients[0] || null
+    : invoice.clients || null;
+  if (!relation) return null;
+  if (invoice.client_id && Number(relation.id) !== Number(invoice.client_id)) return null;
+  return relation;
+}
+
 export function buildFacturamaPaymentComplementPayload({
   invoice,
   client,

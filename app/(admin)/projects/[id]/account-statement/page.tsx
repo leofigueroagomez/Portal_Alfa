@@ -11,6 +11,7 @@ import {
 } from "@/lib/facturama";
 import {
   getInvoiceIva,
+  getInvoiceRelation,
   getInvoicePaymentFormLabel,
   getInvoicePaymentMethodLabel,
   getInvoiceSubtotal,
@@ -24,6 +25,7 @@ import { ClientFiscalDataButton } from "@/components/ClientFiscalDataModal";
 import type { FiscalClientData } from "@/lib/fiscalData";
 import InvoiceFileLinks from "@/app/(admin)/invoices/InvoiceFileLinks";
 import InvoiceForm from "@/app/(admin)/invoices/InvoiceForm";
+import { loadProjectPartnerBilling } from "@/lib/partnerBilling";
 import StampInvoiceButton from "@/app/(admin)/invoices/StampInvoiceButton";
 import ProjectPaymentForm from "./ProjectPaymentForm";
 import EditProjectPaymentButton from "./EditProjectPaymentButton";
@@ -141,6 +143,7 @@ export default async function ProjectAccountStatementPage({
   }
 
   const projectData = project as ClientProject;
+  const partnerBilling = await loadProjectPartnerBilling(supabase, [projectData.id]);
   const [
     { data: client },
     { data: approvedQuotes },
@@ -183,7 +186,7 @@ export default async function ProjectAccountStatementPage({
   const invoicesResult = await supabase
     .from("project_invoices")
     .select(
-      "id, internal_folio, client_project_id, client_id, invoice_date, subtotal_mxn, iva_mxn, total_mxn, subtotal, iva, total, status, facturama_id, xml_url, pdf_url, sat_uuid, payment_method_code, payment_form_code, requires_payment_complement, payment_complement_status, sat_payment_form_catalog(code, name, is_active)"
+      "id, internal_folio, client_project_id, client_id, invoice_date, subtotal_mxn, iva_mxn, total_mxn, subtotal, iva, total, status, facturama_id, xml_url, pdf_url, sat_uuid, payment_method_code, payment_form_code, requires_payment_complement, payment_complement_status, sat_payment_form_catalog(code, name, is_active), clients(id, name, tax_rfc, tax_business_name, tax_regime, default_cfdi_use, fiscal_regime, cfdi_use, tax_zip_code, billing_email)"
     )
     .eq("client_project_id", projectData.id)
     .order("invoice_date", { ascending: false })
@@ -457,6 +460,7 @@ export default async function ProjectAccountStatementPage({
               defaultProjectId={projectData.id}
               defaultClientId={projectData.client_id}
               allowManual={allowManualInvoices}
+              partnerBilling={partnerBilling}
             />
             {clientData ? <ClientFiscalDataButton client={clientData} /> : null}
             <Link
@@ -543,7 +547,8 @@ export default async function ProjectAccountStatementPage({
                           invoiceId={invoice.id}
                           status={invoice.status}
                           facturamaId={invoice.facturama_id}
-                          client={clientData}
+                          // Receptor de la factura (puede ser el aliado), no el cliente final.
+                          client={getInvoiceRelation(invoice.clients) || clientData}
                           sandboxNotice={sandboxReceiverNotice}
                           facturamaEnv={facturamaEnv}
                           facturamaProductionEnabled={facturamaProductionEnabled}

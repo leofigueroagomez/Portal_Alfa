@@ -18,6 +18,10 @@ import {
 } from "@/lib/invoices";
 import type { FiscalClientData } from "@/lib/fiscalData";
 import { satBillingProviders } from "@/lib/satBillingProviders";
+import {
+  loadInvoiceBilledPartnerNames,
+  loadProjectPartnerBilling,
+} from "@/lib/partnerBilling";
 import InvoiceForm from "./InvoiceForm";
 import { type FiscalDocumentEmailLog } from "./InvoiceFileLinks";
 import InvoicesTableClient from "./InvoicesTableClient";
@@ -128,6 +132,13 @@ export default async function InvoicesPage() {
   }));
   const clients = clientsResult.error ? [] : ((clientsResult.data || []) as FiscalClientData[]);
   const projects = projectsResult.error ? [] : ((projectsResult.data || []) as Project[]);
+  const [partnerBilling, billedPartnerNames] = await Promise.all([
+    loadProjectPartnerBilling(supabase),
+    loadInvoiceBilledPartnerNames(
+      supabase,
+      invoices.map((invoice) => Number(invoice.id))
+    ),
+  ]);
   const quotes = quotesResult.error ? [] : ((quotesResult.data || []) as Quote[]);
   const invoiceEmailLogs = invoiceEmailLogsResult.error
     ? []
@@ -202,6 +213,7 @@ export default async function InvoicesPage() {
           clients={clients}
           projects={projects}
           allowManual={allowManualInvoices}
+          partnerBilling={partnerBilling}
         />
       </section>
 
@@ -257,6 +269,7 @@ export default async function InvoicesPage() {
 
       <InvoicesTableClient
         invoices={invoices}
+        billedPartnerNames={billedPartnerNames}
         emailLogsByInvoice={emailLogsByInvoice}
         facturamaEnv={facturamaEnv}
         sandboxReceiverNotice={sandboxReceiverNotice}

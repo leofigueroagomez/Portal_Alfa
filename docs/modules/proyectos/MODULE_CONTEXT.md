@@ -70,6 +70,7 @@ Confirmado por queries y migraciones parciales:
 - Estado/valor: `sales_stage`, `estimated_value_mxn`, `expected_close_date`, `created_at`, `updated_at`, `project_number`.
 - Datos de obra: `site_contact_name`, `site_contact_phone`, `site_address`, `site_google_maps_url`.
 - Operacion: `crew_lead_name`, `crew_lead_phone`.
+- Aliado comercial (migracion `20261104130000_commercial_partner_billing.sql`, pendiente de aplicar): `commercial_partner_id` nullable -> `commercial_partners(id)` (FK `NOT VALID`, `on delete set null`). Marca el proyecto como vendido via aliado para facturar al receptor fiscal del aliado; `client_id` sigue siendo el cliente final (operacion, obra, CRM). Se edita en "Editar oportunidad" (`app/(admin)/clients/[id]/EditOpportunityButton.tsx`, propone el aliado de la cotizacion vigente) y se propone al aprobar una cotizacion con aliado (`ApproveQuoteVersionButton.tsx`). Backfill: `scripts/backfill_project_partners.sql` (NO ejecutar sin OK de Leonardo).
 
 Confirmado por `sql/20260603_project_deliveries.sql`:
 

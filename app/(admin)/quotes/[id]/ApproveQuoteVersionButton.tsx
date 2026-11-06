@@ -6,12 +6,15 @@ import { syncProjectOperationalItems } from "@/lib/projectOperationalItems";
 import { supabase } from "@/services/supabase";
 import { createOrGetProjectContractAction } from "@/app/(admin)/projects/[id]/contract/actions";
 import { generateProjectSpecializedWorkOrders } from "@/lib/workOrdersAutomation";
+import { proposeProjectPartnerFromQuote } from "@/lib/partnerBilling";
 
 type Props = {
   quoteId: number;
   quoteGroupId: number | null;
   clientProjectId?: number | null;
   status: string | null;
+  commercialPartnerId?: number | null;
+  commercialPartnerName?: string | null;
 };
 
 export default function ApproveQuoteVersionButton({
@@ -19,6 +22,8 @@ export default function ApproveQuoteVersionButton({
   quoteGroupId,
   clientProjectId,
   status,
+  commercialPartnerId = null,
+  commercialPartnerName = null,
 }: Props) {
   const router = useRouter();
   const [approving, setApproving] = useState(false);
@@ -94,6 +99,21 @@ export default function ApproveQuoteVersionButton({
         reportStepError("actualizar etapa de oportunidad a ganado", projectStageError);
         setApproving(false);
         return;
+      }
+
+      // Proponer heredar el aliado de la cotizacion al proyecto (facturar al aliado).
+      // No bloquea la aprobacion si falla o si la migracion aun no esta aplicada.
+      if (commercialPartnerId) {
+        try {
+          await proposeProjectPartnerFromQuote(
+            supabase,
+            clientProjectId,
+            commercialPartnerId,
+            commercialPartnerName
+          );
+        } catch (partnerError) {
+          console.warn("No se pudo proponer el aliado del proyecto:", partnerError);
+        }
       }
 
       const {
