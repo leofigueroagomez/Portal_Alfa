@@ -1927,7 +1927,7 @@ export default function NewQuotePage() {
         return {
           quote_id: quote.id,
           quote_section_id: savedSection.id,
-          product_id: item.id,
+          product_id: item.id > 0 ? item.id : null,
           quantity: item.quantity,
           sale_currency: item.sale_currency,
           unit_equipment_price: isExistingCustomerEquipment(item)

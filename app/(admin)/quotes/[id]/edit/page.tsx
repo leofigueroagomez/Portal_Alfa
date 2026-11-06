@@ -2331,45 +2331,55 @@ export default function EditQuotePage() {
       }
     }
 
-    if (quote.status === "approved" && selectedClientProjectId) {
-      const { error: markOperationalItemsError } = await supabase
-        .from("project_operational_items")
-        .update({
-          status: "deleted",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("client_project_id", Number(selectedClientProjectId))
-        .eq("source_quote_id", quoteId)
-        .eq("change_origin", "quote_seed")
-        .not("status", "in", "(purchased,partially_purchased,delivered)");
-
-      if (markOperationalItemsError) {
-        reportStepError("marcar base operativa anterior", markOperationalItemsError);
-        setSavingQuote(false);
-        return;
-      }
-    }
-
-    const { error: deleteItemsError } = await supabase
-      .from("quote_items")
-      .delete()
-      .eq("quote_id", quoteId);
-
-    if (deleteItemsError) {
-      reportStepError("borrar quote_items", deleteItemsError);
-      setSavingQuote(false);
-      return;
-    }
-
-    const { error: deleteSectionsError } = await supabase
+    // Las secciones nuevas se insertan ANTES de borrar las anteriores. Si algo
+    // falla a medio camino se descartan las nuevas y la cotizacion queda como
+    // estaba. Antes se borraba todo primero y un error a la mitad dejaba la
+    // cotizacion sin secciones (ALFA-0173, 2026-10-22).
+    const { data: previousSections, error: previousSectionsError } = await supabase
       .from("quote_sections")
-      .delete()
+      .select("id")
       .eq("quote_id", quoteId);
 
-    if (deleteSectionsError) {
-      reportStepError("borrar quote_sections", deleteSectionsError);
+    if (previousSectionsError) {
+      reportStepError("leer quote_sections", previousSectionsError);
       setSavingQuote(false);
       return;
+    }
+
+    const { data: previousItems, error: previousItemsError } = await supabase
+      .from("quote_items")
+      .select("id")
+      .eq("quote_id", quoteId);
+
+    if (previousItemsError) {
+      reportStepError("leer quote_items", previousItemsError);
+      setSavingQuote(false);
+      return;
+    }
+
+    const previousSectionIds = (previousSections || []).map((row) => Number(row.id));
+    const previousItemIds = (previousItems || []).map((row) => Number(row.id));
+    const createdSectionIds: number[] = [];
+
+    async function abortSectionSave(step: string, error: unknown) {
+      reportStepError(step, error);
+
+      if (createdSectionIds.length > 0) {
+        // Las partidas, actividades y distribuciones caen en cascada.
+        const { error: discardError } = await supabase
+          .from("quote_sections")
+          .delete()
+          .in("id", createdSectionIds);
+
+        if (discardError) {
+          console.error("No se pudieron descartar las secciones nuevas:", discardError);
+          alert(
+            "Ademas no se pudieron descartar las secciones nuevas; la cotizacion puede mostrar partidas duplicadas. Recarga antes de volver a guardar."
+          );
+        }
+      }
+
+      setSavingQuote(false);
     }
 
     for (const [sectionIndex, section] of sections.entries()) {
@@ -2390,13 +2400,14 @@ export default function EditQuotePage() {
         .single();
 
       if (sectionError || !savedSection) {
-        reportStepError(
+        await abortSectionSave(
           "crear quote_sections",
           sectionError || { message: "No se recibió quote_section" }
         );
-        setSavingQuote(false);
         return;
       }
+
+      createdSectionIds.push(Number(savedSection.id));
 
       if (section.items.length === 0) {
         continue;
@@ -2417,7 +2428,8 @@ export default function EditQuotePage() {
         return {
           quote_id: quoteId,
           quote_section_id: savedSection.id,
-          product_id: item.id,
+          // Partidas sin producto de catalogo se cargan con id 0; 0 rompe el FK.
+          product_id: item.id > 0 ? item.id : null,
           quantity: item.quantity,
           sale_currency: item.sale_currency,
           unit_equipment_price: isExistingCustomerEquipment(item)
@@ -2479,8 +2491,7 @@ export default function EditQuotePage() {
       }
 
       if (itemsError) {
-        reportStepError("crear quote_items", itemsError);
-        setSavingQuote(false);
+        await abortSectionSave("crear quote_items", itemsError);
         return;
       }
 
@@ -2511,8 +2522,7 @@ export default function EditQuotePage() {
           .insert(areaAllocationsToInsert);
 
         if (areaAllocationsError) {
-          reportStepError("crear distribucion por area", areaAllocationsError);
-          setSavingQuote(false);
+          await abortSectionSave("crear distribucion por area", areaAllocationsError);
           return;
         }
       }
@@ -2546,10 +2556,57 @@ export default function EditQuotePage() {
           .insert(laborActivitiesToInsert);
 
         if (laborActivitiesError) {
-          reportStepError("crear actividades de mano de obra", laborActivitiesError);
-          setSavingQuote(false);
+          await abortSectionSave("crear actividades de mano de obra", laborActivitiesError);
           return;
         }
+      }
+    }
+
+    // Todo lo nuevo quedo guardado: ahora si se retiran las partidas anteriores.
+    // Si un registro de compras las referencia (FK RESTRICT) el borrado completo
+    // falla y se descartan las nuevas para no duplicar.
+    if (previousItemIds.length > 0) {
+      const { error: deleteItemsError } = await supabase
+        .from("quote_items")
+        .delete()
+        .in("id", previousItemIds);
+
+      if (deleteItemsError) {
+        await abortSectionSave("borrar quote_items anteriores", deleteItemsError);
+        return;
+      }
+    }
+
+    if (previousSectionIds.length > 0) {
+      const { error: deleteSectionsError } = await supabase
+        .from("quote_sections")
+        .delete()
+        .in("id", previousSectionIds);
+
+      if (deleteSectionsError) {
+        // Las partidas viejas ya no existen; solo quedan secciones vacias.
+        reportStepError("borrar quote_sections anteriores", deleteSectionsError);
+        setSavingQuote(false);
+        return;
+      }
+    }
+
+    if (quote.status === "approved" && selectedClientProjectId) {
+      const { error: markOperationalItemsError } = await supabase
+        .from("project_operational_items")
+        .update({
+          status: "deleted",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("client_project_id", Number(selectedClientProjectId))
+        .eq("source_quote_id", quoteId)
+        .eq("change_origin", "quote_seed")
+        .not("status", "in", "(purchased,partially_purchased,delivered)");
+
+      if (markOperationalItemsError) {
+        reportStepError("marcar base operativa anterior", markOperationalItemsError);
+        setSavingQuote(false);
+        return;
       }
     }
 
