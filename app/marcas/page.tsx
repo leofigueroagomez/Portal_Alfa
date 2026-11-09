@@ -8,7 +8,7 @@ import { getPublicBrands, getPublicBrandProducts } from "@/lib/catalog";
 const siteUrl = SITE_URL;
 
 export const metadata: Metadata = {
-  title: "Marcas y Sistemas de Automatización de Lujo en México | ALFA",
+  title: { absolute: "Marcas y Sistemas de Automatización de Lujo en México | ALFA" },
   description:
     "Distribución, especificación e integración oficial de las marcas líderes en control de iluminación, audio de alta fidelidad y automatización residencial: Lutron, Sonos, Shelly y más.",
   alternates: {

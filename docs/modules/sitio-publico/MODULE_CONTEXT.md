@@ -101,7 +101,16 @@ a `app/page.tsx` (mismo segmento de ruta que el layout) pero **si** a todo
 segmento hijo. Las 5 paginas de `/servicios/*` traian un titulo que ya incluia
 la marca, asi que renderizaban `... | ALFA | ALFA`. Se corrigio pasando a
 `title: { absolute: "..." }`. Cualquier pagina publica nueva bajo un segmento
-hijo debe hacer lo mismo.
+hijo debe hacer lo mismo. Los titulos dinamicos del catalogo y el portafolio
+pasan ademas por `lib/seoTitle.ts`, que deja la marca una sola vez.
+
+### `/login`, `robots.txt` y `lastmod` (informe de Search Console 2026-11-09)
+
+- `/login` lleva `noindex` en `app/login/layout.tsx` y **no** va en `app/robots.ts`:
+  si se bloquea, Google no puede leer el `noindex` y puede indexar la URL igual.
+- `app/sitemap.ts` solo declara `lastModified` cuando existe una fecha real (blog).
+  No volver a usar `new Date()`: marca todo como modificado en cada build y Google
+  deja de confiar en la senal.
 
 ## 3. Consumidores de `SITE_URL`
 
@@ -134,6 +143,14 @@ desde `legacyRedirects` en `next.config.ts`:
 | `/redes.html` | `/servicios/redes` |
 | `/automatizacion.html` | `/servicios/iluminacion` |
 | `/index.html`, `/nosotros.html`, `/contacto.html` | `/` |
+| `/products/<slug>` de Sonos Move 2, Arc y Roam (tienda anterior) | `/marcas/sonos/<modelo>` (Roam va a Roam 2) |
+| `/products/<slug>` de cables, `/collections/cables-de-interconexion` | `/servicios/audio-video` |
+| `/collections/sonos` | `/marcas/sonos` |
+| `/pages/contact` | `/` |
+
+Las `/products/<slug>` se redirigen una por una porque `/products` es una ruta
+interna de ALFA OS: un comodín rompería el módulo de productos. Los restos sin
+equivalente (`/cart`, `/wpm`, `/b`, `/search/suggest`) se quedan en error a propósito.
 
 Se usa `statusCode: 301` y no `permanent: true`, porque `permanent` emite **308**
 y el trabajo de recuperación de indexación se apoya en 301.

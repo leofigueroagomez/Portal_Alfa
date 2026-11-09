@@ -11,6 +11,7 @@ import {
   generateCatalogBreadcrumbJsonLd,
 } from "@/lib/catalog";
 import { brandLineLabel, brandAdvisoryCopy } from "@/lib/catalogBrandUi";
+import { brandedTitle } from "@/lib/seoTitle";
 import BrandCatalogClient from "./BrandCatalogClient";
 
 type Props = {
@@ -29,15 +30,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     };
   }
 
-  const title =
-    brand.seo_title ||
-    `${brand.name} México | Catálogo Oficial y Cotizaciones | ALFA`;
+  const title = brandedTitle(
+    brand.seo_title || `${brand.name} México | Catálogo Oficial y Cotizaciones`
+  );
   const description =
     brand.seo_description ||
     `Catálogo oficial de productos ${brand.name} en México. Especificación, suministro e integración con garantía y respaldo de ingeniería ALFA OS.`;
 
   return {
-    title,
+    title: { absolute: title },
     description,
     alternates: {
       canonical: `/marcas/${brand.slug}`,

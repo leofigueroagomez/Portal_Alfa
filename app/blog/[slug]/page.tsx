@@ -62,7 +62,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     : `${siteUrl}${post.coverImage}`;
 
   return {
-    title: `${post.title} | ALFA`,
+    title: { absolute: `${post.title} | ALFA` },
     description: post.metaDescription,
     alternates: {
       canonical: `/blog/${post.slug}`,

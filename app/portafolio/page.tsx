@@ -9,7 +9,7 @@ import PortfolioDirectoryClient from "./PortfolioDirectoryClient";
 const siteUrl = SITE_URL;
 
 export const metadata: Metadata = {
-  title: "Portafolio de Proyectos | Audio Hi-Fi, Iluminación Lutron y Domótica | ALFA",
+  title: { absolute: "Portafolio de Proyectos | Audio Hi-Fi, Iluminación Lutron y Domótica | ALFA" },
   description:
     "Explora los casos de estudio y proyectos de integración residencial y corporativa desarrollados por ALFA High End Services: audio audiófilo McIntosh, iluminación Lutron RadioRA 3 y salas de cine Dolby Atmos.",
   alternates: {

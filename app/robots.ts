@@ -20,8 +20,8 @@ export default function robots(): MetadataRoute.Robots {
           "/portal/*",
           "/api",
           "/api/*",
-          "/login",
-          "/login/*",
+          // `/login` no va aqui a proposito: lleva noindex (app/login/layout.tsx)
+          // y Google debe poder rastrearlo para leerlo.
           "/public",
           "/public/*",
           "/auth",

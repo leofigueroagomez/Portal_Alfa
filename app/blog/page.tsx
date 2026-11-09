@@ -22,7 +22,7 @@ const WHATSAPP_PHONE =
   process.env.NEXT_PUBLIC_WHATSAPP_PHONE || "523318574884";
 
 export const metadata: Metadata = {
-  title: "Blog Técnico & Novedades en Automatización y Seguridad | ALFA",
+  title: { absolute: "Blog Técnico & Novedades en Automatización y Seguridad | ALFA" },
   description:
     "Artículos especializados, análisis de hardware y guías de ingeniería sobre control de acceso, videovigilancia, iluminación arquitectónica, audio de alta fidelidad y ALFA OS.",
   alternates: {
