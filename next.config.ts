@@ -60,6 +60,32 @@ const legacyRedirects = [
   { source: "/index.html", destination: "/" },
   { source: "/nosotros.html", destination: "/" },
   { source: "/contacto.html", destination: "/" },
+  // URLs de la tienda anterior que Google conserva. Las de `/products/*` caerian
+  // en el proxy de ALFA OS y terminarian en `/login`, por eso van una por una:
+  // nunca usar un comodin aqui, `/products` es una ruta interna.
+  {
+    source:
+      "/products/bocina-inteligente-sonos-move-2-sonido-estereo-y-portatil-wi-fi-y-bluetooth",
+    destination: "/marcas/sonos/sonos-move-2",
+  },
+  { source: "/products/sonos-arc", destination: "/marcas/sonos/sonos-arc" },
+  {
+    source: "/products/sonos-roam-el-sonido-que-te-sigue-a-todas-partes",
+    destination: "/marcas/sonos/sonos-roam-2",
+  },
+  {
+    source:
+      "/products/cable-para-bocina-armado-2-hilos-con-conductores-de-cobre-de-grano-largo-solido-concentrico-geometria-de-par-trenzado-fullrange-con-banans-bfa-serie-100-calibre-15-awg",
+    destination: "/servicios/audio-video",
+  },
+  {
+    source:
+      "/products/conductores-solidos-lgc-con-0-5-de-plata-disipacion-de-ruido-de-capa-metalica-aislamiento-de-espuma-de-polietileno-terminales-chapadas-en-oro-y-soldadas-en-frio-rca-rca-macho",
+    destination: "/servicios/audio-video",
+  },
+  { source: "/collections/sonos", destination: "/marcas/sonos" },
+  { source: "/collections/cables-de-interconexion", destination: "/servicios/audio-video" },
+  { source: "/pages/contact", destination: "/" },
 ];
 
 const nextConfig: NextConfig = {

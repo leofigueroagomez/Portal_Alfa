@@ -143,6 +143,14 @@ desde `legacyRedirects` en `next.config.ts`:
 | `/redes.html` | `/servicios/redes` |
 | `/automatizacion.html` | `/servicios/iluminacion` |
 | `/index.html`, `/nosotros.html`, `/contacto.html` | `/` |
+| `/products/<slug>` de Sonos Move 2, Arc y Roam (tienda anterior) | `/marcas/sonos/<modelo>` (Roam va a Roam 2) |
+| `/products/<slug>` de cables, `/collections/cables-de-interconexion` | `/servicios/audio-video` |
+| `/collections/sonos` | `/marcas/sonos` |
+| `/pages/contact` | `/` |
+
+Las `/products/<slug>` se redirigen una por una porque `/products` es una ruta
+interna de ALFA OS: un comodín rompería el módulo de productos. Los restos sin
+equivalente (`/cart`, `/wpm`, `/b`, `/search/suggest`) se quedan en error a propósito.
 
 Se usa `statusCode: 301` y no `permanent: true`, porque `permanent` emite **308**
 y el trabajo de recuperación de indexación se apoya en 301.
