@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ShieldCheck, ArrowLeft, Mail, Phone, MapPin } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Aviso de Privacidad | ALFA High End Services",
+  title: { absolute: "Aviso de Privacidad | ALFA High End Services" },
   description:
     "Aviso de privacidad integral de ALFA High End Services conforme a la Ley Federal de Protección de Datos Personales en Posesión de los Particulares.",
   alternates: {

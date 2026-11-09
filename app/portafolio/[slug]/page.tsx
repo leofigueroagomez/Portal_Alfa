@@ -27,6 +27,7 @@ import {
   generateProjectJsonLd,
   generatePortfolioBreadcrumbJsonLd,
 } from "@/lib/portfolio";
+import { brandedTitle } from "@/lib/seoTitle";
 import PortfolioMediaGallery from "./PortfolioMediaGallery";
 import ProjectQuoteModalWrapper from "./ProjectQuoteModalWrapper";
 
@@ -46,9 +47,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     };
   }
 
-  const title =
-    project.seo_title ||
-    `${project.title} | Caso de Estudio de Ingeniería | ALFA`;
+  const title = brandedTitle(
+    project.seo_title || `${project.title} | Caso de Estudio de Ingeniería`
+  );
   const description =
     project.seo_description ||
     project.summary ||
@@ -59,7 +60,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     : `${siteUrl}${project.hero_image}`;
 
   return {
-    title,
+    title: { absolute: title },
     description,
     keywords: project.seo_keywords || [
       project.title,

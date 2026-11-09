@@ -17,7 +17,7 @@ import FaqAccordion, { FaqItem } from "@/components/FaqAccordion";
 import WhatsAppLeadButton from "@/components/WhatsAppLeadButton";
 
 export const metadata: Metadata = {
-  title: "Alianzas para Arquitectos e Interioristas | ALFA High End Services",
+  title: { absolute: "Alianzas para Arquitectos e Interioristas | ALFA High End Services" },
   description:
     "Programa de alianzas para despachos de arquitectura e interiorismo en la Zona Metropolitana de Guadalajara (Zapopan y Guadalajara). Especificación técnica en planos, ingeniería Lutron invisible y supervisión en ALFA OS.",
   alternates: {

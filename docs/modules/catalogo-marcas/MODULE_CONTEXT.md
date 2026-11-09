@@ -109,7 +109,7 @@ Cualquier acción de contacto en la página de producto debe alimentar directame
 Cada página de producto y marca debe incluir:
 
 1. **Metadatos Dinámicos (`generateMetadata`):**
-   - `<title>` optimizado: `[Marca] [Modelo] | Cotización e Integración en México | ALFA`
+   - `<title>` armado por `lib/seoTitle.ts` con la marca ALFA una sola vez (`title: { absolute }`): `[Marca] [Modelo] | [Categoría] | ALFA`. No hace falta regenerar `seo_title`: las coletillas se limpian al renderizar.
    - `<meta description>` comercial orientada a suministro oficial y soporte técnico.
    - Canonical URL absoluta (`https://www.alfait.com.mx/marcas/[marca]/[modelo]`).
 2. **JSON-LD Structured Data:**

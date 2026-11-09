@@ -101,7 +101,16 @@ a `app/page.tsx` (mismo segmento de ruta que el layout) pero **si** a todo
 segmento hijo. Las 5 paginas de `/servicios/*` traian un titulo que ya incluia
 la marca, asi que renderizaban `... | ALFA | ALFA`. Se corrigio pasando a
 `title: { absolute: "..." }`. Cualquier pagina publica nueva bajo un segmento
-hijo debe hacer lo mismo.
+hijo debe hacer lo mismo. Los titulos dinamicos del catalogo y el portafolio
+pasan ademas por `lib/seoTitle.ts`, que deja la marca una sola vez.
+
+### `/login`, `robots.txt` y `lastmod` (informe de Search Console 2026-11-09)
+
+- `/login` lleva `noindex` en `app/login/layout.tsx` y **no** va en `app/robots.ts`:
+  si se bloquea, Google no puede leer el `noindex` y puede indexar la URL igual.
+- `app/sitemap.ts` solo declara `lastModified` cuando existe una fecha real (blog).
+  No volver a usar `new Date()`: marca todo como modificado en cada build y Google
+  deja de confiar en la senal.
 
 ## 3. Consumidores de `SITE_URL`
 

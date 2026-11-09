@@ -20,6 +20,7 @@ import {
   generateCatalogBreadcrumbJsonLd,
 } from "@/lib/catalog";
 import { brandFallbackHighlights } from "@/lib/catalogBrandUi";
+import { catalogProductTitle } from "@/lib/seoTitle";
 import ProductQuoteModal from "./ProductQuoteModal";
 import ProductDetailImage from "./ProductDetailImage";
 
@@ -39,9 +40,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     };
   }
 
-  const title =
-    product.seo_title ||
-    `${product.brand_name} ${product.model} | Cotización e Integración en México | ALFA`;
+  const title = catalogProductTitle(product);
   const description =
     product.seo_description ||
     product.short_description ||
@@ -54,7 +53,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       : undefined;
 
     return {
-      title,
+      title: { absolute: title },
       description,
       keywords: product.seo_keywords || [
         product.brand_name,
