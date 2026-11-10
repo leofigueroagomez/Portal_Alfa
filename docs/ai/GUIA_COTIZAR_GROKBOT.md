@@ -197,9 +197,9 @@ Corre la consulta de la sección 7. Todas las columnas de control deben salir li
 
 ### Paso 5. PDF
 
-El PDF lo baja el portal ya desplegado. Es el PDF Premium oficial: el mismo snapshot, el mismo HTML y el mismo render Chromium que el botón "PDF Premium" (`getQuotePdfSnapshot`, `buildQuotePremiumPdfHtml`, `renderQuotePremiumPdf`). Incluye borradores. En una cotización de aliado sale el formato ALFA, no la marca blanca.
+El PDF lo baja el portal ya desplegado. Es el PDF Premium oficial: el mismo snapshot, el mismo HTML y el mismo render Chromium que el botón "PDF Premium" (`getQuotePdfSnapshot`, `buildQuotePremiumPdfHtml`, `renderQuotePremiumPdf`). Incluye borradores. Sin query, una cotización de aliado sale en formato ALFA, con el desglose del aliado.
 
-No uses el repo ni `.env.local`. Esas llaves no te corresponden. El valor de `QUOTE_PDF_SERVICE_TOKEN` tiene que estar en el entorno del proceso que corre el comando; no lo escribas en el chat, en esta guía ni en la URL. El portal ignora el query string.
+No uses el repo ni `.env.local`. Esas llaves no te corresponden. El valor de `QUOTE_PDF_SERVICE_TOKEN` tiene que estar en el entorno del proceso que corre el comando; no lo escribas en el chat, en esta guía ni en la URL. El query string no autentica. El único parámetro que el portal lee es `branding=partner`.
 
 ```bash
 QUOTE_ID=258
@@ -217,11 +217,30 @@ El archivo queda en `docs/audits/quotes/cotizacion-<id>.pdf`, relativo al direct
 
 Para 259 y 260 cambia `QUOTE_ID` y vuelve a correr el mismo comando.
 
+Para el PDF de marca blanca (el que ve el cliente del aliado, sin el desglose del descuento), agrega `branding=partner`. Es el mismo modo que el botón del portal. La cotización tiene que tener aliado. El caso de Kybit es la 261 (`ALFA-0199-V1`):
+
+```bash
+QUOTE_ID=261
+mkdir -p docs/audits/quotes
+curl --fail-with-body --silent --show-error \
+  --header "Authorization: Bearer ${QUOTE_PDF_SERVICE_TOKEN}" \
+  --output "docs/audits/quotes/cotizacion-${QUOTE_ID}-aliado.pdf" \
+  --write-out "\nHTTP %{http_code}\n" \
+  "https://portal.alfait.com.mx/api/quotes/${QUOTE_ID}/pdf-premium?branding=partner"
+head -c 5 "docs/audits/quotes/cotizacion-${QUOTE_ID}-aliado.pdf"
+echo
+```
+
+Ese archivo queda en `docs/audits/quotes/cotizacion-<id>-aliado.pdf`. También tiene que empezar con `%PDF-`. HQE usa el mismo comando con el `quote_id` de esa cotización. Sin `?branding=partner` sigues recibiendo el formato ALFA.
+
 | Señal | Qué significa | Qué hacer |
 |---|---|---|
 | `HTTP 200` y el archivo empieza con `%PDF-` | PDF listo. | Revisa las páginas de partidas y de condiciones antes de mandarlo. |
 | `HTTP 401` | El token no está en el entorno, no coincide, tiene menos de 32 caracteres, o este despliegue tiene el endpoint apagado. Preview siempre responde 401: la variable existe solo en Production. Un 401 no dice cuál de esos casos es. | No reintentes en bucle. Confirma que la variable está definida en ese proceso (`[ -n "$QUOTE_PDF_SERVICE_TOKEN" ]`). |
-| `HTTP 400` | El id no es un entero positivo. | Usa el `quote_id` numérico, por ejemplo `258`, no el folio `ALFA-0195`. |
+| `HTTP 400` y el JSON dice `Unsupported branding` | `branding` no es exactamente `partner`. | Usa `?branding=partner` o quita el parámetro. |
+| `HTTP 400` y el JSON dice `Not a partner quote` | Pediste marca blanca y esa cotización no es de aliado. | Quítalo y baja el PDF ALFA, o confirma `is_partner_quote`. |
+| `HTTP 400` con `Bad Request` | El id no es un entero positivo. | Usa el `quote_id` numérico, por ejemplo `261`, no el folio `ALFA-0199-V1`. |
+| `HTTP 422` | Es de aliado, pero falta logo, color válido, el aliado está inactivo o no hay aliado seleccionado. El JSON trae el motivo en `error`. | No reintentes. Avísale a Leo con ese texto. |
 | `HTTP 404` | No hay cotización con ese id. | Verifica el id en la base. |
 | `HTTP 429` | Más de 10 descargas en un minuto desde la misma IP, o más de 20 en total. | Espera un minuto y reintenta una vez. |
 | `HTTP 500` | Falló el render. El JSON trae `requestId` y no explica la causa. | Avísale a Leo con ese `requestId`. No es el token. No reintentes en bucle. |

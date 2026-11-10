@@ -12,28 +12,14 @@ import { buildQuotePremiumPdfHtml } from "@/lib/quotePremiumPdfHtml";
 import { renderQuotePremiumPdf } from "@/lib/quotePremiumPdf";
 import { getQuotePdfSnapshot } from "@/lib/quotePdfSnapshot";
 import {
-  getPartnerBranding,
-  getPartnerBrandingMissingReason,
-  type CommercialPartner,
-} from "@/lib/commercialPartners";
+  buildQuotePremiumPdfFilename,
+  resolvePartnerQuotePdfBranding,
+} from "@/lib/quotePartnerPdfBranding";
 import { canGeneratePartnerQuotes } from "@/lib/permissions";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
-import { getMexicoDate } from "@/lib/mexicoDate";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-
-function slugifyFilenamePart(value: string | null | undefined, maxLength = 40) {
-  const normalized = (value || "")
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .trim();
-
-  return normalized
-    .replace(/[^a-zA-Z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, maxLength);
-}
 
 export async function GET(
   request: Request,
@@ -60,6 +46,7 @@ export async function GET(
   try {
     const supabase = await createSupabaseServerClient();
     const snapshot = await getQuotePdfSnapshot(supabase, quoteId);
+    // Solo "partner" cambia el PDF. Cualquier otro valor se ignora, como antes.
     const brandingMode = new URL(request.url).searchParams.get("branding");
     let branding:
       | {
@@ -67,7 +54,7 @@ export async function GET(
           logoUrl: string;
           primaryColor: string;
           secondaryColor: string;
-          hidePartnerDiscount: boolean;
+          hidePartnerDiscount: true;
         }
       | undefined;
 
@@ -76,67 +63,23 @@ export async function GET(
         return jsonError("Forbidden", 403);
       }
 
-      const { data: quote } = await supabase
-        .from("quotes")
-        .select("is_partner_quote, commercial_partner_id")
-        .eq("id", quoteId)
-        .maybeSingle<{
-          is_partner_quote: boolean | null;
-          commercial_partner_id: number | null;
-        }>();
-
-      if (!quote?.is_partner_quote) return jsonError("Bad Request", 400);
-
-      const { data: partner } = quote.commercial_partner_id
-        ? await supabase
-            .from("commercial_partners")
-            .select(
-              "id, commercial_name, logo_url, logo_storage_path, primary_color, secondary_color, contact_name, contact_email, contact_phone, is_active"
-            )
-            .eq("id", quote.commercial_partner_id)
-            .maybeSingle<CommercialPartner>()
-        : { data: null };
-
-      const missingReason = getPartnerBrandingMissingReason(
-        supabase,
-        partner || null
-      );
-      const partnerBranding = getPartnerBranding(supabase, partner || null);
-      if (missingReason || !partnerBranding) {
-        return NextResponse.json(
-          { error: missingReason || "White label unavailable", requestId },
-          { status: 422 }
-        );
+      const resolved = await resolvePartnerQuotePdfBranding(supabase, quoteId);
+      if (!resolved.ok) {
+        if (resolved.status === 422) {
+          return NextResponse.json(
+            { error: resolved.error, requestId },
+            { status: 422 }
+          );
+        }
+        return jsonError("Bad Request", 400);
       }
 
-      branding = {
-        ...partnerBranding,
-        hidePartnerDiscount: true,
-      };
+      branding = resolved.branding;
     }
 
     const html = buildQuotePremiumPdfHtml(snapshot, branding);
     const pdf = await renderQuotePremiumPdf(html);
-
-    const quoteNumberPart =
-      slugifyFilenamePart(snapshot.quote.quoteNumber) || `ID${snapshot.quote.id}`;
-    const clientPart = slugifyFilenamePart(
-      snapshot.client.companyName || snapshot.client.name
-    );
-    const brandingSuffix = branding
-      ? "-Aliado"
-      : snapshot.quote.isPartnerQuote
-        ? "-ALFA"
-        : "";
-    const filename = [
-      "Cotizacion",
-      quoteNumberPart,
-      clientPart,
-      getMexicoDate(),
-    ]
-      .filter(Boolean)
-      .join("-")
-      .concat(brandingSuffix);
+    const filename = buildQuotePremiumPdfFilename(snapshot, branding);
 
     return new Response(new Uint8Array(pdf), {
       headers: {

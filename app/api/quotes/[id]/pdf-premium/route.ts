@@ -1,9 +1,16 @@
-import { slugifyFilenamePart } from "@/lib/filenames";
-import { getMexicoDate } from "@/lib/mexicoDate";
 import { renderQuotePremiumPdf } from "@/lib/quotePremiumPdf";
 import { buildQuotePremiumPdfHtml } from "@/lib/quotePremiumPdfHtml";
 import { getQuotePdfSnapshot } from "@/lib/quotePdfSnapshot";
-import { serveQuotePdfPremium } from "@/lib/quotePdfServiceGate";
+import {
+  buildQuotePremiumPdfFilename,
+  resolvePartnerQuotePdfBranding,
+  type PartnerQuotePdfBranding,
+} from "@/lib/quotePartnerPdfBranding";
+import {
+  QuotePdfServiceClientError,
+  serveQuotePdfPremium,
+  type QuotePdfServiceBrandingMode,
+} from "@/lib/quotePdfServiceGate";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 
@@ -13,28 +20,36 @@ export const maxDuration = 60;
 
 /**
  * PDF Premium de solo lectura para el asistente externo.
- * Mismas tres funciones que el botón del portal y que
- * scripts/render-quote-pdf.mts: snapshot, HTML y renderQuotePremiumPdf.
- * Siempre formato ALFA, borrador incluido. La query no autentica.
+ * Mismas funciones que el botón: snapshot, branding de aliado, HTML y
+ * renderQuotePremiumPdf. Sin ?branding=partner el PDF es el formato ALFA.
+ * La query no autentica.
  */
-async function renderOfficialPremiumPdf(quoteId: number) {
+async function renderOfficialPremiumPdf(
+  quoteId: number,
+  mode: QuotePdfServiceBrandingMode
+) {
   const supabase = createSupabaseAdminClient();
   const snapshot = await getQuotePdfSnapshot(supabase, quoteId);
-  const html = buildQuotePremiumPdfHtml(snapshot);
+  let branding: PartnerQuotePdfBranding | undefined;
+
+  if (mode === "partner") {
+    const resolved = await resolvePartnerQuotePdfBranding(supabase, quoteId);
+    if (!resolved.ok) {
+      throw new QuotePdfServiceClientError(
+        resolved.reason === "not_partner_quote" ? "Not a partner quote" : resolved.error,
+        resolved.status
+      );
+    }
+    branding = resolved.branding;
+  }
+
+  const html = buildQuotePremiumPdfHtml(snapshot, branding);
   const pdf = await renderQuotePremiumPdf(html);
 
-  const quoteNumberPart =
-    slugifyFilenamePart(snapshot.quote.quoteNumber) || `ID${snapshot.quote.id}`;
-  const clientPart = slugifyFilenamePart(
-    snapshot.client.companyName || snapshot.client.name
-  );
-  const alfaSuffix = snapshot.quote.isPartnerQuote ? "-ALFA" : "";
-  const filename = ["Cotizacion", quoteNumberPart, clientPart, getMexicoDate()]
-    .filter(Boolean)
-    .join("-")
-    .concat(alfaSuffix);
-
-  return { pdf: new Uint8Array(pdf), filename };
+  return {
+    pdf: new Uint8Array(pdf),
+    filename: buildQuotePremiumPdfFilename(snapshot, branding),
+  };
 }
 
 export async function GET(

@@ -32,15 +32,30 @@ export type QuotePdfServiceRateLimit = (
   windowMs?: number
 ) => Promise<boolean>;
 
+export type QuotePdfServiceBrandingMode = "default" | "partner";
+
 export type RenderedQuotePdf = {
   pdf: Uint8Array;
   filename: string;
 };
 
+export class QuotePdfServiceClientError extends Error {
+  readonly status: 400 | 422;
+
+  constructor(message: string, status: 400 | 422) {
+    super(message);
+    this.name = "QuotePdfServiceClientError";
+    this.status = status;
+  }
+}
+
 export type QuotePdfServiceDeps = {
   env: QuotePdfServiceEnv;
   checkRateLimit: QuotePdfServiceRateLimit;
-  renderQuotePdf: (quoteId: number) => Promise<RenderedQuotePdf>;
+  renderQuotePdf: (
+    quoteId: number,
+    mode: QuotePdfServiceBrandingMode
+  ) => Promise<RenderedQuotePdf>;
   onError?: (info: { quoteId: number; error: unknown; requestId: string }) => void;
 };
 
@@ -85,6 +100,23 @@ export function parseQuotePdfId(value: string): number | null {
   if (!/^[1-9]\d{0,9}$/.test(value)) return null;
   const quoteId = Number(value);
   return Number.isSafeInteger(quoteId) ? quoteId : null;
+}
+
+export function parseQuotePdfServiceBranding(
+  url: string
+):
+  | { ok: true; mode: QuotePdfServiceBrandingMode }
+  | { ok: false; status: 400; error: "Unsupported branding" } {
+  let branding: string | null;
+  try {
+    branding = new URL(url).searchParams.get("branding");
+  } catch {
+    return { ok: false, status: 400, error: "Unsupported branding" };
+  }
+
+  if (branding === null) return { ok: true, mode: "default" };
+  if (branding === "partner") return { ok: true, mode: "partner" };
+  return { ok: false, status: 400, error: "Unsupported branding" };
 }
 
 export function quotePdfContentDisposition(filename: string) {
@@ -155,6 +187,9 @@ export async function serveQuotePdfPremium(
   const quoteId = parseQuotePdfId(quoteIdParam);
   if (!quoteId) return jsonError("Bad Request", 400);
 
+  const branding = parseQuotePdfServiceBranding(request.url);
+  if (!branding.ok) return jsonError(branding.error, branding.status);
+
   const globalAllowed = await deps.checkRateLimit(
     QUOTE_PDF_SERVICE_GLOBAL_RATE_KEY,
     QUOTE_PDF_SERVICE_GLOBAL_LIMIT,
@@ -163,7 +198,7 @@ export async function serveQuotePdfPremium(
   if (!globalAllowed) return jsonError("Too Many Requests", 429);
 
   try {
-    const rendered = await deps.renderQuotePdf(quoteId);
+    const rendered = await deps.renderQuotePdf(quoteId, branding.mode);
     if (!looksLikePdf(rendered.pdf)) {
       throw new Error("Rendered quote PDF is empty or not a PDF.");
     }
@@ -179,6 +214,12 @@ export async function serveQuotePdfPremium(
       },
     });
   } catch (error) {
+    if (error instanceof QuotePdfServiceClientError) {
+      if (error.status === 422) {
+        return jsonError(error.message, 422, crypto.randomUUID());
+      }
+      return jsonError(error.message, error.status);
+    }
     if (isQuoteNotFound(error)) return jsonError("Not Found", 404);
 
     const requestId = crypto.randomUUID();
