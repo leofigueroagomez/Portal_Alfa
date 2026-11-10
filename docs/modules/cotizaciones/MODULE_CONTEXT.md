@@ -557,3 +557,4 @@ Checklist minimo segun tipo de cambio:
 - [`../../ai/MODULE_INDEX.md`](../../ai/MODULE_INDEX.md)
 - [`../../ai/SECURITY_RULES.md`](../../ai/SECURITY_RULES.md)
 - [`../../QUOTE_BLINDS_RELEASE_SPRINT5.md`](../../QUOTE_BLINDS_RELEASE_SPRINT5.md)
+- [`../../ai/GUIA_COTIZAR_GROKBOT.md`](../../ai/GUIA_COTIZAR_GROKBOT.md): metodo de cotizacion de Leo y plantilla SQL para crear borradores desde el backend.
