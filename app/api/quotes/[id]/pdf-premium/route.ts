@@ -3,7 +3,10 @@ import { getMexicoDate } from "@/lib/mexicoDate";
 import { renderQuotePremiumPdf } from "@/lib/quotePremiumPdf";
 import { buildQuotePremiumPdfHtml } from "@/lib/quotePremiumPdfHtml";
 import { getQuotePdfSnapshot } from "@/lib/quotePdfSnapshot";
-import { serveQuotePdfPremium } from "@/lib/quotePdfServiceGate";
+import {
+  formatQuotePdfServiceErrorLog,
+  serveQuotePdfPremium,
+} from "@/lib/quotePdfServiceGate";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 
@@ -50,11 +53,8 @@ export async function GET(
     },
     checkRateLimit,
     renderQuotePdf: renderOfficialPremiumPdf,
-    onError: ({ quoteId, error, requestId }) => {
-      console.error(
-        `[api:${requestId}] quote premium PDF service failed for quote ${quoteId}`,
-        error
-      );
+    onError: (info) => {
+      console.error(formatQuotePdfServiceErrorLog(info));
     },
   });
 }

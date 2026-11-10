@@ -128,6 +128,31 @@ function isQuoteNotFound(error: unknown) {
   return error instanceof Error && error.message === "Cotizacion no encontrada.";
 }
 
+export function describeQuotePdfServiceError(error: unknown) {
+  if (error instanceof Error) {
+    return `${error.name}: ${error.message}${error.stack ? `\n${error.stack}` : ""}`;
+  }
+
+  if (error && typeof error === "object") {
+    const record = error as { message?: unknown; code?: unknown; hint?: unknown };
+    const code = typeof record.code === "string" ? record.code : "";
+    const message = typeof record.message === "string" ? record.message : "";
+    const hint = typeof record.hint === "string" ? record.hint : "";
+    const detail = [code, message, hint].filter(Boolean).join(": ");
+    if (detail) return detail;
+  }
+
+  return String(error);
+}
+
+export function formatQuotePdfServiceErrorLog(info: {
+  requestId: string;
+  quoteId: number;
+  error: unknown;
+}) {
+  return `[api:${info.requestId}] quote premium PDF service failed for quote ${info.quoteId}: ${describeQuotePdfServiceError(info.error)}`;
+}
+
 function looksLikePdf(pdf: Uint8Array) {
   if (pdf.byteLength < PDF_MAGIC.length) return false;
   return Buffer.from(pdf.subarray(0, PDF_MAGIC.length)).toString("ascii") === PDF_MAGIC;

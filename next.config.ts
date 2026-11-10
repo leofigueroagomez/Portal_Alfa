@@ -88,6 +88,14 @@ const legacyRedirects = [
   { source: "/pages/contact", destination: "/" },
 ];
 
+// El binario de Chromium y el logo se leen en runtime. Sin esta lista, el
+// file trace de la función no los copia y el PDF responde 500. Las dos rutas
+// de PDF Premium tienen que permanecer aquí juntas.
+const quotePremiumPdfTraceFiles = [
+  "./public/logo-print.png",
+  "./node_modules/@sparticuz/chromium/**/*",
+];
+
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@sparticuz/chromium"],
   async redirects() {
@@ -104,14 +112,10 @@ const nextConfig: NextConfig = {
     ];
   },
   outputFileTracingIncludes: {
-    "/api/quotes/[id]/premium-pdf": [
-      "./public/logo-print.png",
-      "./node_modules/@sparticuz/chromium/**/*",
-    ],
-    "/api/quotes/*/premium-pdf": [
-      "./public/logo-print.png",
-      "./node_modules/@sparticuz/chromium/**/*",
-    ],
+    "/api/quotes/[id]/premium-pdf": quotePremiumPdfTraceFiles,
+    "/api/quotes/*/premium-pdf": quotePremiumPdfTraceFiles,
+    "/api/quotes/[id]/pdf-premium": quotePremiumPdfTraceFiles,
+    "/api/quotes/*/pdf-premium": quotePremiumPdfTraceFiles,
   },
 };
 
