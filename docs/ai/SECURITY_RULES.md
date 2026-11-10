@@ -11,6 +11,16 @@ Ver [`../modules/agente-whatsapp/MODULE_CONTEXT.md`](../modules/agente-whatsapp/
 - El telefono de WhatsApp no autentica. El contexto que recibe el modelo se limita a nombre, proyectos y vigencia de garantia: no agregar direcciones, saldos, RFC, contactos ni documentos.
 - Lo que escribe el cliente es entrada no confiable: va como mensaje `user`; el contexto de ALFA OS va como mensaje `system`. No mezclar ambos en el mismo bloque.
 
+## PDF Premium por token de servicio
+
+`GET /api/quotes/[id]/pdf-premium` devuelve solo el PDF Premium de esa cotización, incluidos los borradores. No escribe, no lista cotizaciones y no entrega JSON de negocio.
+
+- El secreto es `QUOTE_PDF_SERVICE_TOKEN`, comparado en tiempo constante con `Authorization: Bearer`. Nunca se acepta por query string. Mínimo 32 caracteres, máximo 256, sin espacios. Si falta, es corto o tiene espacios, la ruta responde 401 y no consulta la base.
+- En Vercel la variable va **solo en Production**. Los deployments Preview de este proyecto comparten las credenciales de Supabase de producción. El código responde 401 cuando `VERCEL_ENV` es `preview` o `development`, aunque el token esté definido ahí.
+- La lectura usa `service_role` en el servidor, igual que `scripts/render-quote-pdf.mts`, porque un borrador no es visible con la llave anónima. Esa llave no sale del servidor y este endpoint no la sustituye para ningún otro uso.
+- Rate limit en `lib/rateLimit.ts`: 10 solicitudes por minuto por IP y 20 por minuto en total. El render es el de `lib/quotePremiumPdf.ts` (el botón "PDF Premium"), sin marca blanca de aliado.
+- Un 401 no distingue "apagado" de "token incorrecto". 400 es un id inválido, 404 es cotización inexistente, 429 es el límite, 500 es fallo de render sin detalle interno.
+
 ## Auditoria de seguridad 2026-09-01 (Supabase + rutas API)
 
 Hallazgos y correcciones de una revision completa de RLS/grants en Supabase y de

@@ -71,6 +71,7 @@ En `app/(admin)/` existen rutas para:
 - `lib/apiAuth.ts`: guards server-side para API routes.
 - `lib/facturama.ts`: integracion fiscal.
 - `lib/quotePremiumPdf.ts`, `lib/quotePremiumPdfHtml.ts`, `lib/quotePdfSnapshot.ts`: PDF Premium de cotizaciones.
+- `app/api/quotes/[id]/pdf-premium/route.ts` y `lib/quotePdfServiceGate.ts`: descarga de ese PDF con token de servicio, solo Production.
 - `sql/*.sql`: cambios de estructura, RLS, storage y datos base.
 
 ## No Modificar Salvo Que La Tarea Lo Pida

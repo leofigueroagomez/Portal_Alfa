@@ -28,12 +28,13 @@ Tú eliges cliente, productos, cantidades y actividades. La matemática no se im
 | No modifiques por SQL cotizaciones aprobadas ni facturas timbradas. | Compras y operación cuelgan de sus partidas; editarlas a mano duplicó cantidades en Compras (proyecto 48). Si hay que cambiar una aprobada, se crea una versión nueva desde el portal. |
 | No toques esquema, RLS, políticas de storage ni credenciales. | Fuera de tu alcance; requieren sandbox, respaldo y la confirmación de Leo. |
 | No escribas contraseñas ni llaves. Si el portal pide sesión, pídele a Leo que entre. | |
+| `QUOTE_PDF_SERVICE_TOKEN` solo baja el PDF Premium. | No autoriza SQL, aprobar, facturar ni leer otros datos. No lo pegues en el chat ni en la URL. |
 | Si un dato no lo confirmó Leo ni el catálogo, dilo como supuesto. No lo presentes como hecho. | Leo decide con lo que le reportas. |
 
 ## 3. Entorno
 
 - **Base de producción:** Supabase, proyecto `jcdnfjitvyfizcsjvwww` ("Alfa IT"). Es la que usa el portal. El proyecto `pkqwlvqosooewbejbktx` es un sandbox con el esquema incompleto: no sirve para cotizar.
-- **Portal:** `https://portal.alfait.com.mx`. Detalle `/quotes/<id>`, editor `/quotes/<id>/edit`.
+- **Portal:** `https://portal.alfait.com.mx`. Detalle `/quotes/<id>`, editor `/quotes/<id>/edit`. El PDF sin llaves locales es `GET /api/quotes/<id>/pdf-premium` (paso 5).
 - **Usuario de Leo** para `created_by`: `fead6231-91ea-4807-8616-d8412abdf634`.
 - **Aliados** (`commercial_partners`): 1 = HQE, 2 = Kybit.
 - **Syscom** es el proveedor principal. Los costos se validan ahí en MXN sin IVA o en USD, el mismo día que cotizas. DSC no está en Syscom: su lista (proveedor Adises) ya vive en `products` con marca `DSC`, en USD.
@@ -196,11 +197,46 @@ Corre la consulta de la sección 7. Todas las columnas de control deben salir li
 
 ### Paso 5. PDF
 
+El PDF lo baja el portal ya desplegado. Es el PDF Premium oficial: el mismo snapshot, el mismo HTML y el mismo render Chromium que el botón "PDF Premium" (`getQuotePdfSnapshot`, `buildQuotePremiumPdfHtml`, `renderQuotePremiumPdf`). Incluye borradores. En una cotización de aliado sale el formato ALFA, no la marca blanca.
+
+No uses el repo ni `.env.local`. Esas llaves no te corresponden. El valor de `QUOTE_PDF_SERVICE_TOKEN` tiene que estar en el entorno del proceso que corre el comando; no lo escribas en el chat, en esta guía ni en la URL. El portal ignora el query string.
+
+```bash
+QUOTE_ID=258
+mkdir -p docs/audits/quotes
+curl --fail-with-body --silent --show-error \
+  --header "Authorization: Bearer ${QUOTE_PDF_SERVICE_TOKEN}" \
+  --output "docs/audits/quotes/cotizacion-${QUOTE_ID}.pdf" \
+  --write-out "\nHTTP %{http_code}\n" \
+  "https://portal.alfait.com.mx/api/quotes/${QUOTE_ID}/pdf-premium"
+head -c 5 "docs/audits/quotes/cotizacion-${QUOTE_ID}.pdf"
+echo
+```
+
+El archivo queda en `docs/audits/quotes/cotizacion-<id>.pdf`, relativo al directorio donde corriste `curl`. `head -c 5` debe imprimir `%PDF-`. Si no, ese archivo es el JSON del error: bórralo.
+
+Para 259 y 260 cambia `QUOTE_ID` y vuelve a correr el mismo comando.
+
+| Señal | Qué significa | Qué hacer |
+|---|---|---|
+| `HTTP 200` y el archivo empieza con `%PDF-` | PDF listo. | Revisa las páginas de partidas y de condiciones antes de mandarlo. |
+| `HTTP 401` | El token no está en el entorno, no coincide, tiene menos de 32 caracteres, o este despliegue tiene el endpoint apagado. Preview siempre responde 401: la variable existe solo en Production. Un 401 no dice cuál de esos casos es. | No reintentes en bucle. Confirma que la variable está definida en ese proceso (`[ -n "$QUOTE_PDF_SERVICE_TOKEN" ]`). |
+| `HTTP 400` | El id no es un entero positivo. | Usa el `quote_id` numérico, por ejemplo `258`, no el folio `ALFA-0195`. |
+| `HTTP 404` | No hay cotización con ese id. | Verifica el id en la base. |
+| `HTTP 429` | Más de 10 descargas en un minuto desde la misma IP, o más de 20 en total. | Espera un minuto y reintenta una vez. |
+| `HTTP 500` | Falló el render. El JSON trae `requestId` y no explica la causa. | Avísale a Leo con ese `requestId`. No es el token. No reintentes en bucle. |
+| `HTTP 000`, o curl sin la línea `HTTP` | No hubo respuesta del portal. | Revisa la red y la URL. No es un rechazo del token. |
+| Exit code 22 | `--fail-with-body` vio un HTTP de error. El código va en la línea `HTTP`. | Lee esa línea. El archivo de `--output` no es un PDF. |
+
+El token solo autoriza este GET. No lo mandes como `?token=` ni `?key=`: no se acepta y quedaría en registros.
+
+Quien sí tiene el repo y `.env.local` (Claude Code en la máquina de Leo) puede seguir usando el comando local, que arma el mismo HTML:
+
 ```bash
 npx tsx --conditions=react-server scripts/render-quote-pdf.mts <quote_id>
 ```
 
-Deja el PDF en `docs/audits/quotes/` y muestra los totales. Revisa las páginas de partidas y de condiciones antes de mandarlo. Necesita el repo y `.env.local`; si no los tienes, el mismo PDF sale del botón "PDF Premium" en `/quotes/<id>`.
+Ese comando no es para ti: pide la service role dentro de `.env.local`.
 
 ### Paso 6. Reportar a Leo
 
