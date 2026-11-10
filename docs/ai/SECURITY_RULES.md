@@ -19,7 +19,8 @@ Ver [`../modules/agente-whatsapp/MODULE_CONTEXT.md`](../modules/agente-whatsapp/
 - En Vercel la variable va **solo en Production**. Los deployments Preview de este proyecto comparten las credenciales de Supabase de producción. El código responde 401 cuando `VERCEL_ENV` es `preview` o `development`, aunque el token esté definido ahí.
 - La lectura usa `service_role` en el servidor, igual que `scripts/render-quote-pdf.mts`, porque un borrador no es visible con la llave anónima. Esa llave no sale del servidor y este endpoint no la sustituye para ningún otro uso.
 - Rate limit en `lib/rateLimit.ts`: 10 solicitudes por minuto por IP y 20 por minuto en total. El render es el de `lib/quotePremiumPdf.ts` (el botón "PDF Premium"), sin marca blanca de aliado.
-- Un 401 no distingue "apagado" de "token incorrecto". 400 es un id inválido, 404 es cotización inexistente, 429 es el límite, 500 es fallo de render sin detalle interno.
+- Un 401 no distingue "apagado" de "token incorrecto". 400 es un id inválido, 404 es cotización inexistente, 429 es el límite, 500 es fallo de render sin detalle interno. El log del servidor sí lleva la causa (`Error.message` o `code`/`message` de Supabase) en la misma línea que el `requestId`.
+- `outputFileTracingIncludes` de `next.config.ts` tiene que incluir esta ruta junto con `/api/quotes/[id]/premium-pdf`. Sin el binario de `@sparticuz/chromium` y `public/logo-print.png` en el trace, la función responde 500. `serverExternalPackages`, `runtime` y `maxDuration` no se configuran por ruta en `vercel.json`.
 
 ## Auditoria de seguridad 2026-09-01 (Supabase + rutas API)
 

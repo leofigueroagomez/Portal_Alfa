@@ -224,7 +224,7 @@ Para 259 y 260 cambia `QUOTE_ID` y vuelve a correr el mismo comando.
 | `HTTP 400` | El id no es un entero positivo. | Usa el `quote_id` numérico, por ejemplo `258`, no el folio `ALFA-0195`. |
 | `HTTP 404` | No hay cotización con ese id. | Verifica el id en la base. |
 | `HTTP 429` | Más de 10 descargas en un minuto desde la misma IP, o más de 20 en total. | Espera un minuto y reintenta una vez. |
-| `HTTP 500` | Falló el render. El JSON trae `requestId` y no explica la causa. | Avísale a Leo con ese `requestId`. No es el token. No reintentes en bucle. |
+| `HTTP 500` | Falló el render. El JSON solo dice `Unable to process request` y trae `requestId`. La causa queda en el log del servidor, en la línea que empieza con `[api:<requestId>]`. | Avísale a Leo con ese `requestId`. No es el token. No reintentes en bucle. |
 | `HTTP 000`, o curl sin la línea `HTTP` | No hubo respuesta del portal. | Revisa la red y la URL. No es un rechazo del token. |
 | Exit code 22 | `--fail-with-body` vio un HTTP de error. El código va en la línea `HTTP`. | Lee esa línea. El archivo de `--output` no es un PDF. |
 

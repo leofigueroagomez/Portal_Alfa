@@ -7,7 +7,9 @@ import {
   QUOTE_PDF_SERVICE_GLOBAL_RATE_KEY,
   QUOTE_PDF_SERVICE_IP_LIMIT,
   QUOTE_PDF_SERVICE_WINDOW_MS,
+  describeQuotePdfServiceError,
   extractBearerCredential,
+  formatQuotePdfServiceErrorLog,
   parseQuotePdfId,
   quotePdfContentDisposition,
   quotePdfServiceIpRateKey,
@@ -320,7 +322,61 @@ test("la ruta reutiliza el renderer oficial y no lee el token de la query", () =
   assert.match(source, /renderQuotePremiumPdf\(html\)/);
   assert.match(source, /checkRateLimit/);
   assert.match(source, /createSupabaseAdminClient/);
+  assert.match(source, /formatQuotePdfServiceErrorLog/);
   assert.equal(source.includes("searchParams"), false);
   assert.equal(source.includes("branding"), false);
   assert.equal(source.includes("QUOTE_PDF_SERVICE_TOKEN="), false);
+});
+
+test("el log lleva la causa y el requestId; la respuesta no", async () => {
+  const error = new Error(
+    'The input directory "/var/task/node_modules/@sparticuz/chromium/bin" does not exist.'
+  );
+  const line = formatQuotePdfServiceErrorLog({
+    requestId: "25aedc86-b760-45ee-93f1-56537a4a8e30",
+    quoteId: 258,
+    error,
+  });
+
+  assert.match(line, /25aedc86-b760-45ee-93f1-56537a4a8e30/);
+  assert.match(line, /quote 258/);
+  assert.match(line, /does not exist/);
+  assert.match(line, /Error:/);
+  assert.equal(
+    describeQuotePdfServiceError({ code: "PGRST116", message: "no rows", hint: "" }),
+    "PGRST116: no rows"
+  );
+
+  let logged = "";
+  const response = await serveQuotePdfPremium(requestFor("258", `Bearer ${TOKEN}`), "258", {
+    env: productionEnv(),
+    checkRateLimit: async () => true,
+    renderQuotePdf: async () => {
+      throw error;
+    },
+    onError: (info) => {
+      logged = formatQuotePdfServiceErrorLog(info);
+    },
+  });
+  const body = await readJson(response);
+  assert.equal(response.status, 500);
+  assert.equal(body.error, "Unable to process request");
+  assert.equal(JSON.stringify(body).includes("does not exist"), false);
+  assert.match(logged, /does not exist/);
+  assert.match(logged, new RegExp(body.requestId || "missing"));
+});
+
+test("pdf-premium entra al mismo file trace que el PDF del boton", () => {
+  const config = readFileSync(path.join(process.cwd(), "next.config.ts"), "utf8");
+  for (const route of [
+    '"/api/quotes/[id]/premium-pdf"',
+    '"/api/quotes/*/premium-pdf"',
+    '"/api/quotes/[id]/pdf-premium"',
+    '"/api/quotes/*/pdf-premium"',
+  ]) {
+    assert.equal(config.includes(route), true, route);
+  }
+  assert.match(config, /quotePremiumPdfTraceFiles/);
+  assert.match(config, /\.\/public\/logo-print\.png/);
+  assert.match(config, /\.\/node_modules\/@sparticuz\/chromium\/\*\*\/\*/);
 });
