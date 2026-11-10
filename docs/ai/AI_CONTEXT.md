@@ -40,7 +40,7 @@ Ver indice completo en [`MODULE_INDEX.md`](./MODULE_INDEX.md).
 - Timbrado fiscal, CFDI, complementos de pago y credenciales Facturama.
 - Generacion de PDF Premium de cotizaciones y documentos fiscales.
 - Migraciones SQL aplicadas a produccion.
-- Rutas API que exponen archivos, XML, PDF o documentos por token.
+- Rutas API que exponen archivos, XML, PDF o documentos por token. `GET /api/quotes/[id]/pdf-premium` solo devuelve el PDF Premium y exige `QUOTE_PDF_SERVICE_TOKEN` en Production.
 
 ## Filosofia Tecnica
 
