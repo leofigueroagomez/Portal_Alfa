@@ -112,6 +112,16 @@ const nextConfig: NextConfig = {
       "./public/logo-print.png",
       "./node_modules/@sparticuz/chromium/**/*",
     ],
+    // Mismo render para el endpoint con token de servicio. Sin esto la funcion
+    // se despliega sin el logo ni el binario de Chromium y responde 500.
+    "/api/quotes/[id]/pdf-premium": [
+      "./public/logo-print.png",
+      "./node_modules/@sparticuz/chromium/**/*",
+    ],
+    "/api/quotes/*/pdf-premium": [
+      "./public/logo-print.png",
+      "./node_modules/@sparticuz/chromium/**/*",
+    ],
   },
 };
 
