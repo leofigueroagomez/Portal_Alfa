@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --conditions=react-server --test tests/paymentComplements.test.ts tests/quoteLineDiscounts.test.ts tests/partnerBilling.test.ts tests/quotePdfService.test.ts",
+    "test": "tsx --conditions=react-server --test tests/paymentComplements.test.ts tests/quoteLineDiscounts.test.ts tests/partnerBilling.test.ts tests/quotePdfService.test.ts tests/quotePartnerPdfBranding.test.ts",
     "smoke:quote-blinds": "node scripts/smoke-quote-blinds.mjs",
     "test:quote-blinds": "node --experimental-strip-types --test tests/quoteBlinds.test.mjs tests/quoteBlindsPdf.test.mjs tests/quoteBlindsStorage.test.mjs",
     "test:draft-builder": "tsx --conditions=react-server --test lib/quotes/__tests__/draftBuilder.golden.test.ts",
