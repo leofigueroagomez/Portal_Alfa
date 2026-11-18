@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/services/supabaseServer";
 
 type NotificationEventType =
@@ -49,9 +50,9 @@ function normalizePhone(phone: string) {
   return phone.replace(/[^\d+]/g, "");
 }
 
-async function getProjectContext(projectId: number) {
-  const supabase = await createSupabaseServerClient();
-  const { data: project } = await supabase
+async function getProjectContext(projectId: number, supabase?: SupabaseClient) {
+  const db = supabase ?? (await createSupabaseServerClient());
+  const { data: project } = await db
     .from("client_projects")
     .select("id, name, client_id")
     .eq("id", projectId)
@@ -59,7 +60,7 @@ async function getProjectContext(projectId: number) {
 
   const projectData = project as ClientProject | null;
   const { data: client } = projectData?.client_id
-    ? await supabase
+    ? await db
         .from("clients")
         .select("name")
         .eq("id", projectData.client_id)
@@ -113,16 +114,22 @@ async function sendWhatsAppMessage(phone: string, message: string) {
   };
 }
 
-async function notifyInternalUsers(payload: EventPayload) {
-  const supabase = await createSupabaseServerClient();
-  const { projectName, clientName } = await getProjectContext(payload.projectId);
+async function notifyInternalUsers(
+  payload: EventPayload,
+  options?: { supabase?: SupabaseClient; note?: string }
+) {
+  const supabase = options?.supabase ?? (await createSupabaseServerClient());
+  const { projectName, clientName } = await getProjectContext(payload.projectId, supabase);
   const resourceUrl = `${getSiteUrl()}${payload.resourcePath}`;
   const message = [
     payload.title,
     `Cliente: ${clientName}`,
     `Proyecto: ${projectName}`,
     `Link: ${resourceUrl}`,
-  ].join("\n");
+    options?.note || "",
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   const { data: recipients, error: recipientsError } = await supabase
     .from("notification_recipients")
@@ -218,13 +225,20 @@ async function notifyInternalUsers(payload: EventPayload) {
   return { status, message };
 }
 
-export async function notifyQuoteApproved(projectId: number, quoteId: number) {
-  return notifyInternalUsers({
-    eventType: "quote_approved",
-    projectId,
-    title: "Nueva cotizacion aprobada",
-    resourcePath: `/quotes/${quoteId}`,
-  });
+export async function notifyQuoteApproved(
+  projectId: number,
+  quoteId: number,
+  options?: { supabase?: SupabaseClient; note?: string }
+) {
+  return notifyInternalUsers(
+    {
+      eventType: "quote_approved",
+      projectId,
+      title: "Nueva cotizacion aprobada",
+      resourcePath: `/quotes/${quoteId}`,
+    },
+    options
+  );
 }
 
 export async function notifyAuthorizedPlanUploaded(

@@ -21,6 +21,17 @@ Ver [`../modules/agente-whatsapp/MODULE_CONTEXT.md`](../modules/agente-whatsapp/
 - Rate limit en `lib/rateLimit.ts`: 10 solicitudes por minuto por IP y 20 por minuto en total. El render es el de `lib/quotePremiumPdf.ts`. Sin query, el PDF es el formato ALFA. `?branding=partner` usa el mismo resolver que el botón (`resolvePartnerQuotePdfBranding`): exige `is_partner_quote`, lee `commercial_partners` y oculta el descuento del aliado. Otro valor de `branding` responde 400. El token sigue sin aceptarse por query y esta ruta no revisa el rol del botón.
 - Un 401 no distingue "apagado" de "token incorrecto". 400 es un id inválido, un `branding` no soportado o una cotización que no es de aliado. 422 es marca blanca incompleta. 404 es cotización inexistente, 429 es el límite, 500 es fallo de render sin detalle interno.
 
+## Aprobar cotizacion por token de servicio
+
+`POST /api/quotes/[id]/approve` corre `approveQuoteVersion`, la misma secuencia que el botón "Aprobar versión". No es un `update` suelto de `status`.
+
+- El secreto es `QUOTE_APPROVE_SERVICE_TOKEN`, distinto de `QUOTE_PDF_SERVICE_TOKEN`. Comparación en tiempo constante, mínimo 32 caracteres. Si falta, es corto o `VERCEL_ENV` es `preview`/`development`, responde 401 y no escribe.
+- En Vercel va **solo en Production**. Los Preview comparten las credenciales de Supabase de producción.
+- Rate limit: 3 solicitudes por minuto por IP y 6 por minuto en total.
+- Rechaza 409 si ya está aprobada o si `is_latest` es falso. El botón del portal no exige `is_latest` porque Leo está viendo la versión que eligió; el token sí.
+- La sesión del botón guarda `auth.users.id` en `project_operational_items.created_by_user_id`. El bot no tiene usuario: ese campo queda null. La frase `aprobado por bot a petición de Leonardo` se guarda en `notification_events.message`. No se inventa un uuid.
+- `proposeProjectPartnerFromQuote` pregunta con `window.confirm` y en el servidor no cambia el aliado del proyecto. El contrato se crea con la misma función que el botón, sin exigir cookie: el token reemplaza esa autorización. El insert del contrato no guarda actor.
+
 ## Auditoria de seguridad 2026-09-01 (Supabase + rutas API)
 
 Hallazgos y correcciones de una revision completa de RLS/grants en Supabase y de
