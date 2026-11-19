@@ -23,12 +23,13 @@ Tú eliges cliente, productos, cantidades y actividades. La matemática no se im
 | Límite | Razón |
 |---|---|
 | Todo lo que crees queda en `status = 'draft'`. | Leo autoriza. Un borrador no compromete nada. |
-| Nunca apruebes por SQL. La aprobación se hace en el portal, con el "sí" de Leo. | El botón Aprobar también pasa el proyecto a ganado, genera partidas operativas y órdenes de trabajo y manda notificaciones. Un `update status` deja todo eso sin hacer. |
+| Nunca apruebes por SQL ni con `QUOTE_PDF_SERVICE_TOKEN`. | El PDF es de solo lectura. Aprobar usa `POST /api/quotes/<id>/approve` con `QUOTE_APPROVE_SERVICE_TOKEN`, y solo después del "sí" de Leo. Ese endpoint corre la misma secuencia que el botón. |
 | Nunca timbres, canceles, envíes correos al cliente ni marques pagos sin el "sí" explícito de Leo en ese momento. | Un CFDI timbrado es fiscal e irreversible: solo se corrige cancelándolo. |
 | No modifiques por SQL cotizaciones aprobadas ni facturas timbradas. | Compras y operación cuelgan de sus partidas; editarlas a mano duplicó cantidades en Compras (proyecto 48). Si hay que cambiar una aprobada, se crea una versión nueva desde el portal. |
 | No toques esquema, RLS, políticas de storage ni credenciales. | Fuera de tu alcance; requieren sandbox, respaldo y la confirmación de Leo. |
 | No escribas contraseñas ni llaves. Si el portal pide sesión, pídele a Leo que entre. | |
 | `QUOTE_PDF_SERVICE_TOKEN` solo baja el PDF Premium. | No autoriza SQL, aprobar, facturar ni leer otros datos. No lo pegues en el chat ni en la URL. |
+| `QUOTE_APPROVE_SERVICE_TOKEN` solo aprueba la última versión de una cotización. | No baja PDFs, no timbra y no sirve en Preview. No lo pegues en el chat ni en la URL. |
 | Si un dato no lo confirmó Leo ni el catálogo, dilo como supuesto. No lo presentes como hecho. | Leo decide con lo que le reportas. |
 
 ## 3. Entorno
@@ -464,7 +465,32 @@ Si Leo guarda el borrador desde el editor del portal, el portal recalcula todo a
 
 Todo esto ocurre en el portal, con la sesión de Leo y su "sí" en cada paso:
 
-1. **Aprobar:** `/quotes/<id>` → "Aprobar versión". Debe quedar `quotes.status = 'approved'` y `client_projects.sales_stage = 'won'`.
+1. **Aprobar**, solo con el "sí" de Leo en ese momento. No uses el token del PDF. El comando no lleva el valor del token:
+
+```bash
+QUOTE_ID=261
+curl --fail-with-body --silent --show-error \
+  --request POST \
+  --header "Authorization: Bearer ${QUOTE_APPROVE_SERVICE_TOKEN}" \
+  --header "Content-Type: application/json" \
+  --write-out "\nHTTP %{http_code}\n" \
+  "https://portal.alfait.com.mx/api/quotes/${QUOTE_ID}/approve"
+```
+
+Debe quedar `quotes.status = 'approved'` y, si hay proyecto, `client_projects.sales_stage = 'won'`. El cuerpo de éxito es `{ "ok": true, "quoteId": 261, "status": "approved", "warnings": [] }`. `warnings` avisa si falló la sincronización, una orden de trabajo, el contrato o el aviso; la cotización ya quedó aprobada y no hay que volver a llamarlo.
+
+| HTTP | JSON `error` | Qué hacer |
+|---|---|---|
+| 401 | `Unauthorized` | El token no está, no coincide, es corto, o el deploy no es Production. El token del PDF no sirve. |
+| 400 | `Bad Request` | El id no es un entero positivo. |
+| 400 | `Quote has no group` | La cotización no tiene folio. No la apruebes a mano. |
+| 404 | `Not Found` | No existe ese id. |
+| 409 | `Already approved` | Ya está aprobada. No reintentes. |
+| 409 | `Not the latest version` | No es la última versión del folio. Aprueba la vigente. |
+| 429 | `Too Many Requests` | Más de 3 por minuto desde la misma IP, o más de 6 en total. Espera un minuto. |
+| 500 | `Unable to process request` | Falló a mitad de camino. Avísale a Leo con el `requestId`. No reintentes en bucle: puede haber quedado aprobada. |
+
+El botón, cuando lo usa Leo en el portal, guarda su usuario en las partidas operativas. Este comando no tiene sesión: ese campo queda vacío y la nota `aprobado por bot a petición de Leonardo` queda en `notification_events`. El aliado del proyecto no se cambia solo: el botón se lo pregunta a Leo en el navegador y aquí no hay a quién preguntarle.
 2. **Factura:** `/projects/<proyecto>/invoices` → "Nueva factura" → origen "Cotización aprobada completa". Confirma método de pago (PUE o PPD), forma de pago (03 transferencia por defecto) y uso de CFDI. "Crear borrador" no timbra.
 3. **Antes de timbrar**, enséñale a Leo receptor, concepto, clave SAT y totales, y espera su "sí".
 4. **Timbrar** y verificar `project_invoices.status = 'issued'` y `sat_uuid`.

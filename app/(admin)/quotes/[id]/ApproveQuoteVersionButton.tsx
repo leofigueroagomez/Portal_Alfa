@@ -2,11 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { syncProjectOperationalItems } from "@/lib/projectOperationalItems";
 import { supabase } from "@/services/supabase";
 import { createOrGetProjectContractAction } from "@/app/(admin)/projects/[id]/contract/actions";
-import { generateProjectSpecializedWorkOrders } from "@/lib/workOrdersAutomation";
-import { proposeProjectPartnerFromQuote } from "@/lib/partnerBilling";
+import { approveQuoteVersion } from "@/lib/quoteApproval";
 
 type Props = {
   quoteId: number;
@@ -54,99 +52,36 @@ export default function ApproveQuoteVersionButton({
 
     setApproving(true);
 
-    const { error: archiveError } = await supabase
-      .from("quotes")
-      .update({ status: "archived" })
-      .eq("quote_group_id", quoteGroupId)
-      .eq("status", "approved")
-      .neq("id", quoteId);
+    const result = await approveQuoteVersion(supabase, {
+      quoteId,
+      quoteGroupId,
+      clientProjectId,
+      commercialPartnerId,
+      commercialPartnerName,
+      requireLatest: false,
+      resolveActorUserId: async () => {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        return user?.id || null;
+      },
+      createContract: (id) => createOrGetProjectContractAction(id),
+      notify: (projectId, approvedQuoteId) => {
+        fetch("/api/notifications/quote-approved", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ projectId, quoteId: approvedQuoteId }),
+        }).catch((error) => {
+          console.error("Error enviando notificacion de cotizacion:", error);
+        });
+      },
+    });
 
-    if (archiveError) {
-      reportStepError("archivar otras versiones aprobadas", archiveError);
+    if (!result.ok) {
+      if (result.step) reportStepError(result.step, result.error);
+      else alert("Esta versión ya estaba aprobada.");
       setApproving(false);
       return;
-    }
-
-    const { error: approveQuoteError } = await supabase
-      .from("quotes")
-      .update({ status: "approved" })
-      .eq("id", quoteId);
-
-    if (approveQuoteError) {
-      reportStepError("aprobar quote", approveQuoteError);
-      setApproving(false);
-      return;
-    }
-
-    const { error: approveGroupError } = await supabase
-      .from("quote_groups")
-      .update({ approved_quote_id: quoteId })
-      .eq("id", quoteGroupId);
-
-    if (approveGroupError) {
-      reportStepError("actualizar quote_groups.approved_quote_id", approveGroupError);
-      setApproving(false);
-      return;
-    }
-
-    if (clientProjectId) {
-      const { error: projectStageError } = await supabase
-        .from("client_projects")
-        .update({ sales_stage: "won" })
-        .eq("id", clientProjectId);
-
-      if (projectStageError) {
-        reportStepError("actualizar etapa de oportunidad a ganado", projectStageError);
-        setApproving(false);
-        return;
-      }
-
-      // Proponer heredar el aliado de la cotizacion al proyecto (facturar al aliado).
-      // No bloquea la aprobacion si falla o si la migracion aun no esta aplicada.
-      if (commercialPartnerId) {
-        try {
-          await proposeProjectPartnerFromQuote(
-            supabase,
-            clientProjectId,
-            commercialPartnerId,
-            commercialPartnerName
-          );
-        } catch (partnerError) {
-          console.warn("No se pudo proponer el aliado del proyecto:", partnerError);
-        }
-      }
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      try {
-        await syncProjectOperationalItems(supabase, clientProjectId, user?.id || null);
-      } catch (syncError) {
-        console.warn("No se pudo sincronizar base operativa al aprobar:", syncError);
-      }
-
-      // Generar automáticamente las 3 Órdenes de Trabajo especializadas (Cableado, Instalaciones, Configuraciones)
-      try {
-        await generateProjectSpecializedWorkOrders(supabase, clientProjectId, quoteId);
-      } catch (odtError) {
-        console.warn("No se pudieron generar ODTs automáticas al aprobar:", odtError);
-      }
-
-      fetch("/api/notifications/quote-approved", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId: clientProjectId, quoteId }),
-      }).catch((error) => {
-        console.error("Error enviando notificacion de cotizacion:", error);
-      });
-    }
-
-    // Generar automáticamente el contrato del proyecto para formalización inmediata
-    try {
-      await createOrGetProjectContractAction(quoteId);
-    } catch (contractError) {
-      console.warn("No se pudo generar contrato automático al aprobar:", contractError);
     }
 
     router.refresh();

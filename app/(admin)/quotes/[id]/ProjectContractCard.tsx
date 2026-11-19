@@ -56,7 +56,7 @@ export default function ProjectContractCard({
         setContract(ctx.contract);
         setDispatchContext(ctx);
       } else {
-        alert(res.error || "No se pudo generar el contrato.");
+        alert(("error" in res && res.error) || "No se pudo generar el contrato.");
       }
     });
   }
