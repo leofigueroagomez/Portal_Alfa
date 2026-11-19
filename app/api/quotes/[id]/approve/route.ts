@@ -1,4 +1,8 @@
-import { QUOTE_APPROVAL_BOT_NOTE, approveQuoteVersion } from "@/lib/quoteApproval";
+import {
+  QUOTE_APPROVAL_BOT_NOTE,
+  approvalConflictAfterMiss,
+  approveQuoteVersion,
+} from "@/lib/quoteApproval";
 import {
   QUOTE_APPROVE_SERVICE_GLOBAL_LIMIT,
   QUOTE_APPROVE_SERVICE_GLOBAL_RATE_KEY,
@@ -115,24 +119,30 @@ export async function POST(
         }),
     });
 
-    if (!result.ok && !result.claimed) {
-      const { data: again } = await supabase
-        .from("quotes")
-        .select("status, is_latest")
-        .eq("id", quoteId)
-        .maybeSingle<{ status: string | null; is_latest: boolean | null }>();
-      if (again?.status === "approved") return json({ error: "Already approved" }, 409);
-      if (again?.is_latest === false) return json({ error: "Not the latest version" }, 409);
-      return json({ error: "Already approved" }, 409);
-    }
-
-    if (!result.ok) {
+    if (!result.ok && result.step) {
       const requestId = crypto.randomUUID();
       console.error(
         `[api:${requestId}] quote approve failed for quote ${quoteId} at ${result.step}`,
         result.error
       );
       return json({ error: "Unable to process request", requestId }, 500);
+    }
+
+    if (!result.ok) {
+      const { data: again } = await supabase
+        .from("quotes")
+        .select("status, is_latest")
+        .eq("id", quoteId)
+        .maybeSingle<{ status: string | null; is_latest: boolean | null }>();
+      const conflict = approvalConflictAfterMiss(again ?? null);
+      if (conflict.status === 500) {
+        const requestId = crypto.randomUUID();
+        console.error(
+          `[api:${requestId}] quote approve claim missed for quote ${quoteId} without a status conflict`
+        );
+        return json({ error: conflict.error, requestId }, 500);
+      }
+      return json({ error: conflict.error }, conflict.status);
     }
 
     const { error: auditError } = await supabase.from("notification_events").insert({

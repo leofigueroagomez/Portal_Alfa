@@ -5,6 +5,7 @@ import test from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   QUOTE_APPROVAL_BOT_NOTE,
+  approvalConflictAfterMiss,
   approveQuoteVersion,
 } from "../lib/quoteApproval";
 import {
@@ -59,10 +60,19 @@ test("el token de aprobacion es distinto, largo y solo de Production", () => {
   assert.equal(QUOTE_APPROVE_SERVICE_IP_LIMIT < 10, true);
 });
 
-type Filter = ["eq" | "neq", string, unknown];
+type Filter = ["eq" | "neq" | "or", string, unknown];
 
-function approvalClient(options?: { alreadyApproved?: boolean; latest?: boolean }) {
-  let status = options?.alreadyApproved ? "approved" : "draft";
+function approvalClient(options?: {
+  alreadyApproved?: boolean;
+  status?: string | null;
+  latest?: boolean;
+  archiveError?: boolean;
+}) {
+  let status = options?.status === undefined
+    ? options?.alreadyApproved
+      ? "approved"
+      : "draft"
+    : options.status;
   const latest = options?.latest ?? true;
   const calls: string[] = [];
   const syncs: Array<string | null> = [];
@@ -78,21 +88,34 @@ function approvalClient(options?: { alreadyApproved?: boolean; latest?: boolean 
         filters.push(["neq", column, value]);
         return api;
       },
+      or(filter: string) {
+        filters.push(["or", "or", filter]);
+        return api;
+      },
       select: async () => {
         calls.push(`claim:${JSON.stringify(filters)}`);
         const requiresLatest = filters.some(([op, column]) => op === "eq" && column === "is_latest");
-        const blocksApproved = filters.some(
-          ([op, column, value]) => op === "neq" && column === "status" && value === "approved"
+        const acceptsOpenStatus = filters.some(
+          ([op, , value]) => op === "or" && String(value).includes("status.is.null")
         );
-        if (table === "quotes" && blocksApproved && status !== "approved" && (!requiresLatest || latest)) {
+        const open = status === null || status !== "approved";
+        if (
+          table === "quotes" &&
+          acceptsOpenStatus &&
+          open &&
+          (!requiresLatest || latest)
+        ) {
           status = "approved";
           return { data: [{ id: 10 }], error: null };
         }
         return { data: [], error: null };
       },
-      then(resolve: (value: { error: null }) => unknown, reject?: (reason: unknown) => unknown) {
+      then(resolve: (value: { error: { message: string } | null }) => unknown, reject?: (reason: unknown) => unknown) {
         calls.push(`update:${table}:${Object.keys(payload).join(",")}`);
-        return Promise.resolve({ error: null }).then(resolve, reject);
+        const error = options?.archiveError && payload.status === "archived"
+          ? { message: "archive failed" }
+          : null;
+        return Promise.resolve({ error }).then(resolve, reject);
       },
     };
     return api;
@@ -174,7 +197,10 @@ test("la aprobacion reclama una sola vez y no llama compras si pierde", async ()
   assert.deepEqual(orders, [10]);
   assert.equal(contracts, 1);
   assert.equal(db.calls.some((call) => call.includes('"is_latest"')), true);
-  assert.equal(db.calls.some((call) => call.includes('"approved"')), true);
+  assert.equal(db.calls.some((call) => call.includes("status.is.null")), true);
+  const claimAt = db.calls.findIndex((call) => call.startsWith("claim:"));
+  const archiveAt = db.calls.findIndex((call) => call.includes("update:quotes:status") && call.includes("status"));
+  assert.equal(claimAt >= 0 && archiveAt > claimAt, true);
 });
 
 test("sin exigir ultima version el boton no filtra is_latest", async () => {
@@ -216,4 +242,66 @@ test("la ruta no usa el token del PDF y deja el actor en null", () => {
   assert.match(button, /requireLatest: false/);
   assert.equal(button.includes(".update("), false);
   assert.equal(QUOTE_APPROVAL_BOT_NOTE, "aprobado por bot a petición de Leonardo");
+});
+
+test("un status nulo se puede aprobar y un fallo al archivar no es un 409", async () => {
+  const db = approvalClient({ status: null });
+  const result = await approveQuoteVersion(
+    db.client,
+    { ...baseInput, requireLatest: true },
+    {
+      syncProjectOperationalItems: async () => ({
+        inserted: 0, skipped: 0, approvedQuotes: 1, activitiesInserted: 0, activitiesSkipped: 0,
+      }),
+      generateProjectSpecializedWorkOrders: async () => ({ ok: true, generatedOrders: [] }),
+      proposeProjectPartnerFromQuote: async () => false,
+    }
+  );
+  assert.equal(result.ok, true);
+  assert.equal(db.status, "approved");
+
+  const archived = approvalClient({ archiveError: true });
+  const failedArchive = await approveQuoteVersion(
+    archived.client,
+    { ...baseInput, clientProjectId: null, requireLatest: true },
+    {
+      syncProjectOperationalItems: async () => {
+        throw new Error("no debio sincronizar");
+      },
+      generateProjectSpecializedWorkOrders: async () => ({ ok: true, generatedOrders: [] }),
+      proposeProjectPartnerFromQuote: async () => false,
+    }
+  );
+  assert.equal(failedArchive.ok, false);
+  if (!failedArchive.ok) {
+    assert.equal(failedArchive.claimed, true);
+    assert.equal(failedArchive.step, "archivar otras versiones aprobadas");
+  }
+
+  const stale = approvalClient({ latest: false });
+  await approveQuoteVersion(
+    stale.client,
+    { ...baseInput, requireLatest: true },
+    {
+      syncProjectOperationalItems: async () => {
+        throw new Error("no debio sincronizar");
+      },
+      generateProjectSpecializedWorkOrders: async () => ({ ok: true, generatedOrders: [] }),
+      proposeProjectPartnerFromQuote: async () => false,
+    }
+  );
+  assert.equal(stale.calls.some((call) => call.startsWith("update:")), false);
+
+  assert.deepEqual(approvalConflictAfterMiss({ status: "approved", is_latest: true }), {
+    status: 409,
+    error: "Already approved",
+  });
+  assert.deepEqual(approvalConflictAfterMiss({ status: "draft", is_latest: false }), {
+    status: 409,
+    error: "Not the latest version",
+  });
+  assert.deepEqual(approvalConflictAfterMiss({ status: null, is_latest: true }), {
+    status: 500,
+    error: "Unable to process request",
+  });
 });

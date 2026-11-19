@@ -16,6 +16,14 @@ import { generateProjectSpecializedWorkOrders } from "@/lib/workOrdersAutomation
 
 export const QUOTE_APPROVAL_BOT_NOTE = "aprobado por bot a petición de Leonardo";
 
+export function approvalConflictAfterMiss(
+  row: { status: string | null; is_latest: boolean | null } | null
+): { status: 409; error: "Already approved" | "Not the latest version" } | { status: 500; error: "Unable to process request" } {
+  if (row?.status === "approved") return { status: 409, error: "Already approved" };
+  if (row?.is_latest === false) return { status: 409, error: "Not the latest version" };
+  return { status: 500, error: "Unable to process request" };
+}
+
 export type ApproveQuoteVersionResult =
   | { ok: true; claimed: true; warnings: string[] }
   | { ok: false; claimed: false; step?: undefined; error?: undefined }
@@ -51,27 +59,13 @@ export async function approveQuoteVersion(
   const warnings: string[] = [];
   const { quoteId, quoteGroupId } = input;
 
-  const { error: archiveError } = await supabase
-    .from("quotes")
-    .update({ status: "archived" })
-    .eq("quote_group_id", quoteGroupId)
-    .eq("status", "approved")
-    .neq("id", quoteId);
-
-  if (archiveError) {
-    return {
-      ok: false,
-      claimed: false,
-      step: "archivar otras versiones aprobadas",
-      error: archiveError,
-    };
-  }
-
+  // status nulo no cumple `neq approved` en Postgres. El OR lo incluye.
+  // Se reclama antes de archivar: si la versión ya no es la última, no se toca la aprobada anterior.
   let claim = supabase
     .from("quotes")
     .update({ status: "approved" })
     .eq("id", quoteId)
-    .neq("status", "approved");
+    .or("status.is.null,status.neq.approved");
 
   if (input.requireLatest) {
     claim = claim.eq("is_latest", true);
@@ -85,6 +79,22 @@ export async function approveQuoteVersion(
 
   if (!claimedRows?.length) {
     return { ok: false, claimed: false };
+  }
+
+  const { error: archiveError } = await supabase
+    .from("quotes")
+    .update({ status: "archived" })
+    .eq("quote_group_id", quoteGroupId)
+    .eq("status", "approved")
+    .neq("id", quoteId);
+
+  if (archiveError) {
+    return {
+      ok: false,
+      claimed: true,
+      step: "archivar otras versiones aprobadas",
+      error: archiveError,
+    };
   }
 
   const { error: approveGroupError } = await supabase
