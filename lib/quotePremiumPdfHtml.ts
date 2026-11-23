@@ -3,6 +3,7 @@ import "server-only";
 import fs from "node:fs";
 import path from "node:path";
 import { formatCurrency, formatNumber } from "@/lib/format";
+import { equipmentAdvanceUsd } from "@/lib/quoteEquipmentAdvance";
 import {
   CLIENT_EXISTING_SUPPLY_TYPE,
   getQuoteItemAreaBreakdown,
@@ -69,7 +70,11 @@ function buildTermsList(snapshot: QuotePdfSnapshot) {
     terms.payment100Advance
       ? "Anticipo: 100% del total de la propuesta."
       : `Anticipo de equipos: ${formatCurrency(
-          snapshot.totals.equipmentTotalUsd,
+          equipmentAdvanceUsd({
+            equipmentTotalUsd: snapshot.totals.equipmentTotalUsd,
+            discountMxn: snapshot.totals.discountMxn,
+            exchangeRate: snapshot.exchangeRate.quoted,
+          }),
           "USD"
         )}. Mano de obra conforme a condiciones comerciales acordadas.`,
     "Todos los precios de equipos estan expresados en USD y la mano de obra en MXN.",

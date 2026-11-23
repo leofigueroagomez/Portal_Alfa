@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { quotedExchangeRate } from "@/lib/quoteEquipmentAdvance";
 import { isMissingDiagnosticContextSchema } from "@/lib/quoteDiagnosticContext";
 import {
   CLIENT_EXISTING_SUPPLY_TYPE,
@@ -36,6 +37,8 @@ export type QuotePdfSnapshot = {
   };
   exchangeRate: {
     value: number;
+    /** Tipo de cambio guardado. Null si la cotización no trae uno válido. `value` usa 1 en ese caso. */
+    quoted: number | null;
     source: string | null;
     date: string | null;
   };
@@ -599,7 +602,8 @@ export async function getQuotePdfSnapshot(
         .returns<LaborActivityRow[]>()
     : { data: [] };
 
-  const exchangeRate = toNumber(quote.exchange_rate) || 1;
+  const quotedRate = quotedExchangeRate(quote.exchange_rate);
+  const exchangeRate = quotedRate ?? 1;
   const areaAllocationsByItemId = new Map<number, QuoteItemAreaAllocation[]>();
   for (const allocation of areaAllocations) {
     const current = areaAllocationsByItemId.get(allocation.quote_item_id) || [];
@@ -840,6 +844,7 @@ export async function getQuotePdfSnapshot(
     },
     exchangeRate: {
       value: exchangeRate,
+      quoted: quotedRate,
       source: quote.exchange_rate_source,
       date: quote.exchange_rate_date,
     },
