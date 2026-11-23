@@ -73,7 +73,7 @@ function buildTermsList(snapshot: QuotePdfSnapshot) {
           equipmentAdvanceUsd({
             equipmentTotalUsd: snapshot.totals.equipmentTotalUsd,
             discountMxn: snapshot.totals.discountMxn,
-            exchangeRate: snapshot.exchangeRate.value,
+            exchangeRate: snapshot.exchangeRate.quoted,
           }),
           "USD"
         )}. Mano de obra conforme a condiciones comerciales acordadas.`,

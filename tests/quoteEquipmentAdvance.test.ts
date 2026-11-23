@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { formatCurrency } from "../lib/format";
-import { equipmentAdvanceUsd } from "../lib/quoteEquipmentAdvance";
+import { equipmentAdvanceUsd, quotedExchangeRate } from "../lib/quoteEquipmentAdvance";
 
 // Lectura de producción, 2026-11-23, cotizaciones en borrador.
 // ALFA-0214-V1 y ALFA-0215-V1 comparten lista y tipo de cambio.
@@ -62,6 +62,20 @@ test("sin descuento o sin tipo de cambio el anticipo queda en precio de lista", 
     }),
     listUsd
   );
+});
+
+test("un tipo de cambio vacío no se convierte en 1 para restar el descuento", () => {
+  assert.equal(quotedExchangeRate(null), null);
+  assert.equal(quotedExchangeRate(0), null);
+  assert.equal(quotedExchangeRate(""), null);
+  assert.equal(quotedExchangeRate(19.113379), 19.113379);
+
+  const advance = equipmentAdvanceUsd({
+    equipmentTotalUsd: listUsd,
+    discountMxn: 31910.74,
+    exchangeRate: quotedExchangeRate(null),
+  });
+  assert.equal(formatCurrency(advance, "USD"), "USD 16,781.70");
 });
 
 test("el anticipo no baja de cero y no recibe el descuento de aliado", () => {
