@@ -50,6 +50,17 @@ export interface BlogSection {
   };
 }
 
+/** Bloque de llamada a la accion dentro de un articulo. */
+export interface BlogCta {
+  eyebrow: string;
+  title: string;
+  text: string;
+  /** Texto del boton. */
+  label: string;
+  /** Liga interna. Si se omite, el boton abre WhatsApp con `whatsappQuoteMessage`. */
+  href?: string;
+}
+
 export interface BlogPost {
   slug: string;
   title: string;
@@ -69,12 +80,26 @@ export interface BlogPost {
   author: BlogAuthor;
   aiEditorialDisclosure: BlogAiDisclosure;
   whatsappQuoteMessage: string;
+  /** Producto o tema del articulo: va en el JSON-LD (`about`). */
+  topicName: string;
+  /** Recuadro sobre la portada en el articulo destacado de `/blog`. */
+  spotlight: { title: string; text: string };
+  /** Titulo del recuadro de datos al inicio del articulo. */
+  quickSpecsTitle: string;
+  /** Titulo de la tabla completa de datos. Si se omite, la tabla no se muestra. */
+  fullSpecsTitle?: string;
   technicalSpecs: { label: string; value: string }[];
   tableOfContents: { id: string; title: string }[];
   sections: BlogSection[];
   faq: BlogFaqItem[];
+  /** Llamada a media lectura, tarjeta lateral y cierre del articulo. */
+  midCta: BlogCta;
+  sidebarCta: BlogCta;
+  closingCta: BlogCta;
   relatedSolutionHref?: string;
   relatedSolutionLabel?: string;
+  /** Texto del boton de cierre hacia la solucion relacionada. */
+  relatedSolutionCta?: string;
 }
 
 export interface BlogCategory {
@@ -111,7 +136,276 @@ export const BLOG_CATEGORIES: BlogCategory[] = [
   },
 ];
 
+// El primer articulo de la lista es el destacado de `/blog`.
 export const STATIC_BLOG_POSTS: BlogPost[] = [
+  {
+    slug: "simulador-de-audio-cuantas-bocinas-necesita-tu-espacio",
+    title: "Nuevo: Simulador de Audio de ALFA. Diseña el sonido de tu espacio antes de comprar una sola bocina",
+    subtitle:
+      "Cuéntanos qué quieres escuchar y en dónde. El simulador te propone los equipos, te dice cuántas bocinas son, dónde van y qué tan fuerte se va a oír, sobre tus medidas o sobre tu plano.",
+    metaDescription:
+      "Simulador de audio en línea de ALFA: responde unas preguntas, sube tu plano o pon tus medidas y descubre cuántas bocinas necesita tu espacio, dónde van y qué tan fuerte se escucha. Con KEF, Bowers & Wilkins, Bose y Sonos.",
+    excerpt:
+      "¿Cuántas bocinas necesito? ¿De plafón o inalámbricas? ¿Y la televisión? El nuevo Simulador de Audio de ALFA responde esas preguntas en minutos, con los mismos equipos que instalamos.",
+    category: "Audio & Video Hi-Fi",
+    categorySlug: "audio-video",
+    tags: [
+      "Simulador de Audio",
+      "Bocinas de plafón",
+      "Cine en casa",
+      "Sonos",
+      "KEF",
+      "Bowers & Wilkins",
+      "Audio residencial",
+    ],
+    publishedAt: "2026-11-23",
+    publishedAtFormatted: "23 de Noviembre, 2026",
+    readTime: "5 min de lectura",
+    coverImage: "/simulador/capturas/simulador-plano.jpg",
+    coverImageAlt:
+      "Simulador de Audio de ALFA mostrando una cocina de 5 por 4 metros con cuatro bocinas de plafón y su huella de cobertura",
+    coverImageCaption:
+      "El Simulador de Audio de ALFA: cuatro bocinas de plafón y la cobertura de cada una sobre el espacio.",
+    author: {
+      name: "Ing. Leonardo Figueroa",
+      role: "Director de Ingeniería e Integración | ALFA High End Services",
+    },
+    aiEditorialDisclosure: {
+      isAiAssisted: true,
+      reviewedBy: "Equipo de Ingeniería de Audio y Video de ALFA",
+      role: "Validación del funcionamiento del simulador y de los equipos que propone",
+      summary:
+        "Este artículo fue redactado con asistencia de Inteligencia Artificial y revisado por el equipo de ALFA High End Services antes de publicarse.",
+      guidelinesNote:
+        "Cumpliendo con los estándares de calidad E-E-A-T de Google Search Central, transparentamos el uso de herramientas de IA en la redacción, con respaldo y revisión profesional.",
+    },
+    whatsappQuoteMessage:
+      "Hola ALFA, leí su artículo sobre el Simulador de Audio y me interesa una asesoría para sonorizar mi espacio.",
+    topicName: "Simulador de Audio de ALFA",
+    spotlight: {
+      title: "Simulador de Audio",
+      text: "Preguntas guiadas · Tus medidas o tu plano · Cobertura y volumen",
+    },
+    quickSpecsTitle: "En resumen · Simulador de Audio",
+    midCta: {
+      eyebrow: "Pruébalo ahora",
+      title: "Arma el sonido de tu espacio en unos minutos",
+      text: "Contesta unas preguntas y recibe una solución inicial. Después afínala con tus medidas o con tu plano.",
+      label: "Abrir el simulador",
+      href: "/simulador-audio",
+    },
+    sidebarCta: {
+      eyebrow: "Nuevo",
+      title: "Simulador de Audio",
+      text: "Contesta unas preguntas y recibe una solución inicial con los equipos que instalamos.",
+      label: "Abrir el simulador",
+      href: "/simulador-audio",
+    },
+    closingCta: {
+      eyebrow: "Audio y video ALFA",
+      title: "Del simulador a tu casa",
+      text: "Cuando tengas tu diseño, un asesor de ALFA lo revisa contigo, lo ajusta en sitio y se encarga del suministro, la instalación y la calibración del sistema.",
+      label: "Abrir el simulador",
+      href: "/simulador-audio",
+    },
+    technicalSpecs: [
+      { label: "Costo", value: "Sin costo" },
+      { label: "Acceso", value: "Registro con nombre, correo y teléfono; se verifica el correo" },
+      { label: "Qué necesitas", value: "Las medidas del espacio o tu plano en PDF, JPG o PNG" },
+      { label: "Qué obtienes", value: "Cuántas bocinas son, dónde van, qué tan fuerte se escucha y la lista de equipos" },
+      { label: "Marcas", value: "KEF, Bowers & Wilkins, Bose y Sonos" },
+      { label: "Siguiente paso", value: "Pedir tu propuesta a un asesor de ALFA desde el mismo simulador" },
+    ],
+    tableOfContents: [
+      { id: "por-que", title: "Por qué hicimos un simulador" },
+      { id: "como-funciona", title: "Cómo funciona, en tres pasos" },
+      { id: "television", title: "Si hay televisión: barra de sonido y cine en casa" },
+      { id: "plano", title: "Sobre tus medidas o sobre tu plano" },
+      { id: "volumen", title: "¿Qué tan fuerte se va a escuchar?" },
+      { id: "equipos", title: "Con los equipos que sí instalamos" },
+      { id: "alcance", title: "Lo que el simulador no hace" },
+      { id: "empezar", title: "Cómo empezar" },
+    ],
+    sections: [
+      {
+        id: "por-que",
+        title: "Por qué hicimos un simulador",
+        content: [
+          "Casi todos los proyectos de audio empiezan con las mismas preguntas: ¿cuántas bocinas necesito?, ¿van en el techo o en la pared?, ¿se va a escuchar parejo en toda la sala?, ¿y qué hago con la televisión?",
+          "Hasta ahora, para contestarlas había que agendar una visita. Con el Simulador de Audio de ALFA puedes tener una primera respuesta en minutos, desde tu computadora o tu celular, y llegar a la plática con un asesor sabiendo ya qué quieres.",
+          "No es un catálogo ni un cotizador automático. Es la misma lógica con la que diseñamos un sistema, puesta en una herramienta que cualquier persona puede usar.",
+        ],
+        callout: {
+          type: "highlight",
+          title: "La idea",
+          text: "Que veas tu sistema antes de comprarlo: los equipos, dónde va cada bocina y cómo se va a escuchar.",
+        },
+      },
+      {
+        id: "como-funciona",
+        title: "Cómo funciona, en tres pasos",
+        content: [
+          "El simulador empieza por lo que tú quieres, no por los equipos. Primero pregunta, después propone y al final te deja afinar.",
+        ],
+        subsections: [
+          {
+            subtitle: "1. Cuéntanos qué quieres",
+            text: "Elige el espacio (sala, recámara, cocina, terraza, oficina o negocio), dinos si hay televisión, para qué lo vas a usar y si el espacio está en obra o ya está terminado. Son unas cuantas preguntas, con un clic cada una.",
+          },
+          {
+            subtitle: "2. Recibe una solución inicial",
+            text: "Con tus respuestas, el simulador arma una propuesta por espacio: qué equipos van, cuántas piezas y por qué. Puedes agregar todos los espacios de tu casa, uno por uno.",
+          },
+          {
+            subtitle: "3. Afínala en el simulador",
+            text: "Abre el simulador con las bocinas ya elegidas. Pon las medidas o sube tu plano y verás cuántas bocinas son, dónde van, cuánta área cubren y qué tan fuerte se escucha. Puedes moverlas, cambiar de modelo y comparar.",
+          },
+        ],
+        image: {
+          src: "/simulador/capturas/asistente-solucion.jpg",
+          alt: "Solución inicial del Simulador de Audio de ALFA: cine en casa con Sonos Arc Ultra, Sub 4 y dos Era 300 para la sala, y bocinas KEF de plafón para la cocina",
+          caption:
+            "La solución inicial: una tarjeta por espacio, con los equipos y la razón de cada decisión.",
+          fit: "contain",
+          aspect: "4/3",
+        },
+      },
+      {
+        id: "television",
+        title: "Si hay televisión: barra de sonido y cine en casa",
+        content: [
+          "Cuando en el espacio hay una televisión, el sonido de la tele y la música pueden ser el mismo sistema. El simulador te pregunta qué tanto quieres:",
+        ],
+        bullets: [
+          "Que se oiga mejor: una barra de sonido bajo la televisión, con voces claras y sin complicaciones.",
+          "Cine en casa: la barra, un subwoofer para los graves y dos bocinas atrás que te envuelven en las películas.",
+          "Tú eliges dónde van las bocinas de atrás: empotradas en el techo, sobrepuestas en el muro o inalámbricas sobre un mueble.",
+          "Si el espacio ya está terminado y prefieres no abrir techos ni muros, la propuesta se va por equipos inalámbricos.",
+        ],
+      },
+      {
+        id: "plano",
+        title: "Sobre tus medidas o sobre tu plano",
+        content: [
+          "Hay dos formas de trabajar. La rápida es poner el ancho, el largo y la altura del plafón de cada espacio. La completa es subir tu plano en PDF, JPG o PNG, marcar una medida conocida para darle escala y dibujar el contorno de cada área.",
+          "En los dos casos el simulador reparte las bocinas, dibuja la zona que cubre cada una y calcula qué porcentaje del espacio queda cubierto. Si mueves una bocina, el cálculo se actualiza al momento.",
+          "Tu plano no se sube a ningún servidor: se queda en tu navegador mientras lo usas.",
+        ],
+        image: {
+          src: "/simulador/capturas/simulador-plano.jpg",
+          alt: "Vista de planta del simulador con cuatro bocinas KEF de plafón y sus círculos de cobertura sobre un espacio de 5 por 4 metros",
+          caption:
+            "Cada círculo es la zona que cubre una bocina. Donde se enciman, el sonido es más parejo.",
+          fit: "cover",
+          aspect: "3/2",
+        },
+        callout: {
+          type: "tip",
+          title: "Las bocinas van en pares",
+          text: "En una casa la música es estéreo: canal izquierdo y canal derecho. Por eso el simulador siempre propone las bocinas en pares.",
+        },
+      },
+      {
+        id: "volumen",
+        title: "¿Qué tan fuerte se va a escuchar?",
+        content: [
+          "Nadie piensa en decibeles cuando imagina su sala. Por eso el simulador no te pide un número: te pide un ambiente.",
+        ],
+        table: {
+          caption: "Los tres ambientes del simulador",
+          headers: ["Ambiente", "Cómo se siente"],
+          rows: [
+            ["Ambiental", "Música de fondo. Se platica sin alzar la voz."],
+            ["Convivencia", "La música está presente. Para platicar hay que acercarse."],
+            ["Fiesta", "La música manda. Hay que alzar la voz para platicar."],
+          ],
+        },
+        image: {
+          src: "/simulador/capturas/simulador-volumen.jpg",
+          alt: "Mapa de volumen del simulador y medidor que indica que el sistema alcanza el ambiente de convivencia con margen",
+          caption:
+            "El mapa de volumen muestra dónde se escucha más fuerte, y el medidor te dice si tu sistema alcanza el ambiente que elegiste.",
+          fit: "contain",
+          aspect: "1/1",
+        },
+      },
+      {
+        id: "equipos",
+        title: "Con los equipos que sí instalamos",
+        content: [
+          "El simulador no propone marcas al azar. Trabaja con los equipos que ALFA instala todos los días, y muestra la foto de cada uno para que sepas cómo se va a ver en tu casa:",
+        ],
+        bullets: [
+          "Bocinas de plafón KEF y Bose: quedan empotradas en el techo y casi no se ven.",
+          "Bocinas de muro Bowers & Wilkins: sobrepuestas, para terrazas y exteriores.",
+          "Bocinas inalámbricas Sonos Era: sin obra, solo necesitan un contacto.",
+          "Barras de sonido y subwoofers Sonos para la televisión.",
+          "El amplificador que mueve el sistema, con Sonos Amp como opción de línea y otras alternativas para comparar.",
+        ],
+      },
+      {
+        id: "alcance",
+        title: "Lo que el simulador no hace",
+        content: [
+          "Preferimos decirlo claro. El simulador hace una estimación de cobertura y de volumen a partir de los datos de cada bocina, las medidas del espacio y la altura del plafón. No considera muebles, materiales ni la acústica del lugar.",
+          "Tampoco muestra precios: la propuesta económica, con instalación incluida, te la prepara un asesor. Y si tu proyecto es un negocio grande, lo indicado es audio comercial, que diseñamos aparte.",
+        ],
+        callout: {
+          type: "info",
+          title: "El diseño final se hace en sitio",
+          text: "El simulador es el punto de partida. El diseño definitivo lo ajusta un ingeniero de ALFA en tu espacio.",
+        },
+      },
+      {
+        id: "empezar",
+        title: "Cómo empezar",
+        content: [
+          "Entra al simulador, deja tu nombre, tu correo y tu teléfono, y confirma tu correo con el código que te enviamos. Eso es todo: en un par de minutos estarás armando tu sistema.",
+          "Cuando te guste lo que ves, pide tu propuesta desde el mismo simulador. Tu diseño le llega a un asesor de ALFA, que te contacta para afinarlo y cotizarlo.",
+        ],
+        callout: {
+          type: "quote",
+          title: "¿Listo para escucharlo?",
+          text: "Diseña el sonido de tu espacio hoy y platícalo con nosotros cuando quieras.",
+        },
+      },
+    ],
+    faq: [
+      {
+        question: "¿Usar el simulador tiene costo?",
+        answer:
+          "No. Solo te pedimos registrarte con tu nombre, correo y teléfono, y confirmar tu correo con un código.",
+      },
+      {
+        question: "¿Necesito el plano de mi casa para usarlo?",
+        answer:
+          "No. Con el ancho, el largo y la altura del plafón de cada espacio es suficiente. Si tienes tu plano en PDF, JPG o PNG puedes subirlo y trabajar encima; el archivo se queda en tu navegador y no se sube a nuestros servidores.",
+      },
+      {
+        question: "¿El simulador me da precios?",
+        answer:
+          "No. Te da la lista de equipos de tu sistema. La propuesta con precios e instalación la prepara un asesor de ALFA cuando la solicitas desde el simulador.",
+      },
+      {
+        question: "¿Qué tan exacto es el resultado?",
+        answer:
+          "Es una estimación geométrica de cobertura y de volumen, calculada con los datos de cada bocina, las medidas del espacio y la altura del plafón. No considera muebles, materiales ni la acústica del lugar, así que el diseño final lo ajusta un ingeniero de ALFA en sitio.",
+      },
+      {
+        question: "¿Por qué siempre propone las bocinas en pares?",
+        answer:
+          "Porque la música en una casa es estéreo: tiene canal izquierdo y canal derecho. Con un número impar de bocinas, uno de los dos canales quedaría incompleto.",
+      },
+      {
+        question: "¿Sirve para un restaurante, una tienda o una oficina?",
+        answer:
+          "Sí, para espacios chicos y medianos. En un negocio grande lo indicado es audio comercial, con otro tipo de bocinas y amplificadores; ese diseño lo hacemos aparte con un asesor.",
+      },
+    ],
+    relatedSolutionHref: "/servicios/audio-video",
+    relatedSolutionLabel: "Audio y Video Profesional",
+    relatedSolutionCta: "Ver Audio y Video",
+  },
   {
     slug: "lockers-inteligentes-hikvision-ds-klm28-12-control-acceso-facial",
     title: "Lockers Inteligentes Hikvision DS-KLM28-12: Automatización, Reconocimiento Facial y Control de Acceso",
@@ -155,6 +449,31 @@ export const STATIC_BLOG_POSTS: BlogPost[] = [
     },
     whatsappQuoteMessage:
       "Hola ALFA, leí su artículo sobre los Lockers Inteligentes Hikvision DS-KLM28-12 y me interesa solicitar una cotización y asesoría técnica para un proyecto.",
+    topicName: "Hikvision DS-KLM28-12",
+    spotlight: {
+      title: "Modelo DS-KLM28-12",
+      text: "12 puertas · Pantalla táctil 8\" · Reconocimiento facial 20K rostros",
+    },
+    quickSpecsTitle: "Ficha Técnica Rápida · Hikvision DS-KLM28-12",
+    fullSpecsTitle: "Especificaciones Técnicas Detalladas",
+    midCta: {
+      eyebrow: "Atención Técnica Inmediata",
+      title: "¿Deseas implementar el sistema Hikvision DS-KLM28-12 en tu proyecto?",
+      text: "Cotiza directamente con nuestros ingenieros certificados de ALFA. Evaluamos las dimensiones de tu inmueble, cálculo de usuarios y requerimientos de red sin costo.",
+      label: "Cotizar por WhatsApp Ahora",
+    },
+    sidebarCta: {
+      eyebrow: "Cotización Inmediata",
+      title: "Hikvision DS-KLM28-12",
+      text: "Solicita presupuesto personalizado con módulos adicionales o programación a la medida.",
+      label: "Contactar por WhatsApp",
+    },
+    closingCta: {
+      eyebrow: "Integración Oficial en México",
+      title: "Solución Llave en Mano para Corporativos y Residencias",
+      text: "En ALFA cubrimos desde la ingeniería de diseño, suministro directo con garantía de fábrica, hasta la instalación física, canalización, configuración en red y soporte en nuestra plataforma ALFA OS.",
+      label: "Pedir Cotización por WhatsApp",
+    },
     technicalSpecs: [
       { label: "Modelo Principal", value: "Hikvision DS-KLM28-12 (Locker Maestro)" },
       { label: "Número de Compartimentos", value: "12 gabinetes independientes" },
@@ -397,5 +716,6 @@ export const STATIC_BLOG_POSTS: BlogPost[] = [
     ],
     relatedSolutionHref: "/servicios/control-de-acceso",
     relatedSolutionLabel: "Control de Acceso & Automatización",
+    relatedSolutionCta: "Ver Control de Acceso",
   },
 ];
