@@ -37,7 +37,7 @@ const steps = [
   },
   {
     title: "Tu ambiente y tus bocinas",
-    body: "Di si quieres música de fondo, convivencia o fiesta, y elige entre las bocinas de plafón y de muro que instalamos.",
+    body: "Di si quieres música de fondo, convivencia o fiesta, y elige entre las bocinas de plafón, de muro e inalámbricas que instalamos.",
   },
   {
     title: "Tu sistema",

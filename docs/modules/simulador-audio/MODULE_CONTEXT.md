@@ -93,12 +93,30 @@ Un modelo con `mount: "muro"` cubre un abanico en lugar de un circulo: apertura 
 - Reparto automatico (`suggestWallLayout`): busca cubrir 75% (ambiental), 90% (convivencia) o 98% (fiesta) del area. Primero arma un reparto libre sobre todo el perimetro; despues prefiere uno ordenado sobre una sola pared solo si no usa mas bocinas.
 - **B&W AM-1: 90° de apertura y 6 m de alcance son criterio de diseño de ALFA**, aprobado por Leo el 2026-11-23. B&W no publica angulo, grafica polar ni archivo de simulacion de ese modelo. El simulador lo dice junto al selector y en la nota de "Tu sistema". Si Dextra consigue el dato real, se cambia en `speakers.ts` y se pone `coverageBasis: "fabricante"`.
 
+## Bocinas inalambricas (Sonos Era)
+
+Tercer tipo de montaje, `mount: "mueble"`: una bocina con amplificador integrado que se apoya en un mueble junto a una pared. Usa el mismo motor de abanico que las de muro (`snapToWall`, `suggestWallLayout`), con estas diferencias:
+
+- `selfPowered: true`: no ocupa zonas de amplificador y no entra en `amplifierPlan`. Si todo el diseño es inalambrico, "Tu sistema" no muestra amplificador ni sus opciones, y explica que cada bocina necesita un contacto electrico.
+- El volumen no sale de sensibilidad y potencia sino de `maxSplDb`, el nivel sostenido a 1 m. Por eso no cambia al elegir otro amplificador.
+- Una sola pieza ya reproduce estereo (`amplifierChannels: 2`), asi que no aplica la regla de pares.
+
+De donde salen los numeros (investigacion del 2026-11-23): Sonos no publica angulo ni volumen de la Era 100 ni de la Era 300 de consumo.
+
+| Modelo | Apertura | Alcance | Nivel a 1 m | Base |
+| --- | --- | --- | --- | --- |
+| Sonos Era 100 | 240° | 3.3 m | 90 dB | Ficha de la Era 100 Pro, que Sonos describe como la misma Era 100 con PoE: "Nominal Coverage Angle: 240° horizontal x 140° vertical", "Maximum Long-Term SPL: 90dB @ 1 meter". El alcance equivale a los 23 m² de "A single Sonos speaker covers up to 250 square feet" (paginas de Sonos Pro). |
+| Sonos Era 300 | 240° | 3.3 m | 90 dB | **Criterio de ALFA**, aprobado por Leo: Sonos no publica nada equivalente y se le dan los numeros de la Era 100, que es el caso conservador. El simulador lo dice en pantalla. |
+
+Pendiente: decidir si las Era tambien deben proponerse siempre en par, y si se ofrece la Era 100 Pro (la unica con ficha completa; RDA la vende).
+
 ## Catalogo de bocinas
 
 `lib/simuladorAudio/speakers.ts`. Regla dura: `dispersionDeg` solo lleva el angulo que publica el fabricante, con su fuente. Sin precios.
 
 - Activos de plafon: KEF Ci160ER (110°), KEF Ci160TR (160°), KEF Ci160CRds (120°), Bose DesignMax DM6C (120°).
 - Activo de muro: B&W AM-1 (90° y 6 m, criterio de ALFA).
+- Activos inalambricos: Sonos Era 100 (240° y 3.3 m, datos de Sonos) y Sonos Era 300 (mismos numeros, criterio de ALFA).
 - Pendientes (`PENDING_SIMULATOR_SPEAKERS`): B&W CCM665, Sonance VPXT6R y Klipsch CS-18C (el fabricante no publica angulo); Yamaha VS4 (de muro; Yamaha publica 110° × 110°, falta definir su alcance); Sonance VXXT8RW (la ficha dice que es subwoofer; pendiente de confirmar contra el catalogo interno).
 
 ## Amplificacion

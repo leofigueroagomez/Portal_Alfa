@@ -10,9 +10,12 @@
  * numeros no son del fabricante sino un criterio de diseño que Leo aprobo de
  * forma explicita, y el simulador lo dice en pantalla. Hoy solo la B&W AM-1.
  *
- * Dos tipos de montaje:
+ * Tres tipos de montaje:
  * - `plafon`: cobertura conica hacia abajo; el diametro sale del angulo y la altura.
  * - `muro`: cobertura en abanico; apertura `dispersionDeg` y alcance `reachM`.
+ * - `mueble`: bocina inalambrica con amplificador integrado (Sonos Era). Se
+ *   apoya en un mueble junto a una pared y cubre un abanico, igual que la de
+ *   muro. No lleva amplificador ni cable de bocina: solo un contacto electrico.
  *
  * Sin precios, igual que el catalogo publico de /marcas.
  */
@@ -25,11 +28,18 @@ export type SimulatorSpeaker = {
   model: string;
   /** Descripcion corta para el selector. */
   label: string;
-  mount: "plafon" | "muro";
-  /** Angulo de cobertura en grados: conico en plafon, apertura horizontal en muro. */
+  mount: "plafon" | "muro" | "mueble";
+  /** Angulo de cobertura en grados: conico en plafon, apertura horizontal en muro y mueble. */
   dispersionDeg: number;
-  /** Solo muro: hasta donde se considera cubierta el area, en metros. */
+  /** Muro y mueble: hasta donde se considera cubierta el area, en metros. */
   reachM?: number;
+  /**
+   * true en una bocina con amplificador integrado. No ocupa amplificador y su
+   * volumen sale de `maxSplDb`; sensibilidad, impedancia y potencia van en 0.
+   */
+  selfPowered?: boolean;
+  /** Solo `selfPowered`: nivel sostenido maximo a 1 m, en dB. */
+  maxSplDb?: number;
   /** De donde salen el angulo y el alcance. */
   coverageBasis: "fabricante" | "criterio_alfa";
   /** Sensibilidad en dB (2.83 V o 1 W a 1 m), para la fase de nivel sonoro. */
@@ -146,6 +156,55 @@ export const SIMULATOR_SPEAKERS: SimulatorSpeaker[] = [
       "https://www.bowerswilkins.com/on/demandware.static/-/Library-Sites-bowers_northamerica_shared/default/dw9f875329/downloads/am-1_brochure-eng.pdf",
     productId: 410,
   },
+  {
+    id: "sonos-era-100",
+    brand: "Sonos",
+    model: "Era 100",
+    label: "Inalámbrica, estéreo en una sola pieza",
+    mount: "mueble",
+    // Sonos no publica angulo ni volumen de la Era 100 de consumo. Se usan los
+    // de la Era 100 Pro, que Sonos describe como la misma Era 100 con PoE:
+    // "Nominal Coverage Angle: 240° horizontal x 140° vertical" y "Maximum
+    // Long-Term SPL: 90dB @ 1 meter". El alcance de 3.3 m equivale a los 23 m²
+    // de "A single Sonos speaker covers up to 250 square feet" (Sonos Pro).
+    coverageBasis: "fabricante",
+    dispersionDeg: 240,
+    reachM: 3.3,
+    selfPowered: true,
+    maxSplDb: 90,
+    sensitivityDb: 0,
+    impedanceOhms: 0,
+    maxPowerW: 0,
+    image: "/simulador/sonos-era-100.jpg",
+    // Una sola Era ya reproduce estereo: no se le exige ir en pares.
+    amplifierChannels: 2,
+    sourceQuote: "A single Sonos speaker covers up to 250 square feet.",
+    source: "https://sonos.com/pdfs/productguides/en-us/Sonos_Era100Pro_SpecSheet_EN.pdf",
+    productId: 102,
+  },
+  {
+    id: "sonos-era-300",
+    brand: "Sonos",
+    model: "Era 300",
+    label: "Inalámbrica, sonido espacial",
+    mount: "mueble",
+    // Sonos no publica area, angulo ni volumen de la Era 300. Por criterio de
+    // ALFA (aprobado por Leo el 2026-11-23) se le dan los mismos numeros que a
+    // la Era 100, que es el caso conservador: es una bocina mas grande.
+    coverageBasis: "criterio_alfa",
+    dispersionDeg: 240,
+    reachM: 3.3,
+    selfPowered: true,
+    maxSplDb: 90,
+    sensitivityDb: 0,
+    impedanceOhms: 0,
+    maxPowerW: 0,
+    image: "/simulador/sonos-era-300.png",
+    amplifierChannels: 2,
+    sourceQuote: "the breakthrough acoustic design projects sound from wall to wall and floor to ceiling",
+    source: "https://www.sonos.com/en-us/shop/era-300",
+    productId: 1433,
+  },
 ];
 
 /**
@@ -195,7 +254,7 @@ export function getSimulatorSpeaker(id: string | null | undefined) {
 
 /** Abanico de cobertura de un modelo de muro; null si el modelo es de plafon. */
 export function speakerSector(speaker: SimulatorSpeaker | null): SectorCoverage | null {
-  if (!speaker || speaker.mount !== "muro" || !speaker.reachM) return null;
+  if (!speaker || speaker.mount === "plafon" || !speaker.reachM) return null;
   return { apertureDeg: speaker.dispersionDeg, reach: speaker.reachM };
 }
 

@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { Coffee, PartyPopper, Users, type LucideIcon } from "lucide-react";
+import { useState } from "react";
+import { ChevronDown, Coffee, PartyPopper, Users, type LucideIcon } from "lucide-react";
 import { COVERAGE_MODES, type CoverageMode } from "@/lib/simuladorAudio/geometry";
 import {
   LOUDNESS_VERDICT_TEXT,
@@ -108,6 +109,14 @@ export function ScenarioPicker({
   );
 }
 
+type SpeakerMount = (typeof SIMULATOR_SPEAKERS)[number]["mount"];
+
+const SPEAKER_GROUPS: { label: string; mount: SpeakerMount }[] = [
+  { label: "De plafón", mount: "plafon" },
+  { label: "De muro", mount: "muro" },
+  { label: "Inalámbricas", mount: "mueble" },
+];
+
 export function SpeakerPicker({
   value,
   onChange,
@@ -115,59 +124,91 @@ export function SpeakerPicker({
   value: string;
   onChange: (modelId: string) => void;
 }) {
-  const groups = [
-    { label: "De plafón", mount: "plafon" as const },
-    { label: "De muro", mount: "muro" as const },
-  ];
+  const selected = SIMULATOR_SPEAKERS.find((speaker) => speaker.id === value) || null;
+  // Cada grupo se puede plegar. Al entrar solo esta abierto el de la bocina
+  // elegida, para que la lista no ocupe media pantalla.
+  const [open, setOpen] = useState<Record<string, boolean>>(() =>
+    selected ? { [selected.mount]: true } : { plafon: true }
+  );
 
   return (
-    <div className="space-y-4">
-      {groups.map((group) => {
+    <div className="space-y-2">
+      {SPEAKER_GROUPS.map((group) => {
         const speakers = SIMULATOR_SPEAKERS.filter(
           (speaker) => speaker.mount === group.mount
         );
         if (speakers.length === 0) return null;
 
-        return (
-          <div key={group.mount}>
-            <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-[#A3A5AB]">
-              {group.label}
-            </p>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              {speakers.map((speaker) => {
-                const selected = speaker.id === value;
+        const isOpen = Boolean(open[group.mount]);
+        const panelId = `bocinas-${group.mount}`;
+        const chosenHere = selected?.mount === group.mount ? selected : null;
 
-                return (
-                  <button
-                    key={speaker.id}
-                    type="button"
-                    aria-pressed={selected}
-                    onClick={() => onChange(speaker.id)}
-                    className={`rounded-2xl bg-white p-2.5 text-left transition ${
-                      selected
-                        ? "ring-2 ring-[#9E1B32]"
-                        : "ring-1 ring-black/5 hover:ring-black/20"
-                    }`}
-                  >
-                    <span className="flex aspect-square items-center justify-center overflow-hidden rounded-xl bg-white">
-                      <Image
-                        src={speaker.image}
-                        alt={`${speaker.brand} ${speaker.model}`}
-                        width={160}
-                        height={160}
-                        className="h-full w-full object-contain p-2"
-                      />
-                    </span>
-                    <span className="mt-2 block text-[11px] font-semibold uppercase tracking-[0.12em] text-[#9E1B32]">
-                      {speaker.brand === "Bowers & Wilkins" ? "B&W" : speaker.brand}
-                    </span>
-                    <span className="block text-[14px] font-semibold leading-5 text-[#111111]">
-                      {speaker.model}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+        return (
+          <div key={group.mount} className="rounded-2xl bg-white/60">
+            <button
+              type="button"
+              aria-expanded={isOpen}
+              aria-controls={panelId}
+              onClick={() =>
+                setOpen((current) => ({ ...current, [group.mount]: !isOpen }))
+              }
+              className="flex w-full items-center justify-between gap-3 rounded-2xl px-3.5 py-3 text-left transition hover:bg-white"
+            >
+              <span className="min-w-0">
+                <span className="block text-[12px] font-semibold uppercase tracking-[0.16em] text-[#5F626A]">
+                  {group.label}
+                </span>
+                <span className="mt-0.5 block truncate text-[13px] text-[#77797F]">
+                  {chosenHere
+                    ? `Elegida: ${chosenHere.brand === "Bowers & Wilkins" ? "B&W" : chosenHere.brand} ${chosenHere.model}`
+                    : `${speakers.length} ${speakers.length === 1 ? "modelo" : "modelos"}`}
+                </span>
+              </span>
+              <ChevronDown
+                className={`h-4 w-4 shrink-0 text-[#77797F] transition-transform ${
+                  isOpen ? "rotate-180" : ""
+                }`}
+                aria-hidden="true"
+              />
+            </button>
+
+            {isOpen ? (
+              <div id={panelId} className="grid grid-cols-2 gap-2 px-2 pb-2">
+                {speakers.map((speaker) => {
+                  const isSelected = speaker.id === value;
+
+                  return (
+                    <button
+                      key={speaker.id}
+                      type="button"
+                      aria-pressed={isSelected}
+                      onClick={() => onChange(speaker.id)}
+                      className={`rounded-2xl bg-white p-2.5 text-left transition ${
+                        isSelected
+                          ? "ring-2 ring-[#9E1B32]"
+                          : "ring-1 ring-black/5 hover:ring-black/20"
+                      }`}
+                    >
+                      <span className="flex aspect-square items-center justify-center overflow-hidden rounded-xl bg-white">
+                        <Image
+                          src={speaker.image}
+                          alt={`${speaker.brand} ${speaker.model}`}
+                          width={160}
+                          height={160}
+                          className="h-full w-full object-contain p-2"
+                        />
+                      </span>
+                      <span className="mt-2 block text-[11px] font-semibold uppercase tracking-[0.12em] text-[#9E1B32]">
+                        {speaker.brand === "Bowers & Wilkins" ? "B&W" : speaker.brand}
+                      </span>
+                      <span className="block text-[14px] font-semibold leading-5 text-[#111111]">
+                        {speaker.model}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
           </div>
         );
       })}
@@ -230,7 +271,10 @@ export function LoudnessMeter({
       <p className="text-sm text-[#33353B]">
         Tu sistema sostiene alrededor de{" "}
         <span className="font-semibold">{Math.round(loudness.level)} dB</span> en casi todo
-        el espacio, con {Math.round(loudness.powerPerSpeakerW)} W por bocina.
+        el espacio
+        {loudness.powerPerSpeakerW > 0
+          ? `, con ${Math.round(loudness.powerPerSpeakerW)} W por bocina.`
+          : ", con el amplificador que trae cada bocina."}
       </p>
       <p className="mt-3 text-[13px] leading-5 text-[#77797F]">
         Para ubicarte: una conversación normal ronda los 60 dB, un restaurante lleno los

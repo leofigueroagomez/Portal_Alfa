@@ -443,3 +443,62 @@ test("la potencia a 4 Ω solo se usa si el fabricante del amplificador la public
   // Dos bocinas: una por canal a 8 Ω, 100 W.
   assert.equal(powerPerSpeakerW(m1, mono, 2), 100);
 });
+
+test("las Sonos Era traen su amplificador: no ocupan zonas ni dependen del amplificador elegido", () => {
+  const era100 = getSimulatorSpeaker("sonos-era-100")!;
+  const era300 = getSimulatorSpeaker("sonos-era-300")!;
+  const amp = DEFAULT_SIMULATOR_AMPLIFIER;
+
+  assert.equal(era100.selfPowered, true);
+  assert.equal(era100.coverageBasis, "fabricante");
+  assert.equal(era300.coverageBasis, "criterio_alfa");
+  assert.equal(zonesForRoom(amp, era100, 3), 0);
+
+  // 240° y 3.3 m equivalen a los 23 m² por bocina que da Sonos.
+  const area = (era100.dispersionDeg / 360) * Math.PI * (era100.reachM as number) ** 2;
+  assert.ok(Math.abs(area - 23) < 1);
+
+  const sala = rectanglePolygon(5, 4);
+  const sector = { apertureDeg: era100.dispersionDeg, reach: era100.reachM as number };
+  const speakers = suggestWallLayout(sala, sector, "uniforme");
+  assert.ok(speakers.length >= 1);
+
+  const room = {
+    id: "s",
+    name: "Sala",
+    points: sala,
+    ceilingHeight: 2.7,
+    posture: "sentado",
+    modelId: "sonos-era-100",
+    mode: "uniforme",
+    speakers,
+    manual: false,
+  };
+  const design = sanitizeDesign({ source: "medidas", rooms: [room] })!;
+
+  assert.equal(amplifierPlan(design).total, 0);
+  assert.match(summarizeDesign(design), /bocinas inalámbricas/);
+  assert.match(summarizeDesign(design), /amplificador integrado/);
+  assert.doesNotMatch(summarizeDesign(design), /Amplificación sugerida/);
+
+  // El volumen sale del dato de la bocina y no cambia con el amplificador.
+  const withSonos = roomLoudness({ ...room, posture: "sentado" as const, mode: "uniforme" as const })!;
+  const withMarantz = roomLoudness(
+    { ...room, posture: "sentado" as const, mode: "uniforme" as const },
+    getSimulatorAmplifier("marantz-model-60n")!
+  )!;
+  assert.equal(withSonos.powerPerSpeakerW, 0);
+  assert.equal(withSonos.level, withMarantz.level);
+  // A un metro son 90 dB sostenidos: en una sala nadie queda por encima de eso por mucho.
+  assert.ok(withSonos.max <= 96 && withSonos.level >= 70);
+
+  // En un diseño mixto el amplificador solo cuenta los espacios con bocinas pasivas.
+  const mixed = sanitizeDesign({
+    source: "medidas",
+    rooms: [
+      room,
+      { ...room, id: "c", name: "Comedor", modelId: "kef-ci160er", speakers: [{ x: 1.5, y: 2 }, { x: 3.5, y: 2 }] },
+    ],
+  })!;
+  assert.deepEqual([amplifierPlan(mixed).zones, amplifierPlan(mixed).total], [1, 1]);
+});
