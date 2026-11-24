@@ -230,6 +230,12 @@ test("suggestWallLayout reparte sobre el perímetro hasta la cobertura objetivo"
   // Un área más honda que el alcance se queda con lo que sí se puede cubrir.
   const huge = suggestWallLayout(rectanglePolygon(40, 40), sector, "maxima");
   assert.ok(huge.length <= 40);
+
+  // En un área enorme cada bocina cubre menos del 1% y aun así se reparten varias.
+  const field = rectanglePolygon(60, 60);
+  const fieldLayout = suggestWallLayout(field, sector, "uniforme");
+  assert.ok(fieldLayout.length >= 10 && fieldLayout.length <= 40);
+  assert.ok(sectorCoverageRatio(field, fieldLayout, sector) > 0.1);
 });
 
 test("una AM-1 se diseña como bocina de muro y pide su amplificador", () => {
@@ -314,4 +320,52 @@ test("roomLoudness: más cerca suena más fuerte y el exterior con AM-1 no llega
   assert.equal(exterior.verdict, "corto");
 
   assert.equal(roomLoudness({ ...sala, speakers: [] }), null);
+});
+
+test("las bocinas van en pares: el reparto nunca deja un número impar", () => {
+  const pairs = { pairs: true };
+
+  // Plafón: 3 × 3 = 9 pasa a 12; un cuarto chico pasa de 1 a 2.
+  assert.equal(suggestLayout(rectanglePolygon(9, 9), 3, "ambiental").length, 9);
+  assert.equal(suggestLayout(rectanglePolygon(9, 9), 3, "ambiental", pairs).length, 12);
+  assert.equal(suggestLayout(rectanglePolygon(2, 2), 8, "ambiental", pairs).length, 2);
+
+  const lShape = [
+    { x: 0, y: 0 },
+    { x: 6, y: 0 },
+    { x: 6, y: 3 },
+    { x: 3, y: 3 },
+    { x: 3, y: 6 },
+    { x: 0, y: 6 },
+  ];
+  const sector = { apertureDeg: 90, reach: 6 };
+  const shapes = [
+    rectanglePolygon(5, 4),
+    rectanglePolygon(8, 5),
+    rectanglePolygon(10, 6),
+    rectanglePolygon(14, 9),
+    rectanglePolygon(12, 3),
+    lShape,
+  ];
+
+  for (const shape of shapes) {
+    for (const mode of ["ambiental", "uniforme", "maxima"] as const) {
+      const ceiling = suggestLayout(shape, 4, mode, pairs);
+      assert.equal(ceiling.length % 2, 0);
+      assert.ok(ceiling.length >= 2);
+      assert.ok(ceiling.every((speaker) => pointInPolygon(speaker, shape)));
+
+      const wall = suggestWallLayout(shape, sector, mode, pairs);
+      assert.equal(wall.length % 2, 0);
+      assert.ok(wall.length >= 2);
+      assert.ok(wall.every((speaker) => pointInPolygon(speaker, shape)));
+    }
+  }
+
+  // Un ambiente más fuerte nunca propone menos bocinas de muro que uno más tranquilo.
+  const terrace = rectanglePolygon(8, 5);
+  const counts = (["ambiental", "uniforme", "maxima"] as const).map(
+    (mode) => suggestWallLayout(terrace, sector, mode, pairs).length
+  );
+  assert.ok(counts[0] <= counts[1] && counts[1] <= counts[2]);
 });

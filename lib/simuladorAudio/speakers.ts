@@ -199,4 +199,13 @@ export function speakerSector(speaker: SimulatorSpeaker | null): SectorCoverage 
   return { apertureDeg: speaker.dispersionDeg, reach: speaker.reachM };
 }
 
+/**
+ * Las bocinas se instalan en pares, izquierda y derecha, porque el sistema es
+ * estereo. La excepcion es una bocina estereo de una sola pieza (doble
+ * bobina), que recibe los dos canales.
+ */
+export function speakerGoesInPairs(speaker: SimulatorSpeaker | null) {
+  return Boolean(speaker) && speaker?.amplifierChannels !== 2;
+}
+
 export const DEFAULT_SIMULATOR_SPEAKER_ID = SIMULATOR_SPEAKERS[0].id;

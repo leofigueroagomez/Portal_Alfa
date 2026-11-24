@@ -44,6 +44,7 @@ import {
 import {
   DEFAULT_SIMULATOR_SPEAKER_ID,
   getSimulatorSpeaker,
+  speakerGoesInPairs,
 } from "@/lib/simuladorAudio/speakers";
 import { roomLoudness } from "@/lib/simuladorAudio/loudness";
 import PlanCanvas, { type CanvasTool } from "./PlanCanvas";
@@ -105,11 +106,15 @@ function layoutRoom<T extends SimulatorRoom>(room: T): T {
   if (room.manual) return room;
 
   const sector = roomSector(room);
+  // Las bocinas van en pares, izquierda y derecha. La unica excepcion es una
+  // bocina estereo de una sola pieza, que recibe los dos canales.
+  const options = { pairs: speakerGoesInPairs(getSimulatorSpeaker(room.modelId)) };
+
   return {
     ...room,
     speakers: sector
-      ? suggestWallLayout(room.points, sector, room.mode)
-      : suggestLayout(room.points, roomDiameter(room), room.mode),
+      ? suggestWallLayout(room.points, sector, room.mode, options)
+      : suggestLayout(room.points, roomDiameter(room), room.mode, options),
   };
 }
 
@@ -411,7 +416,12 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
     // sigan en el mismo lugar del plano.
     if (plan.pxPerMeter) {
       const factor = plan.pxPerMeter / pxPerMeter;
-      const rescale = (point: Point) => ({ x: point.x * factor, y: point.y * factor });
+      // Se conserva el resto de la bocina (hacia donde apunta, si es de muro).
+      const rescale = <T extends Point>(point: T): T => ({
+        ...point,
+        x: point.x * factor,
+        y: point.y * factor,
+      });
 
       setPlanRooms((current) =>
         current.map((room) =>
@@ -1002,6 +1012,14 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
                   ) : null}
                 </div>
 
+                {speakerGoesInPairs(selectedMetrics.speaker) &&
+                selectedMetrics.count % 2 === 1 ? (
+                  <p role="alert" className="text-sm text-[#9E1B32]">
+                    Las bocinas van en pares, izquierda y derecha. Agrega o quita una
+                    para completar el par.
+                  </p>
+                ) : null}
+
                 {!selectedMetrics.sector && selectedMetrics.diameter <= 0 ? (
                   <p role="alert" className="text-sm text-[#9E1B32]">
                     El plafón debe estar más alto que el oído de quien escucha.
@@ -1010,7 +1028,17 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
 
                 <dl className="grid grid-cols-2 gap-x-4 gap-y-5 pt-2">
                   {[
-                    { label: "Bocinas", value: String(selectedMetrics.count) },
+                    {
+                      label:
+                        speakerGoesInPairs(selectedMetrics.speaker) &&
+                        selectedMetrics.count > 0 &&
+                        selectedMetrics.count % 2 === 0
+                          ? `Bocinas · ${selectedMetrics.count / 2} par${
+                              selectedMetrics.count === 2 ? "" : "es"
+                            }`
+                          : "Bocinas",
+                      value: String(selectedMetrics.count),
+                    },
                     {
                       label: "Área cubierta",
                       value: `${Math.round(selectedMetrics.coverage * 100)}%`,

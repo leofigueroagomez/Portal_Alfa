@@ -46,6 +46,15 @@ El candado es de captacion, no de confidencialidad: el simulador corre en el nav
 - Reparto en reticula sobre la caja envolvente del area; se descartan las celdas cuyo centro cae fuera. La separacion depende del ambiente (ver "Ambientes y volumen").
 - "Area cubierta" se estima por muestreo. Es una estimacion geometrica, no un estudio acustico; el texto del simulador lo dice.
 
+## Las bocinas van en pares
+
+Regla de Leo (2026-11-23): en un sistema residencial las bocinas siempre van en pares, izquierda y derecha, porque es estereo. El reparto automatico nunca propone un numero impar.
+
+- `suggestLayout` y `suggestWallLayout` reciben `{ pairs: true }`. En plafon se agrega una columna o una fila para completar el par; en muro el reparto ordenado solo prueba cantidades pares y el reparto libre agrega la pareja que falta.
+- Unica excepcion: una bocina estereo de una sola pieza (`amplifierChannels: 2`, hoy la KEF Ci160CRds), que recibe los dos canales. `speakerGoesInPairs` en `speakers.ts` decide.
+- Si el visitante deja un numero impar a mano, el panel le avisa que complete el par.
+- Audio comercial (lineas de 70/100 V) no sigue esta regla y usa otras bocinas; no esta modelado.
+
 ## Ambientes y volumen
 
 El visitante no elige un "tipo de cobertura": elige un ambiente. Las llaves internas siguen siendo `ambiental`, `uniforme` y `maxima` (ya viajan en los diseños guardados); lo que cambia es como se presentan y que cada una trae un nivel objetivo.
