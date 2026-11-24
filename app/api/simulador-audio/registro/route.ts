@@ -15,6 +15,11 @@ import {
   normalizePhone,
 } from "@/lib/simuladorAudio/access";
 import { sendSimulatorCodeEmail } from "@/lib/simuladorAudio/email";
+import {
+  isTurnstileEnforced,
+  readTurnstileToken,
+  verifyTurnstileToken,
+} from "@/lib/turnstile";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
@@ -108,6 +113,16 @@ export async function POST(request: Request) {
     if (body?.privacyAccepted !== true) {
       return NextResponse.json(
         { error: "Necesitamos que aceptes el aviso de privacidad." },
+        { status: 400 }
+      );
+    }
+  }
+
+  if (isTurnstileEnforced()) {
+    const isHuman = await verifyTurnstileToken(readTurnstileToken(body), clientIp);
+    if (!isHuman) {
+      return NextResponse.json(
+        { error: "No pudimos completar la verificación de seguridad. Intenta de nuevo.", requestId },
         { status: 400 }
       );
     }

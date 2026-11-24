@@ -22,6 +22,15 @@ Ver [`../modules/simulador-audio/MODULE_CONTEXT.md`](../modules/simulador-audio/
 - `/api/simulador-audio/registro` manda correo a una direccion que escribe un anonimo: mantener los tres limites (por IP, por correo y global) y el enfriamiento de reenvio. La respuesta del modo reingreso no revela si un correo esta registrado.
 - `/api/simulador-audio/propuesta` valida el diseño con `sanitizeDesign` (rangos, tamaños y modelos conocidos) antes de guardarlo. No aceptar HTML ni archivos por esa ruta.
 
+## Cloudflare Turnstile en formularios publicos (2026-11-23)
+
+- Widget: `components/TurnstileWidget.tsx`. Verificacion en servidor: `lib/turnstile.ts`. Lo usan `POST /api/leads` (formulario del inicio, modal de `/marcas` y modal de `/portafolio`) y `POST /api/simulador-audio/registro`.
+- Dos variables que se configuran **juntas**: `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (muestra el widget; se incrusta al compilar, requiere redeploy) y `TURNSTILE_SECRET_KEY` (hace que el servidor exija el token). Con la secreta y sin la publica, los formularios publicos rechazan todo con 400. Sin ninguna, todo funciona como antes, sin Turnstile.
+- El token sirve una sola vez: el formulario pide otro despues de cada envio (`useTurnstile().reset()`). Un formulario nuevo que publique a esas rutas debe montar el widget y mandar `turnstileToken`.
+- La verificacion falla cerrada: si Cloudflare no responde o el token es invalido, la solicitud se rechaza. No agregar un camino alterno que la salte.
+- La CSP de `next.config.ts` ya permite `challenges.cloudflare.com` en `script-src`, `frame-src` y `connect-src`.
+- Pendiente de confirmar: si las dos variables existen hoy en Vercel (no fue posible leerlas desde el repo).
+
 ## PDF Premium por token de servicio
 
 `GET /api/quotes/[id]/pdf-premium` devuelve solo el PDF Premium de esa cotización, incluidos los borradores. No escribe, no lista cotizaciones y no entrega JSON de negocio.

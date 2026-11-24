@@ -60,9 +60,10 @@ El candado es de captacion, no de confidencialidad: el simulador corre en el nav
 | `SIMULADOR_ACCESS_SECRET` | Firma del pase y de los codigos. Minimo 32 caracteres. Sin ella el registro responde 503. |
 | `RESEND_API_KEY`, `EMAIL_FROM` | Envio del codigo (ya existen para otros correos). |
 | `UPSTASH_REDIS_REST_URL` / `KV_REST_API_URL` | Opcional. Sin Redis el limite de intentos es por instancia. |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY` | Opcional. Con las dos, el registro exige Cloudflare Turnstile (ver `docs/ai/SECURITY_RULES.md`). |
 
 ## Pendientes
 
 - Aplicar la migracion en sandbox y despues en produccion, y probar el registro de punta a punta (no se pudo probar en local: sin Resend ni base).
 - Fase 2: mapa de nivel sonoro, bocinas de muro, zonas con amplificador, recibir el plano.
-- El sitio no tiene widget de Turnstile; el registro se protege con campo trampa, limite por IP, por correo y global.
+- Turnstile esta en codigo (`components/TurnstileWidget.tsx`) pero apagado hasta que existan sus dos variables en Vercel. Sin ellas el registro se protege con campo trampa, limite por IP, por correo y global.

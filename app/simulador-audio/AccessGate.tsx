@@ -4,6 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { ArrowRight, Mail } from "lucide-react";
+import TurnstileWidget, {
+  TURNSTILE_PENDING_MESSAGE,
+  useTurnstile,
+} from "@/components/TurnstileWidget";
 import { getStoredAttribution } from "@/lib/utmTracking";
 
 type Step = "datos" | "regreso" | "codigo";
@@ -43,11 +47,18 @@ export default function AccessGate() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const turnstile = useTurnstile();
 
   async function requestCode(mode: "nuevo" | "regreso") {
-    setBusy(true);
     setError("");
     setNotice("");
+
+    if (turnstile.pending) {
+      setError(TURNSTILE_PENDING_MESSAGE);
+      return false;
+    }
+
+    setBusy(true);
 
     const result = await postJson("/api/simulador-audio/registro", {
       mode,
@@ -57,8 +68,11 @@ export default function AccessGate() {
       privacyAccepted,
       hp_website: honeypot,
       attribution: getStoredAttribution(),
+      turnstileToken: turnstile.token,
     });
 
+    // Cada token sirve una sola vez: se pide otro para el siguiente envio.
+    turnstile.reset();
     setBusy(false);
 
     if (!result.ok) {
@@ -340,6 +354,9 @@ export default function AccessGate() {
           </div>
         </form>
       ) : null}
+
+      {/* Un solo widget para los tres pasos: el reenvio de codigo tambien lo usa. */}
+      <TurnstileWidget {...turnstile.widgetProps} theme="light" className="mt-6" />
     </div>
   );
 }

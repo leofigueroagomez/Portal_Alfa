@@ -1,6 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import TurnstileWidget, {
+  TURNSTILE_PENDING_MESSAGE,
+  useTurnstile,
+} from "@/components/TurnstileWidget";
 import { CatalogProduct } from "@/lib/catalog";
 import { brandLeadInterest } from "@/lib/catalogBrandUi";
 import { Check, Send, Sparkles, X, ShieldCheck, Phone } from "lucide-react";
@@ -21,6 +25,7 @@ export default function ProductQuoteModal({ product }: Props) {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const turnstile = useTurnstile();
 
   const whatsappMsg = encodeURIComponent(
     `Hola ALFA, me interesa cotizar el equipo oficial ${product.brand_name} ${product.model} (${product.name}) para mi proyecto.`
@@ -31,6 +36,11 @@ export default function ProductQuoteModal({ product }: Props) {
     e.preventDefault();
     if (!name.trim() || !phone.trim()) {
       setErrorMsg("Por favor ingresa tu nombre y número de teléfono.");
+      return;
+    }
+
+    if (turnstile.pending) {
+      setErrorMsg(TURNSTILE_PENDING_MESSAGE);
       return;
     }
 
@@ -51,8 +61,12 @@ export default function ProductQuoteModal({ product }: Props) {
           message: `${message}\n\n[Producto SKU: ${product.sku || product.model} - Slug: ${product.slug}]`,
           source: "Landing Web",
           status: "nuevo",
+          turnstileToken: turnstile.token,
         }),
       });
+
+      // Cada token de Turnstile sirve una sola vez.
+      turnstile.reset();
 
       if (!response.ok) {
         throw new Error("No se pudo enviar la solicitud. Intenta de nuevo.");
@@ -214,6 +228,8 @@ export default function ProductQuoteModal({ product }: Props) {
                       className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white placeholder-zinc-500 outline-none focus:border-[#9E1B32] transition resize-none"
                     />
                   </div>
+
+                  <TurnstileWidget {...turnstile.widgetProps} theme="dark" />
 
                   <button
                     type="submit"
