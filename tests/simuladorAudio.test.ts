@@ -9,7 +9,17 @@ import {
   verificationCodeMatches,
   verifyAccessToken,
 } from "@/lib/simuladorAudio/access";
-import { sanitizeDesign, summarizeDesign } from "@/lib/simuladorAudio/design";
+import {
+  DEFAULT_SIMULATOR_AMPLIFIER,
+  amplifiersForRoom,
+  speakersPerAmplifier,
+} from "@/lib/simuladorAudio/amplifiers";
+import {
+  amplifierPlan,
+  sanitizeDesign,
+  summarizeDesign,
+} from "@/lib/simuladorAudio/design";
+import { getSimulatorSpeaker } from "@/lib/simuladorAudio/speakers";
 import {
   coverageDiameter,
   coverageRatio,
@@ -118,4 +128,50 @@ test("sanitizeDesign rechaza modelos desconocidos y datos fuera de rango", () =>
   assert.equal(sanitizeDesign({ rooms: [{ ...room, points: [{ x: 0, y: "a" }] }] }), null);
   assert.equal(sanitizeDesign({ rooms: [] }), null);
   assert.equal(sanitizeDesign(null), null);
+});
+
+test("un Sonos Amp mueve cuatro bocinas de 8 Ω, o dos estéreo de doble bobina", () => {
+  const amp = DEFAULT_SIMULATOR_AMPLIFIER;
+  const mono = getSimulatorSpeaker("kef-ci160er")!;
+  const stereo = getSimulatorSpeaker("kef-ci160crds")!;
+
+  assert.equal(speakersPerAmplifier(amp, mono), 4);
+  assert.equal(speakersPerAmplifier(amp, stereo), 2);
+
+  assert.equal(amplifiersForRoom(amp, mono, 0), 0);
+  assert.equal(amplifiersForRoom(amp, mono, 1), 1);
+  assert.equal(amplifiersForRoom(amp, mono, 4), 1);
+  assert.equal(amplifiersForRoom(amp, mono, 5), 2);
+  assert.equal(amplifiersForRoom(amp, stereo, 3), 2);
+
+  // Sonos no admite más de cuatro bocinas aunque la impedancia lo permitiera.
+  assert.equal(speakersPerAmplifier(amp, { ...mono, impedanceOhms: 16 }), 4);
+
+  // Una bocina de 2 Ω no se puede conectar a un amplificador con mínimo de 4 Ω.
+  assert.equal(speakersPerAmplifier(amp, { ...mono, impedanceOhms: 2 }), 0);
+});
+
+test("cada espacio es una zona y lleva su propio amplificador", () => {
+  const room = (id: string, speakers: number, modelId = "kef-ci160er") => ({
+    id,
+    name: id,
+    points: rectanglePolygon(6, 5),
+    ceilingHeight: 2.7,
+    posture: "sentado",
+    modelId,
+    mode: "uniforme",
+    speakers: Array.from({ length: speakers }, (_, index) => ({ x: 1 + index * 0.5, y: 2 })),
+    manual: true,
+  });
+
+  const design = sanitizeDesign({
+    source: "medidas",
+    rooms: [room("Sala", 6), room("Terraza", 2), room("Estudio", 0)],
+  })!;
+  const plan = amplifierPlan(design);
+
+  // Sala: 6 bocinas → 2 amplificadores. Terraza: 2 → 1. Estudio sin bocinas → 0.
+  assert.equal(plan.total, 3);
+  assert.equal(plan.zones, 2);
+  assert.match(summarizeDesign(design), /Amplificación sugerida: 3 × Sonos Amp \(2 zonas\)/);
 });

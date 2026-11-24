@@ -23,6 +23,13 @@ export type SimulatorSpeaker = {
   dispersionDeg: number;
   /** Sensibilidad en dB (2.83 V o 1 W a 1 m), para la fase de nivel sonoro. */
   sensitivityDb: number;
+  /** Impedancia nominal por entrada, en ohms, segun la ficha del fabricante. */
+  impedanceOhms: number;
+  /**
+   * Canales de amplificador que ocupa cada bocina: 1 en una bocina normal, 2 en
+   * una estereo de doble bobina (recibe izquierdo y derecho en la misma bocina).
+   */
+  amplifierChannels: 1 | 2;
   /** Texto de la ficha de donde sale el angulo. */
   sourceQuote: string;
   source: string;
@@ -38,6 +45,8 @@ export const SIMULATOR_SPEAKERS: SimulatorSpeaker[] = [
     label: "Plafón 6.5″ Uni-Q",
     dispersionDeg: 110,
     sensitivityDb: 89,
+    impedanceOhms: 8,
+    amplifierChannels: 1,
     sourceQuote: "Nominal coverage (degrees) 110°",
     source: "https://assets.kef.com/pdf_doc/ci/Ci_Group_Specification_Sheet.pdf",
     productId: 20,
@@ -49,6 +58,8 @@ export const SIMULATOR_SPEAKERS: SimulatorSpeaker[] = [
     label: "Plafón ultradelgado 4.5″",
     dispersionDeg: 160,
     sensitivityDb: 87,
+    impedanceOhms: 8,
+    amplifierChannels: 1,
     sourceQuote: "Nominal coverage (degrees) 160°",
     source: "https://assets.kef.com/pdf_doc/ci/Ci_Group_Specification_Sheet.pdf",
     productId: 97,
@@ -60,6 +71,8 @@ export const SIMULATOR_SPEAKERS: SimulatorSpeaker[] = [
     label: "Plafón estéreo 6.5″ (una sola bocina)",
     dispersionDeg: 120,
     sensitivityDb: 91,
+    impedanceOhms: 8,
+    amplifierChannels: 2,
     sourceQuote: "Nominal coverage 120°",
     source: "https://assets.kef.com/pdf_doc/ci/Ci_Group_Specification_Sheet.pdf",
     productId: 386,
@@ -71,6 +84,8 @@ export const SIMULATOR_SPEAKERS: SimulatorSpeaker[] = [
     label: "Plafón 6.5″ coaxial",
     dispersionDeg: 120,
     sensitivityDb: 88,
+    impedanceOhms: 8,
+    amplifierChannels: 1,
     sourceQuote: "Nominal Coverage Angle (1 – 4 kHz) 120° conical",
     source:
       "https://assets.boseprofessional.com/m/45b11f1f533e6087/original/tds_DesignMax_DM6C_LTR_enUS.pdf",

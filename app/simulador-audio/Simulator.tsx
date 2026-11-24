@@ -32,6 +32,7 @@ import {
   MAX_CEILING_HEIGHT,
   MAX_ROOMS,
   MIN_CEILING_HEIGHT,
+  amplifierPlan,
   equipmentList,
   formatMeters,
   roomMetrics,
@@ -259,6 +260,7 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
   const designKey = useMemo(() => JSON.stringify(design), [design]);
   const proposalSent = proposalState === "sent" && sentDesignKey === designKey;
   const equipment = equipmentList(design);
+  const amplification = amplifierPlan(design);
   const totalSpeakers = equipment.reduce((sum, entry) => sum + entry.count, 0);
 
   function selectRoom(roomId: string) {
@@ -1020,6 +1022,21 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
                     <p className="text-2xl font-semibold tabular-nums">{entry.count}</p>
                   </li>
                 ))}
+                {amplification.total > 0 ? (
+                  <li className="flex items-baseline justify-between gap-6 py-4">
+                    <div>
+                      <p className="text-lg font-medium">
+                        {amplification.amplifier.brand} {amplification.amplifier.model}
+                      </p>
+                      <p className="mt-0.5 text-sm text-[#77797F]">
+                        {amplification.amplifier.label}
+                      </p>
+                    </div>
+                    <p className="text-2xl font-semibold tabular-nums">
+                      {amplification.total}
+                    </p>
+                  </li>
+                ) : null}
               </ul>
 
               {rooms.length > 1 ? (
@@ -1032,11 +1049,24 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
                         {metrics.speaker
                           ? `${metrics.speaker.brand} ${metrics.speaker.model}`
                           : ""}
-                        , {formatMeters(metrics.area, 1)} m²
+                        , {metrics.amplifiers} amplificador
+                        {metrics.amplifiers === 1 ? "" : "es"}, {formatMeters(metrics.area, 1)} m²
                       </li>
                     );
                   })}
                 </ul>
+              ) : null}
+
+              {amplification.total > 0 ? (
+                <p className="mt-6 max-w-2xl text-sm leading-6 text-[#5F626A]">
+                  Cada espacio es una zona con su propio volumen y su propia música,
+                  así que lleva su amplificador. Un {amplification.amplifier.brand}{" "}
+                  {amplification.amplifier.model} mueve hasta cuatro bocinas de 8 Ω
+                  {equipment.some((entry) => entry.speaker.amplifierChannels === 2)
+                    ? " (dos, si son estéreo de doble bobina)"
+                    : ""}
+                  ; si un espacio lleva más, se agrega otro.
+                </p>
               ) : null}
 
               <p className="mt-8 max-w-2xl text-[13px] leading-6 text-[#77797F]">

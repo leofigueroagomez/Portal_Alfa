@@ -53,6 +53,16 @@ El candado es de captacion, no de confidencialidad: el simulador corre en el nav
 - Activos: KEF Ci160ER (110°), KEF Ci160TR (160°), KEF Ci160CRds (120°), Bose DesignMax DM6C (120°).
 - Pendientes (`PENDING_SIMULATOR_SPEAKERS`): B&W CCM665, Sonance VPXT6R y Klipsch CS-18C (el fabricante no publica angulo); B&W AM-1 y Yamaha VS4 (bocinas de muro, necesitan el modelo de fase 2); Sonance VXXT8RW (la ficha dice que es subwoofer; pendiente de confirmar contra el catalogo interno).
 
+## Amplificacion
+
+`lib/simuladorAudio/amplifiers.ts`. El simulador propone el amplificador ademas de las bocinas. Hoy solo el Sonos Amp (producto 19), que es el que ALFA instala por defecto.
+
+- Cada espacio es una zona y lleva al menos un amplificador.
+- Capacidad por amplificador: bocinas en paralelo sin bajar de la carga minima del canal ni pasar el tope del fabricante. Con el Sonos Amp (2 canales, minimo 4 Ω, maximo 4 bocinas segun Sonos) son cuatro bocinas de 8 Ω, o dos si la bocina es estereo de doble bobina (KEF Ci160CRds, `amplifierChannels: 2`). Sonos permite seis solo con sus bocinas Sonos Architectural, que no estan en el catalogo.
+- Amplificadores del espacio = bocinas ÷ capacidad, redondeado hacia arriba. Sale en "Tu sistema", en el desglose por espacio y en el resumen que llega al prospecto.
+- Los amplificadores de Dextra y Biamp entran cuando llegue lleno [`FORMULARIO_AMPLIFICADORES.md`](./FORMULARIO_AMPLIFICADORES.md). Ese formulario tambien pide los angulos de cobertura que faltan (B&W AM-1 y CCM665, Sonance VPXT6R, Klipsch CS-18C).
+- Pendiente: elegir entre varios amplificadores, agrupar espacios en una sola zona y lineas de 70/100 V.
+
 ## Variables de entorno
 
 | Variable | Uso |
@@ -65,5 +75,5 @@ El candado es de captacion, no de confidencialidad: el simulador corre en el nav
 ## Pendientes
 
 - Probar el registro de punta a punta en produccion: correo real, codigo, prospecto en `/leads` y solicitud de propuesta (no se pudo probar en local: sin Resend ni base).
-- Fase 2: mapa de nivel sonoro, bocinas de muro, zonas con amplificador, recibir el plano.
+- Fase 2: mapa de nivel sonoro, bocinas de muro (B&W AM-1), amplificadores de Dextra y Biamp, recibir el plano.
 - Turnstile esta en codigo (`components/TurnstileWidget.tsx`) pero apagado hasta que existan sus dos variables en Vercel. Sin ellas el registro se protege con campo trampa, limite por IP, por correo y global.

@@ -10,6 +10,11 @@ import {
   type Point,
 } from "@/lib/simuladorAudio/geometry";
 import {
+  DEFAULT_SIMULATOR_AMPLIFIER,
+  amplifiersForRoom,
+  type SimulatorAmplifier,
+} from "@/lib/simuladorAudio/amplifiers";
+import {
   getSimulatorSpeaker,
   type SimulatorSpeaker,
 } from "@/lib/simuladorAudio/speakers";
@@ -42,6 +47,8 @@ export type RoomMetrics = {
   diameter: number;
   coverage: number;
   count: number;
+  /** Amplificadores sugeridos para este espacio (una zona). */
+  amplifiers: number;
 };
 
 export const MIN_CEILING_HEIGHT = 2;
@@ -68,6 +75,9 @@ export function roomMetrics(room: SimulatorRoom): RoomMetrics {
     diameter,
     coverage: coverageRatio(room.points, room.speakers, diameter / 2),
     count: room.speakers.length,
+    amplifiers: speaker
+      ? amplifiersForRoom(DEFAULT_SIMULATOR_AMPLIFIER, speaker, room.speakers.length)
+      : 0,
   };
 }
 
@@ -163,6 +173,29 @@ export function equipmentList(design: SimulatorDesign) {
   return [...totals.values()];
 }
 
+/**
+ * Amplificacion sugerida para todo el diseño: un amplificador por zona (cada
+ * espacio es una zona) y los que hagan falta por numero de bocinas.
+ */
+export function amplifierPlan(design: SimulatorDesign): {
+  amplifier: SimulatorAmplifier;
+  total: number;
+  zones: number;
+} {
+  let total = 0;
+  let zones = 0;
+
+  for (const room of design.rooms) {
+    const amplifiers = roomMetrics(room).amplifiers;
+    if (amplifiers > 0) {
+      total += amplifiers;
+      zones += 1;
+    }
+  }
+
+  return { amplifier: DEFAULT_SIMULATOR_AMPLIFIER, total, zones };
+}
+
 /** Resumen en texto para el prospecto en ALFA OS. */
 export function summarizeDesign(design: SimulatorDesign) {
   const lines = [
@@ -182,7 +215,7 @@ export function summarizeDesign(design: SimulatorDesign) {
         room.ceilingHeight
       )} m, ${metrics.count} × ${model} (${COVERAGE_MODES[room.mode].label.toLowerCase()}, cobertura ${Math.round(
         metrics.coverage * 100
-      )}%)`
+      )}%), ${metrics.amplifiers} amplificador${metrics.amplifiers === 1 ? "" : "es"}`
     );
   }
 
@@ -191,6 +224,13 @@ export function summarizeDesign(design: SimulatorDesign) {
     .join(", ");
 
   if (totals) lines.push(`Total: ${totals}.`);
+
+  const plan = amplifierPlan(design);
+  if (plan.total > 0) {
+    lines.push(
+      `Amplificación sugerida: ${plan.total} × ${plan.amplifier.brand} ${plan.amplifier.model} (${plan.zones} zona${plan.zones === 1 ? "" : "s"}).`
+    );
+  }
 
   return lines.join("\n");
 }
