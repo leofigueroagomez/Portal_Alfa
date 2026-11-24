@@ -298,6 +298,9 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
   const proposalSent = proposalState === "sent" && sentDesignKey === designKey;
   const equipment = equipmentList(design);
   const amplification = amplifierPlan(design);
+  // La capacidad del amplificador se explica con una bocina que si lo usa: en un
+  // diseño mixto la primera de la lista puede ser inalambrica.
+  const passiveEntry = equipment.find((entry) => !entry.speaker.selfPowered) || null;
   const totalSpeakers = equipment.reduce((sum, entry) => sum + entry.count, 0);
 
   function selectRoom(roomId: string) {
@@ -1218,11 +1221,11 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
                   {amplification.amplifier.zones === 1
                     ? "una zona"
                     : `${amplification.amplifier.zones} zonas`}
-                  {equipment[0]
+                  {passiveEntry
                     ? ` y mueve hasta ${speakersPerZone(
                         amplification.amplifier,
-                        equipment[0].speaker
-                      )} bocinas ${equipment[0].speaker.model} por zona`
+                        passiveEntry.speaker
+                      )} bocinas ${passiveEntry.speaker.model} por zona`
                     : ""}
                   ; si un espacio lleva más, ocupa otra zona. Tu diseño usa{" "}
                   {amplification.zones} zona{amplification.zones === 1 ? "" : "s"}.
