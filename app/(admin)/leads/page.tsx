@@ -31,6 +31,7 @@ const sourceLabels: Record<string, string> = {
   "Prospectación Directa": "Prospectación Directa",
   "Cliente Existente": "Cliente Existente",
   WhatsApp: "WhatsApp",
+  "Simulador de Audio": "Simulador de Audio",
 };
 
 function formatSource(value: string | null) {

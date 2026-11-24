@@ -11,6 +11,17 @@ Ver [`../modules/agente-whatsapp/MODULE_CONTEXT.md`](../modules/agente-whatsapp/
 - El telefono de WhatsApp no autentica. El contexto que recibe el modelo se limita a nombre, proyectos y vigencia de garantia: no agregar direcciones, saldos, RFC, contactos ni documentos.
 - Lo que escribe el cliente es entrada no confiable: va como mensaje `user`; el contexto de ALFA OS va como mensaje `system`. No mezclar ambos en el mismo bloque.
 
+## Simulador de audio (2026-11-23)
+
+Ver [`../modules/simulador-audio/MODULE_CONTEXT.md`](../modules/simulador-audio/MODULE_CONTEXT.md).
+
+- Los visitantes del simulador **no** son usuarios de Supabase Auth. Son una fila en `simulator_access` mas una cookie firmada (`alfa_sim_access`, HMAC con `SIMULADOR_ACCESS_SECRET`). No convertir este flujo en un `signUp` publico: el default de perfiles los dejaria como internos.
+- `SIMULADOR_ACCESS_SECRET` debe tener al menos 32 caracteres. Si falta, `/api/simulador-audio/registro` y `/verificar` responden 503 y nadie entra como visitante.
+- Tablas `simulator_access` y `simulator_designs`: RLS activo, sin policies y sin grants para `anon`/`authenticated`. Solo `service_role` desde las rutas.
+- El codigo de verificacion se guarda como HMAC ligado al id del registro, vence en 15 minutos y admite 5 intentos. El intento se cuenta antes de comparar.
+- `/api/simulador-audio/registro` manda correo a una direccion que escribe un anonimo: mantener los tres limites (por IP, por correo y global) y el enfriamiento de reenvio. La respuesta del modo reingreso no revela si un correo esta registrado.
+- `/api/simulador-audio/propuesta` valida el diseño con `sanitizeDesign` (rangos, tamaños y modelos conocidos) antes de guardarlo. No aceptar HTML ni archivos por esa ruta.
+
 ## PDF Premium por token de servicio
 
 `GET /api/quotes/[id]/pdf-premium` devuelve solo el PDF Premium de esa cotización, incluidos los borradores. No escribe, no lista cotizaciones y no entrega JSON de negocio.

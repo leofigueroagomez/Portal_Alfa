@@ -21,6 +21,7 @@ import {
   Ruler,
   Settings,
   SlidersHorizontal,
+  Speaker,
   Users,
   UserCog,
   Wrench,
@@ -93,6 +94,7 @@ export default function AdminShell({
     { href: "/quotes/new", label: "Nueva Cotización", icon: PlusCircle },
     { href: "/customers", label: "Clientes", icon: Building2 },
     { href: "/quotes", label: "Cotizaciones", icon: FileText },
+    { href: "/simulador-audio", label: "Simulador de Audio", icon: Speaker },
     {
       href: "/products",
       label: "Productos",

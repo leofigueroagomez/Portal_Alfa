@@ -53,6 +53,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.9,
     },
     {
+      url: `${baseUrl}/simulador-audio`,
+      changeFrequency: "monthly",
+      priority: 0.9,
+    },
+    {
       url: `${baseUrl}/alfa-os`,
       changeFrequency: "monthly",
       priority: 0.8,
