@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
+  ArrowLeft,
   Check,
   MousePointer2,
   PenLine,
@@ -52,6 +53,11 @@ import {
   getSimulatorAmplifier,
   speakersPerZone,
 } from "@/lib/simuladorAudio/amplifiers";
+import {
+  SPACE_OPTIONS,
+  recommendSpace,
+  type AssistantAnswers,
+} from "@/lib/simuladorAudio/assistant";
 import { roomLoudness } from "@/lib/simuladorAudio/loudness";
 import PlanCanvas, { type CanvasTool } from "./PlanCanvas";
 import {
@@ -227,13 +233,54 @@ function Segmented<T extends string>({
   );
 }
 
-export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
+/**
+ * Espacios con los que abre el simulador. Si el visitante paso por el
+ * asistente, uno por cada espacio que lleva bocinas de musica, ya con el
+ * modelo y el ambiente que se le recomendo; si no, una sala de ejemplo.
+ */
+function initialMeasureRooms(assistantSpaces: AssistantAnswers[]): EditorRoom[] {
+  const rooms: EditorRoom[] = [];
+  const used = new Map<string, number>();
+
+  assistantSpaces.forEach((answers, index) => {
+    const music = recommendSpace(answers).music;
+    if (!music) return;
+
+    // "Recámara", "Recámara 2"… cuando hay varios espacios del mismo tipo.
+    const base = SPACE_OPTIONS[answers.space].label.split(" o ")[0];
+    const repeat = (used.get(base) || 0) + 1;
+    used.set(base, repeat);
+
+    const room = createRectRoom(
+      repeat > 1 ? `${base} ${repeat}` : base,
+      undefined,
+      `espacio-asistente-${index}`
+    );
+    rooms.push(layoutRoom({ ...room, modelId: music.modelId, mode: music.mode }));
+  });
+
+  // El id fijo evita diferencias entre el render del servidor y el del navegador.
+  return rooms.length > 0 ? rooms : [createRectRoom("Sala", undefined, "espacio-inicial")];
+}
+
+export default function Simulator({
+  viewerKind,
+  assistantSpaces = [],
+  onBackToAssistant,
+}: {
+  viewerKind: ViewerKind;
+  /** Respuestas del asistente; viajan con la solicitud de propuesta. */
+  assistantSpaces?: AssistantAnswers[];
+  onBackToAssistant?: () => void;
+}) {
   const [source, setSource] = useState<Source>("medidas");
-  // El primer espacio lleva un id fijo: uno aleatorio no coincidiria entre el
-  // render del servidor y el del navegador.
-  const [measureRooms, setMeasureRooms] = useState<EditorRoom[]>(() => [
-    createRectRoom("Sala", undefined, "espacio-inicial"),
-  ]);
+  const [measureRooms, setMeasureRooms] = useState<EditorRoom[]>(() =>
+    initialMeasureRooms(assistantSpaces)
+  );
+  // Equipo de television que recomendo el asistente, por espacio.
+  const tvKits = assistantSpaces
+    .map(recommendSpace)
+    .filter((recommendation) => recommendation.tv.length > 0);
   const [planRooms, setPlanRooms] = useState<EditorRoom[]>([]);
   const [selectedIds, setSelectedIds] = useState<Record<Source, string | null>>({
     medidas: null,
@@ -532,7 +579,12 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
       const response = await fetch("/api/simulador-audio/propuesta", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ design, projectType, note }),
+        body: JSON.stringify({
+          design,
+          projectType,
+          note,
+          ...(assistantSpaces.length > 0 ? { assistant: assistantSpaces } : {}),
+        }),
       });
       const data = (await response.json().catch(() => null)) as { error?: string } | null;
 
@@ -585,6 +637,16 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
       <div className="mx-auto max-w-7xl px-5 py-12 sm:px-8 sm:py-16 lg:px-12">
         <div className="flex flex-wrap items-end justify-between gap-6">
           <div>
+            {onBackToAssistant ? (
+              <button
+                type="button"
+                onClick={onBackToAssistant}
+                className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-[#33353B] underline-offset-4 hover:underline"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                {assistantSpaces.length > 0 ? "Volver a mi solución" : "Volver al asistente"}
+              </button>
+            ) : null}
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#9E1B32]">
               Simulador
             </p>
@@ -1139,7 +1201,31 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
           <div className="mt-16 grid gap-12 border-t border-black/10 pt-12 lg:grid-cols-[minmax(0,1fr)_380px]">
             <div>
               <h3 className="text-2xl font-semibold tracking-tight">Tu sistema</h3>
-              <ul className="mt-6 divide-y divide-black/10">
+
+              {tvKits.map((kit, index) => (
+                <div key={index} className="mt-6">
+                  <p className={eyebrowClass}>
+                    Para la televisión · {SPACE_OPTIONS[kit.answers.space].label}
+                  </p>
+                  <ul className="mt-2 divide-y divide-black/10">
+                    {kit.tv.map((line) => (
+                      <li key={`${line.key}-${line.role}`} className="flex items-center gap-4 py-4">
+                        {line.image ? (
+                          <ProductPhoto src={line.image} alt={line.name} size={72} />
+                        ) : null}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-lg font-medium">{line.name}</p>
+                          <p className="mt-0.5 text-sm text-[#77797F]">{line.role}</p>
+                        </div>
+                        <p className="text-2xl font-semibold tabular-nums">{line.count}</p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+
+              {tvKits.length > 0 ? <p className={`${eyebrowClass} mt-8`}>Para la música</p> : null}
+              <ul className={`${tvKits.length > 0 ? "mt-2" : "mt-6"} divide-y divide-black/10`}>
                 {equipment.map((entry) => (
                   <li key={entry.speaker.id} className="flex items-center gap-4 py-4">
                     <ProductPhoto

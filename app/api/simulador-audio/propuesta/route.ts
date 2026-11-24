@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { checkRateLimit, createRequestId, logApiError } from "@/lib/apiAuth";
 import { resolveSimulatorViewer } from "@/lib/simuladorAudio/access";
+import {
+  sanitizeAssistantSpaces,
+  summarizeAssistant,
+} from "@/lib/simuladorAudio/assistant";
 import { sanitizeDesign, summarizeDesign } from "@/lib/simuladorAudio/design";
 import { ensureLeadForAccess } from "@/lib/simuladorAudio/leads";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
@@ -53,12 +57,22 @@ export async function POST(request: Request) {
     body = null;
   }
 
-  const design = sanitizeDesign(body?.design);
+  // La solicitud puede traer el diseño del simulador, las respuestas del
+  // asistente, o las dos cosas. Lo que venga debe ser valido, y debe venir algo.
+  const hasDesign = body?.design !== undefined && body?.design !== null;
+  const hasAssistant = body?.assistant !== undefined && body?.assistant !== null;
+  const design = hasDesign ? sanitizeDesign(body?.design) : null;
+  const assistant = hasAssistant ? sanitizeAssistantSpaces(body?.assistant) : null;
   const projectType = String(body?.projectType || "");
   const note = String(body?.note || "").trim().slice(0, 1000);
 
-  if (!design || !PROJECT_TYPES.includes(projectType)) {
-    return NextResponse.json({ error: "No pudimos leer el diseño." }, { status: 400 });
+  if (
+    (hasDesign && !design) ||
+    (hasAssistant && !assistant) ||
+    (!design && !assistant) ||
+    !PROJECT_TYPES.includes(projectType)
+  ) {
+    return NextResponse.json({ error: "No pudimos leer tu solicitud." }, { status: 400 });
   }
 
   try {
@@ -79,7 +93,14 @@ export async function POST(request: Request) {
     }
 
     const leadId = await ensureLeadForAccess(supabase, access);
-    const summary = summarizeDesign(design);
+    // Las recomendaciones del asistente se recalculan aqui a partir de las
+    // respuestas: no se confia en lo que el navegador diga que se recomendo.
+    const summary = [
+      assistant ? summarizeAssistant(assistant) : "",
+      design ? summarizeDesign(design) : "",
+    ]
+      .filter(Boolean)
+      .join("\n\n");
     const nowIso = new Date().toISOString();
 
     const { error: designError } = await supabase.from("simulator_designs").insert({
@@ -88,7 +109,9 @@ export async function POST(request: Request) {
       project_type: projectType,
       note: note || null,
       summary,
-      design,
+      // El diseño del simulador en la raiz (como siempre) y, si las hay, las
+      // respuestas del asistente en `assistant`.
+      design: { ...(design || {}), ...(assistant ? { assistant } : {}) },
     });
 
     if (designError) throw designError;

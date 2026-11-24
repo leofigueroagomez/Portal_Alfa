@@ -10,14 +10,16 @@ Estado: fase 1 en codigo (2026-11-23). La migracion `sql/20261123_simulador_audi
 | --- | --- |
 | `app/simulador-audio/page.tsx` | Pagina publica. Decide en el servidor si muestra el simulador o el registro. |
 | `app/simulador-audio/AccessGate.tsx` | Formulario de registro, reingreso y captura del codigo. |
+| `app/simulador-audio/SimulatorExperience.tsx` | Recorrido completo: primero el asistente, despues el simulador. Guarda las respuestas mientras la pagina esta abierta. |
+| `app/simulador-audio/Assistant.tsx` | Asistente de entrada: preguntas por espacio, solucion inicial y solicitud de propuesta sin pasar por el simulador. |
 | `app/simulador-audio/Simulator.tsx` | Simulador (modo medidas y modo plano), lista de equipos y solicitud de propuesta. |
 | `app/simulador-audio/PlanCanvas.tsx` | Vista de planta en SVG: areas, huella de cobertura, arrastre de bocinas, escala y dibujo. |
 | `app/simulador-audio/planFile.ts` | Carga del plano (PDF con `pdfjs-dist`, JPG, PNG) dentro del navegador. |
 | `POST /api/simulador-audio/registro` | Alta o reingreso: manda el codigo de 6 digitos por Resend. |
 | `POST /api/simulador-audio/verificar` | Valida el codigo, crea el prospecto y entrega el pase (cookie). |
-| `POST /api/simulador-audio/propuesta` | Guarda el diseño del visitante y lo deja en su prospecto. |
+| `POST /api/simulador-audio/propuesta` | Guarda el diseño del visitante, las respuestas del asistente o las dos cosas, y lo deja en su prospecto. |
 
-Logica en `lib/simuladorAudio/`: `geometry.ts` (calculo), `speakers.ts` (catalogo), `design.ts` (modelo y validacion del diseño), `access.ts` (pase y codigos), `leads.ts` (prospecto), `email.ts` (correo). Pruebas en `tests/simuladorAudio.test.ts`.
+Logica en `lib/simuladorAudio/`: `assistant.ts` (preguntas y reglas del asistente), `geometry.ts` (calculo), `speakers.ts` (catalogo), `design.ts` (modelo y validacion del diseño), `access.ts` (pase y codigos), `leads.ts` (prospecto), `email.ts` (correo). Pruebas en `tests/simuladorAudio.test.ts`.
 
 ## Acceso
 
@@ -34,10 +36,62 @@ El candado es de captacion, no de confidencialidad: el simulador corre en el nav
 ## Datos
 
 - `simulator_access`: una fila por correo. Guarda el hash del codigo vigente, nunca el codigo.
-- `simulator_designs`: diseño enviado con "Solicitar propuesta" (JSON validado por `sanitizeDesign`).
+- `simulator_designs`: lo enviado con "Solicitar propuesta". La columna `design` lleva el diseño del simulador en la raiz (validado por `sanitizeDesign`) y, si el visitante paso por el asistente, sus respuestas en `design.assistant` (validadas por `sanitizeAssistantSpaces`). Una solicitud hecha desde el asistente trae solo `design.assistant`, sin `rooms`. No hubo cambio de esquema: la columna ya era JSON.
 - `leads`: al verificar el correo se crea el prospecto con `source = 'Simulador de Audio'`, `interest = 'Audio y video'` y el correo en `raw_payload.email` (la tabla no tiene columna de correo). `customer_type` entra como `residencial` y se corrige cuando el visitante pide propuesta. Quien no verifica no genera prospecto.
 - Las tres rutas escriben con `service_role`. Las tablas nuevas tienen RLS activo, sin policies y sin grants para `anon`/`authenticated`.
 - El plano no se sube a ningun servidor: se queda en el navegador. Pendiente de fase 2 si se quiere recibirlo (requiere bucket privado).
+
+## Asistente de entrada
+
+Antes del simulador, el visitante contesta unas preguntas por espacio y recibe una solucion inicial con los equipos que ALFA instala. Desde ahi puede pedir propuesta, agregar otro espacio o abrir el simulador, que arranca con lo recomendado. "Ir directo al simulador" se lo salta.
+
+Las reglas son fijas, sin IA: viven en `recommendSpace` (`lib/simuladorAudio/assistant.ts`) para que la recomendacion sea predecible y nunca proponga algo que ALFA no vende. Sin precios.
+
+**Preguntas, en orden.**
+
+1. Que espacio es: sala o family, recamara, cocina o comedor, terraza o jardin, oficina o negocio.
+2. Si hay television: no; si, que se oiga mejor; si, cine en casa. En terraza no se pregunta.
+3. Solo con cine en casa: donde van las bocinas de atras (techo, muro o inalambricas).
+4. Ambiente: las mismas tres llaves del simulador (`ambiental`, `uniforme`, `maxima`).
+5. Etapa: en obra o remodelacion, o ya terminado. En terraza no se pregunta.
+
+**Reglas de television. PROVISIONALES: las propuso Claude el 2026-11-23 y estan pendientes de que Leo las valide.**
+
+| Caso | Se propone |
+| --- | --- |
+| Barra de sonido | Sonos Arc Ultra en sala y negocio; Sonos Beam en recamara y cocina. |
+| Cine en casa | La barra mas subwoofer, siempre: Sonos Sub 4 con la Arc Ultra, Sonos Sub Mini con la Beam. |
+| Traseras inalambricas | Par de Sonos Era 300 con la Arc Ultra; par de Sonos Era 100 con la Beam. |
+| Traseras en techo | Par de KEF Ci160ER mas un Sonos Amp que las mueve. |
+| Traseras en muro | Par de B&W AM-1 mas un Sonos Amp que las mueve. |
+| Terraza | Nunca barra de sonido; solo musica. |
+
+Si el espacio ya esta terminado y se piden traseras cableadas, la solucion avisa que hay que pasar cable por techo o muro.
+
+**Lo que publica Sonos sobre estas combinaciones** (sonos.com y support.sonos.com, leido el 2026-11-23). Ninguna regla de la tabla contradice a Sonos; lo que sigue sin validar es que sean el criterio de ALFA.
+
+- Barra: la Arc Ultra es para "Large living rooms and open floor plans", 32 m² o mas y televisiones de 50" o mas. La Beam (Gen 2) es "Powerful compact soundbar for TVs up to 65\""; Sonos no publica un tamaño de cuarto para ella.
+- Subwoofer: el Sub Mini es "ideal for a small or medium-sized room, and low to moderate volume levels" y Sonos lo recomienda con la Beam. El Sub 4 se anuncia con Arc Ultra, Arc o Beam. Los paquetes de Sonos son Beam con Sub Mini y Arc Ultra con Sub 4. El Sub Mini es compatible con la Arc Ultra, pero Sonos no lo recomienda con ella.
+- Traseras inalambricas: tienen que ser dos bocinas del mismo modelo. Un par de Era 100 o de Era 300 funciona con la Arc Ultra y con la Beam (Gen 2). La Era 300 exige una barra con Dolby Atmos, asi que no sirve con la Beam de primera generacion.
+- Traseras pasivas: "You can also use Amp to power in-wall, in-ceiling, or other passive speakers as surrounds", tanto en la Arc Ultra como en la Beam (Gen 2). Un solo Sonos Amp mueve el canal izquierdo y el derecho. En ese uso se apagan la salida de subwoofer y la entrada de linea del Amp.
+- Ojo para la instalacion: los equipos que hacen de traseras se enlazan de forma inalambrica con la barra, y Sonos pide que esten "in the same room and have line-of-sight to your home theater product". Sonos no dice si un Amp de traseras puede ir por cable de red ni dentro de un rack. Pendiente de confirmar antes de prometer el Amp en un site o closet.
+- Sonos no publica donde colocar traseras de techo o de muro, ni si unas traseras pasivas reproducen el canal de altura de Dolby Atmos. La unica guia es general: detras y a los lados del lugar donde se sienta la gente.
+- Musica: "Sonos products for your TV provide full-theater sound and play music too", que respalda no proponer bocinas de musica aparte cuando ya hay cine en casa.
+
+Pendiente de confirmar: la investigacion reporto que Sonos ya vende una "Beam Ultra" (cuartos de 23 a 32 m²) entre la Beam y la Arc Ultra. No esta en el catalogo interno; si ALFA la va a vender, seria la barra natural para una sala mediana.
+
+**Reglas de musica.**
+
+- Bocina: B&W AM-1 en terraza; KEF Ci160ER de plafon si esta en obra; inalambrica si ya esta terminado (Sonos Era 300 en sala y negocio, Era 100 en recamara y cocina).
+- Se propone musica aparte de la television cuando no hay television, o cuando hay barra sola y el ambiente pedido es convivencia o fiesta. Con barra sola y ambiente ambiental, la barra basta. Con cine en casa, el mismo sistema sirve para musica.
+- La cantidad de bocinas de musica no la decide el asistente: depende del tamaño del espacio y sale del simulador.
+- En "Oficina o negocio" se avisa que puede convenir audio comercial (70/100 V), que no esta modelado.
+
+**Como llega al simulador.** Cada espacio con bocinas de musica se abre como un espacio del simulador con el modelo y el ambiente recomendados. El equipo de television no se dibuja en el plano: aparece en "Tu sistema" como "Para la television", por espacio. El amplificador de las traseras se lista ahi y no entra en `amplifierPlan`.
+
+**Solicitud de propuesta.** El navegador manda solo las respuestas (`assistant`); la ruta las valida y vuelve a calcular la recomendacion en el servidor para escribir el resumen del prospecto (`summarizeAssistant`). Hasta 12 espacios.
+
+Pendiente: segunda capa en la que el visitante escribe su necesidad en texto libre y una IA la traduce a estas mismas respuestas.
 
 ## Calculo
 
