@@ -105,10 +105,14 @@ export default async function SimuladorAudioPage() {
       name: `${speaker.brand} ${speaker.model}`,
       image: speaker.image,
     })),
-    {
-      name: `${DEFAULT_SIMULATOR_AMPLIFIER.brand} ${DEFAULT_SIMULATOR_AMPLIFIER.model}`,
-      image: DEFAULT_SIMULATOR_AMPLIFIER.image,
-    },
+    ...(DEFAULT_SIMULATOR_AMPLIFIER.image
+      ? [
+          {
+            name: `${DEFAULT_SIMULATOR_AMPLIFIER.brand} ${DEFAULT_SIMULATOR_AMPLIFIER.model}`,
+            image: DEFAULT_SIMULATOR_AMPLIFIER.image,
+          },
+        ]
+      : []),
   ];
   const backLink =
     viewer?.kind === "interno"

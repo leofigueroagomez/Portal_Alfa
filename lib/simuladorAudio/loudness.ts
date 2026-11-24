@@ -1,6 +1,7 @@
 import {
   DEFAULT_SIMULATOR_AMPLIFIER,
-  amplifiersForRoom,
+  channelPowerW,
+  zonesForRoom,
   type SimulatorAmplifier,
 } from "@/lib/simuladorAudio/amplifiers";
 import {
@@ -77,24 +78,28 @@ export type RoomLoudness = {
 
 /**
  * Potencia que recibe cada bocina. Las bocinas de un mismo canal se reparten
- * su potencia; no se cuenta con la potencia extra que un amplificador entrega
- * a 4 Ω porque Sonos no la publica.
+ * su potencia. Con dos bocinas por canal se usa la potencia a 4 Ω solo si el
+ * fabricante del amplificador la publica.
  */
 export function powerPerSpeakerW(
   amplifier: SimulatorAmplifier,
   speaker: SimulatorSpeaker,
   speakerCount: number
 ) {
-  const amplifiers = amplifiersForRoom(amplifier, speaker, speakerCount);
-  if (amplifiers === 0) return 0;
+  const zones = zonesForRoom(amplifier, speaker, speakerCount);
+  if (zones === 0) return 0;
 
-  const perAmplifier = Math.ceil(speakerCount / amplifiers);
-  const perChannel =
-    speaker.amplifierChannels === 2
-      ? perAmplifier
-      : Math.ceil(perAmplifier / amplifier.channels);
+  const perZone = Math.ceil(speakerCount / zones);
+  const channelsPerZone = Math.max(1, Math.round(amplifier.channels / amplifier.zones));
+  const perChannel = Math.max(
+    1,
+    speaker.amplifierChannels === 2 ? perZone : Math.ceil(perZone / channelsPerZone)
+  );
 
-  return Math.min(speaker.maxPowerW, amplifier.powerPerChannelW / Math.max(1, perChannel));
+  return Math.min(
+    speaker.maxPowerW,
+    channelPowerW(amplifier, speaker, perChannel) / perChannel
+  );
 }
 
 export function loudnessVerdict(level: number, target: number): LoudnessVerdict {

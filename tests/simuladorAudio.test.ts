@@ -11,8 +11,10 @@ import {
 } from "@/lib/simuladorAudio/access";
 import {
   DEFAULT_SIMULATOR_AMPLIFIER,
-  amplifiersForRoom,
-  speakersPerAmplifier,
+  amplifierUnits,
+  getSimulatorAmplifier,
+  speakersPerZone,
+  zonesForRoom,
 } from "@/lib/simuladorAudio/amplifiers";
 import {
   amplifierPlan,
@@ -144,20 +146,20 @@ test("un Sonos Amp mueve cuatro bocinas de 8 Ω, o dos estéreo de doble bobina"
   const mono = getSimulatorSpeaker("kef-ci160er")!;
   const stereo = getSimulatorSpeaker("kef-ci160crds")!;
 
-  assert.equal(speakersPerAmplifier(amp, mono), 4);
-  assert.equal(speakersPerAmplifier(amp, stereo), 2);
+  assert.equal(speakersPerZone(amp, mono), 4);
+  assert.equal(speakersPerZone(amp, stereo), 2);
 
-  assert.equal(amplifiersForRoom(amp, mono, 0), 0);
-  assert.equal(amplifiersForRoom(amp, mono, 1), 1);
-  assert.equal(amplifiersForRoom(amp, mono, 4), 1);
-  assert.equal(amplifiersForRoom(amp, mono, 5), 2);
-  assert.equal(amplifiersForRoom(amp, stereo, 3), 2);
+  assert.equal(zonesForRoom(amp, mono, 0), 0);
+  assert.equal(zonesForRoom(amp, mono, 1), 1);
+  assert.equal(zonesForRoom(amp, mono, 4), 1);
+  assert.equal(zonesForRoom(amp, mono, 5), 2);
+  assert.equal(zonesForRoom(amp, stereo, 3), 2);
 
   // Sonos no admite más de cuatro bocinas aunque la impedancia lo permitiera.
-  assert.equal(speakersPerAmplifier(amp, { ...mono, impedanceOhms: 16 }), 4);
+  assert.equal(speakersPerZone(amp, { ...mono, impedanceOhms: 16 }), 4);
 
   // Una bocina de 2 Ω no se puede conectar a un amplificador con mínimo de 4 Ω.
-  assert.equal(speakersPerAmplifier(amp, { ...mono, impedanceOhms: 2 }), 0);
+  assert.equal(speakersPerZone(amp, { ...mono, impedanceOhms: 2 }), 0);
 });
 
 test("cada espacio es una zona y lleva su propio amplificador", () => {
@@ -179,10 +181,11 @@ test("cada espacio es una zona y lleva su propio amplificador", () => {
   })!;
   const plan = amplifierPlan(design);
 
-  // Sala: 6 bocinas → 2 amplificadores. Terraza: 2 → 1. Estudio sin bocinas → 0.
+  // Sala: 6 bocinas → 2 zonas de amplificador. Terraza: 2 → 1. Estudio sin bocinas → 0.
+  // El Sonos Amp maneja una zona, así que son tres equipos.
+  assert.equal(plan.zones, 3);
   assert.equal(plan.total, 3);
-  assert.equal(plan.zones, 2);
-  assert.match(summarizeDesign(design), /Amplificación sugerida: 3 × Sonos Amp \(2 zonas\)/);
+  assert.match(summarizeDesign(design), /Amplificación sugerida: 3 × Sonos Amp \(3 zonas\)/);
 });
 
 test("una bocina de muro cubre un abanico: apertura y alcance", () => {
@@ -330,6 +333,17 @@ test("las bocinas van en pares: el reparto nunca deja un número impar", () => {
   assert.equal(suggestLayout(rectanglePolygon(9, 9), 3, "ambiental", pairs).length, 12);
   assert.equal(suggestLayout(rectanglePolygon(2, 2), 8, "ambiental", pairs).length, 2);
 
+  // Completar el par nunca pasa el tope de 200 bocinas que acepta la solicitud de propuesta.
+  for (const [width, length] of [
+    [60, 60],
+    [39, 39],
+    [55, 13],
+  ]) {
+    const capped = suggestLayout(rectanglePolygon(width, length), 0.4, "maxima", pairs);
+    assert.ok(capped.length <= 200);
+    assert.equal(capped.length % 2, 0);
+  }
+
   const lShape = [
     { x: 0, y: 0 },
     { x: 6, y: 0 },
@@ -368,4 +382,64 @@ test("las bocinas van en pares: el reparto nunca deja un número impar", () => {
     (mode) => suggestWallLayout(terrace, sector, mode, pairs).length
   );
   assert.ok(counts[0] <= counts[1] && counts[1] <= counts[2]);
+});
+
+test("un amplificador de varias zonas reparte los espacios entre sus zonas", () => {
+  const mono = getSimulatorSpeaker("kef-ci160er")!;
+  const m4 = getSimulatorAmplifier("marantz-model-m4")!;
+  const ampMulti = getSimulatorAmplifier("sonos-amp-multi")!;
+  const n331 = getSimulatorAmplifier("bluesound-powernode-n331")!;
+
+  // Marantz M4: acepta 4 Ω, dos bocinas de 8 Ω por canal, cuatro por zona.
+  assert.equal(speakersPerZone(m4, mono), 4);
+  // Sonos Amp Multi y Powernode solo publican 8 Ω: una bocina por canal, un par por zona.
+  assert.equal(speakersPerZone(ampMulti, mono), 2);
+  assert.equal(speakersPerZone(n331, mono), 2);
+
+  // Seis bocinas en un espacio: dos zonas del M4, tres del Amp Multi.
+  assert.equal(zonesForRoom(m4, mono, 6), 2);
+  assert.equal(zonesForRoom(ampMulti, mono, 6), 3);
+
+  // Un equipo de cuatro zonas cubre hasta cuatro; la quinta pide otro equipo.
+  assert.equal(amplifierUnits(m4, 4), 1);
+  assert.equal(amplifierUnits(m4, 5), 2);
+  assert.equal(amplifierUnits(m4, 0), 0);
+
+  const room = (id: string, speakers: number) => ({
+    id,
+    name: id,
+    points: rectanglePolygon(6, 5),
+    ceilingHeight: 2.7,
+    posture: "sentado",
+    modelId: "kef-ci160er",
+    mode: "uniforme",
+    speakers: Array.from({ length: speakers }, (_, index) => ({ x: 1 + index * 0.5, y: 2 })),
+    manual: true,
+  });
+  const rooms = [room("Sala", 4), room("Terraza", 2), room("Estudio", 2)];
+
+  // Con Sonos Amp: una zona y un equipo por espacio.
+  const withAmp = amplifierPlan(sanitizeDesign({ source: "medidas", rooms })!);
+  assert.deepEqual([withAmp.zones, withAmp.total], [3, 3]);
+
+  // Con Marantz M4: las tres zonas caben en un solo equipo.
+  const withM4 = sanitizeDesign({ source: "medidas", amplifierId: "marantz-model-m4", rooms })!;
+  assert.equal(withM4.amplifierId, "marantz-model-m4");
+  assert.deepEqual([amplifierPlan(withM4).zones, amplifierPlan(withM4).total], [3, 1]);
+  assert.match(summarizeDesign(withM4), /Amplificación sugerida: 1 × Marantz MODEL M4 \(3 zonas\)/);
+
+  // Un amplificador desconocido se ignora y queda el de línea.
+  const unknown = sanitizeDesign({ source: "medidas", amplifierId: "inventado", rooms })!;
+  assert.equal(unknown.amplifierId, undefined);
+  assert.equal(amplifierPlan(unknown).amplifier.id, "sonos-amp");
+});
+
+test("la potencia a 4 Ω solo se usa si el fabricante del amplificador la publica", () => {
+  const mono = getSimulatorSpeaker("kef-ci160er")!;
+  const m1 = getSimulatorAmplifier("marantz-model-m1")!;
+
+  // Marantz M1, cuatro bocinas: dos por canal a 4 Ω, 125 W entre dos.
+  assert.equal(powerPerSpeakerW(m1, mono, 4), 62.5);
+  // Dos bocinas: una por canal a 8 Ω, 100 W.
+  assert.equal(powerPerSpeakerW(m1, mono, 2), 100);
 });

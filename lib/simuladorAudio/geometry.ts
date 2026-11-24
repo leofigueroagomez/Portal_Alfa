@@ -263,11 +263,17 @@ export function suggestLayout(
     // Para completar el par se agrega una columna o una fila, la que deje las
     // celdas menos alargadas. En formas irregulares puede tomar mas de un intento.
     for (let attempt = 0; attempt < 8 && speakers.length % 2 === 1; attempt += 1) {
-      if (box.width / cols >= box.height / rows) cols += 1;
-      else rows += 1;
+      const widerCells = box.width / cols >= box.height / rows;
+      const nextCols = widerCells ? cols + 1 : cols;
+      const nextRows = widerCells ? rows : rows + 1;
+      // Completar el par no puede pasar el tope de bocinas por espacio.
+      if (nextCols * nextRows > MAX_SPEAKERS_PER_ROOM) break;
+
+      cols = nextCols;
+      rows = nextRows;
       speakers = build(cols, rows);
     }
-    // Ultimo recurso en una forma muy caprichosa: se quita la que sobra.
+    // Ultimo recurso (forma muy caprichosa o tope alcanzado): se quita la que sobra.
     if (speakers.length % 2 === 1 && speakers.length > 1) speakers.pop();
   }
 

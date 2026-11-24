@@ -103,13 +103,38 @@ Un modelo con `mount: "muro"` cubre un abanico en lugar de un circulo: apertura 
 
 ## Amplificacion
 
-`lib/simuladorAudio/amplifiers.ts`. El simulador propone el amplificador ademas de las bocinas. Hoy solo el Sonos Amp (producto 19), que es el que ALFA instala por defecto.
+`lib/simuladorAudio/amplifiers.ts`. El simulador propone el amplificador ademas de las bocinas, y el visitante puede cambiarlo en "Opciones de amplificador". El de linea es el Sonos Amp (producto 19).
 
-- Cada espacio es una zona y lleva al menos un amplificador.
-- Capacidad por amplificador: bocinas en paralelo sin bajar de la carga minima del canal ni pasar el tope del fabricante. Con el Sonos Amp (2 canales, minimo 4 Ω, maximo 4 bocinas segun Sonos) son cuatro bocinas de 8 Ω, o dos si la bocina es estereo de doble bobina (KEF Ci160CRds, `amplifierChannels: 2`). Sonos permite seis solo con sus bocinas Sonos Architectural, que no estan en el catalogo.
-- Amplificadores del espacio = bocinas ÷ capacidad, redondeado hacia arriba. Sale en "Tu sistema", en el desglose por espacio y en el resumen que llega al prospecto.
-- Los amplificadores de Dextra y Biamp entran cuando llegue lleno [`FORMULARIO_AMPLIFICADORES.md`](./FORMULARIO_AMPLIFICADORES.md). Ese formulario tambien pide los angulos de cobertura que faltan (B&W AM-1 y CCM665, Sonance VPXT6R, Klipsch CS-18C).
-- Pendiente: elegir entre varios amplificadores, agrupar espacios en una sola zona y lineas de 70/100 V.
+**De donde sale la lista.** GrokBot lleno el formulario con el catalogo publico de RDA y de Dextra; los tres CSV estan en [`datos/`](./datos/) y no traen precios. Al simulador solo entran los de baja impedancia con streaming integrado, que son los que sirven para un sistema estereo por zonas:
+
+| Amplificador | Proveedor | Zonas | W por canal a 8 Ω | Bocinas de 8 Ω por zona |
+| --- | --- | --- | --- | --- |
+| Sonos Amp | RDA | 1 | 125 | 4 (tope de Sonos) |
+| Sonos Amp Multi | RDA | 4 | 125 | 2 |
+| Marantz MODEL M1 | Dextra | 1 | 100 | 4 |
+| Marantz MODEL M4 | Dextra | 4 | 100 | 4 |
+| Marantz MODEL 60n | Dextra | 1 | 60 | 4 |
+| NAD C 700 V2 | RDA | 1 | 80 | 4 |
+| Bluesound POWERNODE N331 | RDA | 1 | 100 | 2 |
+
+Los siete se verificaron contra la ficha del fabricante el 2026-11-23 y coinciden con los CSV, con una salvedad: el CSV de RDA anota 250 W a 4 Ω para el Sonos Amp, pero la ficha lo da como potencia pico, no continua, asi que el simulador no la usa. Para el Sonos Amp Multi y el Powernode el fabricante no dice cuantas bocinas de otra marca acepta cada salida; se tomo una bocina de 8 Ω por salida.
+
+**Como se calcula.**
+
+- Cada espacio es una zona (su propio volumen y su propia musica). Si lleva mas bocinas de las que mueve una zona, ocupa otra.
+- Bocinas por zona: en paralelo sin bajar de la carga minima del canal. La carga minima es 4 Ω cuando el fabricante lo dice o cuando publica potencia a 4 Ω, y 8 Ω cuando solo publica potencia a 8 Ω. Una bocina estereo de doble bobina (KEF Ci160CRds) ocupa los dos canales.
+- Equipos = zonas del diseño ÷ zonas del amplificador, redondeado hacia arriba. Por eso un Marantz M4 cubre tres espacios con un solo equipo y con Sonos Amp son tres.
+- Potencia por bocina (para el medidor de volumen): la del canal entre las bocinas de ese canal. Con dos bocinas por canal se usa la potencia a 4 Ω solo si el fabricante la publica.
+- El amplificador elegido viaja en el diseño (`amplifierId`) y sale en el resumen del prospecto.
+
+**Fuera del simulador por ahora.**
+
+- Mezcladores y amplificadores de 70/100 V de los CSV (Apart MA y REVAMP, Biamp Voltera, ALC y Tesira, Q-SYS SPA, Bose Veritas, JBL CSMA, Crown, LEA, Fonestar, Episode 70 V): son para audio comercial. Necesitan bocinas con transformador y un calculo por watts de linea, sin regla de pares.
+- Autonomic M-120e y Episode EA-MINI y EA-DYN: baja impedancia pero sin streaming propio.
+- Episode ECA-70MIXAMP-1-120: la ficha vigente es de otro SKU; sin datos.
+- Solo el Sonos Amp tiene foto; los demas muestran la marca.
+
+**Bocinas que siguen sin angulo.** `datos/bocinas_faltantes.csv` confirma que ni B&W (AM-1, CCM665), ni Sonance (VPXT6R y su reemplazo VXXT6R), ni Klipsch (CS-18C) publican angulo de cobertura. La AM-1 entra con criterio de ALFA; las demas siguen pendientes.
 
 ## Variables de entorno
 

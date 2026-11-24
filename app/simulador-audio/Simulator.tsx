@@ -46,6 +46,12 @@ import {
   getSimulatorSpeaker,
   speakerGoesInPairs,
 } from "@/lib/simuladorAudio/speakers";
+import {
+  DEFAULT_SIMULATOR_AMPLIFIER,
+  SIMULATOR_AMPLIFIERS,
+  getSimulatorAmplifier,
+  speakersPerZone,
+} from "@/lib/simuladorAudio/amplifiers";
 import { roomLoudness } from "@/lib/simuladorAudio/loudness";
 import PlanCanvas, { type CanvasTool } from "./PlanCanvas";
 import {
@@ -244,6 +250,8 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
   const [tool, setTool] = useState<CanvasTool>("select");
   const [zoom, setZoom] = useState(1);
   const [view, setView] = useState<"cobertura" | "volumen">("cobertura");
+  const [amplifierId, setAmplifierId] = useState(DEFAULT_SIMULATOR_AMPLIFIER.id);
+  const amplifier = getSimulatorAmplifier(amplifierId) || DEFAULT_SIMULATOR_AMPLIFIER;
   const [calibration, setCalibration] = useState<Point[]>([]);
   const [calibrationMeters, setCalibrationMeters] = useState("");
   const [draft, setDraft] = useState<Point[]>([]);
@@ -261,11 +269,8 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
   const setRooms = source === "medidas" ? setMeasureRooms : setPlanRooms;
   const selectedRoom =
     rooms.find((room) => room.id === selectedIds[source]) || rooms[0] || null;
-  const selectedMetrics = selectedRoom ? roomMetrics(selectedRoom) : null;
-  const selectedLoudness = useMemo(
-    () => (selectedRoom ? roomLoudness(selectedRoom) : null),
-    [selectedRoom]
-  );
+  const selectedMetrics = selectedRoom ? roomMetrics(selectedRoom, amplifier) : null;
+  const selectedLoudness = selectedRoom ? roomLoudness(selectedRoom, amplifier) : null;
   const activeSpeaker =
     selectedSpeaker && selectedSpeaker.roomId === selectedRoom?.id
       ? selectedSpeaker
@@ -274,6 +279,7 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
   const design: SimulatorDesign = useMemo(
     () => ({
       source,
+      amplifierId,
       rooms: rooms.map((room) => ({
         id: room.id,
         name: room.name,
@@ -286,7 +292,7 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
         manual: room.manual,
       })),
     }),
-    [rooms, source]
+    [rooms, source, amplifierId]
   );
   const designKey = useMemo(() => JSON.stringify(design), [design]);
   const proposalSent = proposalState === "sent" && sentDesignKey === designKey;
@@ -548,7 +554,7 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
       room,
       diameter: roomDiameter(room),
       sector: roomSector(room),
-      heat: view === "volumen" ? roomLoudness(room) : null,
+      heat: view === "volumen" ? roomLoudness(room, amplifier) : null,
     })
   );
 
@@ -1140,11 +1146,18 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
                 ))}
                 {amplification.total > 0 ? (
                   <li className="flex items-center gap-4 py-4">
-                    <ProductPhoto
-                      src={amplification.amplifier.image}
-                      alt={`${amplification.amplifier.brand} ${amplification.amplifier.model}`}
-                      size={72}
-                    />
+                    {amplification.amplifier.image ? (
+                      <ProductPhoto
+                        src={amplification.amplifier.image}
+                        alt={`${amplification.amplifier.brand} ${amplification.amplifier.model}`}
+                        size={72}
+                      />
+                    ) : (
+                      // Aun sin foto en el catalogo: se muestra la marca.
+                      <span className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-xl bg-white px-1 text-center text-[10px] font-semibold uppercase tracking-[0.1em] text-[#9E1B32]">
+                        {amplification.amplifier.brand}
+                      </span>
+                    )}
                     <div className="min-w-0 flex-1">
                       <p className="text-lg font-medium">
                         {amplification.amplifier.brand} {amplification.amplifier.model}
@@ -1163,15 +1176,15 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
               {rooms.length > 1 ? (
                 <ul className="mt-6 space-y-1.5 text-sm text-[#5F626A]">
                   {rooms.map((room) => {
-                    const metrics = roomMetrics(room);
+                    const metrics = roomMetrics(room, amplifier);
                     return (
                       <li key={room.id}>
                         {room.name}: {metrics.count} ×{" "}
                         {metrics.speaker
                           ? `${metrics.speaker.brand} ${metrics.speaker.model}`
                           : ""}
-                        , {metrics.amplifiers} amplificador
-                        {metrics.amplifiers === 1 ? "" : "es"}, {formatMeters(metrics.area, 1)} m²
+                        , {metrics.zones} zona{metrics.zones === 1 ? "" : "s"} de
+                        amplificador, {formatMeters(metrics.area, 1)} m²
                       </li>
                     );
                   })}
@@ -1180,14 +1193,60 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
 
               {amplification.total > 0 ? (
                 <p className="mt-6 max-w-2xl text-sm leading-6 text-[#5F626A]">
-                  Cada espacio es una zona con su propio volumen y su propia música,
-                  así que lleva su amplificador. Un {amplification.amplifier.brand}{" "}
-                  {amplification.amplifier.model} mueve hasta cuatro bocinas de 8 Ω
-                  {equipment.some((entry) => entry.speaker.amplifierChannels === 2)
-                    ? " (dos, si son estéreo de doble bobina)"
+                  Cada espacio es una zona con su propio volumen y su propia música. Un{" "}
+                  {amplification.amplifier.brand} {amplification.amplifier.model} maneja{" "}
+                  {amplification.amplifier.zones === 1
+                    ? "una zona"
+                    : `${amplification.amplifier.zones} zonas`}
+                  {equipment[0]
+                    ? ` y mueve hasta ${speakersPerZone(
+                        amplification.amplifier,
+                        equipment[0].speaker
+                      )} bocinas ${equipment[0].speaker.model} por zona`
                     : ""}
-                  ; si un espacio lleva más, se agrega otro.
+                  ; si un espacio lleva más, ocupa otra zona. Tu diseño usa{" "}
+                  {amplification.zones} zona{amplification.zones === 1 ? "" : "s"}.
                 </p>
+              ) : null}
+
+              {amplification.total > 0 ? (
+                <div className="mt-8">
+                  <p className={eyebrowClass}>Opciones de amplificador</p>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    {SIMULATOR_AMPLIFIERS.map((option) => {
+                      const selected = option.id === amplifier.id;
+
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          aria-pressed={selected}
+                          onClick={() => {
+                            setAmplifierId(option.id);
+                            setProposalState("idle");
+                          }}
+                          className={`rounded-2xl bg-white px-4 py-3 text-left transition ${
+                            selected
+                              ? "ring-2 ring-[#9E1B32]"
+                              : "ring-1 ring-black/5 hover:ring-black/20"
+                          }`}
+                        >
+                          <span className="block text-[15px] font-semibold text-[#111111]">
+                            {option.brand} {option.model}
+                          </span>
+                          <span className="mt-0.5 block text-[13px] leading-5 text-[#77797F]">
+                            {option.label} · {option.powerPerChannelW} W por canal
+                          </span>
+                          {option.id === DEFAULT_SIMULATOR_AMPLIFIER.id ? (
+                            <span className="mt-1.5 inline-block text-[11px] font-semibold uppercase tracking-[0.12em] text-[#9E1B32]">
+                              El que instalamos normalmente
+                            </span>
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               ) : null}
 
               <p className="mt-8 max-w-2xl text-[13px] leading-6 text-[#77797F]">

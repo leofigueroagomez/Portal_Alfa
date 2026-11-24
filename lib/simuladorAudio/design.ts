@@ -14,7 +14,9 @@ import {
 } from "@/lib/simuladorAudio/geometry";
 import {
   DEFAULT_SIMULATOR_AMPLIFIER,
-  amplifiersForRoom,
+  amplifierUnits,
+  getSimulatorAmplifier,
+  zonesForRoom,
   type SimulatorAmplifier,
 } from "@/lib/simuladorAudio/amplifiers";
 import {
@@ -49,7 +51,13 @@ export type SimulatorRoom = {
 export type SimulatorDesign = {
   source: "medidas" | "plano";
   rooms: SimulatorRoom[];
+  /** Amplificador elegido para todo el diseño; si falta, el de linea de ALFA. */
+  amplifierId?: string;
 };
+
+export function designAmplifier(design: Pick<SimulatorDesign, "amplifierId">) {
+  return getSimulatorAmplifier(design.amplifierId) || DEFAULT_SIMULATOR_AMPLIFIER;
+}
 
 export type RoomMetrics = {
   speaker: SimulatorSpeaker | null;
@@ -60,8 +68,8 @@ export type RoomMetrics = {
   sector: SectorCoverage | null;
   coverage: number;
   count: number;
-  /** Amplificadores sugeridos para este espacio (una zona). */
-  amplifiers: number;
+  /** Zonas de amplificador que ocupa este espacio (al menos una si tiene bocinas). */
+  zones: number;
 };
 
 export const MIN_CEILING_HEIGHT = 2;
@@ -71,7 +79,10 @@ const MAX_POINTS = 80;
 const MAX_SPEAKERS = 200;
 const MAX_COORDINATE = 2000;
 
-export function roomMetrics(room: SimulatorRoom): RoomMetrics {
+export function roomMetrics(
+  room: SimulatorRoom,
+  amplifier: SimulatorAmplifier = DEFAULT_SIMULATOR_AMPLIFIER
+): RoomMetrics {
   const speaker = getSimulatorSpeaker(room.modelId);
   const area = polygonArea(room.points);
   const sector = speakerSector(speaker);
@@ -93,9 +104,7 @@ export function roomMetrics(room: SimulatorRoom): RoomMetrics {
       ? sectorCoverageRatio(room.points, room.speakers, sector)
       : coverageRatio(room.points, room.speakers, diameter / 2),
     count: room.speakers.length,
-    amplifiers: speaker
-      ? amplifiersForRoom(DEFAULT_SIMULATOR_AMPLIFIER, speaker, room.speakers.length)
-      : 0,
+    zones: speaker ? zonesForRoom(amplifier, speaker, room.speakers.length) : 0,
   };
 }
 
@@ -179,7 +188,13 @@ export function sanitizeDesign(raw: unknown): SimulatorDesign | null {
     });
   }
 
-  return { source, rooms };
+  const amplifier = getSimulatorAmplifier(
+    typeof (input as { amplifierId?: unknown }).amplifierId === "string"
+      ? ((input as { amplifierId?: string }).amplifierId as string)
+      : null
+  );
+
+  return amplifier ? { source, rooms, amplifierId: amplifier.id } : { source, rooms };
 }
 
 export function formatMeters(value: number, digits = 2) {
@@ -206,26 +221,25 @@ export function equipmentList(design: SimulatorDesign) {
 }
 
 /**
- * Amplificacion sugerida para todo el diseño: un amplificador por zona (cada
- * espacio es una zona) y los que hagan falta por numero de bocinas.
+ * Amplificacion para todo el diseño. Cada espacio es una zona (o mas, si lleva
+ * mas bocinas de las que mueve una zona); los equipos salen de repartir esas
+ * zonas entre las que maneja cada amplificador.
  */
 export function amplifierPlan(design: SimulatorDesign): {
   amplifier: SimulatorAmplifier;
+  /** Equipos necesarios. */
   total: number;
+  /** Zonas de amplificador que ocupa el diseño. */
   zones: number;
 } {
-  let total = 0;
+  const amplifier = designAmplifier(design);
   let zones = 0;
 
   for (const room of design.rooms) {
-    const amplifiers = roomMetrics(room).amplifiers;
-    if (amplifiers > 0) {
-      total += amplifiers;
-      zones += 1;
-    }
+    zones += roomMetrics(room, amplifier).zones;
   }
 
-  return { amplifier: DEFAULT_SIMULATOR_AMPLIFIER, total, zones };
+  return { amplifier, total: amplifierUnits(amplifier, zones), zones };
 }
 
 /** Resumen en texto para el prospecto en ALFA OS. */
@@ -236,9 +250,11 @@ export function summarizeDesign(design: SimulatorDesign) {
       : "Diseño hecho con medidas en el simulador de audio.",
   ];
 
+  const amplifier = designAmplifier(design);
+
   for (const room of design.rooms) {
-    const metrics = roomMetrics(room);
-    const loudness = roomLoudness(room);
+    const metrics = roomMetrics(room, amplifier);
+    const loudness = roomLoudness(room, amplifier);
     const model = metrics.speaker
       ? `${metrics.speaker.brand} ${metrics.speaker.model}`
       : room.modelId;
@@ -250,9 +266,9 @@ export function summarizeDesign(design: SimulatorDesign) {
           : `plafón a ${formatMeters(room.ceilingHeight)} m`
       }, ${metrics.count} × ${model} (ambiente ${COVERAGE_MODES[room.mode].label.toLowerCase()}${
         loudness ? `: ${LOUDNESS_VERDICT_TEXT[loudness.verdict].title.toLowerCase()}` : ""
-      }, cobertura ${Math.round(metrics.coverage * 100)}%), ${metrics.amplifiers} amplificador${
-        metrics.amplifiers === 1 ? "" : "es"
-      }`
+      }, cobertura ${Math.round(metrics.coverage * 100)}%), ${metrics.zones} zona${
+        metrics.zones === 1 ? "" : "s"
+      } de amplificador`
     );
   }
 
