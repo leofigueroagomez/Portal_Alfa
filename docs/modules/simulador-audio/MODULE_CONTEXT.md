@@ -68,6 +68,18 @@ Las reglas son fijas, sin IA: viven en `recommendSpace` (`lib/simuladorAudio/ass
 
 Si el espacio ya esta terminado y se piden traseras cableadas, la solucion avisa que hay que pasar cable por techo o muro.
 
+**Lo que publica Sonos sobre estas combinaciones** (sonos.com y support.sonos.com, leido el 2026-11-23). Ninguna regla de la tabla contradice a Sonos; lo que sigue sin validar es que sean el criterio de ALFA.
+
+- Barra: la Arc Ultra es para "Large living rooms and open floor plans", 32 m² o mas y televisiones de 50" o mas. La Beam (Gen 2) es "Powerful compact soundbar for TVs up to 65\""; Sonos no publica un tamaño de cuarto para ella.
+- Subwoofer: el Sub Mini es "ideal for a small or medium-sized room, and low to moderate volume levels" y Sonos lo recomienda con la Beam. El Sub 4 se anuncia con Arc Ultra, Arc o Beam. Los paquetes de Sonos son Beam con Sub Mini y Arc Ultra con Sub 4. El Sub Mini es compatible con la Arc Ultra, pero Sonos no lo recomienda con ella.
+- Traseras inalambricas: tienen que ser dos bocinas del mismo modelo. Un par de Era 100 o de Era 300 funciona con la Arc Ultra y con la Beam (Gen 2). La Era 300 exige una barra con Dolby Atmos, asi que no sirve con la Beam de primera generacion.
+- Traseras pasivas: "You can also use Amp to power in-wall, in-ceiling, or other passive speakers as surrounds", tanto en la Arc Ultra como en la Beam (Gen 2). Un solo Sonos Amp mueve el canal izquierdo y el derecho. En ese uso se apagan la salida de subwoofer y la entrada de linea del Amp.
+- Ojo para la instalacion: los equipos que hacen de traseras se enlazan de forma inalambrica con la barra, y Sonos pide que esten "in the same room and have line-of-sight to your home theater product". Sonos no dice si un Amp de traseras puede ir por cable de red ni dentro de un rack. Pendiente de confirmar antes de prometer el Amp en un site o closet.
+- Sonos no publica donde colocar traseras de techo o de muro, ni si unas traseras pasivas reproducen el canal de altura de Dolby Atmos. La unica guia es general: detras y a los lados del lugar donde se sienta la gente.
+- Musica: "Sonos products for your TV provide full-theater sound and play music too", que respalda no proponer bocinas de musica aparte cuando ya hay cine en casa.
+
+Pendiente de confirmar: la investigacion reporto que Sonos ya vende una "Beam Ultra" (cuartos de 23 a 32 m²) entre la Beam y la Arc Ultra. No esta en el catalogo interno; si ALFA la va a vender, seria la barra natural para una sala mediana.
+
 **Reglas de musica.**
 
 - Bocina: B&W AM-1 en terraza; KEF Ci160ER de plafon si esta en obra; inalambrica si ya esta terminado (Sonos Era 300 en sala y negocio, Era 100 en recamara y cocina).

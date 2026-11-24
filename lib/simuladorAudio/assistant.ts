@@ -13,6 +13,13 @@ import { getSimulatorSpeaker } from "@/lib/simuladorAudio/speakers";
  * REGLAS PROVISIONALES. Las de television (que barra, cuando lleva subwoofer,
  * que bocina va atras) las propuso Claude el 2026-11-23 y estan pendientes de
  * que Leo las valide. Estan todas en `recommendSpace`.
+ *
+ * Ese mismo dia se contrastaron con lo que publica Sonos: todas las
+ * combinaciones son compatibles y coinciden con sus paquetes (Arc Ultra con
+ * Sub 4, Beam con Sub Mini, par de Era o un Sonos Amp con bocinas pasivas
+ * como traseras). Las citas estan en
+ * docs/modules/simulador-audio/MODULE_CONTEXT.md. Que sean compatibles no las
+ * vuelve criterio de ALFA: eso lo decide Leo.
  */
 
 export type SpaceKind = "sala" | "recamara" | "cocina" | "terraza" | "negocio";
