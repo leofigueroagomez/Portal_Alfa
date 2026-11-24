@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { NAP } from "@/lib/localBusiness";
 
 /**
  * Widget de Cloudflare Turnstile para los formularios publicos.
@@ -17,6 +18,9 @@ const SCRIPT_SRC =
 export const turnstileEnabled = Boolean(SITE_KEY);
 export const TURNSTILE_PENDING_MESSAGE =
   "Espera a que termine la verificación de seguridad e intenta de nuevo.";
+const TURNSTILE_FALLBACK_WHATSAPP_URL = `https://wa.me/${NAP.whatsapp}?text=${encodeURIComponent(
+  "Hola ALFA, quise enviar un formulario en su sitio y la verificación de seguridad no cargó."
+)}`;
 
 type TurnstileApi = {
   render: (container: HTMLElement, options: Record<string, unknown>) => string;
@@ -71,6 +75,8 @@ export default function TurnstileWidget({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const widgetIdRef = useRef<string | null>(null);
   const onTokenRef = useRef(onToken);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     onTokenRef.current = onToken;
@@ -90,12 +96,26 @@ export default function TurnstileWidget({
           theme,
           language: "es",
           size: "flexible",
-          callback: (token: string) => onTokenRef.current(token),
+          callback: (token: string) => {
+            setFailed(false);
+            onTokenRef.current(token);
+          },
           "expired-callback": () => onTokenRef.current(null),
-          "error-callback": () => onTokenRef.current(null),
+          "error-callback": (code?: string) => {
+            console.error("[turnstile] el widget reporto un error:", code);
+            setFailed(true);
+            onTokenRef.current(null);
+          },
         });
       })
-      .catch(() => onTokenRef.current(null));
+      .catch((error) => {
+        // Llave invalida, dominio no autorizado, bloqueador o red caida. Sin
+        // este aviso el formulario se queda esperando un token que no llega.
+        console.error("[turnstile] no se pudo cargar el widget:", error);
+        if (cancelled) return;
+        setFailed(true);
+        onTokenRef.current(null);
+      });
 
     return () => {
       cancelled = true;
@@ -104,7 +124,7 @@ export default function TurnstileWidget({
       }
       widgetIdRef.current = null;
     };
-  }, [theme]);
+  }, [theme, attempt]);
 
   useEffect(() => {
     if (resetSignal > 0 && widgetIdRef.current && window.turnstile) {
@@ -114,7 +134,42 @@ export default function TurnstileWidget({
 
   if (!turnstileEnabled) return null;
 
-  return <div ref={containerRef} className={className} />;
+  return (
+    <div className={className}>
+      <div ref={containerRef} />
+      {failed ? (
+        <p
+          role="alert"
+          className={`mt-2 text-xs leading-5 ${
+            theme === "dark" ? "text-[#F0B8C0]" : "text-[#9E1B32]"
+          }`}
+        >
+          No pudimos cargar la verificación de seguridad. Desactiva tu bloqueador
+          de anuncios o{" "}
+          <button
+            type="button"
+            className="font-semibold underline underline-offset-2"
+            onClick={() => {
+              setFailed(false);
+              setAttempt((value) => value + 1);
+            }}
+          >
+            inténtalo de nuevo
+          </button>
+          . También puedes escribirnos por{" "}
+          <a
+            href={TURNSTILE_FALLBACK_WHATSAPP_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="font-semibold underline underline-offset-2"
+          >
+            WhatsApp
+          </a>
+          .
+        </p>
+      ) : null}
+    </div>
+  );
 }
 
 /** Estado del token para un formulario: `token`, `reset()` y las props del widget. */
