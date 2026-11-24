@@ -5,6 +5,11 @@ import {
   getClientIp,
   logApiError,
 } from "@/lib/apiAuth";
+import {
+  isTurnstileEnforced,
+  readTurnstileToken,
+  verifyTurnstileToken,
+} from "@/lib/turnstile";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
@@ -71,30 +76,6 @@ function normalizeSource(value: string) {
   return value === "pagina_web_alfa_high_end_services" ? "Landing Web" : value;
 }
 
-async function verifyTurnstileToken(token: string, ip: string): Promise<boolean> {
-  const secretKey = process.env.TURNSTILE_SECRET_KEY;
-  if (!secretKey) return true;
-
-  try {
-    const formData = new URLSearchParams();
-    formData.append("secret", secretKey);
-    formData.append("response", token);
-    if (ip && ip !== "unknown") formData.append("remoteip", ip);
-
-    const result = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
-      method: "POST",
-      body: formData,
-      cache: "no-store",
-    });
-
-    if (!result.ok) return false;
-    const json = (await result.json()) as { success?: boolean };
-    return Boolean(json.success);
-  } catch {
-    return false;
-  }
-}
-
 export async function POST(request: Request) {
   const requestId = createRequestId();
   const clientIp = getClientIp(request);
@@ -115,10 +96,8 @@ export async function POST(request: Request) {
   }
 
   // Cloudflare Turnstile verification if configured in production
-  if (process.env.TURNSTILE_SECRET_KEY) {
-    const turnstileToken = String(
-      body?.turnstileToken || body?.["cf-turnstile-response"] || ""
-    ).trim();
+  if (isTurnstileEnforced()) {
+    const turnstileToken = readTurnstileToken(body);
 
     if (!turnstileToken) {
       return NextResponse.json(

@@ -571,7 +571,13 @@ export default async function PortalPage() {
                 Consulta tus proyectos, facturación, garantías y reportes de servicio.
               </p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <Link
+                href="/simulador-audio"
+                className="inline-flex items-center rounded-full border border-[#E5E3DD] px-4 py-2 text-xs font-semibold uppercase tracking-wider text-[#111111] transition hover:border-[#9E1B32] hover:text-[#9E1B32]"
+              >
+                Simulador de audio
+              </Link>
               <span className="inline-flex items-center gap-2 rounded-full border border-[#E5E3DD] bg-[#F7F6F3] px-4 py-2 text-xs font-semibold uppercase tracking-wider text-[#5F626A]">
                 <ShieldCheck size={16} className="text-[#9E1B32]" />
                 Acceso Verificado

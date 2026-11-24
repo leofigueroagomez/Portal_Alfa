@@ -1,6 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import TurnstileWidget, {
+  TURNSTILE_PENDING_MESSAGE,
+  useTurnstile,
+} from "@/components/TurnstileWidget";
 import { X, CheckCircle2, Phone, Sparkles, Send, Loader2 } from "lucide-react";
 import { PortfolioProject } from "@/lib/portfolio";
 
@@ -22,11 +26,18 @@ export default function ProjectQuoteModal({ project, isOpen, onClose }: Props) {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const turnstile = useTurnstile();
 
   if (!isOpen) return null;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    if (turnstile.pending) {
+      setError(TURNSTILE_PENDING_MESSAGE);
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -42,6 +53,7 @@ export default function ProjectQuoteModal({ project, isOpen, onClose }: Props) {
         message: `${message}\n\n[Referencia de Portafolio: ${project.title} (Slug: ${project.slug})]`,
         source: "Landing Web",
         status: "nuevo",
+        turnstileToken: turnstile.token,
       };
 
       const res = await fetch("/api/leads", {
@@ -49,6 +61,9 @@ export default function ProjectQuoteModal({ project, isOpen, onClose }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+
+      // Cada token de Turnstile sirve una sola vez.
+      turnstile.reset();
 
       if (!res.ok) {
         throw new Error("No se pudo registrar la solicitud");
@@ -200,6 +215,8 @@ export default function ProjectQuoteModal({ project, isOpen, onClose }: Props) {
                   className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:border-[#9E1B32] outline-none transition resize-none"
                 />
               </div>
+
+              <TurnstileWidget {...turnstile.widgetProps} theme="dark" />
 
               <button
                 type="submit"

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, useState } from "react";
+import TurnstileWidget, { useTurnstile } from "@/components/TurnstileWidget";
 import { trackEvent } from "@/lib/analytics";
 import { getStoredAttribution } from "@/lib/utmTracking";
 import { COVERAGE_LINE, NAP } from "@/lib/localBusiness";
@@ -298,6 +299,7 @@ export default function PublicLanding() {
   const [submitState, setSubmitState] = useState<SubmitState>("idle");
   const [isServicesMenuOpen, setIsServicesMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const turnstile = useTurnstile();
 
   const updateField = (field: keyof typeof initialForm, value: string) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -314,6 +316,7 @@ export default function PublicLanding() {
       attribution,
       source: "Landing Web",
       status: "nuevo",
+      turnstileToken: turnstile.token,
     };
 
     try {
@@ -322,6 +325,9 @@ export default function PublicLanding() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+
+      // Cada token de Turnstile sirve una sola vez.
+      turnstile.reset();
 
       if (!response.ok) throw new Error("Lead request failed");
 
@@ -1177,10 +1183,21 @@ export default function PublicLanding() {
               />
             </Field>
 
+            <TurnstileWidget
+              {...turnstile.widgetProps}
+              theme="dark"
+              className="sm:col-span-2"
+            />
+            {turnstile.pending ? (
+              <p className="text-xs text-zinc-400 sm:col-span-2">
+                El botón se activa al terminar la verificación de seguridad.
+              </p>
+            ) : null}
+
             <div className="flex flex-col gap-3 sm:col-span-2 sm:flex-row">
               <button
                 type="submit"
-                disabled={submitState === "sending"}
+                disabled={submitState === "sending" || turnstile.pending}
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded bg-[#7A1F2B] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#5A1320] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {submitState === "sending" ? "Enviando..." : "Enviar solicitud"}

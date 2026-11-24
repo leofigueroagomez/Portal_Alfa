@@ -28,6 +28,8 @@ const sourceLabels: Record<string, string> = {
   "Cliente Existente": "Cliente Existente",
   // clients_source_check no incluye WhatsApp: el agente de WhatsApp prospecta.
   WhatsApp: "Prospectación Directa",
+  // Tampoco incluye el simulador de audio: llega por el sitio publico.
+  "Simulador de Audio": "Landing Web",
 };
 
 function normalizeSource(value: string | null | undefined) {
