@@ -279,3 +279,274 @@ export function coverageRatio(
 export function distance(a: Point, b: Point) {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
+
+// ---------------------------------------------------------------------------
+// Bocinas de muro: cubren un abanico (sector) en lugar de un circulo
+// ---------------------------------------------------------------------------
+
+/** Bocina colocada: posicion en metros y, si es de muro, hacia donde apunta. */
+export type PlacedSpeaker = Point & {
+  /** Direccion de apuntado en grados: 0 = +x, 90 = +y (hacia abajo en pantalla). */
+  angle?: number;
+};
+
+export type SectorCoverage = {
+  /** Apertura horizontal total, en grados. */
+  apertureDeg: number;
+  /** Alcance, en metros. */
+  reach: number;
+};
+
+/** Separacion de la bocina respecto a la pared, para que quede dentro del area. */
+const WALL_INSET = 0.12;
+
+export function normalizeAngle(angle: number) {
+  const value = angle % 360;
+  return value < 0 ? value + 360 : value;
+}
+
+export function sectorContains(
+  speaker: PlacedSpeaker,
+  sector: SectorCoverage,
+  point: Point
+) {
+  const dx = point.x - speaker.x;
+  const dy = point.y - speaker.y;
+  const distanceSquared = dx * dx + dy * dy;
+
+  if (distanceSquared > sector.reach * sector.reach) return false;
+  if (distanceSquared < 1e-9) return true;
+
+  const bearing = (Math.atan2(dy, dx) * 180) / Math.PI;
+  const delta = Math.abs(normalizeAngle(bearing - (speaker.angle ?? 0) + 180) - 180);
+
+  return delta <= sector.apertureDeg / 2;
+}
+
+/** Fraccion (0 a 1) del area que queda dentro del abanico de al menos una bocina. */
+export function sectorCoverageRatio(
+  polygon: Point[],
+  speakers: PlacedSpeaker[],
+  sector: SectorCoverage,
+  samplesPerSide = 56
+) {
+  if (polygon.length < 3 || speakers.length === 0 || sector.reach <= 0) return 0;
+
+  const samples = samplePolygon(polygon, samplesPerSide);
+  if (samples.length === 0) return 0;
+
+  let covered = 0;
+  for (const sample of samples) {
+    if (speakers.some((speaker) => sectorContains(speaker, sector, sample))) covered += 1;
+  }
+
+  return covered / samples.length;
+}
+
+function samplePolygon(polygon: Point[], samplesPerSide: number) {
+  const box = boundingBox(polygon);
+  const samples: Point[] = [];
+  if (box.width <= 0 || box.height <= 0) return samples;
+
+  for (let iy = 0; iy < samplesPerSide; iy += 1) {
+    for (let ix = 0; ix < samplesPerSide; ix += 1) {
+      const sample = {
+        x: box.minX + ((ix + 0.5) * box.width) / samplesPerSide,
+        y: box.minY + ((iy + 0.5) * box.height) / samplesPerSide,
+      };
+      if (pointInPolygon(sample, polygon)) samples.push(sample);
+    }
+  }
+
+  return samples;
+}
+
+/**
+ * Punto sobre la pared mas cercana a `point`, metido unos centimetros hacia
+ * dentro, y la direccion perpendicular a esa pared que mira al interior.
+ */
+export function snapToWall(polygon: Point[], point: Point): PlacedSpeaker | null {
+  let best: { speaker: PlacedSpeaker; distance: number } | null = null;
+
+  for (let index = 0; index < polygon.length; index += 1) {
+    const a = polygon[index];
+    const b = polygon[(index + 1) % polygon.length];
+    const ex = b.x - a.x;
+    const ey = b.y - a.y;
+    const length = Math.hypot(ex, ey);
+    if (length < 1e-6) continue;
+
+    // Se evita la esquina exacta: ahi la bocina quedaria fuera al meterla.
+    const margin = Math.min(0.2, length / 4);
+    const along = Math.min(
+      length - margin,
+      Math.max(margin, ((point.x - a.x) * ex + (point.y - a.y) * ey) / length)
+    );
+    const foot = { x: a.x + (ex * along) / length, y: a.y + (ey * along) / length };
+
+    let nx = -ey / length;
+    let ny = ex / length;
+    if (!pointInPolygon({ x: foot.x + nx * WALL_INSET, y: foot.y + ny * WALL_INSET }, polygon)) {
+      nx = -nx;
+      ny = -ny;
+    }
+
+    const speaker = {
+      x: foot.x + nx * WALL_INSET,
+      y: foot.y + ny * WALL_INSET,
+      angle: normalizeAngle((Math.atan2(ny, nx) * 180) / Math.PI),
+    };
+    if (!pointInPolygon(speaker, polygon)) continue;
+
+    const distance = Math.hypot(point.x - foot.x, point.y - foot.y);
+    if (!best || distance < best.distance) best = { speaker, distance };
+  }
+
+  return best ? best.speaker : null;
+}
+
+/** Fraccion del area que se busca cubrir con bocinas de muro en cada tipo de cobertura. */
+const WALL_COVERAGE_TARGETS: Record<CoverageMode, number> = {
+  ambiental: 0.75,
+  uniforme: 0.9,
+  maxima: 0.98,
+};
+
+const MAX_WALL_SPEAKERS = 40;
+
+function countCovered(samples: Point[], speakers: PlacedSpeaker[], sector: SectorCoverage) {
+  let covered = 0;
+  for (const sample of samples) {
+    if (speakers.some((speaker) => sectorContains(speaker, sector, sample))) covered += 1;
+  }
+  return covered;
+}
+
+/**
+ * Reparto ordenado: bocinas a distancias iguales sobre una sola pared. Es el
+ * acomodo que se ve mas limpio y el que se usa en una terraza tipica. Devuelve
+ * el que alcanza el objetivo con menos bocinas, o null si ninguna pared basta.
+ */
+function evenSingleWallLayout(
+  polygon: Point[],
+  samples: Point[],
+  sector: SectorCoverage,
+  target: number
+): PlacedSpeaker[] | null {
+  let best: { speakers: PlacedSpeaker[]; covered: number } | null = null;
+
+  for (let count = 1; count <= 8; count += 1) {
+    for (let index = 0; index < polygon.length; index += 1) {
+      const a = polygon[index];
+      const b = polygon[(index + 1) % polygon.length];
+      const length = Math.hypot(b.x - a.x, b.y - a.y);
+      // Sin amontonar: al menos un metro de pared por bocina.
+      if (length < count) continue;
+
+      const speakers: PlacedSpeaker[] = [];
+      for (let step = 0; step < count; step += 1) {
+        const t = (step + 0.5) / count;
+        const snapped = snapToWall(polygon, {
+          x: a.x + (b.x - a.x) * t,
+          y: a.y + (b.y - a.y) * t,
+        });
+        if (snapped) speakers.push(snapped);
+      }
+      if (speakers.length !== count) continue;
+
+      const covered = countCovered(samples, speakers, sector);
+      if (covered >= target && (!best || covered > best.covered)) {
+        best = { speakers, covered };
+      }
+    }
+
+    if (best) return best.speakers;
+  }
+
+  return null;
+}
+
+/**
+ * Reparte bocinas de muro sobre el perimetro, apuntando hacia dentro.
+ *
+ * Primero calcula un reparto libre: elige una por una la posicion que cubre
+ * mas area todavia descubierta, hasta alcanzar el objetivo del tipo de
+ * cobertura. Despues busca un reparto ordenado sobre una sola pared y lo
+ * prefiere si no cuesta mas de una bocina extra.
+ */
+export function suggestWallLayout(
+  polygon: Point[],
+  sector: SectorCoverage,
+  mode: CoverageMode
+): PlacedSpeaker[] {
+  if (polygon.length < 3 || sector.reach <= 0 || sector.apertureDeg <= 0) return [];
+
+  const samples = samplePolygon(polygon, 40);
+  if (samples.length === 0) return [];
+
+  // Candidatas: un punto cada ~0.5 m sobre cada pared, centradas en el tramo.
+  const candidates: PlacedSpeaker[] = [];
+  for (let index = 0; index < polygon.length; index += 1) {
+    const a = polygon[index];
+    const b = polygon[(index + 1) % polygon.length];
+    const length = Math.hypot(b.x - a.x, b.y - a.y);
+    const steps = Math.max(1, Math.round(length / 0.5));
+
+    for (let step = 0; step < steps; step += 1) {
+      const t = (step + 0.5) / steps;
+      const snapped = snapToWall(polygon, {
+        x: a.x + (b.x - a.x) * t,
+        y: a.y + (b.y - a.y) * t,
+      });
+      if (snapped) candidates.push(snapped);
+    }
+  }
+
+  const minSpacing = Math.min(1.5, sector.reach / 3);
+  const covered = new Array<boolean>(samples.length).fill(false);
+  const chosen: PlacedSpeaker[] = [];
+  const target = WALL_COVERAGE_TARGETS[mode] * samples.length;
+  let coveredCount = 0;
+
+  while (coveredCount < target && chosen.length < MAX_WALL_SPEAKERS) {
+    let bestIndex = -1;
+    let bestGain = 0;
+
+    for (let index = 0; index < candidates.length; index += 1) {
+      const candidate = candidates[index];
+      if (chosen.some((speaker) => distance(speaker, candidate) < minSpacing)) continue;
+
+      let gain = 0;
+      for (let s = 0; s < samples.length; s += 1) {
+        if (!covered[s] && sectorContains(candidate, sector, samples[s])) gain += 1;
+      }
+
+      if (gain > bestGain) {
+        bestGain = gain;
+        bestIndex = index;
+      }
+    }
+
+    // Lo que falta ya no se alcanza desde ninguna pared (area mas honda que el alcance).
+    if (bestIndex < 0 || bestGain < samples.length * 0.01) break;
+
+    const pick = candidates[bestIndex];
+    chosen.push(pick);
+    for (let s = 0; s < samples.length; s += 1) {
+      if (!covered[s] && sectorContains(pick, sector, samples[s])) {
+        covered[s] = true;
+        coveredCount += 1;
+      }
+    }
+  }
+
+  if (chosen.length === 0) {
+    const fallback = snapToWall(polygon, interiorPoint(polygon));
+    return fallback ? [fallback] : [];
+  }
+
+  const tidy = evenSingleWallLayout(polygon, samples, sector, target);
+  if (tidy && tidy.length <= chosen.length + 1) return tidy;
+
+  return chosen;
+}

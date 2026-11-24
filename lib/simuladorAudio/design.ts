@@ -5,9 +5,12 @@ import {
   coverageRatio,
   listeningHeight,
   polygonArea,
+  sectorCoverageRatio,
   type CoverageMode,
   type ListeningPosture,
+  type PlacedSpeaker,
   type Point,
+  type SectorCoverage,
 } from "@/lib/simuladorAudio/geometry";
 import {
   DEFAULT_SIMULATOR_AMPLIFIER,
@@ -30,8 +33,8 @@ export type SimulatorRoom = {
   posture: ListeningPosture;
   modelId: string;
   mode: CoverageMode;
-  /** Posicion de cada bocina, en metros. */
-  speakers: Point[];
+  /** Posicion de cada bocina, en metros (y hacia donde apunta, si es de muro). */
+  speakers: PlacedSpeaker[];
   /** true cuando el usuario movio, agrego o quito bocinas a mano. */
   manual: boolean;
 };
@@ -44,7 +47,10 @@ export type SimulatorDesign = {
 export type RoomMetrics = {
   speaker: SimulatorSpeaker | null;
   area: number;
+  /** Plafon: diametro de cobertura de cada bocina, en metros. 0 en muro. */
   diameter: number;
+  /** Muro: abanico de cobertura de cada bocina. null en plafon. */
+  sector: SectorCoverage | null;
   coverage: number;
   count: number;
   /** Amplificadores sugeridos para este espacio (una zona). */
@@ -58,22 +64,33 @@ const MAX_POINTS = 80;
 const MAX_SPEAKERS = 200;
 const MAX_COORDINATE = 2000;
 
+/** Abanico de cobertura de un modelo de muro; null si el modelo es de plafon. */
+export function speakerSector(speaker: SimulatorSpeaker | null): SectorCoverage | null {
+  if (!speaker || speaker.mount !== "muro" || !speaker.reachM) return null;
+  return { apertureDeg: speaker.dispersionDeg, reach: speaker.reachM };
+}
+
 export function roomMetrics(room: SimulatorRoom): RoomMetrics {
   const speaker = getSimulatorSpeaker(room.modelId);
   const area = polygonArea(room.points);
-  const diameter = speaker
-    ? coverageDiameter(
-        speaker.dispersionDeg,
-        room.ceilingHeight,
-        listeningHeight(room.posture)
-      )
-    : 0;
+  const sector = speakerSector(speaker);
+  const diameter =
+    speaker && !sector
+      ? coverageDiameter(
+          speaker.dispersionDeg,
+          room.ceilingHeight,
+          listeningHeight(room.posture)
+        )
+      : 0;
 
   return {
     speaker,
     area,
     diameter,
-    coverage: coverageRatio(room.points, room.speakers, diameter / 2),
+    sector,
+    coverage: sector
+      ? sectorCoverageRatio(room.points, room.speakers, sector)
+      : coverageRatio(room.points, room.speakers, diameter / 2),
     count: room.speakers.length,
     amplifiers: speaker
       ? amplifiersForRoom(DEFAULT_SIMULATOR_AMPLIFIER, speaker, room.speakers.length)
@@ -87,15 +104,29 @@ function toFiniteNumber(value: unknown, min: number, max: number) {
   return number;
 }
 
-function sanitizePoints(raw: unknown, maxLength: number): Point[] | null {
+function sanitizePoints(raw: unknown, maxLength: number): PlacedSpeaker[] | null {
   if (!Array.isArray(raw) || raw.length > maxLength) return null;
 
-  const points: Point[] = [];
+  const points: PlacedSpeaker[] = [];
   for (const item of raw) {
-    const x = toFiniteNumber((item as Point)?.x, -MAX_COORDINATE, MAX_COORDINATE);
-    const y = toFiniteNumber((item as Point)?.y, -MAX_COORDINATE, MAX_COORDINATE);
+    const source = item as PlacedSpeaker | null;
+    const x = toFiniteNumber(source?.x, -MAX_COORDINATE, MAX_COORDINATE);
+    const y = toFiniteNumber(source?.y, -MAX_COORDINATE, MAX_COORDINATE);
     if (x === null || y === null) return null;
-    points.push({ x: Math.round(x * 1000) / 1000, y: Math.round(y * 1000) / 1000 });
+
+    const point: PlacedSpeaker = {
+      x: Math.round(x * 1000) / 1000,
+      y: Math.round(y * 1000) / 1000,
+    };
+
+    // El angulo solo aplica a bocinas de muro; si viene, debe ser un numero valido.
+    if (source?.angle !== undefined && source.angle !== null) {
+      const angle = toFiniteNumber(source.angle, -720, 720);
+      if (angle === null) return null;
+      point.angle = Math.round(angle * 10) / 10;
+    }
+
+    points.push(point);
   }
 
   return points;
@@ -211,9 +242,11 @@ export function summarizeDesign(design: SimulatorDesign) {
       : room.modelId;
 
     lines.push(
-      `- ${room.name}: ${formatMeters(metrics.area, 1)} m², plafón a ${formatMeters(
-        room.ceilingHeight
-      )} m, ${metrics.count} × ${model} (${COVERAGE_MODES[room.mode].label.toLowerCase()}, cobertura ${Math.round(
+      `- ${room.name}: ${formatMeters(metrics.area, 1)} m², ${
+        metrics.sector
+          ? "bocinas de muro"
+          : `plafón a ${formatMeters(room.ceilingHeight)} m`
+      }, ${metrics.count} × ${model} (${COVERAGE_MODES[room.mode].label.toLowerCase()}, cobertura ${Math.round(
         metrics.coverage * 100
       )}%), ${metrics.amplifiers} amplificador${metrics.amplifiers === 1 ? "" : "es"}`
     );

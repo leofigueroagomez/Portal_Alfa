@@ -23,9 +23,12 @@ import {
   listeningHeight,
   polygonArea,
   rectanglePolygon,
+  snapToWall,
   suggestLayout,
+  suggestWallLayout,
   type CoverageMode,
   type ListeningPosture,
+  type PlacedSpeaker,
   type Point,
 } from "@/lib/simuladorAudio/geometry";
 import {
@@ -36,6 +39,7 @@ import {
   equipmentList,
   formatMeters,
   roomMetrics,
+  speakerSector,
   type SimulatorDesign,
   type SimulatorRoom,
 } from "@/lib/simuladorAudio/design";
@@ -75,9 +79,13 @@ function newId() {
     : `area-${Math.random().toString(36).slice(2)}`;
 }
 
+function roomSector(room: SimulatorRoom) {
+  return speakerSector(getSimulatorSpeaker(room.modelId));
+}
+
 function roomDiameter(room: SimulatorRoom) {
   const speaker = getSimulatorSpeaker(room.modelId);
-  if (!speaker) return 0;
+  if (!speaker || speaker.mount !== "plafon") return 0;
 
   return coverageDiameter(
     speaker.dispersionDeg,
@@ -89,7 +97,14 @@ function roomDiameter(room: SimulatorRoom) {
 /** Recalcula el reparto automatico, salvo que el usuario ya haya acomodado bocinas a mano. */
 function layoutRoom<T extends SimulatorRoom>(room: T): T {
   if (room.manual) return room;
-  return { ...room, speakers: suggestLayout(room.points, roomDiameter(room), room.mode) };
+
+  const sector = roomSector(room);
+  return {
+    ...room,
+    speakers: sector
+      ? suggestWallLayout(room.points, sector, room.mode)
+      : suggestLayout(room.points, roomDiameter(room), room.mode),
+  };
 }
 
 function createRectRoom(
@@ -308,7 +323,10 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
   }
 
   function addSpeaker(room: EditorRoom) {
-    const position = interiorPoint(room.points);
+    const center = interiorPoint(room.points);
+    // Una bocina de muro nace pegada a la pared mas cercana, apuntando hacia dentro.
+    const position: PlacedSpeaker =
+      (roomSector(room) && snapToWall(room.points, center)) || center;
     updateRoom(room.id, { speakers: [...room.speakers, position], manual: true });
     setSelectedSpeaker({ roomId: room.id, index: room.speakers.length });
   }
@@ -321,7 +339,7 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
     setSelectedSpeaker(null);
   }
 
-  function moveSpeaker(roomId: string, index: number, point: Point) {
+  function moveSpeaker(roomId: string, index: number, point: PlacedSpeaker) {
     setRooms((current) =>
       current.map((room) =>
         room.id === roomId
@@ -505,7 +523,7 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
   // ----- Vista ---------------------------------------------------------------
 
   const canvasRooms = (source === "medidas" ? (selectedRoom ? [selectedRoom] : []) : rooms).map(
-    (room) => ({ room, diameter: roomDiameter(room) })
+    (room) => ({ room, diameter: roomDiameter(room), sector: roomSector(room) })
   );
 
   const measureBox = selectedRoom ? boundingBox(selectedRoom.points) : null;
@@ -859,43 +877,80 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
                   </div>
                 ) : null}
 
-                <NumberField
-                  key={`${selectedRoom.id}-h`}
-                  label="Altura del plafón"
-                  value={selectedRoom.ceilingHeight}
-                  min={MIN_CEILING_HEIGHT}
-                  max={MAX_CEILING_HEIGHT}
-                  onChange={(value) => updateRoom(selectedRoom.id, { ceilingHeight: value })}
-                />
+                {/* La altura y la postura solo cambian el calculo de las bocinas de plafon. */}
+                {selectedMetrics.sector ? null : (
+                  <>
+                    <NumberField
+                      key={`${selectedRoom.id}-h`}
+                      label="Altura del plafón"
+                      value={selectedRoom.ceilingHeight}
+                      min={MIN_CEILING_HEIGHT}
+                      max={MAX_CEILING_HEIGHT}
+                      onChange={(value) =>
+                        updateRoom(selectedRoom.id, { ceilingHeight: value })
+                      }
+                    />
 
-                <div>
-                  <span className={labelClass}>¿Cómo se escucha?</span>
-                  <Segmented<ListeningPosture>
-                    value={selectedRoom.posture}
-                    onChange={(posture) => updateRoom(selectedRoom.id, { posture })}
-                    options={[
-                      { value: "sentado", label: "Sentado" },
-                      { value: "de_pie", label: "De pie" },
-                    ]}
-                  />
-                </div>
+                    <div>
+                      <span className={labelClass}>¿Cómo se escucha?</span>
+                      <Segmented<ListeningPosture>
+                        value={selectedRoom.posture}
+                        onChange={(posture) => updateRoom(selectedRoom.id, { posture })}
+                        options={[
+                          { value: "sentado", label: "Sentado" },
+                          { value: "de_pie", label: "De pie" },
+                        ]}
+                      />
+                    </div>
+                  </>
+                )}
 
                 <label className={labelClass}>
                   Bocina
                   <select
                     className={fieldClass}
                     value={selectedRoom.modelId}
-                    onChange={(event) =>
-                      updateRoom(selectedRoom.id, { modelId: event.target.value })
-                    }
+                    onChange={(event) => {
+                      const next = getSimulatorSpeaker(event.target.value);
+                      // Al pasar de plafon a muro (o al reves) las posiciones
+                      // anteriores ya no sirven: se reparte de nuevo.
+                      const mountChanged = next?.mount !== selectedMetrics.speaker?.mount;
+                      updateRoom(selectedRoom.id, {
+                        modelId: event.target.value,
+                        ...(mountChanged ? { manual: false } : {}),
+                      });
+                      if (mountChanged) setSelectedSpeaker(null);
+                    }}
                   >
-                    {SIMULATOR_SPEAKERS.map((speaker) => (
-                      <option key={speaker.id} value={speaker.id}>
-                        {speaker.brand} {speaker.model}
-                      </option>
-                    ))}
+                    <optgroup label="De plafón">
+                      {SIMULATOR_SPEAKERS.filter((speaker) => speaker.mount === "plafon").map(
+                        (speaker) => (
+                          <option key={speaker.id} value={speaker.id}>
+                            {speaker.brand} {speaker.model}
+                          </option>
+                        )
+                      )}
+                    </optgroup>
+                    <optgroup label="De muro">
+                      {SIMULATOR_SPEAKERS.filter((speaker) => speaker.mount === "muro").map(
+                        (speaker) => (
+                          <option key={speaker.id} value={speaker.id}>
+                            {speaker.brand} {speaker.model}
+                          </option>
+                        )
+                      )}
+                    </optgroup>
                   </select>
-                  {selectedMetrics.speaker ? (
+                  {selectedMetrics.speaker && selectedMetrics.sector ? (
+                    <span className="mt-2 block text-[13px] font-normal text-[#77797F]">
+                      {selectedMetrics.speaker.label} · apertura de{" "}
+                      {selectedMetrics.sector.apertureDeg}° y alcance de{" "}
+                      {formatMeters(selectedMetrics.sector.reach, 0)} m
+                      {selectedMetrics.speaker.coverageBasis === "criterio_alfa"
+                        ? ", criterio de diseño de ALFA: el fabricante no publica este dato"
+                        : " según el fabricante"}
+                    </span>
+                  ) : selectedMetrics.speaker ? (
                     <span className="mt-2 block text-[13px] font-normal text-[#77797F]">
                       {selectedMetrics.speaker.label} · cobertura de{" "}
                       {selectedMetrics.speaker.dispersionDeg}° según el fabricante
@@ -923,7 +978,7 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
                   </p>
                 </div>
 
-                {selectedMetrics.diameter <= 0 ? (
+                {!selectedMetrics.sector && selectedMetrics.diameter <= 0 ? (
                   <p role="alert" className="text-sm text-[#9E1B32]">
                     El plafón debe estar más alto que el oído de quien escucha.
                   </p>
@@ -937,10 +992,15 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
                       value: `${Math.round(selectedMetrics.coverage * 100)}%`,
                     },
                     { label: "Área", value: `${formatMeters(selectedMetrics.area, 1)} m²` },
-                    {
-                      label: "Cobertura por bocina",
-                      value: `${formatMeters(selectedMetrics.diameter)} m`,
-                    },
+                    selectedMetrics.sector
+                      ? {
+                          label: "Alcance por bocina",
+                          value: `${formatMeters(selectedMetrics.sector.reach)} m`,
+                        }
+                      : {
+                          label: "Cobertura por bocina",
+                          value: `${formatMeters(selectedMetrics.diameter)} m`,
+                        },
                   ].map((stat) => (
                     <div key={stat.label}>
                       <dt className="text-[13px] text-[#77797F]">{stat.label}</dt>
@@ -985,7 +1045,9 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
                   </button>
                 </div>
                 <p className="text-[13px] leading-5 text-[#77797F]">
-                  Arrastra una bocina para moverla. Tócala y usa Quitar para eliminarla.
+                  {selectedMetrics.sector
+                    ? "Arrastra una bocina para moverla sobre la pared y arrastra el punto pequeño para apuntarla. Tócala y usa Quitar para eliminarla."
+                    : "Arrastra una bocina para moverla. Tócala y usa Quitar para eliminarla."}
                 </p>
 
                 {rooms.length > 1 || source === "plano" ? (
@@ -1074,6 +1136,9 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
                 publica cada fabricante y la altura del plafón. No considera muebles,
                 materiales ni la acústica del lugar. El diseño final lo ajusta un
                 ingeniero de ALFA en sitio.
+                {equipment.some((entry) => entry.speaker.coverageBasis === "criterio_alfa")
+                  ? " En las bocinas de muro, la apertura y el alcance son un criterio de diseño de ALFA, porque el fabricante no publica ese dato."
+                  : ""}
               </p>
             </div>
 

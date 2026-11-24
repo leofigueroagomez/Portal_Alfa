@@ -46,12 +46,21 @@ El candado es de captacion, no de confidencialidad: el simulador corre en el nav
 - Reparto en reticula sobre la caja envolvente del area; se descartan las celdas cuyo centro cae fuera. Separacion segun el tipo de cobertura: ambiental `D`, uniforme `D/√2`, maxima `D/2`.
 - "Area cubierta" se estima por muestreo. Es una estimacion geometrica, no un estudio acustico; el texto del simulador lo dice.
 
+## Bocinas de muro
+
+Un modelo con `mount: "muro"` cubre un abanico en lugar de un circulo: apertura `dispersionDeg` y alcance `reachM`. La altura del plafon y la postura no entran en ese calculo y el panel las oculta.
+
+- La bocina vive pegada a una pared (`snapToWall`) y guarda hacia donde apunta (`angle`, en grados). Al arrastrarla se desliza sobre la pared mas cercana y queda perpendicular; el punto pequeño la gira.
+- Reparto automatico (`suggestWallLayout`): busca cubrir 75% (ambiental), 90% (uniforme) o 98% (maxima) del area. Primero arma un reparto libre sobre todo el perimetro; despues prefiere uno ordenado sobre una sola pared si no cuesta mas de una bocina extra.
+- **B&W AM-1: 90° de apertura y 6 m de alcance son criterio de diseño de ALFA**, aprobado por Leo el 2026-11-23. B&W no publica angulo, grafica polar ni archivo de simulacion de ese modelo. El simulador lo dice junto al selector y en la nota de "Tu sistema". Si Dextra consigue el dato real, se cambia en `speakers.ts` y se pone `coverageBasis: "fabricante"`.
+
 ## Catalogo de bocinas
 
 `lib/simuladorAudio/speakers.ts`. Regla dura: `dispersionDeg` solo lleva el angulo que publica el fabricante, con su fuente. Sin precios.
 
-- Activos: KEF Ci160ER (110°), KEF Ci160TR (160°), KEF Ci160CRds (120°), Bose DesignMax DM6C (120°).
-- Pendientes (`PENDING_SIMULATOR_SPEAKERS`): B&W CCM665, Sonance VPXT6R y Klipsch CS-18C (el fabricante no publica angulo); B&W AM-1 y Yamaha VS4 (bocinas de muro, necesitan el modelo de fase 2); Sonance VXXT8RW (la ficha dice que es subwoofer; pendiente de confirmar contra el catalogo interno).
+- Activos de plafon: KEF Ci160ER (110°), KEF Ci160TR (160°), KEF Ci160CRds (120°), Bose DesignMax DM6C (120°).
+- Activo de muro: B&W AM-1 (90° y 6 m, criterio de ALFA).
+- Pendientes (`PENDING_SIMULATOR_SPEAKERS`): B&W CCM665, Sonance VPXT6R y Klipsch CS-18C (el fabricante no publica angulo); Yamaha VS4 (de muro; Yamaha publica 110° × 110°, falta definir su alcance); Sonance VXXT8RW (la ficha dice que es subwoofer; pendiente de confirmar contra el catalogo interno).
 
 ## Amplificacion
 

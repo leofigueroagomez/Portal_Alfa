@@ -26,7 +26,11 @@ import {
   pointInPolygon,
   polygonArea,
   rectanglePolygon,
+  sectorContains,
+  sectorCoverageRatio,
+  snapToWall,
   suggestLayout,
+  suggestWallLayout,
 } from "@/lib/simuladorAudio/geometry";
 
 const SECRET = "s".repeat(40);
@@ -174,4 +178,81 @@ test("cada espacio es una zona y lleva su propio amplificador", () => {
   assert.equal(plan.total, 3);
   assert.equal(plan.zones, 2);
   assert.match(summarizeDesign(design), /Amplificación sugerida: 3 × Sonos Amp \(2 zonas\)/);
+});
+
+test("una bocina de muro cubre un abanico: apertura y alcance", () => {
+  const sector = { apertureDeg: 90, reach: 6 };
+  const speaker = { x: 0, y: 0, angle: 0 };
+
+  assert.equal(sectorContains(speaker, sector, { x: 3, y: 0 }), true);
+  assert.equal(sectorContains(speaker, sector, { x: 3, y: 2.9 }), true);
+  // Fuera de la apertura (más de 45° del eje), fuera del alcance y por detrás.
+  assert.equal(sectorContains(speaker, sector, { x: 3, y: 3.2 }), false);
+  assert.equal(sectorContains(speaker, sector, { x: 6.1, y: 0 }), false);
+  assert.equal(sectorContains(speaker, sector, { x: -1, y: 0 }), false);
+
+  // El ángulo cruza bien el corte de 0°/360°.
+  assert.equal(sectorContains({ x: 0, y: 0, angle: 350 }, sector, { x: 3, y: 0.3 }), true);
+});
+
+test("snapToWall pega la bocina a la pared más cercana y la apunta hacia dentro", () => {
+  const room = rectanglePolygon(8, 5);
+
+  const left = snapToWall(room, { x: 0.4, y: 2.5 })!;
+  assert.ok(left.x > 0 && left.x < 0.3);
+  assert.equal(left.angle, 0);
+
+  const bottom = snapToWall(room, { x: 4, y: 4.8 })!;
+  assert.ok(bottom.y < 5 && bottom.y > 4.7);
+  assert.equal(bottom.angle, 270);
+
+  assert.ok(pointInPolygon(snapToWall(room, { x: -3, y: -3 })!, room));
+});
+
+test("suggestWallLayout reparte sobre el perímetro hasta la cobertura objetivo", () => {
+  const terrace = rectanglePolygon(10, 6);
+  const sector = { apertureDeg: 90, reach: 6 };
+
+  const ambient = suggestWallLayout(terrace, sector, "ambiental");
+  const full = suggestWallLayout(terrace, sector, "maxima");
+
+  assert.ok(ambient.length >= 1);
+  assert.ok(full.length >= ambient.length);
+  assert.ok(ambient.every((speaker) => pointInPolygon(speaker, terrace)));
+  assert.ok(sectorCoverageRatio(terrace, ambient, sector) >= 0.7);
+  assert.ok(sectorCoverageRatio(terrace, full, sector) >= 0.95);
+
+  // Un área más honda que el alcance se queda con lo que sí se puede cubrir.
+  const huge = suggestWallLayout(rectanglePolygon(40, 40), sector, "maxima");
+  assert.ok(huge.length <= 40);
+});
+
+test("una AM-1 se diseña como bocina de muro y pide su amplificador", () => {
+  const design = sanitizeDesign({
+    source: "medidas",
+    rooms: [
+      {
+        id: "t",
+        name: "Terraza",
+        points: rectanglePolygon(8, 5),
+        ceilingHeight: 2.7,
+        posture: "de_pie",
+        modelId: "bw-am1",
+        mode: "uniforme",
+        speakers: [
+          { x: 0.12, y: 2.5, angle: 0 },
+          { x: 7.88, y: 2.5, angle: 180 },
+        ],
+        manual: true,
+      },
+    ],
+  })!;
+
+  assert.equal(design.rooms[0].speakers[0].angle, 0);
+  assert.match(summarizeDesign(design), /Terraza: 40\.0 m², bocinas de muro, 2 × Bowers & Wilkins AM-1/);
+  assert.equal(amplifierPlan(design).total, 1);
+  assert.equal(
+    sanitizeDesign({ rooms: [{ ...design.rooms[0], speakers: [{ x: 1, y: 1, angle: "a" }] }] }),
+    null
+  );
 });
