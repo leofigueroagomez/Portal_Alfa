@@ -29,7 +29,7 @@ Ver [`../modules/simulador-audio/MODULE_CONTEXT.md`](../modules/simulador-audio/
 - El token sirve una sola vez: el formulario pide otro despues de cada envio (`useTurnstile().reset()`). Un formulario nuevo que publique a esas rutas debe montar el widget y mandar `turnstileToken`.
 - La verificacion falla cerrada: si Cloudflare no responde o el token es invalido, la solicitud se rechaza. No agregar un camino alterno que la salte.
 - La CSP de `next.config.ts` ya permite `challenges.cloudflare.com` en `script-src`, `frame-src` y `connect-src`.
-- Pendiente de confirmar: si las dos variables existen hoy en Vercel (no fue posible leerlas desde el repo).
+- Las dos variables existen en Vercel desde el 2026-11-23, solo en Production.
 
 ## PDF Premium por token de servicio
 

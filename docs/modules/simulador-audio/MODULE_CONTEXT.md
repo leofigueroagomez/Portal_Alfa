@@ -2,7 +2,7 @@
 
 Herramienta publica en `/simulador-audio` para que un prospecto calcule cuantas bocinas de plafon necesita su espacio y donde van. Es captacion de prospectos (inbound): quien no tiene sesion de ALFA deja sus datos y verifica su correo antes de usarla.
 
-Estado: fase 1 en codigo (2026-11-23). **La migracion `sql/20261123_simulador_audio.sql` no esta aplicada y falta la variable `SIMULADOR_ACCESS_SECRET` en Vercel**; hasta entonces el registro de visitantes responde 503 y solo entran usuarios con sesion.
+Estado: fase 1 en codigo (2026-11-23). La migracion `sql/20261123_simulador_audio.sql` se aplico en produccion el 2026-11-23 y `SIMULADOR_ACCESS_SECRET` existe en Vercel (solo Production). Pendiente de probar el registro de punta a punta ya desplegado.
 
 ## Rutas
 
@@ -64,6 +64,6 @@ El candado es de captacion, no de confidencialidad: el simulador corre en el nav
 
 ## Pendientes
 
-- Aplicar la migracion en sandbox y despues en produccion, y probar el registro de punta a punta (no se pudo probar en local: sin Resend ni base).
+- Probar el registro de punta a punta en produccion: correo real, codigo, prospecto en `/leads` y solicitud de propuesta (no se pudo probar en local: sin Resend ni base).
 - Fase 2: mapa de nivel sonoro, bocinas de muro, zonas con amplificador, recibir el plano.
 - Turnstile esta en codigo (`components/TurnstileWidget.tsx`) pero apagado hasta que existan sus dos variables en Vercel. Sin ellas el registro se protege con campo trampa, limite por IP, por correo y global.

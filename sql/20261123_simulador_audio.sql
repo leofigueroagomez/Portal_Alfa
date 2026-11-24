@@ -18,8 +18,11 @@
 --
 -- Tambien agrega 'Simulador de Audio' a leads_source_check.
 --
--- NO APLICADO. Pendiente de aplicar en sandbox y despues en produccion con
--- confirmacion de Leo. Rollback en 20261123_simulador_audio_rollback.sql.
+-- Aplicado en produccion (Alfa IT) el 2026-11-23 con confirmacion de Leo.
+-- No se probo antes en sandbox: el proyecto de sandbox ya no existe. Despues de
+-- aplicarlo se verifico RLS activo, cero policies, grants solo para postgres y
+-- service_role, y el check de leads con el origen nuevo.
+-- Rollback en 20261123_simulador_audio_rollback.sql.
 
 -- ---------------------------------------------------------------------------
 -- Accesos
