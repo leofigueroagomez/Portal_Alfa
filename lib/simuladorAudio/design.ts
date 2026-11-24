@@ -261,14 +261,18 @@ export function summarizeDesign(design: SimulatorDesign) {
 
     lines.push(
       `- ${room.name}: ${formatMeters(metrics.area, 1)} m², ${
-        metrics.sector
-          ? "bocinas de muro"
-          : `plafón a ${formatMeters(room.ceilingHeight)} m`
+        metrics.speaker?.mount === "mueble"
+          ? "bocinas inalámbricas"
+          : metrics.sector
+            ? "bocinas de muro"
+            : `plafón a ${formatMeters(room.ceilingHeight)} m`
       }, ${metrics.count} × ${model} (ambiente ${COVERAGE_MODES[room.mode].label.toLowerCase()}${
         loudness ? `: ${LOUDNESS_VERDICT_TEXT[loudness.verdict].title.toLowerCase()}` : ""
-      }, cobertura ${Math.round(metrics.coverage * 100)}%), ${metrics.zones} zona${
-        metrics.zones === 1 ? "" : "s"
-      } de amplificador`
+      }, cobertura ${Math.round(metrics.coverage * 100)}%), ${
+        metrics.speaker?.selfPowered
+          ? "amplificador integrado"
+          : `${metrics.zones} zona${metrics.zones === 1 ? "" : "s"} de amplificador`
+      }`
     );
   }
 

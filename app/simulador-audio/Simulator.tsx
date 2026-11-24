@@ -1002,10 +1002,17 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
                     <span className="mt-2 block text-[13px] font-normal text-[#77797F]">
                       {selectedMetrics.speaker.label} · apertura de{" "}
                       {selectedMetrics.sector.apertureDeg}° y alcance de{" "}
-                      {formatMeters(selectedMetrics.sector.reach, 0)} m
+                      {formatMeters(
+                        selectedMetrics.sector.reach,
+                        Number.isInteger(selectedMetrics.sector.reach) ? 0 : 1
+                      )}{" "}
+                      m
                       {selectedMetrics.speaker.coverageBasis === "criterio_alfa"
                         ? ", criterio de diseño de ALFA: el fabricante no publica este dato"
                         : " según el fabricante"}
+                      {selectedMetrics.speaker.selfPowered
+                        ? ". Trae su amplificador: solo necesita un contacto eléctrico."
+                        : ""}
                     </span>
                   ) : selectedMetrics.speaker ? (
                     <span className="mt-2 block text-[13px] font-normal text-[#77797F]">
@@ -1104,7 +1111,9 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
                 </div>
                 <p className="text-[13px] leading-5 text-[#77797F]">
                   {selectedMetrics.sector
-                    ? "Arrastra una bocina para moverla sobre la pared y arrastra el punto pequeño para apuntarla. Tócala y usa Quitar para eliminarla."
+                    ? selectedMetrics.speaker?.mount === "mueble"
+                      ? "Arrastra una bocina para moverla junto a la pared, donde iría el mueble, y arrastra el punto pequeño para apuntarla. Tócala y usa Quitar para eliminarla."
+                      : "Arrastra una bocina para moverla sobre la pared y arrastra el punto pequeño para apuntarla. Tócala y usa Quitar para eliminarla."
                     : "Arrastra una bocina para moverla. Tócala y usa Quitar para eliminarla."}
                 </p>
 
@@ -1183,12 +1192,23 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
                         {metrics.speaker
                           ? `${metrics.speaker.brand} ${metrics.speaker.model}`
                           : ""}
-                        , {metrics.zones} zona{metrics.zones === 1 ? "" : "s"} de
-                        amplificador, {formatMeters(metrics.area, 1)} m²
+                        ,{" "}
+                        {metrics.speaker?.selfPowered
+                          ? "amplificador integrado"
+                          : `${metrics.zones} zona${metrics.zones === 1 ? "" : "s"} de amplificador`}
+                        , {formatMeters(metrics.area, 1)} m²
                       </li>
                     );
                   })}
                 </ul>
+              ) : null}
+
+              {equipment.some((entry) => entry.speaker.selfPowered) ? (
+                <p className="mt-6 max-w-2xl text-sm leading-6 text-[#5F626A]">
+                  Las bocinas inalámbricas traen su propio amplificador y se conectan por
+                  Wi-Fi: no llevan amplificador ni cable de bocina. Cada una necesita un
+                  contacto eléctrico cerca.
+                </p>
               ) : null}
 
               {amplification.total > 0 ? (
@@ -1255,7 +1275,7 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
                 materiales ni la acústica del lugar. El diseño final lo ajusta un
                 ingeniero de ALFA en sitio.
                 {equipment.some((entry) => entry.speaker.coverageBasis === "criterio_alfa")
-                  ? " En las bocinas de muro, la apertura y el alcance son un criterio de diseño de ALFA, porque el fabricante no publica ese dato."
+                  ? " Donde se indica, la apertura y el alcance de la bocina son un criterio de diseño de ALFA, porque el fabricante no publica ese dato."
                   : ""}
               </p>
             </div>

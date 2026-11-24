@@ -118,6 +118,7 @@ export function SpeakerPicker({
   const groups = [
     { label: "De plafón", mount: "plafon" as const },
     { label: "De muro", mount: "muro" as const },
+    { label: "Inalámbricas", mount: "mueble" as const },
   ];
 
   return (
@@ -230,7 +231,10 @@ export function LoudnessMeter({
       <p className="text-sm text-[#33353B]">
         Tu sistema sostiene alrededor de{" "}
         <span className="font-semibold">{Math.round(loudness.level)} dB</span> en casi todo
-        el espacio, con {Math.round(loudness.powerPerSpeakerW)} W por bocina.
+        el espacio
+        {loudness.powerPerSpeakerW > 0
+          ? `, con ${Math.round(loudness.powerPerSpeakerW)} W por bocina.`
+          : ", con el amplificador que trae cada bocina."}
       </p>
       <p className="mt-3 text-[13px] leading-5 text-[#77797F]">
         Para ubicarte: una conversación normal ronda los 60 dB, un restaurante lleno los

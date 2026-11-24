@@ -42,6 +42,9 @@ export const MUSIC_HEADROOM_DB = 10;
 /** Una bocina de muro suele quedar cerca de un metro arriba del oido. */
 const WALL_HEIGHT_ABOVE_EAR_M = 1;
 
+/** Una bocina sobre un mueble queda casi a la altura del oido. */
+const FURNITURE_HEIGHT_FROM_EAR_M = 0.3;
+
 /** Fuera del cono o abanico de cobertura la bocina sigue sonando, pero menos. */
 const OFF_COVERAGE_PENALTY_DB = 6;
 
@@ -68,7 +71,7 @@ export type RoomLoudness = {
   /** Nivel que pide el ambiente elegido, en dB. */
   target: number;
   verdict: LoudnessVerdict;
-  /** Watts que le tocan a cada bocina. */
+  /** Watts que le tocan a cada bocina; 0 si trae el amplificador integrado. */
   powerPerSpeakerW: number;
   /** Cuadricula para pintar el mapa de volumen; coordenadas en metros. */
   cells: { x: number; y: number; level: number }[];
@@ -117,8 +120,13 @@ export function roomLoudness(
   const speaker = getSimulatorSpeaker(room.modelId);
   if (!speaker || room.speakers.length === 0 || room.points.length < 3) return null;
 
-  const power = powerPerSpeakerW(amplifier, speaker, room.speakers.length);
-  if (power <= 0) return null;
+  // Una bocina con amplificador integrado no depende del amplificador elegido:
+  // su nivel sostenido a un metro lo da el fabricante.
+  const power = speaker.selfPowered
+    ? 0
+    : powerPerSpeakerW(amplifier, speaker, room.speakers.length);
+  if (!speaker.selfPowered && power <= 0) return null;
+  if (speaker.selfPowered && !speaker.maxSplDb) return null;
 
   const box = boundingBox(room.points);
   if (box.width <= 0 || box.height <= 0) return null;
@@ -135,9 +143,11 @@ export function roomLoudness(
         room.ceilingHeight,
         listeningHeight(room.posture)
       ) / 2;
-  // Nivel a un metro, ya con el margen para los picos de la musica.
-  const levelAtOneMeter =
-    speaker.sensitivityDb + 10 * Math.log10(power) - MUSIC_HEADROOM_DB;
+  // Nivel a un metro, ya con el margen para los picos de la musica. El dato de
+  // una bocina con amplificador integrado ya es nivel sostenido.
+  const levelAtOneMeter = speaker.selfPowered
+    ? (speaker.maxSplDb as number)
+    : speaker.sensitivityDb + 10 * Math.log10(power) - MUSIC_HEADROOM_DB;
 
   const cellWidth = box.width / cellsPerSide;
   const cellHeight = box.height / cellsPerSide;
@@ -154,7 +164,11 @@ export function roomLoudness(
       let energy = 0;
       for (const placed of room.speakers) {
         const horizontal = Math.hypot(point.x - placed.x, point.y - placed.y);
-        const vertical = sector ? WALL_HEIGHT_ABOVE_EAR_M : clearance;
+        const vertical = !sector
+          ? clearance
+          : speaker.mount === "mueble"
+            ? FURNITURE_HEIGHT_FROM_EAR_M
+            : WALL_HEIGHT_ABOVE_EAR_M;
         const distance = Math.max(MIN_DISTANCE_M, Math.hypot(horizontal, vertical));
         const inside = sector
           ? sectorContains(placed, sector, point)
