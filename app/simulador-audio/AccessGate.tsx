@@ -125,6 +125,13 @@ export default function AccessGate() {
     router.refresh();
   }
 
+  // Va dentro de cada paso, arriba del control que lo usa: si Cloudflare pide
+  // marcar la casilla, el visitante la ve antes de enviar. Solo hay un paso
+  // montado a la vez, asi que nunca hay dos widgets en pantalla.
+  const turnstileWidget = (
+    <TurnstileWidget {...turnstile.widgetProps} theme="light" className="mt-6" />
+  );
+
   return (
     <div className="rounded-3xl bg-white p-7 shadow-[0_24px_60px_-30px_rgba(0,0,0,0.35)] sm:p-9">
       {step === "datos" ? (
@@ -210,6 +217,8 @@ export default function AccessGate() {
             </label>
           </div>
 
+          {turnstileWidget}
+
           {error ? (
             <p role="alert" className="mt-5 text-sm text-[#9E1B32]">
               {error}
@@ -259,6 +268,8 @@ export default function AccessGate() {
               required
             />
           </label>
+
+          {turnstileWidget}
 
           {error ? (
             <p role="alert" className="mt-5 text-sm text-[#9E1B32]">
@@ -331,6 +342,8 @@ export default function AccessGate() {
             {busy ? "Verificando…" : "Entrar al simulador"}
           </button>
 
+          {turnstileWidget}
+
           <div className="mt-6 flex items-center justify-between">
             <button
               type="button"
@@ -354,9 +367,6 @@ export default function AccessGate() {
           </div>
         </form>
       ) : null}
-
-      {/* Un solo widget para los tres pasos: el reenvio de codigo tambien lo usa. */}
-      <TurnstileWidget {...turnstile.widgetProps} theme="light" className="mt-6" />
     </div>
   );
 }
