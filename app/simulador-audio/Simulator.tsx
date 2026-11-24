@@ -14,7 +14,6 @@ import {
   ZoomOut,
 } from "lucide-react";
 import {
-  COVERAGE_MODES,
   MAX_EFFECTIVE_DISPERSION_DEG,
   boundingBox,
   coverageDiameter,
@@ -26,7 +25,6 @@ import {
   snapToWall,
   suggestLayout,
   suggestWallLayout,
-  type CoverageMode,
   type ListeningPosture,
   type PlacedSpeaker,
   type Point,
@@ -45,10 +43,16 @@ import {
 } from "@/lib/simuladorAudio/design";
 import {
   DEFAULT_SIMULATOR_SPEAKER_ID,
-  SIMULATOR_SPEAKERS,
   getSimulatorSpeaker,
 } from "@/lib/simuladorAudio/speakers";
+import { roomLoudness } from "@/lib/simuladorAudio/loudness";
 import PlanCanvas, { type CanvasTool } from "./PlanCanvas";
+import {
+  LoudnessMeter,
+  ProductPhoto,
+  ScenarioPicker,
+  SpeakerPicker,
+} from "./SimulatorParts";
 import { PlanFileError, loadPlanFile, type LoadedPlan } from "./planFile";
 
 type ViewerKind = "interno" | "portal" | "visitante";
@@ -70,6 +74,8 @@ const PROJECT_TYPES = [
 const fieldClass =
   "mt-2 w-full rounded-xl border border-[#E5E3DD] bg-white px-3.5 py-2.5 text-[15px] text-[#111111] outline-none transition focus:border-[#9E1B32] focus:ring-2 focus:ring-[#9E1B32]/15";
 const labelClass = "block text-[13px] font-medium text-[#5F626A]";
+const eyebrowClass =
+  "text-xs font-semibold uppercase tracking-[0.22em] text-[#9E1B32]";
 const ghostButtonClass =
   "inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-[13px] font-medium text-[#33353B] transition hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-40";
 
@@ -232,6 +238,7 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
   const [planError, setPlanError] = useState("");
   const [tool, setTool] = useState<CanvasTool>("select");
   const [zoom, setZoom] = useState(1);
+  const [view, setView] = useState<"cobertura" | "volumen">("cobertura");
   const [calibration, setCalibration] = useState<Point[]>([]);
   const [calibrationMeters, setCalibrationMeters] = useState("");
   const [draft, setDraft] = useState<Point[]>([]);
@@ -250,6 +257,10 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
   const selectedRoom =
     rooms.find((room) => room.id === selectedIds[source]) || rooms[0] || null;
   const selectedMetrics = selectedRoom ? roomMetrics(selectedRoom) : null;
+  const selectedLoudness = useMemo(
+    () => (selectedRoom ? roomLoudness(selectedRoom) : null),
+    [selectedRoom]
+  );
   const activeSpeaker =
     selectedSpeaker && selectedSpeaker.roomId === selectedRoom?.id
       ? selectedSpeaker
@@ -523,7 +534,12 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
   // ----- Vista ---------------------------------------------------------------
 
   const canvasRooms = (source === "medidas" ? (selectedRoom ? [selectedRoom] : []) : rooms).map(
-    (room) => ({ room, diameter: roomDiameter(room), sector: roomSector(room) })
+    (room) => ({
+      room,
+      diameter: roomDiameter(room),
+      sector: roomSector(room),
+      heat: view === "volumen" ? roomLoudness(room) : null,
+    })
   );
 
   const measureBox = selectedRoom ? boundingBox(selectedRoom.points) : null;
@@ -587,8 +603,9 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
         </div>
 
         <div className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
-          {/* Lienzo */}
-          <div className="min-w-0 rounded-3xl bg-white p-4 shadow-sm sm:p-5">
+          {/* Lienzo y medidor */}
+          <div className="min-w-0 space-y-6">
+          <div className="rounded-3xl bg-white p-4 shadow-sm sm:p-5">
             {source === "plano" && !plan ? (
               <div className="flex min-h-[420px] flex-col items-center justify-center px-6 py-16 text-center">
                 <Upload className="h-8 w-8 text-[#9E1B32]" aria-hidden="true" />
@@ -676,6 +693,36 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
                   </div>
                 ) : null}
 
+                <div className="mb-3 flex items-center justify-end gap-3">
+                  {view === "volumen" ? (
+                    <span className="text-[12px] text-[#77797F]">
+                      Más oscuro, más fuerte
+                    </span>
+                  ) : null}
+                  <div className="flex rounded-full bg-[#F1EFEA] p-1">
+                    {(
+                      [
+                        { value: "cobertura", label: "Cobertura" },
+                        { value: "volumen", label: "Volumen" },
+                      ] as const
+                    ).map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        aria-pressed={view === option.value}
+                        onClick={() => setView(option.value)}
+                        className={`rounded-full px-3.5 py-1.5 text-[13px] font-medium transition ${
+                          view === option.value
+                            ? "bg-white text-[#111111] shadow-sm"
+                            : "text-[#5F626A] hover:text-[#111111]"
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <PlanCanvas
                   fit={source === "plano" ? "width" : "contain"}
                   viewBox={viewBox}
@@ -740,6 +787,11 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
                 if (file) void openPlan(file);
               }}
             />
+          </div>
+
+            {selectedRoom && selectedLoudness && (source === "medidas" || planReady) ? (
+              <LoudnessMeter mode={selectedRoom.mode} loudness={selectedLoudness} />
+            ) : null}
           </div>
 
           {/* Panel */}
@@ -844,6 +896,7 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
 
             {selectedRoom && selectedMetrics && (source === "medidas" || planReady) ? (
               <div className="space-y-5">
+                <p className={eyebrowClass}>Tu espacio</p>
                 <label className={labelClass}>
                   Nombre del espacio
                   <input
@@ -905,42 +958,30 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
                   </>
                 )}
 
-                <label className={labelClass}>
-                  Bocina
-                  <select
-                    className={fieldClass}
+                <div className="space-y-3 pt-3">
+                  <p className={eyebrowClass}>El ambiente</p>
+                  <ScenarioPicker
+                    value={selectedRoom.mode}
+                    onChange={(mode) => updateRoom(selectedRoom.id, { mode, manual: false })}
+                  />
+                </div>
+
+                <div className="space-y-3 pt-3">
+                  <p className={eyebrowClass}>Tus bocinas</p>
+                  <SpeakerPicker
                     value={selectedRoom.modelId}
-                    onChange={(event) => {
-                      const next = getSimulatorSpeaker(event.target.value);
+                    onChange={(modelId) => {
+                      const next = getSimulatorSpeaker(modelId);
                       // Al pasar de plafon a muro (o al reves) las posiciones
                       // anteriores ya no sirven: se reparte de nuevo.
                       const mountChanged = next?.mount !== selectedMetrics.speaker?.mount;
                       updateRoom(selectedRoom.id, {
-                        modelId: event.target.value,
+                        modelId,
                         ...(mountChanged ? { manual: false } : {}),
                       });
                       if (mountChanged) setSelectedSpeaker(null);
                     }}
-                  >
-                    <optgroup label="De plafón">
-                      {SIMULATOR_SPEAKERS.filter((speaker) => speaker.mount === "plafon").map(
-                        (speaker) => (
-                          <option key={speaker.id} value={speaker.id}>
-                            {speaker.brand} {speaker.model}
-                          </option>
-                        )
-                      )}
-                    </optgroup>
-                    <optgroup label="De muro">
-                      {SIMULATOR_SPEAKERS.filter((speaker) => speaker.mount === "muro").map(
-                        (speaker) => (
-                          <option key={speaker.id} value={speaker.id}>
-                            {speaker.brand} {speaker.model}
-                          </option>
-                        )
-                      )}
-                    </optgroup>
-                  </select>
+                  />
                   {selectedMetrics.speaker && selectedMetrics.sector ? (
                     <span className="mt-2 block text-[13px] font-normal text-[#77797F]">
                       {selectedMetrics.speaker.label} · apertura de{" "}
@@ -959,23 +1000,6 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
                         : ""}
                     </span>
                   ) : null}
-                </label>
-
-                <div>
-                  <span className={labelClass}>Tipo de cobertura</span>
-                  <Segmented<CoverageMode>
-                    value={selectedRoom.mode}
-                    onChange={(mode) =>
-                      updateRoom(selectedRoom.id, { mode, manual: false })
-                    }
-                    options={(Object.keys(COVERAGE_MODES) as CoverageMode[]).map((mode) => ({
-                      value: mode,
-                      label: COVERAGE_MODES[mode].label,
-                    }))}
-                  />
-                  <p className="mt-2 text-[13px] leading-5 text-[#77797F]">
-                    {COVERAGE_MODES[selectedRoom.mode].description}
-                  </p>
                 </div>
 
                 {!selectedMetrics.sector && selectedMetrics.diameter <= 0 ? (
@@ -1071,11 +1095,13 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
               <h3 className="text-2xl font-semibold tracking-tight">Tu sistema</h3>
               <ul className="mt-6 divide-y divide-black/10">
                 {equipment.map((entry) => (
-                  <li
-                    key={entry.speaker.id}
-                    className="flex items-baseline justify-between gap-6 py-4"
-                  >
-                    <div>
+                  <li key={entry.speaker.id} className="flex items-center gap-4 py-4">
+                    <ProductPhoto
+                      src={entry.speaker.image}
+                      alt={`${entry.speaker.brand} ${entry.speaker.model}`}
+                      size={72}
+                    />
+                    <div className="min-w-0 flex-1">
                       <p className="text-lg font-medium">
                         {entry.speaker.brand} {entry.speaker.model}
                       </p>
@@ -1085,8 +1111,13 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
                   </li>
                 ))}
                 {amplification.total > 0 ? (
-                  <li className="flex items-baseline justify-between gap-6 py-4">
-                    <div>
+                  <li className="flex items-center gap-4 py-4">
+                    <ProductPhoto
+                      src={amplification.amplifier.image}
+                      alt={`${amplification.amplifier.brand} ${amplification.amplifier.model}`}
+                      size={72}
+                    />
+                    <div className="min-w-0 flex-1">
                       <p className="text-lg font-medium">
                         {amplification.amplifier.brand} {amplification.amplifier.model}
                       </p>

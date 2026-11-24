@@ -31,6 +31,8 @@ export type SimulatorAmplifier = {
   source: string;
   /** id en `products` de ALFA OS (produccion). */
   productId: number;
+  /** Foto del producto, servida desde public/. */
+  image: string;
 };
 
 export const SIMULATOR_AMPLIFIERS: SimulatorAmplifier[] = [
@@ -52,6 +54,7 @@ export const SIMULATOR_AMPLIFIERS: SimulatorAmplifier[] = [
     sourceQuote: "Two pairs of 8 ohm speakers wired in parallel are also supported.",
     source: "https://www.sonos.com/en-us/guides/amp",
     productId: 19,
+    image: "/simulador/sonos-amp.avif",
   },
 ];
 

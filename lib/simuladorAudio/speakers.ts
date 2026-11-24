@@ -17,6 +17,8 @@
  * Sin precios, igual que el catalogo publico de /marcas.
  */
 
+import type { SectorCoverage } from "@/lib/simuladorAudio/geometry";
+
 export type SimulatorSpeaker = {
   id: string;
   brand: string;
@@ -34,6 +36,10 @@ export type SimulatorSpeaker = {
   sensitivityDb: number;
   /** Impedancia nominal por entrada, en ohms, segun la ficha del fabricante. */
   impedanceOhms: number;
+  /** Potencia maxima de amplificador que recomienda el fabricante, en watts. */
+  maxPowerW: number;
+  /** Foto del producto, servida desde public/. */
+  image: string;
   /**
    * Canales de amplificador que ocupa cada bocina: 1 en una bocina normal, 2 en
    * una estereo de doble bobina (recibe izquierdo y derecho en la misma bocina).
@@ -57,6 +63,8 @@ export const SIMULATOR_SPEAKERS: SimulatorSpeaker[] = [
     dispersionDeg: 110,
     sensitivityDb: 89,
     impedanceOhms: 8,
+    maxPowerW: 100,
+    image: "/simulador/kef-ci160er.jpg",
     amplifierChannels: 1,
     sourceQuote: "Nominal coverage (degrees) 110°",
     source: "https://assets.kef.com/pdf_doc/ci/Ci_Group_Specification_Sheet.pdf",
@@ -72,6 +80,8 @@ export const SIMULATOR_SPEAKERS: SimulatorSpeaker[] = [
     dispersionDeg: 160,
     sensitivityDb: 87,
     impedanceOhms: 8,
+    maxPowerW: 100,
+    image: "/simulador/kef-ci160tr.jpg",
     amplifierChannels: 1,
     sourceQuote: "Nominal coverage (degrees) 160°",
     source: "https://assets.kef.com/pdf_doc/ci/Ci_Group_Specification_Sheet.pdf",
@@ -87,6 +97,8 @@ export const SIMULATOR_SPEAKERS: SimulatorSpeaker[] = [
     dispersionDeg: 120,
     sensitivityDb: 91,
     impedanceOhms: 8,
+    maxPowerW: 80,
+    image: "/simulador/kef-ci160crds.png",
     amplifierChannels: 2,
     sourceQuote: "Nominal coverage 120°",
     source: "https://assets.kef.com/pdf_doc/ci/Ci_Group_Specification_Sheet.pdf",
@@ -102,6 +114,8 @@ export const SIMULATOR_SPEAKERS: SimulatorSpeaker[] = [
     dispersionDeg: 120,
     sensitivityDb: 88,
     impedanceOhms: 8,
+    maxPowerW: 100,
+    image: "/simulador/bose-dm6c.png",
     amplifierChannels: 1,
     sourceQuote: "Nominal Coverage Angle (1 – 4 kHz) 120° conical",
     source:
@@ -124,6 +138,8 @@ export const SIMULATOR_SPEAKERS: SimulatorSpeaker[] = [
     reachM: 6,
     sensitivityDb: 86,
     impedanceOhms: 8,
+    maxPowerW: 100,
+    image: "/simulador/bw-am1.png",
     amplifierChannels: 1,
     sourceQuote: "Sensitivity 86dB (2.83V, 1m) · Nominal Impedance 8Ω (5.2 Ω min)",
     source:
@@ -175,6 +191,12 @@ export const PENDING_SIMULATOR_SPEAKERS = [
 
 export function getSimulatorSpeaker(id: string | null | undefined) {
   return SIMULATOR_SPEAKERS.find((speaker) => speaker.id === id) || null;
+}
+
+/** Abanico de cobertura de un modelo de muro; null si el modelo es de plafon. */
+export function speakerSector(speaker: SimulatorSpeaker | null): SectorCoverage | null {
+  if (!speaker || speaker.mount !== "muro" || !speaker.reachM) return null;
+  return { apertureDeg: speaker.dispersionDeg, reach: speaker.reachM };
 }
 
 export const DEFAULT_SIMULATOR_SPEAKER_ID = SIMULATOR_SPEAKERS[0].id;

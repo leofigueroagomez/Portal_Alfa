@@ -43,15 +43,45 @@ El candado es de captacion, no de confidencialidad: el simulador corre en el nav
 
 - Diametro de cobertura: `D = 2·(H−h)·tan(A/2)`. `H` = altura del plafon, `h` = oido (sentado 1.30 m, de pie 1.75 m), `A` = angulo de cobertura del fabricante.
 - `A` se limita a 120° (`MAX_EFFECTIVE_DISPERSION_DEG`): en ese borde el nivel ya cae 6 dB solo por distancia. Decision de modelado de la fase 1, pendiente de validar con Leo.
-- Reparto en reticula sobre la caja envolvente del area; se descartan las celdas cuyo centro cae fuera. Separacion segun el tipo de cobertura: ambiental `D`, uniforme `D/√2`, maxima `D/2`.
+- Reparto en reticula sobre la caja envolvente del area; se descartan las celdas cuyo centro cae fuera. La separacion depende del ambiente (ver "Ambientes y volumen").
 - "Area cubierta" se estima por muestreo. Es una estimacion geometrica, no un estudio acustico; el texto del simulador lo dice.
+
+## Ambientes y volumen
+
+El visitante no elige un "tipo de cobertura": elige un ambiente. Las llaves internas siguen siendo `ambiental`, `uniforme` y `maxima` (ya viajan en los diseños guardados); lo que cambia es como se presentan y que cada una trae un nivel objetivo.
+
+| Llave | Se muestra como | Separacion entre bocinas | Nivel objetivo |
+| --- | --- | --- | --- |
+| `ambiental` | Ambiental | `D` | 65 dB |
+| `uniforme` | Convivencia | `D/√2` | 78 dB |
+| `maxima` | Fiesta | `D/2` | 90 dB |
+
+Los niveles objetivo son referencias de diseño de ALFA, no una norma. Pendiente de validar con Leo.
+
+`lib/simuladorAudio/loudness.ts` estima que tan fuerte se va a escuchar:
+
+- Sonido directo: sensibilidad de la bocina + potencia que le toca − distancia al oyente, sumando todas las bocinas del espacio. Fuera del cono o abanico de cobertura se restan 6 dB.
+- Potencia por bocina: la del canal del amplificador repartida entre las bocinas de ese canal, con tope en la potencia maxima que recomienda el fabricante de la bocina. No se cuenta la potencia extra a 4 Ω porque Sonos no la publica.
+- Se restan 10 dB (`MUSIC_HEADROOM_DB`) para que el nivel sea el sostenido con musica y no el pico.
+- El nivel del espacio es el que se alcanza en al menos 90% del area. Veredicto contra el objetivo: 6 dB o mas arriba "llega con margen", entre 0 y 6 "llega justo", abajo "se queda corto".
+- No cuenta el rebote del cuarto. En interiores se queda corto; en exteriores se acerca mas. El texto del medidor lo dice.
+
+En pantalla: el medidor "Asi se va a escuchar" debajo del plano, y el interruptor Cobertura / Volumen que cambia las huellas por un mapa de volumen (escala del propio espacio: del punto mas suave al mas fuerte).
+
+Pendiente: demo de audio para comparar ambientes de oido. Necesita una pista de musica con derechos de uso.
+
+## Presentacion
+
+- Las fotos de los equipos viven en `public/simulador/` y se copiaron del bucket publico `product-images` de ALFA OS. Cada modelo guarda su ruta en `image`. En el catalogo interno la KEF Ci160ER y la Ci160TR tienen la misma foto.
+- `app/simulador-audio/SimulatorParts.tsx`: tarjetas de bocina con foto, tarjetas de ambiente, medidor de volumen y miniaturas de "Tu sistema".
+- El panel se lee en tres pasos: Tu espacio, El ambiente, Tus bocinas.
 
 ## Bocinas de muro
 
 Un modelo con `mount: "muro"` cubre un abanico en lugar de un circulo: apertura `dispersionDeg` y alcance `reachM`. La altura del plafon y la postura no entran en ese calculo y el panel las oculta.
 
 - La bocina vive pegada a una pared (`snapToWall`) y guarda hacia donde apunta (`angle`, en grados). Al arrastrarla se desliza sobre la pared mas cercana y queda perpendicular; el punto pequeño la gira.
-- Reparto automatico (`suggestWallLayout`): busca cubrir 75% (ambiental), 90% (uniforme) o 98% (maxima) del area. Primero arma un reparto libre sobre todo el perimetro; despues prefiere uno ordenado sobre una sola pared si no cuesta mas de una bocina extra.
+- Reparto automatico (`suggestWallLayout`): busca cubrir 75% (ambiental), 90% (convivencia) o 98% (fiesta) del area. Primero arma un reparto libre sobre todo el perimetro; despues prefiere uno ordenado sobre una sola pared solo si no usa mas bocinas.
 - **B&W AM-1: 90° de apertura y 6 m de alcance son criterio de diseño de ALFA**, aprobado por Leo el 2026-11-23. B&W no publica angulo, grafica polar ni archivo de simulacion de ese modelo. El simulador lo dice junto al selector y en la nota de "Tu sistema". Si Dextra consigue el dato real, se cambia en `speakers.ts` y se pone `coverageBasis: "fabricante"`.
 
 ## Catalogo de bocinas

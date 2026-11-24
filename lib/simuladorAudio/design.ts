@@ -18,9 +18,16 @@ import {
   type SimulatorAmplifier,
 } from "@/lib/simuladorAudio/amplifiers";
 import {
+  LOUDNESS_VERDICT_TEXT,
+  roomLoudness,
+} from "@/lib/simuladorAudio/loudness";
+import {
   getSimulatorSpeaker,
+  speakerSector,
   type SimulatorSpeaker,
 } from "@/lib/simuladorAudio/speakers";
+
+export { speakerSector };
 
 /** Modelo del diseño. Lo comparten el simulador (cliente) y la ruta de propuesta (servidor). */
 
@@ -63,12 +70,6 @@ export const MAX_ROOMS = 30;
 const MAX_POINTS = 80;
 const MAX_SPEAKERS = 200;
 const MAX_COORDINATE = 2000;
-
-/** Abanico de cobertura de un modelo de muro; null si el modelo es de plafon. */
-export function speakerSector(speaker: SimulatorSpeaker | null): SectorCoverage | null {
-  if (!speaker || speaker.mount !== "muro" || !speaker.reachM) return null;
-  return { apertureDeg: speaker.dispersionDeg, reach: speaker.reachM };
-}
 
 export function roomMetrics(room: SimulatorRoom): RoomMetrics {
   const speaker = getSimulatorSpeaker(room.modelId);
@@ -237,6 +238,7 @@ export function summarizeDesign(design: SimulatorDesign) {
 
   for (const room of design.rooms) {
     const metrics = roomMetrics(room);
+    const loudness = roomLoudness(room);
     const model = metrics.speaker
       ? `${metrics.speaker.brand} ${metrics.speaker.model}`
       : room.modelId;
@@ -246,9 +248,11 @@ export function summarizeDesign(design: SimulatorDesign) {
         metrics.sector
           ? "bocinas de muro"
           : `plafón a ${formatMeters(room.ceilingHeight)} m`
-      }, ${metrics.count} × ${model} (${COVERAGE_MODES[room.mode].label.toLowerCase()}, cobertura ${Math.round(
-        metrics.coverage * 100
-      )}%), ${metrics.amplifiers} amplificador${metrics.amplifiers === 1 ? "" : "es"}`
+      }, ${metrics.count} × ${model} (ambiente ${COVERAGE_MODES[room.mode].label.toLowerCase()}${
+        loudness ? `: ${LOUDNESS_VERDICT_TEXT[loudness.verdict].title.toLowerCase()}` : ""
+      }, cobertura ${Math.round(metrics.coverage * 100)}%), ${metrics.amplifiers} amplificador${
+        metrics.amplifiers === 1 ? "" : "es"
+      }`
     );
   }
 

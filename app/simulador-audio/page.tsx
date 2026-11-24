@@ -7,6 +7,7 @@ import {
   rectanglePolygon,
   suggestLayout,
 } from "@/lib/simuladorAudio/geometry";
+import { DEFAULT_SIMULATOR_AMPLIFIER } from "@/lib/simuladorAudio/amplifiers";
 import { SIMULATOR_SPEAKERS } from "@/lib/simuladorAudio/speakers";
 import { SITE_URL } from "@/lib/siteUrl";
 import AccessGate from "./AccessGate";
@@ -35,12 +36,12 @@ const steps = [
     body: "Sube el plano en PDF o imagen y marca cada área. Si no tienes plano, basta con el largo, el ancho y la altura.",
   },
   {
-    title: "Tu bocina",
-    body: "Elige entre los modelos de plafón que instalamos. La cobertura se calcula con el ángulo que publica cada fabricante.",
+    title: "Tu ambiente y tus bocinas",
+    body: "Di si quieres música de fondo, convivencia o fiesta, y elige entre las bocinas de plafón y de muro que instalamos.",
   },
   {
     title: "Tu sistema",
-    body: "El simulador reparte las bocinas y te dice cuántas son. Muévelas a tu gusto y, si quieres, pide una propuesta.",
+    body: "El simulador reparte las bocinas, te dice cuántas son, qué amplificador llevan y qué tan fuerte se va a escuchar. Si quieres, pide una propuesta.",
   },
 ];
 
@@ -98,6 +99,17 @@ function CoveragePreview() {
 
 export default async function SimuladorAudioPage() {
   const viewer = await resolveSimulatorViewer();
+  // Los equipos que el visitante va a poder elegir, con su foto.
+  const showcase = [
+    ...SIMULATOR_SPEAKERS.map((speaker) => ({
+      name: `${speaker.brand} ${speaker.model}`,
+      image: speaker.image,
+    })),
+    {
+      name: `${DEFAULT_SIMULATOR_AMPLIFIER.brand} ${DEFAULT_SIMULATOR_AMPLIFIER.model}`,
+      image: DEFAULT_SIMULATOR_AMPLIFIER.image,
+    },
+  ];
   const backLink =
     viewer?.kind === "interno"
       ? { href: "/dashboard", label: "Volver a ALFA OS" }
@@ -174,8 +186,24 @@ export default async function SimuladorAudioPage() {
                   Sube tu plano o escribe las medidas, elige la bocina y mira cuántas
                   necesitas y dónde colocarlas. Con los mismos equipos que instalamos.
                 </p>
-                <p className="mt-10 text-sm text-zinc-500">
-                  KEF · Bose · y más marcas próximamente
+                <ul className="mt-10 flex flex-wrap gap-3">
+                  {showcase.map((item) => (
+                    <li
+                      key={item.name}
+                      className="flex h-[76px] w-[76px] items-center justify-center overflow-hidden rounded-2xl bg-white"
+                    >
+                      <Image
+                        src={item.image}
+                        alt={item.name}
+                        width={76}
+                        height={76}
+                        className="h-full w-full object-contain p-2"
+                      />
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-4 text-sm text-zinc-500">
+                  KEF · Bowers &amp; Wilkins · Bose · Sonos
                 </p>
               </div>
               <AccessGate />

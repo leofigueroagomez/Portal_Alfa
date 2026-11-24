@@ -19,6 +19,11 @@ import {
   sanitizeDesign,
   summarizeDesign,
 } from "@/lib/simuladorAudio/design";
+import {
+  loudnessVerdict,
+  powerPerSpeakerW,
+  roomLoudness,
+} from "@/lib/simuladorAudio/loudness";
 import { getSimulatorSpeaker } from "@/lib/simuladorAudio/speakers";
 import {
   coverageDiameter,
@@ -255,4 +260,58 @@ test("una AM-1 se diseña como bocina de muro y pide su amplificador", () => {
     sanitizeDesign({ rooms: [{ ...design.rooms[0], speakers: [{ x: 1, y: 1, angle: "a" }] }] }),
     null
   );
+});
+
+test("la potencia del amplificador se reparte entre las bocinas de cada canal", () => {
+  const amp = DEFAULT_SIMULATOR_AMPLIFIER;
+  const mono = getSimulatorSpeaker("kef-ci160er")!;
+  const stereo = getSimulatorSpeaker("kef-ci160crds")!;
+
+  // Dos bocinas: una por canal. Tope de 100 W que recomienda KEF, no los 125 W del Amp.
+  assert.equal(powerPerSpeakerW(amp, mono, 2), 100);
+  // Cuatro bocinas: dos por canal, 125 / 2.
+  assert.equal(powerPerSpeakerW(amp, mono, 4), 62.5);
+  // Cinco bocinas piden dos amplificadores: tres en uno, dos por canal en el peor caso.
+  assert.equal(powerPerSpeakerW(amp, mono, 5), 62.5);
+  // Estéreo de doble bobina: dos bocinas comparten cada canal.
+  assert.equal(powerPerSpeakerW(amp, stereo, 2), 62.5);
+  assert.equal(powerPerSpeakerW(amp, mono, 0), 0);
+});
+
+test("el veredicto compara el nivel del sistema con el del ambiente", () => {
+  assert.equal(loudnessVerdict(84, 78), "sobrado");
+  assert.equal(loudnessVerdict(80, 78), "justo");
+  assert.equal(loudnessVerdict(77.9, 78), "corto");
+});
+
+test("roomLoudness: más cerca suena más fuerte y el exterior con AM-1 no llega a fiesta", () => {
+  const sala = {
+    points: rectanglePolygon(5, 4),
+    ceilingHeight: 2.7,
+    posture: "sentado" as const,
+    modelId: "kef-ci160er",
+    mode: "uniforme" as const,
+    speakers: suggestLayout(rectanglePolygon(5, 4), coverageDiameter(110, 2.7, 1.3), "uniforme"),
+  };
+  const interior = roomLoudness(sala)!;
+
+  assert.equal(interior.target, 78);
+  assert.equal(interior.verdict, "sobrado");
+  assert.ok(interior.max > interior.level && interior.level >= interior.min);
+  // Con el plafón más alto el oyente queda más lejos: baja el nivel.
+  assert.ok(roomLoudness({ ...sala, ceilingHeight: 4 })!.level < interior.level);
+
+  const terraza = rectanglePolygon(8, 5);
+  const exterior = roomLoudness({
+    points: terraza,
+    ceilingHeight: 2.7,
+    posture: "de_pie",
+    modelId: "bw-am1",
+    mode: "maxima",
+    speakers: suggestWallLayout(terraza, { apertureDeg: 90, reach: 6 }, "maxima"),
+  })!;
+  assert.equal(exterior.target, 90);
+  assert.equal(exterior.verdict, "corto");
+
+  assert.equal(roomLoudness({ ...sala, speakers: [] }), null);
 });

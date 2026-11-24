@@ -18,6 +18,7 @@ import {
   type SectorCoverage,
 } from "@/lib/simuladorAudio/geometry";
 import { formatMeters, type SimulatorRoom } from "@/lib/simuladorAudio/design";
+import type { RoomLoudness } from "@/lib/simuladorAudio/loudness";
 
 export type CanvasTool = "select" | "calibrate" | "draw";
 
@@ -27,7 +28,25 @@ export type CanvasRoom = {
   diameter: number;
   /** Muro: abanico de cobertura de cada bocina; null si es de plafon. */
   sector: SectorCoverage | null;
+  /** Si viene, se pinta el mapa de volumen en lugar de las huellas de cobertura. */
+  heat?: RoomLoudness | null;
 };
+
+// El mapa de volumen usa la escala del propio espacio (del punto mas suave al
+// mas fuerte) para que se vea donde suena mas. El nivel absoluto lo da el
+// medidor. Con menos de 6 dB de diferencia se abre la escala para no exagerar.
+const HEAT_MIN_SPAN_DB = 6;
+const HEAT_SOFT = [246, 228, 231];
+const HEAT_LOUD = [122, 20, 37];
+
+function heatColor(level: number, min: number, max: number) {
+  const span = Math.max(HEAT_MIN_SPAN_DB, max - min);
+  const t = Math.min(1, Math.max(0, (level - (max - span)) / span));
+  const channel = (index: number) =>
+    Math.round(HEAT_SOFT[index] + (HEAT_LOUD[index] - HEAT_SOFT[index]) * t);
+
+  return `rgb(${channel(0)} ${channel(1)} ${channel(2)})`;
+}
 
 type PlanCanvasProps = {
   /** "contain" ajusta todo al recuadro; "width" ocupa el ancho y permite zoom con scroll. */
@@ -293,7 +312,7 @@ export default function PlanCanvas({
           />
         ) : null}
 
-        {rooms.map(({ room, diameter, sector }) => {
+        {rooms.map(({ room, diameter, sector, heat }) => {
           const isSelected = room.id === selectedRoomId;
           const box = boundingBox(room.points);
           const radius = (diameter / 2) * k;
@@ -316,7 +335,22 @@ export default function PlanCanvas({
               )}
 
               <g clipPath={`url(#${clipPrefix}-${room.id})`} pointerEvents="none">
-                {room.speakers.map((speaker, index) =>
+                {heat
+                  ? heat.cells.map((cell, index) => (
+                      <rect
+                        key={index}
+                        x={cell.x * k}
+                        y={cell.y * k}
+                        // Un poco mas grande que la celda para que no se vean rendijas.
+                        // El color es opaco: el traslape entre celdas no se nota.
+                        width={heat.cellWidth * k + u}
+                        height={heat.cellHeight * k + u}
+                        fill={heatColor(cell.level, heat.min, heat.max)}
+                        // Sobre un plano se deja ver el dibujo de fondo.
+                        opacity={image ? 0.78 : 1}
+                      />
+                    ))
+                  : room.speakers.map((speaker, index) =>
                   sector ? (
                     <path
                       key={index}

@@ -20,29 +20,41 @@ export type ListeningPosture = keyof typeof LISTENING_HEIGHTS;
 export type CoverageMode = "ambiental" | "uniforme" | "maxima";
 
 /**
- * Separacion entre bocinas como fraccion del diametro de cobertura.
- * - ambiental: los circulos se tocan borde con borde (quedan huecos en diagonal).
- * - uniforme: la diagonal de la reticula iguala al diametro, sin huecos.
- * - maxima: el borde de cada circulo llega al centro del vecino.
+ * Ambientes. Para quien usa el simulador es "que tan fuerte lo quiero"; por
+ * dentro cada ambiente fija dos cosas:
+ *
+ * - `spacingFactor`: separacion entre bocinas como fraccion del diametro de
+ *   cobertura. Ambiental: los circulos se tocan borde con borde. Convivencia:
+ *   la diagonal de la reticula iguala al diametro, sin huecos. Fiesta: el
+ *   borde de cada circulo llega al centro del vecino.
+ * - `targetDb`: nivel sostenido que se busca en el espacio. Son referencias
+ *   de diseño de ALFA, no una norma: 65 dB deja platicar sin alzar la voz,
+ *   78 dB ya obliga a acercarse y 90 dB obliga a alzar la voz.
+ *
+ * Las llaves (ambiental, uniforme, maxima) se conservan porque ya viajan en
+ * los diseños guardados.
  */
 export const COVERAGE_MODES: Record<
   CoverageMode,
-  { label: string; description: string; spacingFactor: number }
+  { label: string; description: string; spacingFactor: number; targetDb: number }
 > = {
   ambiental: {
     label: "Ambiental",
-    description: "Música de fondo. Menos bocinas, con zonas de menor nivel entre ellas.",
+    description: "Música de fondo. Se platica sin alzar la voz.",
     spacingFactor: 1,
+    targetDb: 65,
   },
   uniforme: {
-    label: "Uniforme",
-    description: "Cobertura continua, sin huecos. La opción recomendada.",
+    label: "Convivencia",
+    description: "La música está presente. Para platicar hay que acercarse.",
     spacingFactor: Math.SQRT1_2,
+    targetDb: 78,
   },
   maxima: {
-    label: "Máxima",
-    description: "Nivel parejo en todo el espacio. Más bocinas a menor volumen.",
+    label: "Fiesta",
+    description: "La música manda. Hay que alzar la voz para platicar.",
     spacingFactor: 0.5,
+    targetDb: 90,
   },
 };
 
@@ -472,7 +484,7 @@ function evenSingleWallLayout(
  * Primero calcula un reparto libre: elige una por una la posicion que cubre
  * mas area todavia descubierta, hasta alcanzar el objetivo del tipo de
  * cobertura. Despues busca un reparto ordenado sobre una sola pared y lo
- * prefiere si no cuesta mas de una bocina extra.
+ * prefiere solo si no usa mas bocinas que el reparto libre.
  */
 export function suggestWallLayout(
   polygon: Point[],
@@ -546,7 +558,7 @@ export function suggestWallLayout(
   }
 
   const tidy = evenSingleWallLayout(polygon, samples, sector, target);
-  if (tidy && tidy.length <= chosen.length + 1) return tidy;
+  if (tidy && tidy.length <= chosen.length) return tidy;
 
   return chosen;
 }
