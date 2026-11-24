@@ -10,18 +10,43 @@ import {
 } from "react";
 import {
   boundingBox,
+  normalizeAngle,
   pointInPolygon,
+  snapToWall,
+  type PlacedSpeaker,
   type Point,
+  type SectorCoverage,
 } from "@/lib/simuladorAudio/geometry";
 import { formatMeters, type SimulatorRoom } from "@/lib/simuladorAudio/design";
+import type { RoomLoudness } from "@/lib/simuladorAudio/loudness";
 
 export type CanvasTool = "select" | "calibrate" | "draw";
 
 export type CanvasRoom = {
   room: SimulatorRoom;
-  /** Diametro de cobertura de cada bocina, en metros. */
+  /** Plafon: diametro de cobertura de cada bocina, en metros. */
   diameter: number;
+  /** Muro: abanico de cobertura de cada bocina; null si es de plafon. */
+  sector: SectorCoverage | null;
+  /** Si viene, se pinta el mapa de volumen en lugar de las huellas de cobertura. */
+  heat?: RoomLoudness | null;
 };
+
+// El mapa de volumen usa la escala del propio espacio (del punto mas suave al
+// mas fuerte) para que se vea donde suena mas. El nivel absoluto lo da el
+// medidor. Con menos de 6 dB de diferencia se abre la escala para no exagerar.
+const HEAT_MIN_SPAN_DB = 6;
+const HEAT_SOFT = [246, 228, 231];
+const HEAT_LOUD = [122, 20, 37];
+
+function heatColor(level: number, min: number, max: number) {
+  const span = Math.max(HEAT_MIN_SPAN_DB, max - min);
+  const t = Math.min(1, Math.max(0, (level - (max - span)) / span));
+  const channel = (index: number) =>
+    Math.round(HEAT_SOFT[index] + (HEAT_LOUD[index] - HEAT_SOFT[index]) * t);
+
+  return `rgb(${channel(0)} ${channel(1)} ${channel(2)})`;
+}
 
 type PlanCanvasProps = {
   /** "contain" ajusta todo al recuadro; "width" ocupa el ancho y permite zoom con scroll. */
@@ -41,8 +66,25 @@ type PlanCanvasProps = {
   onCanvasClick: (point: Point, tolerance: number) => void;
   onSelectRoom: (roomId: string) => void;
   onSelectSpeaker: (roomId: string, index: number) => void;
-  onMoveSpeaker: (roomId: string, index: number, point: Point) => void;
+  onMoveSpeaker: (roomId: string, index: number, speaker: PlacedSpeaker) => void;
 };
+
+/** Trazo del abanico de una bocina de muro, en unidades del dibujo. */
+function sectorPath(speaker: PlacedSpeaker, sector: SectorCoverage, k: number) {
+  const cx = speaker.x * k;
+  const cy = speaker.y * k;
+  const radius = sector.reach * k;
+  const aim = speaker.angle ?? 0;
+  const toPoint = (degrees: number) => {
+    const radians = (degrees * Math.PI) / 180;
+    return `${cx + radius * Math.cos(radians)} ${cy + radius * Math.sin(radians)}`;
+  };
+  const largeArc = sector.apertureDeg > 180 ? 1 : 0;
+
+  return `M ${cx} ${cy} L ${toPoint(aim - sector.apertureDeg / 2)} A ${radius} ${radius} 0 ${largeArc} 1 ${toPoint(
+    aim + sector.apertureDeg / 2
+  )} Z`;
+}
 
 const BURGUNDY = "#9E1B32";
 const INK = "#111111";
@@ -68,6 +110,7 @@ export default function PlanCanvas({
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const dragRef = useRef<{ roomId: string; index: number } | null>(null);
+  const rotateRef = useRef<{ roomId: string; index: number } | null>(null);
   const [size, setSize] = useState({ width: 800, height: 520 });
   const [cursor, setCursor] = useState<Point | null>(null);
   const clipPrefix = useId().replace(/:/g, "");
@@ -132,7 +175,8 @@ export default function PlanCanvas({
 
   function handleSpeakerMove(
     event: ReactPointerEvent<SVGGElement>,
-    room: SimulatorRoom
+    room: SimulatorRoom,
+    sector: SectorCoverage | null
   ) {
     const drag = dragRef.current;
     if (!drag || drag.roomId !== room.id) return;
@@ -141,8 +185,59 @@ export default function PlanCanvas({
     if (!point) return;
 
     const meters = { x: point.x / k, y: point.y / k };
+
+    if (sector) {
+      // Una bocina de muro se desliza sobre la pared mas cercana al cursor y
+      // queda apuntando hacia dentro; despues se puede girar.
+      const snapped = snapToWall(room.points, meters);
+      if (snapped) onMoveSpeaker(drag.roomId, drag.index, snapped);
+      return;
+    }
+
     if (pointInPolygon(meters, room.points)) {
       onMoveSpeaker(drag.roomId, drag.index, meters);
+    }
+  }
+
+  function handleRotateDown(
+    event: ReactPointerEvent<SVGGElement>,
+    roomId: string,
+    index: number
+  ) {
+    event.stopPropagation();
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // Sin captura el giro sigue funcionando mientras el cursor este sobre el punto.
+    }
+    rotateRef.current = { roomId, index };
+  }
+
+  function handleRotateMove(
+    event: ReactPointerEvent<SVGGElement>,
+    room: SimulatorRoom,
+    speaker: PlacedSpeaker
+  ) {
+    const rotating = rotateRef.current;
+    if (!rotating || rotating.roomId !== room.id) return;
+
+    const point = toUnits(event.clientX, event.clientY);
+    if (!point) return;
+
+    const dx = point.x - speaker.x * k;
+    const dy = point.y - speaker.y * k;
+    if (Math.hypot(dx, dy) < 4 * u) return;
+
+    onMoveSpeaker(rotating.roomId, rotating.index, {
+      ...speaker,
+      angle: Math.round(normalizeAngle((Math.atan2(dy, dx) * 180) / Math.PI)),
+    });
+  }
+
+  function handleRotateUp(event: ReactPointerEvent<SVGGElement>) {
+    rotateRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
     }
   }
 
@@ -217,7 +312,7 @@ export default function PlanCanvas({
           />
         ) : null}
 
-        {rooms.map(({ room, diameter }) => {
+        {rooms.map(({ room, diameter, sector, heat }) => {
           const isSelected = room.id === selectedRoomId;
           const box = boundingBox(room.points);
           const radius = (diameter / 2) * k;
@@ -240,19 +335,47 @@ export default function PlanCanvas({
               )}
 
               <g clipPath={`url(#${clipPrefix}-${room.id})`} pointerEvents="none">
-                {room.speakers.map((speaker, index) => (
-                  <circle
-                    key={index}
-                    cx={speaker.x * k}
-                    cy={speaker.y * k}
-                    r={radius}
-                    fill={BURGUNDY}
-                    fillOpacity={0.13}
-                    stroke={BURGUNDY}
-                    strokeOpacity={0.35}
-                    strokeWidth={u}
-                  />
-                ))}
+                {heat
+                  ? heat.cells.map((cell, index) => (
+                      <rect
+                        key={index}
+                        x={cell.x * k}
+                        y={cell.y * k}
+                        // Un poco mas grande que la celda para que no se vean rendijas.
+                        // El color es opaco: el traslape entre celdas no se nota.
+                        width={heat.cellWidth * k + u}
+                        height={heat.cellHeight * k + u}
+                        fill={heatColor(cell.level, heat.min, heat.max)}
+                        // Sobre un plano se deja ver el dibujo de fondo.
+                        opacity={image ? 0.78 : 1}
+                      />
+                    ))
+                  : room.speakers.map((speaker, index) =>
+                  sector ? (
+                    <path
+                      key={index}
+                      d={sectorPath(speaker, sector, k)}
+                      fill={BURGUNDY}
+                      fillOpacity={0.13}
+                      stroke={BURGUNDY}
+                      strokeOpacity={0.35}
+                      strokeWidth={u}
+                      strokeLinejoin="round"
+                    />
+                  ) : (
+                    <circle
+                      key={index}
+                      cx={speaker.x * k}
+                      cy={speaker.y * k}
+                      r={radius}
+                      fill={BURGUNDY}
+                      fillOpacity={0.13}
+                      stroke={BURGUNDY}
+                      strokeOpacity={0.35}
+                      strokeWidth={u}
+                    />
+                  )
+                )}
               </g>
 
               <polygon
@@ -316,10 +439,20 @@ export default function PlanCanvas({
                       pointerEvents: tool === "select" ? "auto" : "none",
                     }}
                     onPointerDown={(event) => handleSpeakerDown(event, room.id, index)}
-                    onPointerMove={(event) => handleSpeakerMove(event, room)}
+                    onPointerMove={(event) => handleSpeakerMove(event, room, sector)}
                     onPointerUp={handleSpeakerUp}
                     onPointerCancel={handleSpeakerUp}
                   >
+                    {sector ? (
+                      // Marca hacia donde apunta la bocina de muro.
+                      <line
+                        x2={18 * u * Math.cos(((speaker.angle ?? 0) * Math.PI) / 180)}
+                        y2={18 * u * Math.sin(((speaker.angle ?? 0) * Math.PI) / 180)}
+                        stroke={isActive ? BURGUNDY : INK}
+                        strokeWidth={3 * u}
+                        strokeLinecap="round"
+                      />
+                    ) : null}
                     {/* Zona de agarre mas grande que el punto visible. */}
                     <circle r={14 * u} fill="transparent" />
                     <circle
@@ -332,6 +465,41 @@ export default function PlanCanvas({
                   </g>
                 );
               })}
+
+              {/* Punto para girar la bocina de muro seleccionada. */}
+              {sector && tool === "select"
+                ? room.speakers.map((speaker, index) => {
+                    const isActive =
+                      selectedSpeaker?.roomId === room.id &&
+                      selectedSpeaker.index === index;
+                    if (!isActive) return null;
+
+                    const radians = ((speaker.angle ?? 0) * Math.PI) / 180;
+                    const distance = 46 * u;
+
+                    return (
+                      <g
+                        key={`giro-${index}`}
+                        transform={`translate(${speaker.x * k + distance * Math.cos(radians)} ${
+                          speaker.y * k + distance * Math.sin(radians)
+                        })`}
+                        style={{ cursor: "crosshair", touchAction: "none" }}
+                        onPointerDown={(event) => handleRotateDown(event, room.id, index)}
+                        onPointerMove={(event) => handleRotateMove(event, room, speaker)}
+                        onPointerUp={handleRotateUp}
+                        onPointerCancel={handleRotateUp}
+                      >
+                        <circle r={14 * u} fill="transparent" />
+                        <circle
+                          r={5.5 * u}
+                          fill="#FFFFFF"
+                          stroke={BURGUNDY}
+                          strokeWidth={2.25 * u}
+                        />
+                      </g>
+                    );
+                  })
+                : null}
             </g>
           );
         })}

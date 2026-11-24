@@ -5,14 +5,31 @@ import {
   coverageRatio,
   listeningHeight,
   polygonArea,
+  sectorCoverageRatio,
   type CoverageMode,
   type ListeningPosture,
+  type PlacedSpeaker,
   type Point,
+  type SectorCoverage,
 } from "@/lib/simuladorAudio/geometry";
 import {
+  DEFAULT_SIMULATOR_AMPLIFIER,
+  amplifierUnits,
+  getSimulatorAmplifier,
+  zonesForRoom,
+  type SimulatorAmplifier,
+} from "@/lib/simuladorAudio/amplifiers";
+import {
+  LOUDNESS_VERDICT_TEXT,
+  roomLoudness,
+} from "@/lib/simuladorAudio/loudness";
+import {
   getSimulatorSpeaker,
+  speakerSector,
   type SimulatorSpeaker,
 } from "@/lib/simuladorAudio/speakers";
+
+export { speakerSector };
 
 /** Modelo del diseño. Lo comparten el simulador (cliente) y la ruta de propuesta (servidor). */
 
@@ -25,8 +42,8 @@ export type SimulatorRoom = {
   posture: ListeningPosture;
   modelId: string;
   mode: CoverageMode;
-  /** Posicion de cada bocina, en metros. */
-  speakers: Point[];
+  /** Posicion de cada bocina, en metros (y hacia donde apunta, si es de muro). */
+  speakers: PlacedSpeaker[];
   /** true cuando el usuario movio, agrego o quito bocinas a mano. */
   manual: boolean;
 };
@@ -34,14 +51,25 @@ export type SimulatorRoom = {
 export type SimulatorDesign = {
   source: "medidas" | "plano";
   rooms: SimulatorRoom[];
+  /** Amplificador elegido para todo el diseño; si falta, el de linea de ALFA. */
+  amplifierId?: string;
 };
+
+export function designAmplifier(design: Pick<SimulatorDesign, "amplifierId">) {
+  return getSimulatorAmplifier(design.amplifierId) || DEFAULT_SIMULATOR_AMPLIFIER;
+}
 
 export type RoomMetrics = {
   speaker: SimulatorSpeaker | null;
   area: number;
+  /** Plafon: diametro de cobertura de cada bocina, en metros. 0 en muro. */
   diameter: number;
+  /** Muro: abanico de cobertura de cada bocina. null en plafon. */
+  sector: SectorCoverage | null;
   coverage: number;
   count: number;
+  /** Zonas de amplificador que ocupa este espacio (al menos una si tiene bocinas). */
+  zones: number;
 };
 
 export const MIN_CEILING_HEIGHT = 2;
@@ -51,23 +79,32 @@ const MAX_POINTS = 80;
 const MAX_SPEAKERS = 200;
 const MAX_COORDINATE = 2000;
 
-export function roomMetrics(room: SimulatorRoom): RoomMetrics {
+export function roomMetrics(
+  room: SimulatorRoom,
+  amplifier: SimulatorAmplifier = DEFAULT_SIMULATOR_AMPLIFIER
+): RoomMetrics {
   const speaker = getSimulatorSpeaker(room.modelId);
   const area = polygonArea(room.points);
-  const diameter = speaker
-    ? coverageDiameter(
-        speaker.dispersionDeg,
-        room.ceilingHeight,
-        listeningHeight(room.posture)
-      )
-    : 0;
+  const sector = speakerSector(speaker);
+  const diameter =
+    speaker && !sector
+      ? coverageDiameter(
+          speaker.dispersionDeg,
+          room.ceilingHeight,
+          listeningHeight(room.posture)
+        )
+      : 0;
 
   return {
     speaker,
     area,
     diameter,
-    coverage: coverageRatio(room.points, room.speakers, diameter / 2),
+    sector,
+    coverage: sector
+      ? sectorCoverageRatio(room.points, room.speakers, sector)
+      : coverageRatio(room.points, room.speakers, diameter / 2),
     count: room.speakers.length,
+    zones: speaker ? zonesForRoom(amplifier, speaker, room.speakers.length) : 0,
   };
 }
 
@@ -77,15 +114,29 @@ function toFiniteNumber(value: unknown, min: number, max: number) {
   return number;
 }
 
-function sanitizePoints(raw: unknown, maxLength: number): Point[] | null {
+function sanitizePoints(raw: unknown, maxLength: number): PlacedSpeaker[] | null {
   if (!Array.isArray(raw) || raw.length > maxLength) return null;
 
-  const points: Point[] = [];
+  const points: PlacedSpeaker[] = [];
   for (const item of raw) {
-    const x = toFiniteNumber((item as Point)?.x, -MAX_COORDINATE, MAX_COORDINATE);
-    const y = toFiniteNumber((item as Point)?.y, -MAX_COORDINATE, MAX_COORDINATE);
+    const source = item as PlacedSpeaker | null;
+    const x = toFiniteNumber(source?.x, -MAX_COORDINATE, MAX_COORDINATE);
+    const y = toFiniteNumber(source?.y, -MAX_COORDINATE, MAX_COORDINATE);
     if (x === null || y === null) return null;
-    points.push({ x: Math.round(x * 1000) / 1000, y: Math.round(y * 1000) / 1000 });
+
+    const point: PlacedSpeaker = {
+      x: Math.round(x * 1000) / 1000,
+      y: Math.round(y * 1000) / 1000,
+    };
+
+    // El angulo solo aplica a bocinas de muro; si viene, debe ser un numero valido.
+    if (source?.angle !== undefined && source.angle !== null) {
+      const angle = toFiniteNumber(source.angle, -720, 720);
+      if (angle === null) return null;
+      point.angle = Math.round(angle * 10) / 10;
+    }
+
+    points.push(point);
   }
 
   return points;
@@ -137,7 +188,13 @@ export function sanitizeDesign(raw: unknown): SimulatorDesign | null {
     });
   }
 
-  return { source, rooms };
+  const amplifier = getSimulatorAmplifier(
+    typeof (input as { amplifierId?: unknown }).amplifierId === "string"
+      ? ((input as { amplifierId?: string }).amplifierId as string)
+      : null
+  );
+
+  return amplifier ? { source, rooms, amplifierId: amplifier.id } : { source, rooms };
 }
 
 export function formatMeters(value: number, digits = 2) {
@@ -163,6 +220,28 @@ export function equipmentList(design: SimulatorDesign) {
   return [...totals.values()];
 }
 
+/**
+ * Amplificacion para todo el diseño. Cada espacio es una zona (o mas, si lleva
+ * mas bocinas de las que mueve una zona); los equipos salen de repartir esas
+ * zonas entre las que maneja cada amplificador.
+ */
+export function amplifierPlan(design: SimulatorDesign): {
+  amplifier: SimulatorAmplifier;
+  /** Equipos necesarios. */
+  total: number;
+  /** Zonas de amplificador que ocupa el diseño. */
+  zones: number;
+} {
+  const amplifier = designAmplifier(design);
+  let zones = 0;
+
+  for (const room of design.rooms) {
+    zones += roomMetrics(room, amplifier).zones;
+  }
+
+  return { amplifier, total: amplifierUnits(amplifier, zones), zones };
+}
+
 /** Resumen en texto para el prospecto en ALFA OS. */
 export function summarizeDesign(design: SimulatorDesign) {
   const lines = [
@@ -171,18 +250,25 @@ export function summarizeDesign(design: SimulatorDesign) {
       : "Diseño hecho con medidas en el simulador de audio.",
   ];
 
+  const amplifier = designAmplifier(design);
+
   for (const room of design.rooms) {
-    const metrics = roomMetrics(room);
+    const metrics = roomMetrics(room, amplifier);
+    const loudness = roomLoudness(room, amplifier);
     const model = metrics.speaker
       ? `${metrics.speaker.brand} ${metrics.speaker.model}`
       : room.modelId;
 
     lines.push(
-      `- ${room.name}: ${formatMeters(metrics.area, 1)} m², plafón a ${formatMeters(
-        room.ceilingHeight
-      )} m, ${metrics.count} × ${model} (${COVERAGE_MODES[room.mode].label.toLowerCase()}, cobertura ${Math.round(
-        metrics.coverage * 100
-      )}%)`
+      `- ${room.name}: ${formatMeters(metrics.area, 1)} m², ${
+        metrics.sector
+          ? "bocinas de muro"
+          : `plafón a ${formatMeters(room.ceilingHeight)} m`
+      }, ${metrics.count} × ${model} (ambiente ${COVERAGE_MODES[room.mode].label.toLowerCase()}${
+        loudness ? `: ${LOUDNESS_VERDICT_TEXT[loudness.verdict].title.toLowerCase()}` : ""
+      }, cobertura ${Math.round(metrics.coverage * 100)}%), ${metrics.zones} zona${
+        metrics.zones === 1 ? "" : "s"
+      } de amplificador`
     );
   }
 
@@ -191,6 +277,13 @@ export function summarizeDesign(design: SimulatorDesign) {
     .join(", ");
 
   if (totals) lines.push(`Total: ${totals}.`);
+
+  const plan = amplifierPlan(design);
+  if (plan.total > 0) {
+    lines.push(
+      `Amplificación sugerida: ${plan.total} × ${plan.amplifier.brand} ${plan.amplifier.model} (${plan.zones} zona${plan.zones === 1 ? "" : "s"}).`
+    );
+  }
 
   return lines.join("\n");
 }

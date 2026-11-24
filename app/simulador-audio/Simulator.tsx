@@ -14,7 +14,6 @@ import {
   ZoomOut,
 } from "lucide-react";
 import {
-  COVERAGE_MODES,
   MAX_EFFECTIVE_DISPERSION_DEG,
   boundingBox,
   coverageDiameter,
@@ -23,27 +22,44 @@ import {
   listeningHeight,
   polygonArea,
   rectanglePolygon,
+  snapToWall,
   suggestLayout,
-  type CoverageMode,
+  suggestWallLayout,
   type ListeningPosture,
+  type PlacedSpeaker,
   type Point,
 } from "@/lib/simuladorAudio/geometry";
 import {
   MAX_CEILING_HEIGHT,
   MAX_ROOMS,
   MIN_CEILING_HEIGHT,
+  amplifierPlan,
   equipmentList,
   formatMeters,
   roomMetrics,
+  speakerSector,
   type SimulatorDesign,
   type SimulatorRoom,
 } from "@/lib/simuladorAudio/design";
 import {
   DEFAULT_SIMULATOR_SPEAKER_ID,
-  SIMULATOR_SPEAKERS,
   getSimulatorSpeaker,
+  speakerGoesInPairs,
 } from "@/lib/simuladorAudio/speakers";
+import {
+  DEFAULT_SIMULATOR_AMPLIFIER,
+  SIMULATOR_AMPLIFIERS,
+  getSimulatorAmplifier,
+  speakersPerZone,
+} from "@/lib/simuladorAudio/amplifiers";
+import { roomLoudness } from "@/lib/simuladorAudio/loudness";
 import PlanCanvas, { type CanvasTool } from "./PlanCanvas";
+import {
+  LoudnessMeter,
+  ProductPhoto,
+  ScenarioPicker,
+  SpeakerPicker,
+} from "./SimulatorParts";
 import { PlanFileError, loadPlanFile, type LoadedPlan } from "./planFile";
 
 type ViewerKind = "interno" | "portal" | "visitante";
@@ -65,6 +81,8 @@ const PROJECT_TYPES = [
 const fieldClass =
   "mt-2 w-full rounded-xl border border-[#E5E3DD] bg-white px-3.5 py-2.5 text-[15px] text-[#111111] outline-none transition focus:border-[#9E1B32] focus:ring-2 focus:ring-[#9E1B32]/15";
 const labelClass = "block text-[13px] font-medium text-[#5F626A]";
+const eyebrowClass =
+  "text-xs font-semibold uppercase tracking-[0.22em] text-[#9E1B32]";
 const ghostButtonClass =
   "inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-[13px] font-medium text-[#33353B] transition hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-40";
 
@@ -74,9 +92,13 @@ function newId() {
     : `area-${Math.random().toString(36).slice(2)}`;
 }
 
+function roomSector(room: SimulatorRoom) {
+  return speakerSector(getSimulatorSpeaker(room.modelId));
+}
+
 function roomDiameter(room: SimulatorRoom) {
   const speaker = getSimulatorSpeaker(room.modelId);
-  if (!speaker) return 0;
+  if (!speaker || speaker.mount !== "plafon") return 0;
 
   return coverageDiameter(
     speaker.dispersionDeg,
@@ -88,7 +110,18 @@ function roomDiameter(room: SimulatorRoom) {
 /** Recalcula el reparto automatico, salvo que el usuario ya haya acomodado bocinas a mano. */
 function layoutRoom<T extends SimulatorRoom>(room: T): T {
   if (room.manual) return room;
-  return { ...room, speakers: suggestLayout(room.points, roomDiameter(room), room.mode) };
+
+  const sector = roomSector(room);
+  // Las bocinas van en pares, izquierda y derecha. La unica excepcion es una
+  // bocina estereo de una sola pieza, que recibe los dos canales.
+  const options = { pairs: speakerGoesInPairs(getSimulatorSpeaker(room.modelId)) };
+
+  return {
+    ...room,
+    speakers: sector
+      ? suggestWallLayout(room.points, sector, room.mode, options)
+      : suggestLayout(room.points, roomDiameter(room), room.mode, options),
+  };
 }
 
 function createRectRoom(
@@ -216,6 +249,9 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
   const [planError, setPlanError] = useState("");
   const [tool, setTool] = useState<CanvasTool>("select");
   const [zoom, setZoom] = useState(1);
+  const [view, setView] = useState<"cobertura" | "volumen">("cobertura");
+  const [amplifierId, setAmplifierId] = useState(DEFAULT_SIMULATOR_AMPLIFIER.id);
+  const amplifier = getSimulatorAmplifier(amplifierId) || DEFAULT_SIMULATOR_AMPLIFIER;
   const [calibration, setCalibration] = useState<Point[]>([]);
   const [calibrationMeters, setCalibrationMeters] = useState("");
   const [draft, setDraft] = useState<Point[]>([]);
@@ -233,7 +269,8 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
   const setRooms = source === "medidas" ? setMeasureRooms : setPlanRooms;
   const selectedRoom =
     rooms.find((room) => room.id === selectedIds[source]) || rooms[0] || null;
-  const selectedMetrics = selectedRoom ? roomMetrics(selectedRoom) : null;
+  const selectedMetrics = selectedRoom ? roomMetrics(selectedRoom, amplifier) : null;
+  const selectedLoudness = selectedRoom ? roomLoudness(selectedRoom, amplifier) : null;
   const activeSpeaker =
     selectedSpeaker && selectedSpeaker.roomId === selectedRoom?.id
       ? selectedSpeaker
@@ -242,6 +279,7 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
   const design: SimulatorDesign = useMemo(
     () => ({
       source,
+      amplifierId,
       rooms: rooms.map((room) => ({
         id: room.id,
         name: room.name,
@@ -254,11 +292,12 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
         manual: room.manual,
       })),
     }),
-    [rooms, source]
+    [rooms, source, amplifierId]
   );
   const designKey = useMemo(() => JSON.stringify(design), [design]);
   const proposalSent = proposalState === "sent" && sentDesignKey === designKey;
   const equipment = equipmentList(design);
+  const amplification = amplifierPlan(design);
   const totalSpeakers = equipment.reduce((sum, entry) => sum + entry.count, 0);
 
   function selectRoom(roomId: string) {
@@ -306,7 +345,10 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
   }
 
   function addSpeaker(room: EditorRoom) {
-    const position = interiorPoint(room.points);
+    const center = interiorPoint(room.points);
+    // Una bocina de muro nace pegada a la pared mas cercana, apuntando hacia dentro.
+    const position: PlacedSpeaker =
+      (roomSector(room) && snapToWall(room.points, center)) || center;
     updateRoom(room.id, { speakers: [...room.speakers, position], manual: true });
     setSelectedSpeaker({ roomId: room.id, index: room.speakers.length });
   }
@@ -319,7 +361,7 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
     setSelectedSpeaker(null);
   }
 
-  function moveSpeaker(roomId: string, index: number, point: Point) {
+  function moveSpeaker(roomId: string, index: number, point: PlacedSpeaker) {
     setRooms((current) =>
       current.map((room) =>
         room.id === roomId
@@ -380,7 +422,12 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
     // sigan en el mismo lugar del plano.
     if (plan.pxPerMeter) {
       const factor = plan.pxPerMeter / pxPerMeter;
-      const rescale = (point: Point) => ({ x: point.x * factor, y: point.y * factor });
+      // Se conserva el resto de la bocina (hacia donde apunta, si es de muro).
+      const rescale = <T extends Point>(point: T): T => ({
+        ...point,
+        x: point.x * factor,
+        y: point.y * factor,
+      });
 
       setPlanRooms((current) =>
         current.map((room) =>
@@ -503,7 +550,12 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
   // ----- Vista ---------------------------------------------------------------
 
   const canvasRooms = (source === "medidas" ? (selectedRoom ? [selectedRoom] : []) : rooms).map(
-    (room) => ({ room, diameter: roomDiameter(room) })
+    (room) => ({
+      room,
+      diameter: roomDiameter(room),
+      sector: roomSector(room),
+      heat: view === "volumen" ? roomLoudness(room, amplifier) : null,
+    })
   );
 
   const measureBox = selectedRoom ? boundingBox(selectedRoom.points) : null;
@@ -567,8 +619,9 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
         </div>
 
         <div className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
-          {/* Lienzo */}
-          <div className="min-w-0 rounded-3xl bg-white p-4 shadow-sm sm:p-5">
+          {/* Lienzo y medidor */}
+          <div className="min-w-0 space-y-6">
+          <div className="rounded-3xl bg-white p-4 shadow-sm sm:p-5">
             {source === "plano" && !plan ? (
               <div className="flex min-h-[420px] flex-col items-center justify-center px-6 py-16 text-center">
                 <Upload className="h-8 w-8 text-[#9E1B32]" aria-hidden="true" />
@@ -656,6 +709,36 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
                   </div>
                 ) : null}
 
+                <div className="mb-3 flex items-center justify-end gap-3">
+                  {view === "volumen" ? (
+                    <span className="text-[12px] text-[#77797F]">
+                      Más oscuro, más fuerte
+                    </span>
+                  ) : null}
+                  <div className="flex rounded-full bg-[#F1EFEA] p-1">
+                    {(
+                      [
+                        { value: "cobertura", label: "Cobertura" },
+                        { value: "volumen", label: "Volumen" },
+                      ] as const
+                    ).map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        aria-pressed={view === option.value}
+                        onClick={() => setView(option.value)}
+                        className={`rounded-full px-3.5 py-1.5 text-[13px] font-medium transition ${
+                          view === option.value
+                            ? "bg-white text-[#111111] shadow-sm"
+                            : "text-[#5F626A] hover:text-[#111111]"
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <PlanCanvas
                   fit={source === "plano" ? "width" : "contain"}
                   viewBox={viewBox}
@@ -720,6 +803,11 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
                 if (file) void openPlan(file);
               }}
             />
+          </div>
+
+            {selectedRoom && selectedLoudness && (source === "medidas" || planReady) ? (
+              <LoudnessMeter mode={selectedRoom.mode} loudness={selectedLoudness} />
+            ) : null}
           </div>
 
           {/* Panel */}
@@ -824,6 +912,7 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
 
             {selectedRoom && selectedMetrics && (source === "medidas" || planReady) ? (
               <div className="space-y-5">
+                <p className={eyebrowClass}>Tu espacio</p>
                 <label className={labelClass}>
                   Nombre del espacio
                   <input
@@ -857,43 +946,68 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
                   </div>
                 ) : null}
 
-                <NumberField
-                  key={`${selectedRoom.id}-h`}
-                  label="Altura del plafón"
-                  value={selectedRoom.ceilingHeight}
-                  min={MIN_CEILING_HEIGHT}
-                  max={MAX_CEILING_HEIGHT}
-                  onChange={(value) => updateRoom(selectedRoom.id, { ceilingHeight: value })}
-                />
+                {/* La altura y la postura solo cambian el calculo de las bocinas de plafon. */}
+                {selectedMetrics.sector ? null : (
+                  <>
+                    <NumberField
+                      key={`${selectedRoom.id}-h`}
+                      label="Altura del plafón"
+                      value={selectedRoom.ceilingHeight}
+                      min={MIN_CEILING_HEIGHT}
+                      max={MAX_CEILING_HEIGHT}
+                      onChange={(value) =>
+                        updateRoom(selectedRoom.id, { ceilingHeight: value })
+                      }
+                    />
 
-                <div>
-                  <span className={labelClass}>¿Cómo se escucha?</span>
-                  <Segmented<ListeningPosture>
-                    value={selectedRoom.posture}
-                    onChange={(posture) => updateRoom(selectedRoom.id, { posture })}
-                    options={[
-                      { value: "sentado", label: "Sentado" },
-                      { value: "de_pie", label: "De pie" },
-                    ]}
+                    <div>
+                      <span className={labelClass}>¿Cómo se escucha?</span>
+                      <Segmented<ListeningPosture>
+                        value={selectedRoom.posture}
+                        onChange={(posture) => updateRoom(selectedRoom.id, { posture })}
+                        options={[
+                          { value: "sentado", label: "Sentado" },
+                          { value: "de_pie", label: "De pie" },
+                        ]}
+                      />
+                    </div>
+                  </>
+                )}
+
+                <div className="space-y-3 pt-3">
+                  <p className={eyebrowClass}>El ambiente</p>
+                  <ScenarioPicker
+                    value={selectedRoom.mode}
+                    onChange={(mode) => updateRoom(selectedRoom.id, { mode, manual: false })}
                   />
                 </div>
 
-                <label className={labelClass}>
-                  Bocina
-                  <select
-                    className={fieldClass}
+                <div className="space-y-3 pt-3">
+                  <p className={eyebrowClass}>Tus bocinas</p>
+                  <SpeakerPicker
                     value={selectedRoom.modelId}
-                    onChange={(event) =>
-                      updateRoom(selectedRoom.id, { modelId: event.target.value })
-                    }
-                  >
-                    {SIMULATOR_SPEAKERS.map((speaker) => (
-                      <option key={speaker.id} value={speaker.id}>
-                        {speaker.brand} {speaker.model}
-                      </option>
-                    ))}
-                  </select>
-                  {selectedMetrics.speaker ? (
+                    onChange={(modelId) => {
+                      const next = getSimulatorSpeaker(modelId);
+                      // Al pasar de plafon a muro (o al reves) las posiciones
+                      // anteriores ya no sirven: se reparte de nuevo.
+                      const mountChanged = next?.mount !== selectedMetrics.speaker?.mount;
+                      updateRoom(selectedRoom.id, {
+                        modelId,
+                        ...(mountChanged ? { manual: false } : {}),
+                      });
+                      if (mountChanged) setSelectedSpeaker(null);
+                    }}
+                  />
+                  {selectedMetrics.speaker && selectedMetrics.sector ? (
+                    <span className="mt-2 block text-[13px] font-normal text-[#77797F]">
+                      {selectedMetrics.speaker.label} · apertura de{" "}
+                      {selectedMetrics.sector.apertureDeg}° y alcance de{" "}
+                      {formatMeters(selectedMetrics.sector.reach, 0)} m
+                      {selectedMetrics.speaker.coverageBasis === "criterio_alfa"
+                        ? ", criterio de diseño de ALFA: el fabricante no publica este dato"
+                        : " según el fabricante"}
+                    </span>
+                  ) : selectedMetrics.speaker ? (
                     <span className="mt-2 block text-[13px] font-normal text-[#77797F]">
                       {selectedMetrics.speaker.label} · cobertura de{" "}
                       {selectedMetrics.speaker.dispersionDeg}° según el fabricante
@@ -902,26 +1016,17 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
                         : ""}
                     </span>
                   ) : null}
-                </label>
-
-                <div>
-                  <span className={labelClass}>Tipo de cobertura</span>
-                  <Segmented<CoverageMode>
-                    value={selectedRoom.mode}
-                    onChange={(mode) =>
-                      updateRoom(selectedRoom.id, { mode, manual: false })
-                    }
-                    options={(Object.keys(COVERAGE_MODES) as CoverageMode[]).map((mode) => ({
-                      value: mode,
-                      label: COVERAGE_MODES[mode].label,
-                    }))}
-                  />
-                  <p className="mt-2 text-[13px] leading-5 text-[#77797F]">
-                    {COVERAGE_MODES[selectedRoom.mode].description}
-                  </p>
                 </div>
 
-                {selectedMetrics.diameter <= 0 ? (
+                {speakerGoesInPairs(selectedMetrics.speaker) &&
+                selectedMetrics.count % 2 === 1 ? (
+                  <p role="alert" className="text-sm text-[#9E1B32]">
+                    Las bocinas van en pares, izquierda y derecha. Agrega o quita una
+                    para completar el par.
+                  </p>
+                ) : null}
+
+                {!selectedMetrics.sector && selectedMetrics.diameter <= 0 ? (
                   <p role="alert" className="text-sm text-[#9E1B32]">
                     El plafón debe estar más alto que el oído de quien escucha.
                   </p>
@@ -929,16 +1034,31 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
 
                 <dl className="grid grid-cols-2 gap-x-4 gap-y-5 pt-2">
                   {[
-                    { label: "Bocinas", value: String(selectedMetrics.count) },
+                    {
+                      label:
+                        speakerGoesInPairs(selectedMetrics.speaker) &&
+                        selectedMetrics.count > 0 &&
+                        selectedMetrics.count % 2 === 0
+                          ? `Bocinas · ${selectedMetrics.count / 2} par${
+                              selectedMetrics.count === 2 ? "" : "es"
+                            }`
+                          : "Bocinas",
+                      value: String(selectedMetrics.count),
+                    },
                     {
                       label: "Área cubierta",
                       value: `${Math.round(selectedMetrics.coverage * 100)}%`,
                     },
                     { label: "Área", value: `${formatMeters(selectedMetrics.area, 1)} m²` },
-                    {
-                      label: "Cobertura por bocina",
-                      value: `${formatMeters(selectedMetrics.diameter)} m`,
-                    },
+                    selectedMetrics.sector
+                      ? {
+                          label: "Alcance por bocina",
+                          value: `${formatMeters(selectedMetrics.sector.reach)} m`,
+                        }
+                      : {
+                          label: "Cobertura por bocina",
+                          value: `${formatMeters(selectedMetrics.diameter)} m`,
+                        },
                   ].map((stat) => (
                     <div key={stat.label}>
                       <dt className="text-[13px] text-[#77797F]">{stat.label}</dt>
@@ -983,7 +1103,9 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
                   </button>
                 </div>
                 <p className="text-[13px] leading-5 text-[#77797F]">
-                  Arrastra una bocina para moverla. Tócala y usa Quitar para eliminarla.
+                  {selectedMetrics.sector
+                    ? "Arrastra una bocina para moverla sobre la pared y arrastra el punto pequeño para apuntarla. Tócala y usa Quitar para eliminarla."
+                    : "Arrastra una bocina para moverla. Tócala y usa Quitar para eliminarla."}
                 </p>
 
                 {rooms.length > 1 || source === "plano" ? (
@@ -1007,11 +1129,13 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
               <h3 className="text-2xl font-semibold tracking-tight">Tu sistema</h3>
               <ul className="mt-6 divide-y divide-black/10">
                 {equipment.map((entry) => (
-                  <li
-                    key={entry.speaker.id}
-                    className="flex items-baseline justify-between gap-6 py-4"
-                  >
-                    <div>
+                  <li key={entry.speaker.id} className="flex items-center gap-4 py-4">
+                    <ProductPhoto
+                      src={entry.speaker.image}
+                      alt={`${entry.speaker.brand} ${entry.speaker.model}`}
+                      size={72}
+                    />
+                    <div className="min-w-0 flex-1">
                       <p className="text-lg font-medium">
                         {entry.speaker.brand} {entry.speaker.model}
                       </p>
@@ -1020,23 +1144,109 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
                     <p className="text-2xl font-semibold tabular-nums">{entry.count}</p>
                   </li>
                 ))}
+                {amplification.total > 0 ? (
+                  <li className="flex items-center gap-4 py-4">
+                    {amplification.amplifier.image ? (
+                      <ProductPhoto
+                        src={amplification.amplifier.image}
+                        alt={`${amplification.amplifier.brand} ${amplification.amplifier.model}`}
+                        size={72}
+                      />
+                    ) : (
+                      // Aun sin foto en el catalogo: se muestra la marca.
+                      <span className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-xl bg-white px-1 text-center text-[10px] font-semibold uppercase tracking-[0.1em] text-[#9E1B32]">
+                        {amplification.amplifier.brand}
+                      </span>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-lg font-medium">
+                        {amplification.amplifier.brand} {amplification.amplifier.model}
+                      </p>
+                      <p className="mt-0.5 text-sm text-[#77797F]">
+                        {amplification.amplifier.label}
+                      </p>
+                    </div>
+                    <p className="text-2xl font-semibold tabular-nums">
+                      {amplification.total}
+                    </p>
+                  </li>
+                ) : null}
               </ul>
 
               {rooms.length > 1 ? (
                 <ul className="mt-6 space-y-1.5 text-sm text-[#5F626A]">
                   {rooms.map((room) => {
-                    const metrics = roomMetrics(room);
+                    const metrics = roomMetrics(room, amplifier);
                     return (
                       <li key={room.id}>
                         {room.name}: {metrics.count} ×{" "}
                         {metrics.speaker
                           ? `${metrics.speaker.brand} ${metrics.speaker.model}`
                           : ""}
-                        , {formatMeters(metrics.area, 1)} m²
+                        , {metrics.zones} zona{metrics.zones === 1 ? "" : "s"} de
+                        amplificador, {formatMeters(metrics.area, 1)} m²
                       </li>
                     );
                   })}
                 </ul>
+              ) : null}
+
+              {amplification.total > 0 ? (
+                <p className="mt-6 max-w-2xl text-sm leading-6 text-[#5F626A]">
+                  Cada espacio es una zona con su propio volumen y su propia música. Un{" "}
+                  {amplification.amplifier.brand} {amplification.amplifier.model} maneja{" "}
+                  {amplification.amplifier.zones === 1
+                    ? "una zona"
+                    : `${amplification.amplifier.zones} zonas`}
+                  {equipment[0]
+                    ? ` y mueve hasta ${speakersPerZone(
+                        amplification.amplifier,
+                        equipment[0].speaker
+                      )} bocinas ${equipment[0].speaker.model} por zona`
+                    : ""}
+                  ; si un espacio lleva más, ocupa otra zona. Tu diseño usa{" "}
+                  {amplification.zones} zona{amplification.zones === 1 ? "" : "s"}.
+                </p>
+              ) : null}
+
+              {amplification.total > 0 ? (
+                <div className="mt-8">
+                  <p className={eyebrowClass}>Opciones de amplificador</p>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    {SIMULATOR_AMPLIFIERS.map((option) => {
+                      const selected = option.id === amplifier.id;
+
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          aria-pressed={selected}
+                          onClick={() => {
+                            setAmplifierId(option.id);
+                            setProposalState("idle");
+                          }}
+                          className={`rounded-2xl bg-white px-4 py-3 text-left transition ${
+                            selected
+                              ? "ring-2 ring-[#9E1B32]"
+                              : "ring-1 ring-black/5 hover:ring-black/20"
+                          }`}
+                        >
+                          <span className="block text-[15px] font-semibold text-[#111111]">
+                            {option.brand} {option.model}
+                          </span>
+                          <span className="mt-0.5 block text-[13px] leading-5 text-[#77797F]">
+                            {option.label} · {option.powerPerChannelW} W por canal
+                          </span>
+                          {option.id === DEFAULT_SIMULATOR_AMPLIFIER.id ? (
+                            <span className="mt-1.5 inline-block text-[11px] font-semibold uppercase tracking-[0.12em] text-[#9E1B32]">
+                              El que instalamos normalmente
+                            </span>
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               ) : null}
 
               <p className="mt-8 max-w-2xl text-[13px] leading-6 text-[#77797F]">
@@ -1044,6 +1254,9 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
                 publica cada fabricante y la altura del plafón. No considera muebles,
                 materiales ni la acústica del lugar. El diseño final lo ajusta un
                 ingeniero de ALFA en sitio.
+                {equipment.some((entry) => entry.speaker.coverageBasis === "criterio_alfa")
+                  ? " En las bocinas de muro, la apertura y el alcance son un criterio de diseño de ALFA, porque el fabricante no publica ese dato."
+                  : ""}
               </p>
             </div>
 
