@@ -76,13 +76,24 @@ export async function POST(request: Request) {
       );
     }
 
-    // El intento se cuenta antes de comparar para que no se pueda adivinar en paralelo.
-    const { error: attemptError } = await supabase
+    // El intento se cuenta antes de comparar, y solo si el contador sigue en el
+    // valor que leimos: dos solicitudes simultaneas no pueden gastar el mismo
+    // intento, asi que el tope de 5 se respeta aunque lleguen en paralelo.
+    const { data: counted, error: attemptError } = await supabase
       .from("simulator_access")
       .update({ code_attempts: access.code_attempts + 1 })
-      .eq("id", access.id);
+      .eq("id", access.id)
+      .eq("code_attempts", access.code_attempts)
+      .select("id");
 
     if (attemptError) throw attemptError;
+
+    if (!counted || counted.length === 0) {
+      return NextResponse.json(
+        { error: "Demasiados intentos a la vez. Espera un momento e intenta de nuevo.", requestId },
+        { status: 429 }
+      );
+    }
 
     if (!verificationCodeMatches(secret, access.id, code, access.code_hash)) {
       return NextResponse.json({ error: INVALID_CODE }, { status: 400 });

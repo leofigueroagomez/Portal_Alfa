@@ -226,6 +226,8 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
   const [note, setNote] = useState("");
   const [proposalState, setProposalState] = useState<"idle" | "sending" | "sent">("idle");
   const [proposalError, setProposalError] = useState("");
+  // Diseño exacto que se envio: si cambia cualquier cosa, el formulario vuelve.
+  const [sentDesignKey, setSentDesignKey] = useState<string | null>(null);
 
   const rooms = source === "medidas" ? measureRooms : planRooms;
   const setRooms = source === "medidas" ? setMeasureRooms : setPlanRooms;
@@ -254,6 +256,8 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
     }),
     [rooms, source]
   );
+  const designKey = useMemo(() => JSON.stringify(design), [design]);
+  const proposalSent = proposalState === "sent" && sentDesignKey === designKey;
   const equipment = equipmentList(design);
   const totalSpeakers = equipment.reduce((sum, entry) => sum + entry.count, 0);
 
@@ -488,6 +492,7 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
         return;
       }
 
+      setSentDesignKey(designKey);
       setProposalState("sent");
     } catch {
       setProposalState("idle");
@@ -1044,7 +1049,7 @@ export default function Simulator({ viewerKind }: { viewerKind: ViewerKind }) {
 
             <div>
               {viewerKind === "visitante" ? (
-                proposalState === "sent" ? (
+                proposalSent ? (
                   <div>
                     <Check className="h-7 w-7 text-[#0F6B43]" aria-hidden="true" />
                     <h3 className="mt-4 text-2xl font-semibold tracking-tight">
