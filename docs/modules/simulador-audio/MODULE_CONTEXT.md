@@ -10,14 +10,16 @@ Estado: fase 1 en codigo (2026-11-23). La migracion `sql/20261123_simulador_audi
 | --- | --- |
 | `app/simulador-audio/page.tsx` | Pagina publica. Decide en el servidor si muestra el simulador o el registro. |
 | `app/simulador-audio/AccessGate.tsx` | Formulario de registro, reingreso y captura del codigo. |
+| `app/simulador-audio/SimulatorExperience.tsx` | Recorrido completo: primero el asistente, despues el simulador. Guarda las respuestas mientras la pagina esta abierta. |
+| `app/simulador-audio/Assistant.tsx` | Asistente de entrada: preguntas por espacio, solucion inicial y solicitud de propuesta sin pasar por el simulador. |
 | `app/simulador-audio/Simulator.tsx` | Simulador (modo medidas y modo plano), lista de equipos y solicitud de propuesta. |
 | `app/simulador-audio/PlanCanvas.tsx` | Vista de planta en SVG: areas, huella de cobertura, arrastre de bocinas, escala y dibujo. |
 | `app/simulador-audio/planFile.ts` | Carga del plano (PDF con `pdfjs-dist`, JPG, PNG) dentro del navegador. |
 | `POST /api/simulador-audio/registro` | Alta o reingreso: manda el codigo de 6 digitos por Resend. |
 | `POST /api/simulador-audio/verificar` | Valida el codigo, crea el prospecto y entrega el pase (cookie). |
-| `POST /api/simulador-audio/propuesta` | Guarda el diseño del visitante y lo deja en su prospecto. |
+| `POST /api/simulador-audio/propuesta` | Guarda el diseño del visitante, las respuestas del asistente o las dos cosas, y lo deja en su prospecto. |
 
-Logica en `lib/simuladorAudio/`: `geometry.ts` (calculo), `speakers.ts` (catalogo), `design.ts` (modelo y validacion del diseño), `access.ts` (pase y codigos), `leads.ts` (prospecto), `email.ts` (correo). Pruebas en `tests/simuladorAudio.test.ts`.
+Logica en `lib/simuladorAudio/`: `assistant.ts` (preguntas y reglas del asistente), `geometry.ts` (calculo), `speakers.ts` (catalogo), `design.ts` (modelo y validacion del diseño), `access.ts` (pase y codigos), `leads.ts` (prospecto), `email.ts` (correo). Pruebas en `tests/simuladorAudio.test.ts`.
 
 ## Acceso
 
@@ -34,10 +36,50 @@ El candado es de captacion, no de confidencialidad: el simulador corre en el nav
 ## Datos
 
 - `simulator_access`: una fila por correo. Guarda el hash del codigo vigente, nunca el codigo.
-- `simulator_designs`: diseño enviado con "Solicitar propuesta" (JSON validado por `sanitizeDesign`).
+- `simulator_designs`: lo enviado con "Solicitar propuesta". La columna `design` lleva el diseño del simulador en la raiz (validado por `sanitizeDesign`) y, si el visitante paso por el asistente, sus respuestas en `design.assistant` (validadas por `sanitizeAssistantSpaces`). Una solicitud hecha desde el asistente trae solo `design.assistant`, sin `rooms`. No hubo cambio de esquema: la columna ya era JSON.
 - `leads`: al verificar el correo se crea el prospecto con `source = 'Simulador de Audio'`, `interest = 'Audio y video'` y el correo en `raw_payload.email` (la tabla no tiene columna de correo). `customer_type` entra como `residencial` y se corrige cuando el visitante pide propuesta. Quien no verifica no genera prospecto.
 - Las tres rutas escriben con `service_role`. Las tablas nuevas tienen RLS activo, sin policies y sin grants para `anon`/`authenticated`.
 - El plano no se sube a ningun servidor: se queda en el navegador. Pendiente de fase 2 si se quiere recibirlo (requiere bucket privado).
+
+## Asistente de entrada
+
+Antes del simulador, el visitante contesta unas preguntas por espacio y recibe una solucion inicial con los equipos que ALFA instala. Desde ahi puede pedir propuesta, agregar otro espacio o abrir el simulador, que arranca con lo recomendado. "Ir directo al simulador" se lo salta.
+
+Las reglas son fijas, sin IA: viven en `recommendSpace` (`lib/simuladorAudio/assistant.ts`) para que la recomendacion sea predecible y nunca proponga algo que ALFA no vende. Sin precios.
+
+**Preguntas, en orden.**
+
+1. Que espacio es: sala o family, recamara, cocina o comedor, terraza o jardin, oficina o negocio.
+2. Si hay television: no; si, que se oiga mejor; si, cine en casa. En terraza no se pregunta.
+3. Solo con cine en casa: donde van las bocinas de atras (techo, muro o inalambricas).
+4. Ambiente: las mismas tres llaves del simulador (`ambiental`, `uniforme`, `maxima`).
+5. Etapa: en obra o remodelacion, o ya terminado. En terraza no se pregunta.
+
+**Reglas de television. PROVISIONALES: las propuso Claude el 2026-11-23 y estan pendientes de que Leo las valide.**
+
+| Caso | Se propone |
+| --- | --- |
+| Barra de sonido | Sonos Arc Ultra en sala y negocio; Sonos Beam en recamara y cocina. |
+| Cine en casa | La barra mas subwoofer, siempre: Sonos Sub 4 con la Arc Ultra, Sonos Sub Mini con la Beam. |
+| Traseras inalambricas | Par de Sonos Era 300 con la Arc Ultra; par de Sonos Era 100 con la Beam. |
+| Traseras en techo | Par de KEF Ci160ER mas un Sonos Amp que las mueve. |
+| Traseras en muro | Par de B&W AM-1 mas un Sonos Amp que las mueve. |
+| Terraza | Nunca barra de sonido; solo musica. |
+
+Si el espacio ya esta terminado y se piden traseras cableadas, la solucion avisa que hay que pasar cable por techo o muro.
+
+**Reglas de musica.**
+
+- Bocina: B&W AM-1 en terraza; KEF Ci160ER de plafon si esta en obra; inalambrica si ya esta terminado (Sonos Era 300 en sala y negocio, Era 100 en recamara y cocina).
+- Se propone musica aparte de la television cuando no hay television, o cuando hay barra sola y el ambiente pedido es convivencia o fiesta. Con barra sola y ambiente ambiental, la barra basta. Con cine en casa, el mismo sistema sirve para musica.
+- La cantidad de bocinas de musica no la decide el asistente: depende del tamaño del espacio y sale del simulador.
+- En "Oficina o negocio" se avisa que puede convenir audio comercial (70/100 V), que no esta modelado.
+
+**Como llega al simulador.** Cada espacio con bocinas de musica se abre como un espacio del simulador con el modelo y el ambiente recomendados. El equipo de television no se dibuja en el plano: aparece en "Tu sistema" como "Para la television", por espacio. El amplificador de las traseras se lista ahi y no entra en `amplifierPlan`.
+
+**Solicitud de propuesta.** El navegador manda solo las respuestas (`assistant`); la ruta las valida y vuelve a calcular la recomendacion en el servidor para escribir el resumen del prospecto (`summarizeAssistant`). Hasta 12 espacios.
+
+Pendiente: segunda capa en la que el visitante escribe su necesidad en texto libre y una IA la traduce a estas mismas respuestas.
 
 ## Calculo
 

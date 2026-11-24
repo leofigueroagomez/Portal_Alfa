@@ -17,6 +17,12 @@ import {
   zonesForRoom,
 } from "@/lib/simuladorAudio/amplifiers";
 import {
+  recommendSpace,
+  sanitizeAnswers,
+  sanitizeAssistantSpaces,
+  summarizeAssistant,
+} from "@/lib/simuladorAudio/assistant";
+import {
   amplifierPlan,
   sanitizeDesign,
   summarizeDesign,
@@ -501,4 +507,85 @@ test("las Sonos Era traen su amplificador: no ocupan zonas ni dependen del ampli
     ],
   })!;
   assert.deepEqual([amplifierPlan(mixed).zones, amplifierPlan(mixed).total], [1, 1]);
+});
+
+test("asistente: sin televisión recomienda música según obra, terminado o exterior", () => {
+  const obra = recommendSpace({ space: "sala", tv: "no", use: "uniforme", stage: "obra" });
+  assert.equal(obra.tv.length, 0);
+  assert.deepEqual([obra.music?.modelId, obra.music?.mode], ["kef-ci160er", "uniforme"]);
+  assert.equal(obra.title, "Música convivencia");
+
+  const terminadoSala = recommendSpace({ space: "sala", tv: "no", use: "ambiental", stage: "terminado" });
+  assert.equal(terminadoSala.music?.modelId, "sonos-era-300");
+
+  const terminadoRecamara = recommendSpace({ space: "recamara", tv: "no", use: "ambiental", stage: "terminado" });
+  assert.equal(terminadoRecamara.music?.modelId, "sonos-era-100");
+
+  // En terraza van bocinas de muro y nunca barra de sonido, aunque llegue una respuesta de tele.
+  const terraza = recommendSpace({ space: "terraza", tv: "cine", surround: "techo", use: "maxima", stage: "obra" });
+  assert.equal(terraza.music?.modelId, "bw-am1");
+  assert.equal(terraza.tv.length, 0);
+  assert.equal(terraza.answers.tv, "no");
+});
+
+test("asistente: con televisión arma barra, subwoofer y bocinas de atrás", () => {
+  const mejor = recommendSpace({ space: "recamara", tv: "mejor", use: "ambiental", stage: "terminado" });
+  assert.deepEqual(mejor.tv.map((line) => line.key), ["sonos-beam"]);
+  // Barra sola con música de fondo: no se agregan bocinas de música.
+  assert.equal(mejor.music, null);
+  assert.equal(mejor.title, "Barra de sonido");
+
+  // Barra sola, pero quiere convivir: se agrega música aparte.
+  const mejorConMusica = recommendSpace({ space: "sala", tv: "mejor", use: "uniforme", stage: "obra" });
+  assert.deepEqual(mejorConMusica.tv.map((line) => line.key), ["sonos-arc-ultra"]);
+  assert.equal(mejorConMusica.music?.modelId, "kef-ci160er");
+  assert.equal(mejorConMusica.title, "Barra de sonido y música");
+
+  // Cine en casa con traseras en techo: par de KEF movidas por un Sonos Amp.
+  const cineTecho = recommendSpace({ space: "sala", tv: "cine", surround: "techo", use: "uniforme", stage: "obra" });
+  assert.deepEqual(
+    cineTecho.tv.map((line) => [line.key, line.count]),
+    [["sonos-arc-ultra", 1], ["sonos-sub-4", 1], ["kef-ci160er", 2], ["sonos-amp", 1]]
+  );
+  assert.equal(cineTecho.music, null);
+  assert.equal(cineTecho.title, "Cine en casa");
+
+  // Traseras inalámbricas en un espacio chico: par de Era 100, sin amplificador.
+  const cineInalambrico = recommendSpace({ space: "recamara", tv: "cine", surround: "inalambricas", use: "ambiental", stage: "terminado" });
+  assert.deepEqual(
+    cineInalambrico.tv.map((line) => [line.key, line.count]),
+    [["sonos-beam", 1], ["sonos-sub-mini", 1], ["sonos-era-100", 2]]
+  );
+
+  // Traseras en muro en un espacio terminado: avisa que hay que pasar cable.
+  const cineMuro = recommendSpace({ space: "sala", tv: "cine", surround: "muro", use: "maxima", stage: "terminado" });
+  assert.ok(cineMuro.tv.some((line) => line.key === "bw-am1" && line.count === 2));
+  assert.ok(cineMuro.reasons.some((reason) => /pasar cable/.test(reason)));
+});
+
+test("asistente: valida las respuestas y las resume para el prospecto", () => {
+  assert.equal(sanitizeAnswers({ space: "sala", tv: "no", use: "uniforme", stage: "obra" })?.space, "sala");
+  assert.equal(sanitizeAnswers({ space: "castillo", tv: "no", use: "uniforme", stage: "obra" }), null);
+  assert.equal(sanitizeAnswers({ space: "sala", tv: "no", use: "karaoke", stage: "obra" }), null);
+  // Cine en casa sin decir dónde van las traseras no es una respuesta completa.
+  assert.equal(sanitizeAnswers({ space: "sala", tv: "cine", use: "uniforme", stage: "obra" }), null);
+  // Campos de más se descartan.
+  assert.deepEqual(
+    sanitizeAnswers({ space: "sala", tv: "no", use: "uniforme", stage: "obra", precio: 1, surround: "techo" }),
+    { space: "sala", tv: "no", use: "uniforme", stage: "obra" }
+  );
+
+  assert.equal(sanitizeAssistantSpaces([]), null);
+  assert.equal(sanitizeAssistantSpaces("x"), null);
+  assert.equal(sanitizeAssistantSpaces(new Array(13).fill({ space: "sala", tv: "no", use: "uniforme", stage: "obra" })), null);
+
+  const spaces = sanitizeAssistantSpaces([
+    { space: "sala", tv: "cine", surround: "techo", use: "uniforme", stage: "obra" },
+    { space: "recamara", tv: "no", use: "ambiental", stage: "terminado" },
+  ])!;
+  const summary = summarizeAssistant(spaces);
+
+  assert.match(summary, /Sala o family: con televisión \(cine en casa, traseras en techo\); ambiente convivencia; en obra/);
+  assert.match(summary, /Sonos Arc Ultra, Sonos Sub 4, 2 × KEF Ci160ER, Sonos Amp/);
+  assert.match(summary, /Recámara: sin televisión; ambiente ambiental; ya terminado\. Propuesta inicial: música con Sonos Era 100/);
 });

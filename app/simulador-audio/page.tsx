@@ -11,7 +11,7 @@ import { DEFAULT_SIMULATOR_AMPLIFIER } from "@/lib/simuladorAudio/amplifiers";
 import { SIMULATOR_SPEAKERS } from "@/lib/simuladorAudio/speakers";
 import { SITE_URL } from "@/lib/siteUrl";
 import AccessGate from "./AccessGate";
-import Simulator from "./Simulator";
+import SimulatorExperience from "./SimulatorExperience";
 
 export const metadata: Metadata = {
   title: { absolute: "Simulador de Audio: cuántas bocinas necesita tu espacio | ALFA" },
@@ -169,11 +169,11 @@ export default async function SimuladorAudioPage() {
                 Simulador de audio
               </p>
               <h1 className="mt-5 max-w-3xl font-serif text-4xl font-bold leading-tight tracking-tight sm:text-5xl">
-                Cuántas bocinas necesita tu espacio, y dónde van
+                Cuéntanos qué quieres y te armamos el sonido
               </h1>
             </div>
           </section>
-          <Simulator viewerKind={viewer.kind} />
+          <SimulatorExperience viewerKind={viewer.kind} />
         </>
       ) : (
         <>
