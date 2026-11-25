@@ -29,6 +29,7 @@ Indice operativo para ubicar rapido donde trabajar. Los niveles de riesgo se bas
 
 1. Ubicar el modulo en esta tabla.
 2. Leer su `MODULE_CONTEXT.md` si existe.
+   - Para cotizar (no para programar): [`../modules/cotizaciones/COMO_COTIZAMOS.md`](../modules/cotizaciones/COMO_COTIZAMOS.md) es obligatorio.
 3. Verificar rutas con `rg --files`.
 4. Revisar `SECURITY_RULES.md` antes de tocar auth, storage, SQL o API routes.
 
