@@ -21,6 +21,7 @@ import {
   Utensils,
   Volume2,
   Wifi,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -38,10 +39,18 @@ import {
   type TvChoice,
 } from "@/lib/simuladorAudio/assistant";
 import { COVERAGE_MODES, type CoverageMode } from "@/lib/simuladorAudio/geometry";
+import {
+  TV_ROOM_LIMITS,
+  sanitizeTvRoom,
+  type SoundbarVerdict,
+  type TvRoom,
+} from "@/lib/simuladorAudio/soundbar";
 import { ProductPhoto } from "./SimulatorParts";
 
 type ViewerKind = "interno" | "portal" | "visitante";
-type QuestionKey = "space" | "tv" | "surround" | "use" | "stage";
+type QuestionKey = "space" | "tv" | "surround" | "medidas" | "use" | "stage";
+/** Preguntas que se contestan eligiendo una tarjeta. */
+type ChoiceKey = Exclude<QuestionKey, "medidas">;
 type Draft = Partial<AssistantAnswers>;
 
 const ICONS: Record<string, LucideIcon> = {
@@ -83,6 +92,10 @@ const QUESTIONS: Record<QuestionKey, { title: string; hint: string }> = {
     title: "¿Dónde irían las bocinas de atrás?",
     hint: "Son las que te envuelven en las películas.",
   },
+  medidas: {
+    title: "¿Cómo es el espacio de tu televisión?",
+    hint: "Con estas medidas comprobamos qué barra de sonido necesitas, sin que pagues de más ni te quedes corto.",
+  },
   use: {
     title: "¿Para qué lo vas a usar más?",
     hint: "Esto define cuántas bocinas y qué tan fuerte.",
@@ -100,11 +113,13 @@ function questionsFor(draft: Draft): QuestionKey[] {
 
   const keys: QuestionKey[] = ["space", "tv"];
   if (draft.tv === "cine") keys.push("surround");
+  // Con television, las medidas deciden que barra va.
+  if (draft.tv === "mejor" || draft.tv === "cine") keys.push("medidas");
   keys.push("use", "stage");
   return keys;
 }
 
-function optionsFor(key: QuestionKey): { value: string; label: string; hint: string }[] {
+function optionsFor(key: ChoiceKey): { value: string; label: string; hint: string }[] {
   const source =
     key === "space"
       ? SPACE_OPTIONS
@@ -153,6 +168,195 @@ function EquipmentRow({ line }: { line: EquipmentLine }) {
   );
 }
 
+const MEASURE_FIELDS: {
+  key: keyof TvRoom;
+  label: string;
+  unit: string;
+  placeholder: string;
+  limits: { min: number; max: number };
+}[] = [
+  { key: "lengthM", label: "Largo del espacio", unit: "m", placeholder: "9", limits: TV_ROOM_LIMITS.sideM },
+  { key: "widthM", label: "Ancho del espacio", unit: "m", placeholder: "5", limits: TV_ROOM_LIMITS.sideM },
+  {
+    key: "seatDistanceM",
+    label: "Del sillón a la tele",
+    unit: "m",
+    placeholder: "4",
+    limits: TV_ROOM_LIMITS.seatDistanceM,
+  },
+  {
+    key: "tvInches",
+    label: "Tamaño de la tele",
+    unit: "pulgadas",
+    placeholder: "75",
+    limits: TV_ROOM_LIMITS.tvInches,
+  },
+];
+
+/** Paso de medidas: cuatro numeros, o seguir sin ellos. */
+function MeasuresStep({
+  initial,
+  onSubmit,
+  onSkip,
+}: {
+  initial?: TvRoom;
+  onSubmit: (room: TvRoom) => void;
+  onSkip: () => void;
+}) {
+  const [values, setValues] = useState<Record<keyof TvRoom, string>>({
+    lengthM: initial ? String(initial.lengthM) : "",
+    widthM: initial ? String(initial.widthM) : "",
+    seatDistanceM: initial ? String(initial.seatDistanceM) : "",
+    tvInches: initial ? String(initial.tvInches) : "",
+  });
+  const [error, setError] = useState("");
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    for (const field of MEASURE_FIELDS) {
+      const value = Number(values[field.key].replace(",", "."));
+      if (!values[field.key].trim() || !Number.isFinite(value)) {
+        setError(`Falta: ${field.label.toLowerCase()}.`);
+        return;
+      }
+      if (value < field.limits.min || value > field.limits.max) {
+        setError(
+          `${field.label}: escribe un valor entre ${field.limits.min} y ${field.limits.max} ${field.unit}.`
+        );
+        return;
+      }
+    }
+
+    const room = sanitizeTvRoom(
+      Object.fromEntries(
+        MEASURE_FIELDS.map((field) => [field.key, Number(values[field.key].replace(",", "."))])
+      )
+    );
+    if (!room) {
+      setError("Revisa las medidas.");
+      return;
+    }
+    onSubmit(room);
+  }
+
+  return (
+    <form onSubmit={submit} className="mt-9 max-w-2xl" noValidate>
+      <div className="grid gap-4 sm:grid-cols-2">
+        {MEASURE_FIELDS.map((field) => (
+          <label
+            key={field.key}
+            className="block rounded-3xl bg-white p-5 ring-1 ring-black/5 focus-within:ring-2 focus-within:ring-[#9E1B32]"
+          >
+            <span className="block text-[14px] text-[#77797F]">{field.label}</span>
+            <span className="mt-2 flex items-baseline gap-2">
+              <input
+                type="text"
+                inputMode="decimal"
+                autoComplete="off"
+                className="w-full min-w-0 bg-transparent text-3xl font-semibold tracking-tight text-[#111111] outline-none placeholder:text-[#C9C7C1]"
+                placeholder={field.placeholder}
+                value={values[field.key]}
+                onChange={(event) => {
+                  setValues((current) => ({ ...current, [field.key]: event.target.value }));
+                  setError("");
+                }}
+              />
+              <span className="shrink-0 text-[14px] text-[#77797F]">{field.unit}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+
+      {error ? (
+        <p role="alert" className="mt-4 text-sm text-[#9E1B32]">
+          {error}
+        </p>
+      ) : null}
+
+      <div className="mt-7 flex flex-wrap items-center gap-5">
+        <button
+          type="submit"
+          className="inline-flex items-center gap-2 rounded-xl bg-[#111111] px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-black"
+        >
+          Continuar
+          <ArrowRight className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={onSkip}
+          className="text-sm text-[#5F626A] underline-offset-4 hover:underline"
+        >
+          No tengo las medidas
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/** La cuenta a la vista: que cubre cada barra contra las medidas del visitante. */
+function SoundbarProof({ verdict }: { verdict: SoundbarVerdict }) {
+  return (
+    <div className="mt-5 rounded-2xl bg-[#F7F6F3] p-5">
+      <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-[#9E1B32]">
+        ¿Por qué esta barra?
+      </p>
+      <p className="mt-2 text-[17px] font-semibold tracking-tight text-[#111111]">
+        {verdict.title}
+      </p>
+      <p className="mt-1 text-[13px] text-[#77797F]">Tu espacio: {verdict.roomText}.</p>
+
+      <div className="mt-4 grid grid-cols-[auto_auto_auto] justify-between gap-x-3 gap-y-2.5 whitespace-nowrap text-[13px] sm:grid-cols-[auto_1fr_1fr] sm:gap-x-4">
+        <span />
+        {verdict.bars.map((bar) => (
+          <span
+            key={bar.id}
+            className={`font-semibold ${
+              bar.id === verdict.chosen ? "text-[#111111]" : "text-[#77797F]"
+            }`}
+          >
+            {bar.shortName}
+          </span>
+        ))}
+        {verdict.bars[0].checks.map((check, row) => (
+          <div key={check.key} className="contents">
+            <span className="text-[#77797F]">{check.label}</span>
+            {verdict.bars.map((bar) => {
+              const cell = bar.checks[row];
+              return (
+                <span
+                  key={bar.id}
+                  className={`flex items-center gap-1.5 ${
+                    cell.pass ? "text-[#33353B]" : "text-[#9E1B32]"
+                  }`}
+                >
+                  {cell.pass ? (
+                    <Check className="h-3.5 w-3.5 shrink-0 text-[#0F6B43]" aria-hidden="true" />
+                  ) : (
+                    <X className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  )}
+                  <span className="sr-only">{cell.pass ? "Cumple:" : "No cumple:"}</span>
+                  {cell.limit}
+                </span>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+
+      <ul className="mt-4 space-y-1.5 text-[14px] leading-6 text-[#33353B]">
+        {verdict.reasons.map((reason) => (
+          <li key={reason}>{reason}</li>
+        ))}
+      </ul>
+      <p className="mt-3 text-[12px] leading-5 text-[#77797F]">
+        Tamaños de espacio y de tele: recomendación de Sonos. Distancia: criterio de diseño de
+        ALFA a partir de ese dato. Es una guía de selección, no una medición acústica.
+      </p>
+    </div>
+  );
+}
+
 export default function Assistant({
   viewerKind,
   spaces,
@@ -194,9 +398,24 @@ export default function Assistant({
     if (currentKey === "space") {
       delete next.tv;
       delete next.surround;
+      delete next.tvRoom;
     }
     if (currentKey === "tv" && value !== "cine") delete next.surround;
+    if (currentKey === "tv" && value === "no") delete next.tvRoom;
 
+    advance(next);
+  }
+
+  /** Guarda las medidas (o las quita si el visitante no las tiene) y sigue. */
+  function answerMeasures(room: TvRoom | null) {
+    const next: Draft = { ...draft };
+    if (room) next.tvRoom = room;
+    else delete next.tvRoom;
+
+    advance(next);
+  }
+
+  function advance(next: Draft) {
     const nextSteps = questionsFor(next);
     const position = nextSteps.indexOf(currentKey);
 
@@ -212,6 +431,7 @@ export default function Assistant({
       use: next.use as CoverageMode,
       stage: (next.stage as StageChoice) || "terminado",
       ...(next.surround ? { surround: next.surround as SurroundChoice } : {}),
+      ...(next.tvRoom && next.tv && next.tv !== "no" ? { tvRoom: next.tvRoom } : {}),
     };
 
     onSpacesChange([...spaces, completed]);
@@ -278,32 +498,41 @@ export default function Assistant({
               {QUESTIONS[currentKey].hint}
             </p>
 
-            <div className="mt-9 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {optionsFor(currentKey).map((option) => {
-                const Icon = ICONS[option.value] || Volume2;
-                const selected = draft[currentKey] === option.value;
+            {currentKey === "medidas" ? (
+              <MeasuresStep
+                key={spaces.length}
+                initial={draft.tvRoom}
+                onSubmit={answerMeasures}
+                onSkip={() => answerMeasures(null)}
+              />
+            ) : (
+              <div className="mt-9 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {optionsFor(currentKey).map((option) => {
+                  const Icon = ICONS[option.value] || Volume2;
+                  const selected = draft[currentKey] === option.value;
 
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    aria-pressed={selected}
-                    onClick={() => answer(option.value)}
-                    className={`flex items-start gap-4 rounded-3xl bg-white p-5 text-left transition hover:shadow-lg hover:shadow-black/5 ${
-                      selected ? "ring-2 ring-[#9E1B32]" : "ring-1 ring-black/5"
-                    }`}
-                  >
-                    <Icon className="mt-0.5 h-6 w-6 shrink-0 text-[#9E1B32]" aria-hidden="true" />
-                    <span>
-                      <span className="block text-[17px] font-semibold">{option.label}</span>
-                      <span className="mt-1 block text-[14px] leading-5 text-[#77797F]">
-                        {option.hint}
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => answer(option.value)}
+                      className={`flex items-start gap-4 rounded-3xl bg-white p-5 text-left transition hover:shadow-lg hover:shadow-black/5 ${
+                        selected ? "ring-2 ring-[#9E1B32]" : "ring-1 ring-black/5"
+                      }`}
+                    >
+                      <Icon className="mt-0.5 h-6 w-6 shrink-0 text-[#9E1B32]" aria-hidden="true" />
+                      <span>
+                        <span className="block text-[17px] font-semibold">{option.label}</span>
+                        <span className="mt-1 block text-[14px] leading-5 text-[#77797F]">
+                          {option.hint}
+                        </span>
                       </span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             <div className="mt-8 flex items-center gap-5">
               {stepIndex > 0 ? (
@@ -372,6 +601,10 @@ export default function Assistant({
                       <EquipmentRow line={recommendation.music.line} />
                     ) : null}
                   </ul>
+
+                  {recommendation.soundbar ? (
+                    <SoundbarProof verdict={recommendation.soundbar} />
+                  ) : null}
 
                   <ul className="mt-4 space-y-2 text-[14px] leading-6 text-[#5F626A]">
                     {recommendation.reasons.map((reason) => (

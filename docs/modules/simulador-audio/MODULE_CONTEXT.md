@@ -19,7 +19,7 @@ Estado: fase 1 en codigo (2026-11-23). La migracion `sql/20261123_simulador_audi
 | `POST /api/simulador-audio/verificar` | Valida el codigo, crea el prospecto y entrega el pase (cookie). |
 | `POST /api/simulador-audio/propuesta` | Guarda el diseño del visitante, las respuestas del asistente o las dos cosas, y lo deja en su prospecto. |
 
-Logica en `lib/simuladorAudio/`: `assistant.ts` (preguntas y reglas del asistente), `geometry.ts` (calculo), `speakers.ts` (catalogo), `design.ts` (modelo y validacion del diseño), `access.ts` (pase y codigos), `leads.ts` (prospecto), `email.ts` (correo). Pruebas en `tests/simuladorAudio.test.ts`.
+Logica en `lib/simuladorAudio/`: `assistant.ts` (preguntas y reglas del asistente), `soundbar.ts` (comprobacion de barra de sonido), `geometry.ts` (calculo), `speakers.ts` (catalogo), `design.ts` (modelo y validacion del diseño), `access.ts` (pase y codigos), `leads.ts` (prospecto), `email.ts` (correo). Pruebas en `tests/simuladorAudio.test.ts`.
 
 ## Acceso
 
@@ -52,14 +52,15 @@ Las reglas son fijas, sin IA: viven en `recommendSpace` (`lib/simuladorAudio/ass
 1. Que espacio es: sala o family, recamara, cocina o comedor, terraza o jardin, oficina o negocio.
 2. Si hay television: no; si, que se oiga mejor; si, cine en casa. En terraza no se pregunta.
 3. Solo con cine en casa: donde van las bocinas de atras (techo, muro o inalambricas).
-4. Ambiente: las mismas tres llaves del simulador (`ambiental`, `uniforme`, `maxima`).
-5. Etapa: en obra o remodelacion, o ya terminado. En terraza no se pregunta.
+4. Solo con television: las medidas del espacio (largo, ancho, distancia del sillon a la tele y tamaño de la tele). Se puede saltar con "No tengo las medidas". Ver "Comprobacion de barra".
+5. Ambiente: las mismas tres llaves del simulador (`ambiental`, `uniforme`, `maxima`).
+6. Etapa: en obra o remodelacion, o ya terminado. En terraza no se pregunta.
 
 **Reglas de television. PROVISIONALES: las propuso Claude el 2026-11-23 y estan pendientes de que Leo las valide.**
 
 | Caso | Se propone |
 | --- | --- |
-| Barra de sonido | Sonos Arc Ultra en sala y negocio; Sonos Beam en recamara y cocina. |
+| Barra de sonido | Con medidas: la que salga de la comprobacion de barra. Sin medidas: Sonos Arc Ultra en sala y negocio; Sonos Beam en recamara y cocina. |
 | Cine en casa | La barra mas subwoofer, siempre: Sonos Sub 4 con la Arc Ultra, Sonos Sub Mini con la Beam. |
 | Traseras inalambricas | Par de Sonos Era 300 con la Arc Ultra; par de Sonos Era 100 con la Beam. |
 | Traseras en techo | Par de KEF Ci160ER mas un Sonos Amp que las mueve. |
@@ -67,6 +68,35 @@ Las reglas son fijas, sin IA: viven en `recommendSpace` (`lib/simuladorAudio/ass
 | Terraza | Nunca barra de sonido; solo musica. |
 
 Si el espacio ya esta terminado y se piden traseras cableadas, la solucion avisa que hay que pasar cable por techo o muro.
+
+El subwoofer y las traseras inalambricas acompañan a la barra elegida, no al tipo de espacio: una sala chica donde la Beam alcanza lleva Sub Mini y Era 100.
+
+### Comprobacion de barra
+
+`lib/simuladorAudio/soundbar.ts`. **PROVISIONAL: la propuso Claude el 2026-11-25 y esta pendiente de que Leo la valide.** Nacio de un caso real: sala de 9 × 5 m (45 m²) donde el cliente solo quiere oir mejor la tele y habia que demostrar si la Beam alcanza o hace falta la Arc Ultra. Antes el asistente daba Arc Ultra a toda "sala" sin preguntar medidas ni explicar por que.
+
+Con las medidas del visitante se propone la barra mas chica que cumple las tres comprobaciones. Si la Beam falla una sola, va la Arc Ultra. El resultado se muestra en la tarjeta del espacio ("¿Por que esta barra?") con las dos barras lado a lado, y viaja en el resumen del prospecto.
+
+| Comprobacion | Sonos Beam | Sonos Arc Ultra | Base |
+| --- | --- | --- | --- |
+| Tamaño del espacio | hasta 23 m² | sin tope (Sonos la recomienda desde 32 m²) | Sonos |
+| Distancia del sillon a la tele | hasta 3.8 m | sin tope | Criterio de ALFA, derivado del dato de Sonos |
+| Tamaño de la tele | hasta 65" | sin tope | Sonos |
+
+De donde salen los numeros:
+
+- Arc Ultra, 32 m² o mas, y Beam para teles de hasta 65": leido en sonos.com el 2026-11-23 (ver arriba).
+- Beam hasta 23 m² (250 pies²): la reseña comparativa de stuff.tv (Arc Ultra vs Beam Ultra vs Beam Gen 2) lo da como recomendacion de Sonos: Beam hasta 250 pies², Beam Ultra hasta 350, Arc Ultra mas de 350. Coincide con el rango de la Beam Ultra (de 23 a 32 m²) que ya estaba anotado. **Pendiente de confirmar directo en sonos.com**: el 2026-11-23 no se encontro ese dato en la pagina de la Beam, y el 2026-11-25 sonos.com no era accesible desde el entorno de trabajo.
+- Distancia de 3.8 m: radio del medio circulo que tiene 23 m² de area (`√(2·23/π)`), porque la barra va contra un muro y suena hacia el frente. Es el mismo metodo con el que se saco el alcance de la Era 100 a partir de sus 23 m². No es un dato de Sonos.
+- Un espacio de 23 a 32 m² es el rango de la Beam Ultra, que ALFA no tiene en catalogo: ahi la comprobacion propone la Arc Ultra.
+
+Lo que la comprobacion **no** hace, a proposito:
+
+- No calcula decibeles en el sillon. Sonos no publica el nivel maximo de sus barras. La unica medicion encontrada es de un tercero (RTINGS: 88.8 dB "SPL @ Max Volume" para la Beam Gen 2, sin poder confirmar a que distancia mide ni el dato de la Arc Ultra sola), y no alcanza para comparar las dos barras. Para tener esa cuenta hay que medirlas: ruido rosa a volumen maximo, sonometro en ponderacion C lenta a 1 m del centro de la barra, las dos en el mismo cuarto. Con ese numero el nivel en el sillon sale con la misma formula de `loudness.ts` (nivel a 1 m menos `20·log10(distancia)`).
+- No pone tope a la Arc Ultra. Falta el criterio de ALFA para decir a partir de que distancia o tamaño una barra ya no es la solucion y conviene un sistema con bocinas.
+- No revisa el minimo de tele de la Arc Ultra: Sonos la recomienda para 50" o mas, y con una tele mas chica la barra queda mas ancha que la pantalla.
+
+Las medidas viajan en las respuestas como `tvRoom` (opcional, validado por `sanitizeTvRoom`). Si el espacio tambien lleva bocinas de musica, el simulador lo abre con ese largo y ancho.
 
 **Lo que publica Sonos sobre estas combinaciones** (sonos.com y support.sonos.com, leido el 2026-11-23). Ninguna regla de la tabla contradice a Sonos; lo que sigue sin validar es que sean el criterio de ALFA.
 

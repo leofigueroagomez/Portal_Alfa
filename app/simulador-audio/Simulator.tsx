@@ -256,7 +256,15 @@ function initialMeasureRooms(assistantSpaces: AssistantAnswers[]): EditorRoom[] 
       undefined,
       `espacio-asistente-${index}`
     );
-    rooms.push(layoutRoom({ ...room, modelId: music.modelId, mode: music.mode }));
+    // Si ya dio las medidas para la barra de sonido, el espacio abre con ellas.
+    const measured = answers.tvRoom
+      ? {
+          width: answers.tvRoom.widthM,
+          length: answers.tvRoom.lengthM,
+          points: rectanglePolygon(answers.tvRoom.widthM, answers.tvRoom.lengthM),
+        }
+      : {};
+    rooms.push(layoutRoom({ ...room, ...measured, modelId: music.modelId, mode: music.mode }));
   });
 
   // El id fijo evita diferencias entre el render del servidor y el del navegador.

@@ -1,5 +1,12 @@
 import { DEFAULT_SIMULATOR_AMPLIFIER } from "@/lib/simuladorAudio/amplifiers";
 import { COVERAGE_MODES, type CoverageMode } from "@/lib/simuladorAudio/geometry";
+import {
+  sanitizeTvRoom,
+  soundbarVerdict,
+  type SoundbarId,
+  type SoundbarVerdict,
+  type TvRoom,
+} from "@/lib/simuladorAudio/soundbar";
 import { getSimulatorSpeaker } from "@/lib/simuladorAudio/speakers";
 
 /**
@@ -20,6 +27,9 @@ import { getSimulatorSpeaker } from "@/lib/simuladorAudio/speakers";
  * como traseras). Las citas estan en
  * docs/modules/simulador-audio/MODULE_CONTEXT.md. Que sean compatibles no las
  * vuelve criterio de ALFA: eso lo decide Leo.
+ *
+ * Que barra va (Beam o Arc Ultra) ya no depende solo del tipo de espacio: si
+ * el visitante da las medidas, lo decide `soundbarVerdict` (soundbar.ts).
  */
 
 export type SpaceKind = "sala" | "recamara" | "cocina" | "terraza" | "negocio";
@@ -32,6 +42,8 @@ export type AssistantAnswers = {
   tv: TvChoice;
   /** Solo cuando `tv` es "cine": donde van las bocinas de atras. */
   surround?: SurroundChoice;
+  /** Solo con television y si el visitante las dio: medidas para elegir la barra. */
+  tvRoom?: TvRoom;
   /** Ambiente: mismas llaves que el simulador. */
   use: CoverageMode;
   stage: StageChoice;
@@ -125,6 +137,8 @@ export type SpaceRecommendation = {
   reasons: string[];
   /** Equipo para la television (barra, subwoofer, traseras y su amplificador). */
   tv: EquipmentLine[];
+  /** Por que esa barra, cuando el visitante dio las medidas del espacio. */
+  soundbar: SoundbarVerdict | null;
   /** Bocinas de musica; su cantidad y lugar se afinan en el simulador. */
   music: { modelId: string; mode: CoverageMode; line: EquipmentLine } | null;
 };
@@ -183,27 +197,39 @@ export function recommendSpace(answers: AssistantAnswers): SpaceRecommendation {
   // En terraza no se propone barra de sonido: son equipos de interior.
   const tv: TvChoice = answers.space === "terraza" ? "no" : answers.tv;
   const bigRoom = answers.space === "sala" || answers.space === "negocio";
+  // Con medidas, la barra sale de la comprobacion. Sin medidas (PROVISIONAL):
+  // Arc Ultra en sala y negocio; Beam en recamara y cocina.
+  const soundbar = tv !== "no" && answers.tvRoom ? soundbarVerdict(answers.tvRoom) : null;
+  const bar: SoundbarId = soundbar
+    ? soundbar.chosen
+    : bigRoom
+      ? "sonos-arc-ultra"
+      : "sonos-beam";
+  // El subwoofer y las traseras inalambricas acompañan a la barra elegida.
+  const bigBar = bar === "sonos-arc-ultra";
 
   if (tv !== "no") {
-    // PROVISIONAL: Arc Ultra en sala y negocio; Beam en recamara y cocina.
-    tvLines.push(productLine(bigRoom ? "sonos-arc-ultra" : "sonos-beam", "Bajo la televisión"));
-    reasons.push(
-      bigRoom
-        ? "Una barra de sonido grande llena el espacio y deja las voces claras."
-        : "Una barra compacta es suficiente para un espacio de este tamaño."
-    );
+    tvLines.push(productLine(bar, "Bajo la televisión"));
+    // Con medidas, el porque de la barra va aparte, en `soundbar`.
+    if (!soundbar) {
+      reasons.push(
+        bigBar
+          ? "Una barra de sonido grande llena el espacio y deja las voces claras."
+          : "Una barra compacta es suficiente para un espacio de este tamaño."
+      );
+    }
   }
 
   if (tv === "cine") {
     // PROVISIONAL: el cine en casa siempre lleva subwoofer.
-    tvLines.push(productLine(bigRoom ? "sonos-sub-4" : "sonos-sub-mini", "Graves"));
+    tvLines.push(productLine(bigBar ? "sonos-sub-4" : "sonos-sub-mini", "Graves"));
     reasons.push("El subwoofer da el golpe de las películas sin subir el volumen.");
 
     const surround = answers.surround || "inalambricas";
     if (surround === "inalambricas") {
       // PROVISIONAL: Era 300 con Arc Ultra; Era 100 con Beam.
       tvLines.push(
-        speakerLine(bigRoom ? "sonos-era-300" : "sonos-era-100", "Atrás, inalámbricas", 2)
+        speakerLine(bigBar ? "sonos-era-300" : "sonos-era-100", "Atrás, inalámbricas", 2)
       );
       reasons.push("Las bocinas de atrás son inalámbricas: solo necesitan un contacto.");
     } else {
@@ -269,7 +295,7 @@ export function recommendSpace(answers: AssistantAnswers): SpaceRecommendation {
           : "Barra de sonido"
         : `Música ${COVERAGE_MODES[answers.use].label.toLowerCase()}`;
 
-  return { answers: { ...answers, tv }, title, reasons, tv: tvLines, music };
+  return { answers: { ...answers, tv }, title, reasons, tv: tvLines, soundbar, music };
 }
 
 function isKey<T extends string>(value: unknown, options: Record<T, unknown>): value is T {
@@ -296,6 +322,14 @@ export function sanitizeAnswers(raw: unknown): AssistantAnswers | null {
   if (input.tv === "cine") {
     if (!isKey(input.surround, SURROUND_OPTIONS)) return null;
     answers.surround = input.surround;
+  }
+
+  // Las medidas son opcionales; si vienen, tienen que ser validas. En terraza
+  // no hay barra de sonido, asi que no aplican.
+  if (input.tv !== "no" && input.space !== "terraza" && input.tvRoom != null) {
+    const tvRoom = sanitizeTvRoom(input.tvRoom);
+    if (!tvRoom) return null;
+    answers.tvRoom = tvRoom;
   }
 
   return answers;
@@ -349,7 +383,11 @@ export function summarizeAssistant(spaces: AssistantAnswers[]) {
         answers.use
       ].label.toLowerCase()}; ${
         answers.stage === "obra" ? "en obra" : "ya terminado"
-      }. Propuesta inicial: ${equipment}.`
+      }. Propuesta inicial: ${equipment}.${
+        recommendation.soundbar
+          ? ` Medidas: ${recommendation.soundbar.roomText}. ${recommendation.soundbar.title}.`
+          : ""
+      }`
     );
   }
 

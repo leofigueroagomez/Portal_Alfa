@@ -22,6 +22,7 @@ import {
   sanitizeAssistantSpaces,
   summarizeAssistant,
 } from "@/lib/simuladorAudio/assistant";
+import { sanitizeTvRoom, soundbarReachM, soundbarVerdict, SOUNDBARS } from "@/lib/simuladorAudio/soundbar";
 import {
   amplifierPlan,
   sanitizeDesign,
@@ -588,4 +589,86 @@ test("asistente: valida las respuestas y las resume para el prospecto", () => {
   assert.match(summary, /Sala o family: con televisión \(cine en casa, traseras en techo\); ambiente convivencia; en obra/);
   assert.match(summary, /Sonos Arc Ultra, Sonos Sub 4, 2 × KEF Ci160ER, Sonos Amp/);
   assert.match(summary, /Recámara: sin televisión; ambiente ambiental; ya terminado\. Propuesta inicial: música con Sonos Era 100/);
+});
+
+test("barra de sonido: las medidas deciden entre Beam y Arc Ultra", () => {
+  // Alcance de la Beam: radio del medio círculo de 23 m².
+  assert.ok(Math.abs((soundbarReachM(SOUNDBARS[0]) as number) - 3.83) < 0.01);
+  assert.equal(soundbarReachM(SOUNDBARS[1]), null);
+
+  // El caso de Leo: sala de 9 × 5 m (45 m²) donde solo se quiere oír mejor la tele.
+  const sala = soundbarVerdict({ lengthM: 9, widthM: 5, seatDistanceM: 4, tvInches: 75 });
+  assert.equal(sala.areaM2, 45);
+  assert.equal(sala.chosen, "sonos-arc-ultra");
+  assert.equal(sala.compactFits, false);
+  assert.deepEqual(sala.bars[0].checks.map((check) => check.pass), [false, false, false]);
+  assert.ok(sala.bars[1].fits);
+  assert.match(sala.reasons[0], /45 m²: 96% más que los 23 m²/);
+  assert.match(sala.reasons.join(" "), /hasta 3\.8 m/);
+  assert.match(sala.reasons.join(" "), /32 m² o más/);
+  assert.equal(sala.roomText, '9 × 5 m (45 m²), sillón a 4 m, tele de 75"');
+
+  // Cuarto de tele chico: la Beam cumple las tres y no se propone la grande.
+  const cuarto = soundbarVerdict({ lengthM: 5, widthM: 4, seatDistanceM: 3, tvInches: 55 });
+  assert.equal(cuarto.chosen, "sonos-beam");
+  assert.ok(cuarto.compactFits);
+  assert.equal(cuarto.reasons.length, 1);
+
+  // Basta una comprobación para pasar a la grande: espacio chico, pero tele de 77".
+  const teleGrande = soundbarVerdict({ lengthM: 5, widthM: 4, seatDistanceM: 3, tvInches: 77 });
+  assert.equal(teleGrande.chosen, "sonos-arc-ultra");
+  assert.deepEqual(teleGrande.bars[0].checks.map((check) => check.pass), [true, true, false]);
+
+  // Espacio angosto y largo: cabe en m², pero el sillón queda a 5 m.
+  const lejos = soundbarVerdict({ lengthM: 7, widthM: 3, seatDistanceM: 5, tvInches: 65 });
+  assert.deepEqual(lejos.bars[0].checks.map((check) => check.pass), [true, false, true]);
+  assert.equal(lejos.chosen, "sonos-arc-ultra");
+
+  assert.deepEqual(sanitizeTvRoom({ lengthM: 9.004, widthM: 5, seatDistanceM: 4, tvInches: 74.6, x: 1 }), {
+    lengthM: 9,
+    widthM: 5,
+    seatDistanceM: 4,
+    tvInches: 75,
+  });
+  assert.equal(sanitizeTvRoom({ lengthM: 9, widthM: 5, seatDistanceM: 40, tvInches: 75 }), null);
+  assert.equal(sanitizeTvRoom({ lengthM: "9", widthM: 5, seatDistanceM: 4, tvInches: 75 }), null);
+});
+
+test("asistente: con medidas, la barra y lo que la acompaña salen de la comprobación", () => {
+  const tvRoom = { lengthM: 9, widthM: 5, seatDistanceM: 4, tvInches: 75 };
+
+  // Una recámara grande deja de recibir la Beam por ser "recámara".
+  const recamara = recommendSpace({ space: "recamara", tv: "mejor", use: "ambiental", stage: "terminado", tvRoom });
+  assert.deepEqual(recamara.tv.map((line) => line.key), ["sonos-arc-ultra"]);
+  assert.equal(recamara.soundbar?.chosen, "sonos-arc-ultra");
+
+  // Una sala chica deja de recibir la Arc Ultra por ser "sala", y el cine la sigue.
+  const salaChica = recommendSpace({
+    space: "sala",
+    tv: "cine",
+    surround: "inalambricas",
+    use: "ambiental",
+    stage: "terminado",
+    tvRoom: { lengthM: 5, widthM: 4, seatDistanceM: 3, tvInches: 55 },
+  });
+  assert.deepEqual(
+    salaChica.tv.map((line) => [line.key, line.count]),
+    [["sonos-beam", 1], ["sonos-sub-mini", 1], ["sonos-era-100", 2]]
+  );
+
+  // Sin medidas no hay comprobación y sigue la regla por tipo de espacio.
+  assert.equal(recommendSpace({ space: "sala", tv: "mejor", use: "ambiental", stage: "terminado" }).soundbar, null);
+
+  // Las medidas son opcionales, pero si llegan tienen que ser válidas.
+  assert.deepEqual(sanitizeAnswers({ space: "sala", tv: "mejor", use: "ambiental", stage: "terminado", tvRoom })?.tvRoom, tvRoom);
+  assert.equal(
+    sanitizeAnswers({ space: "sala", tv: "mejor", use: "ambiental", stage: "terminado", tvRoom: { ...tvRoom, tvInches: 900 } }),
+    null
+  );
+  // Sin televisión o en terraza se descartan.
+  assert.equal(sanitizeAnswers({ space: "sala", tv: "no", use: "ambiental", stage: "terminado", tvRoom })?.tvRoom, undefined);
+  assert.equal(sanitizeAnswers({ space: "terraza", tv: "mejor", use: "ambiental", stage: "terminado", tvRoom })?.tvRoom, undefined);
+
+  const summary = summarizeAssistant([{ space: "sala", tv: "mejor", use: "ambiental", stage: "terminado", tvRoom }]);
+  assert.match(summary, /Propuesta inicial: Sonos Arc Ultra\. Medidas: 9 × 5 m \(45 m²\), sillón a 4 m, tele de 75"\. La Sonos Beam se queda corta aquí\./);
 });
