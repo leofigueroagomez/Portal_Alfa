@@ -385,7 +385,7 @@ export function summarizeAssistant(spaces: AssistantAnswers[]) {
         answers.stage === "obra" ? "en obra" : "ya terminado"
       }. Propuesta inicial: ${equipment}.${
         recommendation.soundbar
-          ? ` Medidas: ${recommendation.soundbar.roomText}. ${recommendation.soundbar.title}.`
+          ? ` Medidas: ${recommendation.soundbar.roomText}. ${recommendation.soundbar.summary}.`
           : ""
       }`
     );

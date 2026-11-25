@@ -116,11 +116,15 @@ export async function POST(request: Request) {
 
     if (designError) throw designError;
 
-    const message = [
-      "Pidió propuesta desde el simulador de audio.",
-      summary,
-      note ? `Nota del cliente: ${note}` : "",
-    ]
+    // El mensaje del prospecto tiene tope; si el resumen es largo se recorta
+    // el resumen y no la nota del cliente, que va al final.
+    const header = "Pidió propuesta desde el simulador de audio.";
+    const noteLine = note ? `Nota del cliente: ${note}` : "";
+    const summaryRoom = Math.max(
+      0,
+      2000 - header.length - 1 - (noteLine ? noteLine.length + 1 : 0)
+    );
+    const message = [header, summary.slice(0, summaryRoom).trimEnd(), noteLine]
       .filter(Boolean)
       .join("\n")
       .slice(0, 2000);

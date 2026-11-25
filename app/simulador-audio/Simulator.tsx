@@ -58,6 +58,7 @@ import {
   recommendSpace,
   type AssistantAnswers,
 } from "@/lib/simuladorAudio/assistant";
+import { sanitizeTvRoom } from "@/lib/simuladorAudio/soundbar";
 import { roomLoudness } from "@/lib/simuladorAudio/loudness";
 import PlanCanvas, { type CanvasTool } from "./PlanCanvas";
 import {
@@ -285,8 +286,21 @@ export default function Simulator({
   const [measureRooms, setMeasureRooms] = useState<EditorRoom[]>(() =>
     initialMeasureRooms(assistantSpaces)
   );
+  // Si el visitante cambia aqui el largo o el ancho de un espacio que abrio con
+  // las medidas del asistente, la barra se vuelve a comprobar con las actuales.
+  const liveAssistantSpaces = assistantSpaces.map((answers, index) => {
+    if (!answers.tvRoom) return answers;
+    const room = measureRooms.find((item) => item.id === `espacio-asistente-${index}`);
+    if (!room?.width || !room.length) return answers;
+    const tvRoom = sanitizeTvRoom({
+      ...answers.tvRoom,
+      widthM: room.width,
+      lengthM: room.length,
+    });
+    return tvRoom ? { ...answers, tvRoom } : answers;
+  });
   // Equipo de television que recomendo el asistente, por espacio.
-  const tvKits = assistantSpaces
+  const tvKits = liveAssistantSpaces
     .map(recommendSpace)
     .filter((recommendation) => recommendation.tv.length > 0);
   const [planRooms, setPlanRooms] = useState<EditorRoom[]>([]);
@@ -591,7 +605,7 @@ export default function Simulator({
           design,
           projectType,
           note,
-          ...(assistantSpaces.length > 0 ? { assistant: assistantSpaces } : {}),
+          ...(liveAssistantSpaces.length > 0 ? { assistant: liveAssistantSpaces } : {}),
         }),
       });
       const data = (await response.json().catch(() => null)) as { error?: string } | null;

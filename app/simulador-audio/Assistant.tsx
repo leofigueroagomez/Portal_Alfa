@@ -214,10 +214,16 @@ function MeasuresStep({
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+    const numbers = {} as TvRoom;
     for (const field of MEASURE_FIELDS) {
-      const value = Number(values[field.key].replace(",", "."));
-      if (!values[field.key].trim() || !Number.isFinite(value)) {
+      const text = values[field.key].trim();
+      if (!text) {
         setError(`Falta: ${field.label.toLowerCase()}.`);
+        return;
+      }
+      const value = Number(text.replace(",", "."));
+      if (!Number.isFinite(value)) {
+        setError(`${field.label}: escribe solo el número, sin letras ni símbolos.`);
         return;
       }
       if (value < field.limits.min || value > field.limits.max) {
@@ -226,15 +232,14 @@ function MeasuresStep({
         );
         return;
       }
+      numbers[field.key] = value;
     }
 
-    const room = sanitizeTvRoom(
-      Object.fromEntries(
-        MEASURE_FIELDS.map((field) => [field.key, Number(values[field.key].replace(",", "."))])
-      )
-    );
+    // Cada medida ya esta en su rango: lo unico que queda es un sillon mas
+    // lejos de la tele de lo que mide el espacio.
+    const room = sanitizeTvRoom(numbers);
     if (!room) {
-      setError("Revisa las medidas.");
+      setError("La distancia del sillón a la tele no puede ser mayor que el espacio.");
       return;
     }
     onSubmit(room);
@@ -304,42 +309,35 @@ function SoundbarProof({ verdict }: { verdict: SoundbarVerdict }) {
       <p className="mt-2 text-[17px] font-semibold tracking-tight text-[#111111]">
         {verdict.title}
       </p>
-      <p className="mt-1 text-[13px] text-[#77797F]">Tu espacio: {verdict.roomText}.</p>
+      <p className="mt-1 text-[13px] text-[#77797F]">{verdict.roomText}.</p>
 
-      <div className="mt-4 grid grid-cols-[auto_auto_auto] justify-between gap-x-3 gap-y-2.5 whitespace-nowrap text-[13px] sm:grid-cols-[auto_1fr_1fr] sm:gap-x-4">
-        <span />
-        {verdict.bars.map((bar) => (
-          <span
-            key={bar.id}
-            className={`font-semibold ${
-              bar.id === verdict.chosen ? "text-[#111111]" : "text-[#77797F]"
-            }`}
-          >
-            {bar.shortName}
-          </span>
-        ))}
-        {verdict.bars[0].checks.map((check, row) => (
+      {/* En celular la etiqueta va en su propio renglon, arriba de sus dos valores. */}
+      <div className="mt-4 grid grid-cols-[1fr_auto] gap-x-4 gap-y-0.5 text-[13px] sm:grid-cols-[auto_auto_1fr] sm:gap-x-6 sm:gap-y-2.5">
+        <span className="hidden sm:block" />
+        <span className="font-semibold text-[#111111]">Tu espacio</span>
+        <span className="font-semibold text-[#111111]">La Beam cubre</span>
+        {verdict.checks.map((check) => (
           <div key={check.key} className="contents">
-            <span className="text-[#77797F]">{check.label}</span>
-            {verdict.bars.map((bar) => {
-              const cell = bar.checks[row];
-              return (
-                <span
-                  key={bar.id}
-                  className={`flex items-center gap-1.5 ${
-                    cell.pass ? "text-[#33353B]" : "text-[#9E1B32]"
-                  }`}
-                >
-                  {cell.pass ? (
-                    <Check className="h-3.5 w-3.5 shrink-0 text-[#0F6B43]" aria-hidden="true" />
-                  ) : (
-                    <X className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                  )}
-                  <span className="sr-only">{cell.pass ? "Cumple:" : "No cumple:"}</span>
-                  {cell.limit}
-                </span>
-              );
-            })}
+            <span className="col-span-2 mt-2 text-[12px] text-[#77797F] sm:col-span-1 sm:mt-0 sm:text-[13px]">
+              {check.label}
+            </span>
+            <span className="text-[#111111]">{check.yours}</span>
+            <span
+              className={`flex items-start gap-1.5 whitespace-nowrap ${
+                check.pass ? "text-[#33353B]" : "text-[#9E1B32]"
+              }`}
+            >
+              {check.pass ? (
+                <Check
+                  className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#0F6B43]"
+                  aria-hidden="true"
+                />
+              ) : (
+                <X className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              )}
+              <span className="sr-only">{check.pass ? "Cumple:" : "No cumple:"}</span>
+              {check.limit}
+            </span>
           </div>
         ))}
       </div>
@@ -350,8 +348,8 @@ function SoundbarProof({ verdict }: { verdict: SoundbarVerdict }) {
         ))}
       </ul>
       <p className="mt-3 text-[12px] leading-5 text-[#77797F]">
-        Tamaños de espacio y de tele: recomendación de Sonos. Distancia: criterio de diseño de
-        ALFA a partir de ese dato. Es una guía de selección, no una medición acústica.
+        Guía de selección de ALFA, con base en las recomendaciones de Sonos para cada barra.
+        No es una medición acústica.
       </p>
     </div>
   );
@@ -573,7 +571,7 @@ export default function Assistant({
               {recommendations.map((recommendation, index) => (
                 <article
                   key={index}
-                  className="rounded-3xl bg-white p-6 shadow-sm sm:p-7"
+                  className="min-w-0 rounded-3xl bg-white p-6 shadow-sm sm:p-7"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div>
