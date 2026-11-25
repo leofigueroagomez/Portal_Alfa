@@ -19,7 +19,7 @@ Estado: fase 1 en codigo (2026-11-23). La migracion `sql/20261123_simulador_audi
 | `POST /api/simulador-audio/verificar` | Valida el codigo, crea el prospecto y entrega el pase (cookie). |
 | `POST /api/simulador-audio/propuesta` | Guarda el diseño del visitante, las respuestas del asistente o las dos cosas, y lo deja en su prospecto. |
 
-Logica en `lib/simuladorAudio/`: `assistant.ts` (preguntas y reglas del asistente), `geometry.ts` (calculo), `speakers.ts` (catalogo), `design.ts` (modelo y validacion del diseño), `access.ts` (pase y codigos), `leads.ts` (prospecto), `email.ts` (correo). Pruebas en `tests/simuladorAudio.test.ts`.
+Logica en `lib/simuladorAudio/`: `assistant.ts` (preguntas y reglas del asistente), `soundbar.ts` (comprobacion de barra de sonido), `geometry.ts` (calculo), `speakers.ts` (catalogo), `design.ts` (modelo y validacion del diseño), `access.ts` (pase y codigos), `leads.ts` (prospecto), `email.ts` (correo). Pruebas en `tests/simuladorAudio.test.ts`.
 
 ## Acceso
 
@@ -52,14 +52,15 @@ Las reglas son fijas, sin IA: viven en `recommendSpace` (`lib/simuladorAudio/ass
 1. Que espacio es: sala o family, recamara, cocina o comedor, terraza o jardin, oficina o negocio.
 2. Si hay television: no; si, que se oiga mejor; si, cine en casa. En terraza no se pregunta.
 3. Solo con cine en casa: donde van las bocinas de atras (techo, muro o inalambricas).
-4. Ambiente: las mismas tres llaves del simulador (`ambiental`, `uniforme`, `maxima`).
-5. Etapa: en obra o remodelacion, o ya terminado. En terraza no se pregunta.
+4. Solo con television: las medidas del espacio (largo, ancho, distancia del sillon a la tele y tamaño de la tele). Se puede saltar con "No tengo las medidas". Ver "Comprobacion de barra".
+5. Ambiente: las mismas tres llaves del simulador (`ambiental`, `uniforme`, `maxima`).
+6. Etapa: en obra o remodelacion, o ya terminado. En terraza no se pregunta.
 
 **Reglas de television. PROVISIONALES: las propuso Claude el 2026-11-23 y estan pendientes de que Leo las valide.**
 
 | Caso | Se propone |
 | --- | --- |
-| Barra de sonido | Sonos Arc Ultra en sala y negocio; Sonos Beam en recamara y cocina. |
+| Barra de sonido | Con medidas: la que salga de la comprobacion de barra. Sin medidas: Sonos Arc Ultra en sala y negocio; Sonos Beam en recamara y cocina. |
 | Cine en casa | La barra mas subwoofer, siempre: Sonos Sub 4 con la Arc Ultra, Sonos Sub Mini con la Beam. |
 | Traseras inalambricas | Par de Sonos Era 300 con la Arc Ultra; par de Sonos Era 100 con la Beam. |
 | Traseras en techo | Par de KEF Ci160ER mas un Sonos Amp que las mueve. |
@@ -68,9 +69,43 @@ Las reglas son fijas, sin IA: viven en `recommendSpace` (`lib/simuladorAudio/ass
 
 Si el espacio ya esta terminado y se piden traseras cableadas, la solucion avisa que hay que pasar cable por techo o muro.
 
+El subwoofer y las traseras inalambricas acompañan a la barra elegida, no al tipo de espacio: una sala chica donde la Beam alcanza lleva Sub Mini y Era 100.
+
+### Comprobacion de barra
+
+`lib/simuladorAudio/soundbar.ts`. **PROVISIONAL: la propuso Claude el 2026-11-25 y esta pendiente de que Leo la valide.** Nacio de un caso real: sala de 9 × 5 m (45 m²) donde el cliente solo quiere oir mejor la tele y habia que demostrar si la Beam alcanza o hace falta la Arc Ultra. Antes el asistente daba Arc Ultra a toda "sala" sin preguntar medidas ni explicar por que.
+
+La Beam se propone solo si cumple las tres comprobaciones; si falla una, va la Arc Ultra. El resultado se muestra en la tarjeta del espacio ("¿Por que esta barra?") con las medidas del visitante junto a lo que cubre la Beam, y viaja en el resumen del prospecto con las comprobaciones que fallaron.
+
+| Comprobacion | La Beam cubre | Base |
+| --- | --- | --- |
+| Tamaño del espacio | hasta 23 m² | Reseñas que lo dan como recomendacion de Sonos. **Pendiente de confirmar en sonos.com** |
+| Distancia del sillon a la tele | hasta 3.8 m | Criterio de ALFA, derivado de los 23 m² |
+| Tamaño de la tele | hasta 65" | Sonos |
+
+De donde salen los numeros:
+
+- Beam para teles de hasta 65", y Arc Ultra para espacios de 32 m² o mas y teles de 50" o mas: leido en sonos.com el 2026-11-23 (citas abajo, en "Lo que publica Sonos").
+- Beam hasta 23 m² (250 pies²): stuff.tv y What Hi-Fi lo dan como recomendacion de Sonos (Beam hasta 250 pies², Beam Ultra hasta 350, Arc Ultra mas de 350). No se pudo confirmar en sonos.com: el 2026-11-23 no se encontro ese dato en la pagina de la Beam, y el 2026-11-25 sonos.com no era accesible desde el entorno de trabajo. Por eso en pantalla la frase dice "esta pensada para" y no "Sonos recomienda", y la nota al pie habla de una guia de seleccion de ALFA.
+- Distancia de 3.8 m: radio del medio circulo que tiene 23 m² de area (`√(2·23/π)`), porque la barra va contra un muro y suena hacia el frente. Es la misma idea con la que se saco el alcance de la Era 100 (ahi con su abanico de 240°; aqui con 180°). No es un dato de Sonos.
+- Un espacio de 23 a 32 m² caeria en la Beam Ultra que reportan las reseñas, que ALFA no tiene en catalogo: ahi la comprobacion propone la Arc Ultra y la frase no dice que Sonos la recomiende para ese tamaño.
+
+Como se compara:
+
+- Todo a un decimal, igual que se muestra: 4.8 × 4.8 m (23.04 m²) se lee 23 m² y cumple; 3.83 m se lee 3.8 m y cumple. `sanitizeTvRoom` guarda los metros a un decimal y las pulgadas enteras.
+- El sillon no puede estar mas lejos de la tele que la diagonal del espacio: el formulario lo avisa y el servidor rechaza esas medidas.
+- Si va la Arc Ultra con una tele de menos de 50", se avisa que Sonos la recomienda desde 50" y que un asesor lo revisa.
+
+Lo que la comprobacion **no** hace, a proposito:
+
+- No calcula decibeles en el sillon. Sonos no publica el nivel maximo de sus barras. La unica medicion encontrada es de un tercero (RTINGS: 88.8 dB "SPL @ Max Volume" para la Beam Gen 2, sin poder confirmar a que distancia mide ni el dato de la Arc Ultra sola), y no alcanza para comparar las dos barras. Para tener esa cuenta hay que medirlas: ruido rosa a volumen maximo, sonometro en ponderacion C lenta a 1 m del centro de la barra, las dos en el mismo cuarto. Con ese numero el nivel en el sillon sale con la misma formula de `loudness.ts` (nivel a 1 m menos `20·log10(distancia)`).
+- No dice hasta donde alcanza la Arc Ultra: en pantalla no se le pone ninguna comprobacion ni se promete que cubre cualquier espacio. Falta el criterio de ALFA para decir a partir de que distancia o tamaño una barra ya no es la solucion y conviene un sistema con bocinas.
+
+Las medidas viajan en las respuestas como `tvRoom` (opcional, validado por `sanitizeTvRoom`). Si el espacio tambien lleva bocinas de musica, el simulador lo abre con ese largo y ancho; si el visitante los cambia ahi, la barra se vuelve a comprobar con las medidas nuevas. En el mensaje del prospecto, si el resumen es largo se recorta el resumen y no la nota del cliente.
+
 **Lo que publica Sonos sobre estas combinaciones** (sonos.com y support.sonos.com, leido el 2026-11-23). Ninguna regla de la tabla contradice a Sonos; lo que sigue sin validar es que sean el criterio de ALFA.
 
-- Barra: la Arc Ultra es para "Large living rooms and open floor plans", 32 m² o mas y televisiones de 50" o mas. La Beam (Gen 2) es "Powerful compact soundbar for TVs up to 65\""; Sonos no publica un tamaño de cuarto para ella.
+- Barra: la Arc Ultra es para "Large living rooms and open floor plans", 32 m² o mas y televisiones de 50" o mas. La Beam (Gen 2) es "Powerful compact soundbar for TVs up to 65\""; el 2026-11-23 no se encontro en su pagina un tamaño de cuarto (ver "Comprobacion de barra" para los 23 m² que reportan las reseñas, pendientes de confirmar).
 - Subwoofer: el Sub Mini es "ideal for a small or medium-sized room, and low to moderate volume levels" y Sonos lo recomienda con la Beam. El Sub 4 se anuncia con Arc Ultra, Arc o Beam. Los paquetes de Sonos son Beam con Sub Mini y Arc Ultra con Sub 4. El Sub Mini es compatible con la Arc Ultra, pero Sonos no lo recomienda con ella.
 - Traseras inalambricas: tienen que ser dos bocinas del mismo modelo. Un par de Era 100 o de Era 300 funciona con la Arc Ultra y con la Beam (Gen 2). La Era 300 exige una barra con Dolby Atmos, asi que no sirve con la Beam de primera generacion.
 - Traseras pasivas: "You can also use Amp to power in-wall, in-ceiling, or other passive speakers as surrounds", tanto en la Arc Ultra como en la Beam (Gen 2). Un solo Sonos Amp mueve el canal izquierdo y el derecho. En ese uso se apagan la salida de subwoofer y la entrada de linea del Amp.
