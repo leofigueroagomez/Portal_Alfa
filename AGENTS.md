@@ -12,6 +12,7 @@ Antes de tocar codigo, leer en este orden:
 4. `docs/ai/MODULE_INDEX.md`
 5. `docs/ai/SECURITY_RULES.md`
 6. El documento del modulo afectado en `docs/modules/**/MODULE_CONTEXT.md`
+7. Si la tarea es armar, corregir o revisar una cotizacion (por el portal, por SQL o como asistente externo): `docs/modules/cotizaciones/COMO_COTIZAMOS.md`, completo, antes de crear o editar cualquier cotizacion. Despues, `docs/ai/GUIA_COTIZAR_GROKBOT.md` para ejecutarla.
 
 Si la tarea toca Next.js, leer primero la guia relevante en `node_modules/next/dist/docs/`.
 

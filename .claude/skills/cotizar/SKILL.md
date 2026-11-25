@@ -5,6 +5,8 @@ description: Arma una cotización de ALFA como la hace Leo (cliente, proyecto, c
 
 # Cotizar como Leo
 
+**Antes de cotizar, lee completo [`docs/modules/cotizaciones/COMO_COTIZAMOS.md`](../../../docs/modules/cotizaciones/COMO_COTIZAMOS.md):** secciones = sistemas homologados, ubicación en cada partida, mano de obra dentro del equipo y precio por margen o por lista. Si esta skill lo contradice, manda aquel documento.
+
 Leo suele pedirlo desde el celular, en pocas líneas y a veces dictado. Responde corto: una tabla de costo/venta, los supuestos que tomaste y una sola pregunta. No pidas datos que puedas encontrar tú.
 
 ## 0. Entorno
@@ -33,7 +35,7 @@ where row_to_json(c)::text ilike any (array['%<nombre>%','%<empresa>%']);
 
 | Concepto | Regla |
 |---|---|
-| Equipo | Margen 30% sobre precio: `venta = costo / 0.70` (`pricing_method='target_margin'`, `target_margin=30`). |
+| Equipo | Precio de catálogo (`calculated_sale_price`). Método por producto: margen 30% sobre precio, `venta = costo / 0.70` (`pricing_method='target_margin'`), o precio de lista sin IVA (`pricing_method='public_price'`: Sonos, KEF, Marantz y otras). |
 | Mano de obra | Venta = 2 × costo, salvo que Leo diga el precio de venta. Costos del subcontratista René López (red, canalización, fibra, APs, obra civil): [tabulador-mo-rene.md](tabulador-mo-rene.md). |
 | Servicio ya cotizado por Leo ("cóbrale X") | Usa exactamente X + IVA. |
 | IVA | 16% sobre el subtotal. |
@@ -42,7 +44,7 @@ where row_to_json(c)::text ilike any (array['%<nombre>%','%<empresa>%']);
 - "Ambos/los dos nos costaron X" = X por el total, sin IVA, salvo que diga otra cosa. Compáralo con Syscom: si el costo unitario se parece al precio + IVA de Syscom, es costo sin IVA.
 - **Una sola moneda por producto:** `sale_currency == cost_currency`. Si Leo da el costo en pesos, el producto va en MXN.
 - **Peor caso:** si falta información (altura, metros, panel existente, etc.), cotiza el peor caso razonable y deja la suposición en las notas `SUPUESTOS`.
-- CCTV: una sección por área física. Mano de obra MXN 1,000 por cámara (instalación 400 + cableado 600), NVR 300, disco 300. Caja de conexión genérica Gewiss y bobina completa de cable.
+- Estructura: una sección por sistema homologado (`quotable_systems`) y la ubicación en cada partida (`quote_item_area_allocations`); lo compartido va en la ubicación `Site`. CCTV: mano de obra MXN 1,000 por cámara (instalación 400 + cableado 600), NVR 300, disco 300. Caja de conexión genérica Gewiss y bobina completa de cable.
 
 ## 3. Catálogo
 
@@ -61,7 +63,8 @@ Una sola sentencia con CTEs, para que todo quede o nada quede. Mismos campos y f
 - Partida en MXN: `unit_equipment_price` = venta MXN, `unit_equipment_price_usd = round(venta/tc, 6)`, `equipment_total(_usd) = round(venta*cant/tc, 6)`.
 - `unit_labor_price` = mano de obra por pieza; `labor_total` = mano de obra × cantidad; `line_total` = equipo MXN + mano de obra.
 - Una fila en `quote_item_labor_activities` por actividad, con costo interno y venta (`labor_activity_id` del catálogo: 2 Instalación, 9 Mano de obra general, etc.).
-- Sección: `equipment_total` en USD, `labor_total` en MXN, `total` en MXN.
+- Una fila en `quote_item_area_allocations` por ubicación de cada partida (`area`, `quantity`, `supply_type`); la suma de cantidades es la cantidad de la partida.
+- Sección: `name` = nombre exacto del sistema en `quotable_systems`; `equipment_total` en USD, `labor_total` en MXN, `total` en MXN.
 - Encabezado: `subtotal_mxn = taxable_base_mxn`, `iva_mxn = 16%`, `total_mxn = grand_total`, `equipment_total` en USD, `labor_total` en MXN, `is_partner_quote false`.
 - Una fila en `quote_terms_settings` (igual que `lib/quotes/draftBuilder.ts`). Sin ella, el PDF pone "No incluye canalizaciones ni cableados" aunque el alcance sí los incluya: marca `includes_conduit` e `includes_cabling` según el alcance.
 - Productos nuevos de Syscom: `node scripts/import-syscom.mjs --modelos <MODELOS-CON-GUIONES> --dry` y luego sin `--dry`. El CSV usa el modelo con guiones (`MB-86-PRO-A02`, no `MB86PROA02`). Compara el costo con el de `search_syscom_products` del día.

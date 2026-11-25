@@ -2,6 +2,8 @@
 
 Escrita por Claude el 2026-11-10 a partir de unas 30 cotizaciones armadas con Leo Figueroa (ALFA-0139 a ALFA-0195) y del código real del portal. Es todo lo que necesitas para armar un borrador de cotización directo en la base de datos, sin pasar por la pantalla del editor.
 
+> **Antes de seguir, lee completo [`../modules/cotizaciones/COMO_COTIZAMOS.md`](../modules/cotizaciones/COMO_COTIZAMOS.md).** Explica el formato: secciones = sistemas homologados, ubicación en cada partida, mano de obra dentro del equipo y precio por margen o por lista. Esta guía es la ejecución de ese formato. Si se contradicen en estructura o precio, manda aquel documento.
+
 Si algo de esta guía contradice lo que Leo te diga en el momento, manda Leo. Si contradice a `.claude/skills/cotizar/SKILL.md`, manda esta guía en tarifas de mano de obra (la skill todavía cita un tabulador que Leo descartó).
 
 ## 1. Qué es esto y qué se espera de ti
@@ -11,10 +13,10 @@ ALFA IT instala tecnología de alto nivel en Guadalajara: videovigilancia, redes
 Leo pide las cotizaciones desde el celular, en pocas líneas o con una nota de voz. Tu trabajo:
 
 1. Encontrar al cliente y el proyecto sin preguntarle lo que puedes buscar tú.
-2. Elegir equipos del catálogo y repartir la mano de obra como él lo hace.
+2. Elegir equipos del catálogo, acomodarlos por sistema y ubicación, y repartir la mano de obra como él lo hace.
 3. Crear el borrador con una sola sentencia SQL.
 4. Generar el PDF, revisarlo y mandárselo.
-5. Responderle corto: una tabla de costo y venta, los supuestos que tomaste y una sola pregunta, si hace falta.
+5. Responderle corto: una tabla de costo y venta, los sistemas y ubicaciones que usaste, los supuestos que tomaste y una sola pregunta, si hace falta.
 
 Tú eliges cliente, productos, cantidades y actividades. La matemática no se improvisa: está en la plantilla de la sección 6 y replica al portal.
 
@@ -47,7 +49,7 @@ Tú eliges cliente, productos, cantidades y actividades. La matemática no se im
 | Concepto | Regla |
 |---|---|
 | Equipo | Precio de catálogo: `products.calculated_sale_price`. Leo no ajusta margen por cotización. |
-| Margen del catálogo | 30% sobre precio: `venta = costo / 0.70` (`pricing_method = 'target_margin'`, `target_margin = 30`). |
+| Método de precio | Lo define cada producto en `products.pricing_method`. `target_margin`: 30% sobre precio, `venta = costo / 0.70` (el caso normal). `public_price`: precio de lista sin IVA, con el margen que deje el canal (Sonos, KEF, Marantz, Episode y otras). Cuándo aplica cada uno: sección 5 de `COMO_COTIZAMOS.md`. |
 | Mano de obra | Venta = 2 × costo, salvo que Leo diga el precio. |
 | "Cóbrale X por…" | Exactamente X + IVA. |
 | IVA | 16% sobre el subtotal. |
@@ -80,14 +82,19 @@ Tarifas vigentes (Leo, 2026-11-09). Costo / venta en MXN:
 - Cable, conectores, cajas de conexión y bobinas van sin mano de obra.
 - Solo la programación o puesta en marcha global va como servicio ALFA aparte.
 - La cantidad de cada actividad debe ser igual a la cantidad de la partida. No se sincroniza sola.
-- **Recargo por altura:** Leo confirmó que existe, pero no los montos. Se han usado como propuesta 3 m sin recargo, 5 m +300, 6 m +500, 7 m o más +1,000 por cámara. Si lo aplicas, dile que el monto es propuesta.
+- **Recargo por altura:** Leo confirmó que existe. En ALFA-0218 él lo cobró como actividad "Recargo por instalación a doble altura", 250 de costo y 500 de venta por cámara. Para otras alturas no hay tabla confirmada: se han usado como propuesta 5 m +300, 6 m +500, 7 m o más +1,000 por cámara. Si usas un monto que no sea el de doble altura, dile que es propuesta.
 
 ### 4.3 Estructura
 
-- **Secciones por área física** (General, Fachada, Cocina, Site, Planta alta), no por tipo de equipo. Con varios sistemas en una cotización, el nombre lleva el sistema: `CCTV · Terraza`.
-- `General` lleva lo compartido: grabador, disco, cajas de conexión, bobina de cable.
+El detalle y el porqué están en `COMO_COTIZAMOS.md`. En corto:
+
+- **Secciones = sistemas homologados.** `quote_sections.name` es el nombre exacto de un sistema activo de `quotable_systems` (`Videovigilancia y CCTV`, `Redes, Cableado Estructurado y WiFi`…). Un sistema aparece una sola vez por cotización.
+- **El área física es la ubicación de cada partida** (`quote_item_area_allocations.area`): `Site`, `Fachada`, `Caja`, `Recámara principal`. Nunca es el nombre de una sección.
+- `Site` es la ubicación de lo compartido: grabador, disco, cajas de conexión, bobina de cable.
+- Si el mismo equipo va en varias ubicaciones, una partida por ubicación.
+- Versiones anteriores de esta guía pedían secciones por área (`General`, `Fachada`, `CCTV · Terraza`). Estaba mal: así no arma Leo las cotizaciones en el portal. No copies ese formato de las cotizaciones que quedaron así (por ejemplo ALFA-0188, ALFA-0195 y ALFA-0205).
 - **Opcionales:** el portal no tiene partidas opcionales. Un opcional va como otra cotización en el mismo proyecto (ALFA-0190, ALFA-0193). Dos alternativas (opción A y B) también son dos cotizaciones.
-- **Equipo del cliente** (reubicar, reutilizar): partida con `existing_customer_equipment = true`, equipo en 0 y la mano de obra dentro. Usa un producto de referencia inactivo con costo 0, por ejemplo modelo `DH-IPC-HFW2841T-AS (cliente)`.
+- **Equipo del cliente** (reubicar, reutilizar): partida con `existing_customer_equipment = true`, su ubicación con `supply_type = 'client_existing'`, equipo en 0 y la mano de obra dentro. Usa un producto de referencia inactivo con costo 0, por ejemplo modelo `DH-IPC-HFW2841T-AS (cliente)`.
 - **Nunca dejes `product_id` nulo.** La pantalla de edición ya lo tolera, pero una partida sin producto no tiene clave SAT ni costo y estorba al facturar y al comprar.
 
 ### 4.4 Cuando falta información
@@ -267,7 +274,8 @@ Todo se inserta en una sola sentencia, así que queda completo o no queda nada. 
 
 Solo editas `params`, `lines` y `acts`:
 
-- `lines`: una fila por partida. `sec` es el orden de la sección, `pos` el orden dentro de la sección. `existing = true` para equipo del cliente.
+- `lines`: una fila por partida. `sec` es el orden del sistema y `sistema` su nombre exacto en `quotable_systems`; todas las filas de un mismo sistema llevan el mismo `sec`. `pos` es el orden dentro del sistema: agrupa las partidas de una misma ubicación en posiciones seguidas. `ubicacion` es obligatoria (`Site` para lo compartido). `existing = true` para equipo del cliente.
+- Cada fila crea su partida y su ubicación (`quote_item_area_allocations`) con la cantidad completa. El mismo equipo en dos ubicaciones son dos filas.
 - `acts`: una fila por actividad de mano de obra, ligada a su partida por `(sec, pos)`. `qty` nulo significa "igual a la cantidad de la partida".
 - El precio de equipo sale de `products.calculated_sale_price`. No lo escribas a mano.
 
@@ -287,14 +295,14 @@ with params as (
 SUPUESTOS
 • …$n$::text as notes
 ),
-lines(sec, sec_name, pos, product_id, qty, existing) as (values
-  (0, 'General', 0, 71::bigint, 1::numeric, false),
-  (1, 'Fachada', 0, 45,         2,          false)
+lines(sec, sistema, pos, ubicacion, product_id, qty, existing) as (values
+  (0, 'Videovigilancia y CCTV', 0, 'Site',    71::bigint, 1::numeric, false),
+  (0, 'Videovigilancia y CCTV', 1, 'Fachada', 45,         2,          false)
 ),
 acts(sec, pos, act_pos, labor_activity_id, name, unit, cost, sale, qty) as (values
   (0, 0, 0, 11::bigint, 'Colocación de equipo',          'equipo', 150::numeric, 300::numeric, null::numeric),
-  (1, 0, 0, 11,         'Colocación de equipo',          'equipo', 150,          300,          null),
-  (1, 0, 1, 10,         'Cableado de punto A a punto B', 'punto',  300,          600,          null)
+  (0, 1, 0, 11,         'Colocación de equipo',          'equipo', 150,          300,          null),
+  (0, 1, 1, 10,         'Cableado de punto A a punto B', 'punto',  300,          600,          null)
 ),
 act_calc as (
   select a.sec, a.pos, a.act_pos, a.labor_activity_id, a.name, a.unit, a.cost, a.sale,
@@ -321,6 +329,10 @@ ok as (
      and (select count(*) from act_calc) = (select count(*) from acts)
      and not exists (select 1 from calc
                      where unit_sale is null or (not existing and unit_sale <= 0 and labor_total <= 0))
+     and not exists (select 1 from lines l
+                     where not exists (select 1 from quotable_systems s
+                                       where s.name = l.sistema and s.is_active))
+     and not exists (select 1 from lines where nullif(btrim(ubicacion), '') is null)
      and coalesce((select indirect_cost_percent from company_settings limit 1), 0) = 0 as pass
 ),
 tot as (
@@ -360,7 +372,7 @@ q as (
 ),
 sec as (
   insert into quote_sections (quote_id, name, sort_order, equipment_total, labor_total, total)
-  select q.id, min(c.sec_name), c.sec, round(sum(c.eq_usd), 2), sum(c.labor_total),
+  select q.id, min(c.sistema), c.sec, round(sum(c.eq_usd), 2), sum(c.labor_total),
          round(sum(c.eq_mxn + c.labor_total), 2)
   from calc c cross join q
   group by q.id, c.sec
@@ -379,6 +391,15 @@ it as (
   from calc c cross join q join sec s on s.sort_order = c.sec
   returning id, quote_section_id, sort_order
 ),
+ub as (
+  insert into quote_item_area_allocations (quote_item_id, area, quantity, supply_type, sort_order)
+  select it.id, btrim(c.ubicacion), c.qty,
+         case when c.existing then 'client_existing' else 'new_equipment' end, 0
+  from calc c
+  join sec s on s.sort_order = c.sec
+  join it on it.quote_section_id = s.id and it.sort_order = c.pos
+  returning id
+),
 la as (
   insert into quote_item_labor_activities (quote_item_id, labor_activity_id, name_snapshot, quantity, unit,
     internal_unit_cost_mxn, sale_unit_price_mxn, internal_total_mxn, sale_total_mxn, sort_order)
@@ -396,14 +417,15 @@ terms as (
   returning id
 )
 select (select pass from ok) as creada, q.id as quote_id, q.quote_number, q.subtotal_mxn, q.total_mxn,
-       (select count(*) from it) as partidas, (select count(*) from la) as actividades
+       (select count(*) from it) as partidas, (select count(*) from ub) as ubicaciones,
+       (select count(*) from la) as actividades
 from (select 1) x left join q on true;
 ```
 
 Cómo leer el resultado:
 
 - `creada = true` con `quote_id`: listo.
-- `creada = false`: no se insertó nada. Causas: un `product_id` que no existe, una actividad ligada a una partida que no está en `lines`, un producto sin `calculated_sale_price` y sin mano de obra, o el costo indirecto de la empresa dejó de ser 0 (la plantilla no lo calcula; en ese caso usa el editor del portal).
+- `creada = false`: no se insertó nada. Causas: un `sistema` que no es un sistema activo de `quotable_systems`, una `ubicacion` vacía, un `product_id` que no existe, una actividad ligada a una partida que no está en `lines`, un producto sin `calculated_sale_price` y sin mano de obra, o el costo indirecto de la empresa dejó de ser 0 (la plantilla no lo calcula; en ese caso usa el editor del portal).
 
 Qué significa cada columna, porque los nombres engañan:
 
@@ -418,9 +440,11 @@ Qué significa cada columna, porque los nombres engañan:
 | `quotes.equipment_total` | USD. `labor_total`, `subtotal_mxn`, `iva_mxn`, `total_mxn`, `grand_total` en MXN. |
 | `quotes.currency` | Siempre `'USD'`. |
 | `quote_items.invoice_description_snapshot` | Marca + modelo + nombre: así sale el concepto en la factura. |
+| `quote_sections.name` | Nombre del sistema homologado. |
+| `quote_item_area_allocations` | Ubicación de la partida: `area`, `quantity` y `supply_type` (`new_equipment` o `client_existing`). La suma de `quantity` debe ser la cantidad de la partida. |
 | `quote_terms_settings` | Una fila por cotización. Sin ella, el PDF dice "No incluye canalizaciones ni cableados" aunque el alcance sí los incluya. |
 
-Estado de la plantilla: validada contra producción con `EXPLAIN` el 2026-11-10 (nombres de columnas y tipos correctos) y sus fórmulas coinciden al centavo con ALFA-0188, ALFA-0192 y ALFA-0195. No se ejecutó de punta a punta para no crear una cotización de prueba en producción: revisa con cuidado la primera que hagas con ella.
+Estado de la plantilla: validada contra producción con `EXPLAIN` el 2026-11-10 y de nuevo el 2026-11-25, al agregar sistemas y ubicaciones (nombres de columnas y tipos correctos). Sus fórmulas de precio no cambiaron y coinciden al centavo con ALFA-0188, ALFA-0192 y ALFA-0195. No se ejecutó de punta a punta para no crear una cotización de prueba en producción: revisa con cuidado la primera que hagas con ella.
 
 Límites de la plantilla: una cotización directa, sin descuento, sin viáticos, sin misceláneos y sin costo indirecto. La numeración toma el máximo + 1; no lances dos creaciones al mismo tiempo.
 
@@ -445,12 +469,17 @@ select q.id, q.quote_number, q.status,
   (select count(*) from quote_items i join products p on p.id = i.product_id
      where i.quote_id = q.id and not i.existing_customer_equipment
        and p.cost_price > 0 and i.unit_equipment_price < p.cost_price) as bajo_costo,
+  (select count(*) from quote_sections s where s.quote_id = q.id
+     and not exists (select 1 from quotable_systems y where y.name = s.name and y.is_active)) as seccion_no_homologada,
+  (select count(*) from quote_items i where i.quote_id = q.id
+     and i.quantity <> coalesce((select sum(a.quantity) from quote_item_area_allocations a
+                                 where a.quote_item_id = i.id), 0)) as ubicacion_descuadrada,
   exists (select 1 from quote_terms_settings t where t.quote_id = q.id) as tiene_terminos
 from quotes q
 where q.id = <quote_id>;
 ```
 
-Debe cumplirse: `subtotal_mxn = suma_partidas = suma_secciones`, `labor_total = suma_actividades`, `iva_ok` y `total_ok` en `true`, los cuatro contadores en 0 y `tiene_terminos` en `true`.
+Debe cumplirse: `subtotal_mxn = suma_partidas = suma_secciones`, `labor_total = suma_actividades`, `iva_ok` y `total_ok` en `true`, los seis contadores en 0 y `tiene_terminos` en `true`. `ubicacion_descuadrada` cuenta las partidas sin ubicación o con ubicaciones que no suman su cantidad.
 
 ## 8. Corregir un borrador
 
@@ -474,8 +503,8 @@ Todo esto ocurre en el portal, con la sesión de Leo y su "sí" en cada paso:
 
 | Entrada | Cuándo conviene |
 |---|---|
-| Plantilla SQL de la sección 6 | Caso normal. Control total de secciones, áreas y actividades. |
-| `buildDraftQuote()` en `lib/quotes/draftBuilder.ts` | Desde código del servidor. Recibe `client_id`, `items` y `labor`. Pone todos los productos en una sección "General" y la mano de obra suelta en una sección "Mano de obra" con `product_id` nulo, que es justo lo que Leo no quiere; sirve para paquetes simples. |
+| Plantilla SQL de la sección 6 | Caso normal. Control total de sistemas, ubicaciones y actividades. |
+| `buildDraftQuote()` en `lib/quotes/draftBuilder.ts` | Desde código del servidor. Recibe `client_id`, `items` y `labor`. Pone todos los productos en una sección "General", sin sistema ni ubicaciones, y la mano de obra suelta en una sección "Mano de obra" con `product_id` nulo. Es justo lo que Leo no quiere: no lo uses para cotizaciones que vea el cliente sin reacomodarlas en el editor. |
 | `POST /api/quotes/draft-from-intent` con `{ "transcript": "…" }` | Texto libre a borrador. Usa un modelo por dentro, tiene tope de gasto mensual y no se ha probado de punta a punta. |
 | `/quotes/templates` | Paquetes repetidos. Leo aún no define las plantillas reales. |
 
@@ -483,6 +512,7 @@ Todo esto ocurre en el portal, con la sesión de Leo y su "sí" en cada paso:
 
 | Error | Consecuencia | Regla |
 |---|---|---|
+| Secciones por área (`General`, `Fachada`, `CCTV · Terraza`) y partidas sin ubicación | El cliente no ve el costo por sistema y Leo tiene que reacomodar todo en el editor | Secciones = sistemas homologados; el área va en la ubicación de la partida. |
 | Sección "Mano de obra" con servicios sueltos | Leo rehízo ALFA-0181 | La mano de obra va dentro de cada equipo. |
 | Usar el tabulador de René | MXN 23,000 de más en El Palomar 284 | Cableado 300/600, colocación 150/300. |
 | Darle al aliado un % del precio | Leo se alarmó | El aliado recibe % de la utilidad. |
@@ -496,13 +526,14 @@ Todo esto ocurre en el portal, con la sesión de Leo y su "sí" en cada paso:
 
 ## 12. Pendiente de confirmar con Leo
 
-- Montos del recargo por altura.
+- Montos del recargo por altura fuera de doble altura (250/500).
 - Cuándo aplican costo indirecto y misceláneos (hoy nunca se usan).
 - Retención estándar de grabación (se ha usado 30 días).
 - Criterio para elegir TurboHD en lugar de IP.
 
 ## Documentos relacionados
 
+- [`../modules/cotizaciones/COMO_COTIZAMOS.md`](../modules/cotizaciones/COMO_COTIZAMOS.md): lectura obligatoria; cómo pensamos el formato.
 - [`../../.claude/skills/cotizar/SKILL.md`](../../.claude/skills/cotizar/SKILL.md)
 - [`../modules/cotizaciones/MODULE_CONTEXT.md`](../modules/cotizaciones/MODULE_CONTEXT.md)
 - [`SECURITY_RULES.md`](./SECURITY_RULES.md)

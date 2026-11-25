@@ -4,6 +4,8 @@ Contexto operativo para agentes que modifiquen cotizaciones, versiones, aprobaci
 
 Estado inferido: activo y critico para ventas.
 
+> Si vas a **armar o revisar una cotizacion** (no a modificar codigo), lee primero [`COMO_COTIZAMOS.md`](./COMO_COTIZAMOS.md): formato por sistema y ubicacion, mano de obra dentro del equipo y precio por margen o por lista. Es lectura obligatoria.
+
 ## Que Hace
 
 Gestiona cotizaciones comerciales con versiones, secciones, partidas, mano de obra, descuentos, viaticos, aliados comerciales, contexto/diagnostico, aprobacion y salida PDF/impresion.
@@ -560,4 +562,5 @@ Checklist minimo segun tipo de cambio:
 - [`../../ai/MODULE_INDEX.md`](../../ai/MODULE_INDEX.md)
 - [`../../ai/SECURITY_RULES.md`](../../ai/SECURITY_RULES.md)
 - [`../../QUOTE_BLINDS_RELEASE_SPRINT5.md`](../../QUOTE_BLINDS_RELEASE_SPRINT5.md)
+- [`COMO_COTIZAMOS.md`](./COMO_COTIZAMOS.md): lectura obligatoria para cotizar; como pensamos sistemas, ubicaciones, mano de obra y metodo de precio.
 - [`../../ai/GUIA_COTIZAR_GROKBOT.md`](../../ai/GUIA_COTIZAR_GROKBOT.md): metodo de cotizacion de Leo y plantilla SQL para crear borradores desde el backend.
