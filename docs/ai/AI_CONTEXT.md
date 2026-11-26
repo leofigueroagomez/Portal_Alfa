@@ -56,3 +56,6 @@ Ver indice completo en [`MODULE_INDEX.md`](./MODULE_INDEX.md).
 - [`MODULE_INDEX.md`](./MODULE_INDEX.md)
 - [`SECURITY_RULES.md`](./SECURITY_RULES.md)
 - [`../SETUP_SANDBOX.md`](../SETUP_SANDBOX.md)
+- [`GUIA_COTIZAR_GROKBOT.md`](./GUIA_COTIZAR_GROKBOT.md): cotizar desde el backend (GrokBot).
+- [`GUIA_COMMUNITY_MANAGER_GROKBOT.md`](./GUIA_COMMUNITY_MANAGER_GROKBOT.md): Community Manager de ALFA en Instagram y Facebook vía Graph API (GrokBot).
+- [`GUIA_SEO_GROKBOT.md`](./GUIA_SEO_GROKBOT.md): agente SEO de ALFA (Search Console, GA4, PageSpeed, propuestas y PRs) (GrokBot).
