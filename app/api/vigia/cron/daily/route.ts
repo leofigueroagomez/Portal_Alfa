@@ -3,6 +3,7 @@ import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
 import { runVigia } from "@/lib/vigia/runner";
 import { renderVigiaBrief, sendVigiaBrief } from "@/lib/vigia/brief";
 import { runAutoInvestigations } from "@/lib/vigia/investigate";
+import { VIGIA_DISABLED_MESSAGE, VIGIA_ENABLED } from "@/lib/vigia/disabled";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -17,6 +18,10 @@ export async function POST(request: Request) {
 }
 
 async function handleVigiaDaily(request: Request) {
+  if (!VIGIA_ENABLED) {
+    return NextResponse.json({ ok: false, error: VIGIA_DISABLED_MESSAGE }, { status: 410 });
+  }
+
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
   const url = new URL(request.url);
