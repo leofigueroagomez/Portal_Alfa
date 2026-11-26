@@ -190,6 +190,16 @@ curl -s https://www.alfait.com.mx/servicios/iluminacion | grep -o '<link rel="ca
 curl -s -o /dev/null -w "%{http_code} -> %{redirect_url}\n" https://www.alfait.com.mx/domotica.html
 ```
 
+## Analítica (GA4) solo en el sitio público
+
+Desde el 2026-11-26 (PR 38) el sitio mide visitas con GA4 (`G-KTWNZVD8G6`, propiedad "ALFA AV" `223313825`), cargado por `components/AnalyticsScripts.tsx` desde el layout raíz.
+
+- Ese layout también sirve a ALFA OS, al portal de clientes y al login. Para que sus títulos y rutas (clientes, folios, montos) no lleguen a Google ni a Meta, `lib/analyticsScope.ts` define una **lista blanca** de rutas públicas. Fuera de ella no se cargan GA4, GTM ni Meta Pixel, y al navegar a una ruta privada se pone `ga-disable-<ID>`.
+- `send_page_view: false` en el config: las vistas las manda `AnalyticsScripts` solo en rutas públicas. En el flujo de GA4 está apagada la medición mejorada de "cambios de historial del navegador"; no la reactives.
+- Una ruta pública nueva no se mide hasta agregarla a `lib/analyticsScope.ts`.
+- Variable en Vercel: `NEXT_PUBLIC_GA_MEASUREMENT_ID` (Preview y Producción). Al ser `NEXT_PUBLIC_`, cambiarla requiere un despliegue nuevo.
+- Verificación: `curl -s https://www.alfait.com.mx/ | grep -o 'gtag/js?id=G-[A-Z0-9]*'` debe devolver el ID; en `/login` no debe aparecer.
+
 ## 6. Pendiente (fuera del código)
 
 Requiere acceso de Leo, no se puede hacer desde el repo:
