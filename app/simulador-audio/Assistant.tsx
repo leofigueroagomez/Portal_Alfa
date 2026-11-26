@@ -138,17 +138,20 @@ function EquipmentRow({ line }: { line: EquipmentLine }) {
           {line.name.split(" ")[0]}
         </span>
       )}
-      <div className="min-w-0 flex-1">
-        <p className="text-[15px] font-semibold text-[#111111]">{line.name}</p>
-        <p className="mt-0.5 text-[13px] text-[#77797F]">{line.role}</p>
+      {/* Abajo de 360 px la cantidad baja a su propio renglon: junto al nombre no cabe. */}
+      <div className="min-w-0 flex-1 min-[360px]:flex min-[360px]:items-center min-[360px]:gap-4">
+        <div className="min-w-0 flex-1">
+          <p className="text-[15px] font-semibold text-[#111111]">{line.name}</p>
+          <p className="mt-0.5 text-[13px] text-[#77797F]">{line.role}</p>
+        </div>
+        <p className="mt-1 text-[13px] font-medium text-[#33353B] min-[360px]:mt-0 min-[360px]:text-right">
+          {line.count > 0
+            ? line.count === 1
+              ? "1 pieza"
+              : `${line.count} piezas`
+            : "Según el tamaño"}
+        </p>
       </div>
-      <p className="text-right text-[13px] font-medium text-[#33353B]">
-        {line.count > 0
-          ? line.count === 1
-            ? "1 pieza"
-            : `${line.count} piezas`
-          : "Según el tamaño"}
-      </p>
     </li>
   );
 }
