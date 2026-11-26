@@ -23,6 +23,7 @@ import {
   Check,
 } from "lucide-react";
 import {
+  BlogCta,
   BlogPost,
   getPublicBlogPostBySlug,
   getRelatedBlogPosts,
@@ -39,6 +40,40 @@ const siteUrl = SITE_URL;
 
 const WHATSAPP_PHONE =
   process.env.NEXT_PUBLIC_WHATSAPP_PHONE || "523318574884";
+
+/**
+ * Boton de una llamada a la accion: liga interna si el articulo la trae; si
+ * no, WhatsApp con el mensaje del articulo.
+ */
+function CtaButton({
+  cta,
+  whatsappUrl,
+  linkClassName,
+  whatsappClassName,
+  iconClassName,
+}: {
+  cta: BlogCta;
+  whatsappUrl: string;
+  linkClassName: string;
+  whatsappClassName: string;
+  iconClassName: string;
+}) {
+  if (cta.href) {
+    return (
+      <Link href={cta.href} className={linkClassName}>
+        <span>{cta.label}</span>
+        <ArrowRight className={iconClassName} />
+      </Link>
+    );
+  }
+
+  return (
+    <a href={whatsappUrl} target="_blank" rel="noreferrer" className={whatsappClassName}>
+      <MessageCircle className={iconClassName} />
+      <span>{cta.label}</span>
+    </a>
+  );
+}
 
 export async function generateStaticParams() {
   return STATIC_BLOG_POSTS.map((post: BlogPost) => ({
@@ -286,7 +321,7 @@ export default async function BlogPostPage({ params }: Props) {
             <div className="rounded-2xl border border-white/10 bg-[#141418] p-6 sm:p-8 space-y-5">
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#F0B8C0]">
                 <Sparkles className="h-4 w-4 text-[#B84A5A]" />
-                <span>Ficha Técnica Rápida · Hikvision DS-KLM28-12</span>
+                <span>{post.quickSpecsTitle}</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                 {post.technicalSpecs.slice(0, 6).map((spec) => (
@@ -436,35 +471,48 @@ export default async function BlogPostPage({ params }: Props) {
               </section>
             ))}
 
-            {/* Mid-Article WhatsApp Quote Banner */}
-            <div className="rounded-3xl border border-emerald-500/30 bg-gradient-to-br from-emerald-950/40 via-[#121814] to-[#0A0C0B] p-8 sm:p-10 shadow-2xl space-y-5">
-              <div className="flex items-center gap-2.5 text-xs font-bold uppercase tracking-wider text-emerald-400">
-                <MessageCircle className="h-4 w-4" />
-                <span>Atención Técnica Inmediata</span>
+            {/* Mid-Article Call To Action (liga interna o WhatsApp) */}
+            <div
+              className={`rounded-3xl border p-8 sm:p-10 shadow-2xl space-y-5 ${
+                post.midCta.href
+                  ? "border-[#B84A5A]/40 bg-gradient-to-br from-[#2A1016] via-[#161214] to-[#0E0E10]"
+                  : "border-emerald-500/30 bg-gradient-to-br from-emerald-950/40 via-[#121814] to-[#0A0C0B]"
+              }`}
+            >
+              <div
+                className={`flex items-center gap-2.5 text-xs font-bold uppercase tracking-wider ${
+                  post.midCta.href ? "text-[#F0B8C0]" : "text-emerald-400"
+                }`}
+              >
+                {post.midCta.href ? (
+                  <Sparkles className="h-4 w-4" />
+                ) : (
+                  <MessageCircle className="h-4 w-4" />
+                )}
+                <span>{post.midCta.eyebrow}</span>
               </div>
               <h2 className="text-2xl sm:text-3xl font-bold font-serif text-white">
-                ¿Deseas implementar el sistema Hikvision DS-KLM28-12 en tu proyecto?
+                {post.midCta.title}
               </h2>
               <p className="text-sm text-zinc-300 font-light leading-relaxed">
-                Cotiza directamente con nuestros ingenieros certificados de ALFA. Evaluamos las dimensiones de tu inmueble, cálculo de usuarios y requerimientos de red sin costo.
+                {post.midCta.text}
               </p>
               <div className="pt-2">
-                <a
-                  href={whatsappUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-6 text-sm font-semibold uppercase tracking-wider text-white transition shadow-lg shadow-emerald-950"
-                >
-                  <MessageCircle className="h-5 w-5" />
-                  <span>Cotizar por WhatsApp Ahora</span>
-                </a>
+                <CtaButton
+                  cta={post.midCta}
+                  whatsappUrl={whatsappUrl}
+                  linkClassName="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#7A1F2B] hover:bg-[#5A1320] px-6 text-sm font-semibold uppercase tracking-wider text-white transition shadow-lg shadow-[#7A1F2B]/30"
+                  whatsappClassName="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-6 text-sm font-semibold uppercase tracking-wider text-white transition shadow-lg shadow-emerald-950"
+                  iconClassName="h-5 w-5"
+                />
               </div>
             </div>
 
             {/* Full Technical Specs Section */}
+            {post.fullSpecsTitle ? (
             <section id="especificaciones-completas" className="space-y-6 scroll-mt-28">
               <h2 className="text-2xl sm:text-3xl font-bold font-serif text-white tracking-tight border-b border-white/10 pb-4">
-                Especificaciones Técnicas Detalladas
+                {post.fullSpecsTitle}
               </h2>
               <div className="divide-y divide-white/10 rounded-2xl border border-white/10 bg-[#141418] overflow-hidden">
                 {post.technicalSpecs.map((spec) => (
@@ -482,6 +530,7 @@ export default async function BlogPostPage({ params }: Props) {
                 ))}
               </div>
             </section>
+            ) : null}
 
             {/* FAQ Accordion */}
             {post.faq.length > 0 && (
@@ -497,31 +546,31 @@ export default async function BlogPostPage({ params }: Props) {
             {/* End of Article Final CTA Card */}
             <div className="rounded-3xl border border-white/15 bg-gradient-to-r from-[#1E1216] via-[#161214] to-[#0E0E10] p-8 sm:p-10 space-y-6">
               <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#F0B8C0]">
-                Integración Oficial en México
+                {post.closingCta.eyebrow}
               </p>
               <h2 className="text-2xl sm:text-3xl font-bold font-serif text-white">
-                Solución Llave en Mano para Corporativos y Residencias
+                {post.closingCta.title}
               </h2>
               <p className="text-sm text-zinc-300 font-light leading-relaxed">
-                En ALFA cubrimos desde la ingeniería de diseño, suministro directo con garantía de fábrica, hasta la instalación física, canalización, configuración en red y soporte en nuestra plataforma ALFA OS.
+                {post.closingCta.text}
               </p>
               <div className="flex flex-wrap gap-4 pt-2">
-                <a
-                  href={whatsappUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#7A1F2B] hover:bg-[#5A1320] px-6 text-sm font-semibold uppercase tracking-wider text-white transition shadow-lg shadow-[#7A1F2B]/30"
-                >
-                  <MessageCircle className="h-4 w-4" />
-                  <span>Pedir Cotización por WhatsApp</span>
-                </a>
-                <Link
-                  href="/servicios/control-de-acceso"
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-6 text-sm font-semibold uppercase tracking-wider text-white transition hover:bg-white/10"
-                >
-                  <span>Ver Control de Acceso</span>
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
+                <CtaButton
+                  cta={post.closingCta}
+                  whatsappUrl={whatsappUrl}
+                  linkClassName="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#7A1F2B] hover:bg-[#5A1320] px-6 text-sm font-semibold uppercase tracking-wider text-white transition shadow-lg shadow-[#7A1F2B]/30"
+                  whatsappClassName="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#7A1F2B] hover:bg-[#5A1320] px-6 text-sm font-semibold uppercase tracking-wider text-white transition shadow-lg shadow-[#7A1F2B]/30"
+                  iconClassName="h-4 w-4"
+                />
+                {post.relatedSolutionHref ? (
+                  <Link
+                    href={post.relatedSolutionHref}
+                    className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-6 text-sm font-semibold uppercase tracking-wider text-white transition hover:bg-white/10"
+                  >
+                    <span>{post.relatedSolutionCta || post.relatedSolutionLabel}</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                ) : null}
               </div>
             </div>
           </article>
@@ -529,27 +578,39 @@ export default async function BlogPostPage({ params }: Props) {
           {/* Sticky Desktop Sidebar (Right, 4 cols) */}
           <aside className="hidden lg:block lg:col-span-4 space-y-8">
             <div className="sticky top-28 space-y-6">
-              {/* WhatsApp Quick Action Card */}
-              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/20 p-6 space-y-4 shadow-xl">
-                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-400">
-                  <Phone className="h-4 w-4" />
-                  <span>Cotización Inmediata</span>
+              {/* Quick Action Card (liga interna o WhatsApp) */}
+              <div
+                className={`rounded-2xl border p-6 space-y-4 shadow-xl ${
+                  post.sidebarCta.href
+                    ? "border-[#B84A5A]/40 bg-[#7A1F2B]/15"
+                    : "border-emerald-500/30 bg-emerald-950/20"
+                }`}
+              >
+                <div
+                  className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wider ${
+                    post.sidebarCta.href ? "text-[#F0B8C0]" : "text-emerald-400"
+                  }`}
+                >
+                  {post.sidebarCta.href ? (
+                    <Sparkles className="h-4 w-4" />
+                  ) : (
+                    <Phone className="h-4 w-4" />
+                  )}
+                  <span>{post.sidebarCta.eyebrow}</span>
                 </div>
                 <h3 className="text-lg font-bold font-serif text-white">
-                  Hikvision DS-KLM28-12
+                  {post.sidebarCta.title}
                 </h3>
                 <p className="text-xs text-zinc-300 font-light leading-relaxed">
-                  Solicita presupuesto personalizado con módulos adicionales o programación a la medida.
+                  {post.sidebarCta.text}
                 </p>
-                <a
-                  href={whatsappUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="w-full flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold uppercase tracking-wider text-white transition shadow-md"
-                >
-                  <MessageCircle className="h-4 w-4" />
-                  <span>Contactar por WhatsApp</span>
-                </a>
+                <CtaButton
+                  cta={post.sidebarCta}
+                  whatsappUrl={whatsappUrl}
+                  linkClassName="w-full flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#7A1F2B] hover:bg-[#5A1320] text-xs font-semibold uppercase tracking-wider text-white transition shadow-md"
+                  whatsappClassName="w-full flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold uppercase tracking-wider text-white transition shadow-md"
+                  iconClassName="h-4 w-4"
+                />
               </div>
 
               {/* Table of Contents */}
@@ -567,12 +628,14 @@ export default async function BlogPostPage({ params }: Props) {
                       {toc.title}
                     </a>
                   ))}
-                  <a
-                    href="#especificaciones-completas"
-                    className="block text-xs text-zinc-400 hover:text-white transition font-light leading-normal py-1 border-l border-white/10 pl-3 hover:border-[#B84A5A]"
-                  >
-                    Especificaciones Detalladas
-                  </a>
+                  {post.fullSpecsTitle ? (
+                    <a
+                      href="#especificaciones-completas"
+                      className="block text-xs text-zinc-400 hover:text-white transition font-light leading-normal py-1 border-l border-white/10 pl-3 hover:border-[#B84A5A]"
+                    >
+                      Especificaciones Detalladas
+                    </a>
+                  ) : null}
                 </nav>
               </div>
 
@@ -615,6 +678,12 @@ export default async function BlogPostPage({ params }: Props) {
             </Link>
             <Link href="/blog" className="hover:text-zinc-300 transition text-[#F0B8C0]">
               Blog
+            </Link>
+            <Link href="/servicios/audio-video" className="hover:text-zinc-300 transition">
+              Audio y Video
+            </Link>
+            <Link href="/simulador-audio" className="hover:text-zinc-300 transition">
+              Simulador de Audio
             </Link>
             <Link href="/servicios/control-de-acceso" className="hover:text-zinc-300 transition">
               Control de Acceso

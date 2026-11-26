@@ -204,10 +204,10 @@ export default async function BlogPage() {
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
                     <div className="absolute bottom-4 left-4 right-4 rounded-xl border border-white/10 bg-black/70 backdrop-blur-md p-3.5">
                       <p className="text-[11px] font-bold uppercase tracking-wider text-[#F0B8C0]">
-                        Modelo DS-KLM28-12
+                        {featuredPost.spotlight.title}
                       </p>
                       <p className="text-xs text-zinc-300 mt-0.5 font-light">
-                        12 puertas · Pantalla táctil 8" · Reconocimiento facial 20K rostros
+                        {featuredPost.spotlight.text}
                       </p>
                     </div>
                   </div>

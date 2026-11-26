@@ -69,6 +69,11 @@ const brands = [
 
 const faqItems: FaqItem[] = [
   {
+    question: "¿Cómo sé cuántas bocinas necesito y dónde van?",
+    answer:
+      "Con nuestro Simulador de Audio en línea (alfait.com.mx/simulador-audio). Contestas unas preguntas, pones tus medidas o subes tu plano, y te muestra cuántas bocinas son, dónde van y qué tan fuerte se va a escuchar. Es una estimación inicial; el diseño final lo ajusta un ingeniero de ALFA en sitio.",
+  },
+  {
     question: "¿En qué etapa de la obra o remodelación se debe planear el audio y video?",
     answer:
       "Lo ideal es intervenir desde la etapa de anteproyecto o diseño arquitectónico para canalizar tuberías ocultas, calcular la acústica y prever nichos o refuerzos para altavoces arquitectónicos antes del cierre de plafones y muros.",
@@ -134,8 +139,15 @@ export default function AudioVideoPage() {
                 Solicitar diagnóstico
               </Link>
               <Link
+                href="/simulador-audio"
+                className="inline-flex min-h-12 items-center justify-center gap-2 border border-white/24 px-6 text-sm font-semibold text-white transition hover:border-white hover:bg-white/10"
+              >
+                Probar el simulador de audio
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+              <Link
                 href="#proyectos"
-                className="inline-flex min-h-12 items-center justify-center border border-white/24 px-6 text-sm font-semibold text-white transition hover:border-white hover:bg-white/10"
+                className="inline-flex min-h-12 items-center justify-center px-2 text-sm font-semibold text-white/80 transition hover:text-white"
               >
                 Ver proyectos
               </Link>
@@ -168,6 +180,60 @@ export default function AudioVideoPage() {
               <p className="text-2xl font-semibold">{card}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Novedad: Simulador de Audio */}
+      <section
+        id="simulador"
+        className="bg-[#F7F6F3] px-5 py-20 sm:px-8 lg:px-12"
+      >
+        <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+          <Link
+            href="/simulador-audio"
+            aria-label="Abrir el Simulador de Audio"
+            className="group relative block overflow-hidden rounded-[28px] bg-white shadow-2xl shadow-black/10"
+          >
+            <Image
+              src="/simulador/capturas/simulador-plano.jpg"
+              alt="Simulador de Audio de ALFA con cuatro bocinas de plafón y su cobertura sobre un espacio de 5 por 4 metros"
+              width={1800}
+              height={1200}
+              sizes="(min-width: 1024px) 52vw, 100vw"
+              className="h-auto w-full transition duration-500 ease-out group-hover:scale-[1.02]"
+            />
+          </Link>
+
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#7A1F2B]">
+              Nuevo · Simulador de Audio
+            </p>
+            <h2 className="mt-5 text-4xl font-semibold leading-tight sm:text-5xl">
+              ¿Cuántas bocinas necesita tu espacio?
+            </h2>
+            <p className="mt-6 text-lg leading-9 text-[#555555]">
+              Contesta unas preguntas y recibe una solución inicial con los
+              equipos que instalamos. Después afínala sobre tus medidas o sobre
+              tu plano: cuántas bocinas son, dónde van y qué tan fuerte se va a
+              escuchar.
+            </p>
+            <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <Link
+                href="/simulador-audio"
+                className="inline-flex min-h-12 items-center justify-center gap-2 bg-[#7A1F2B] px-6 text-sm font-semibold text-white transition hover:bg-[#5A1320]"
+              >
+                Abrir el simulador
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+              <Link
+                href="/blog/simulador-de-audio-cuantas-bocinas-necesita-tu-espacio"
+                className="inline-flex min-h-12 items-center justify-center gap-2 px-2 text-sm font-semibold text-[#7A1F2B] transition hover:text-[#5A1320]"
+              >
+                Cómo funciona
+                <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+              </Link>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -368,6 +434,9 @@ export default function AudioVideoPage() {
           <div className="flex items-center gap-6">
             <Link href="/" className="hover:text-zinc-300 transition">
               Inicio
+            </Link>
+            <Link href="/simulador-audio" className="hover:text-zinc-300 transition">
+              Simulador de Audio
             </Link>
             <Link href="/marcas/sonos" className="hover:text-zinc-300 transition text-[#F0B8C0]">
               Catálogo Sonos

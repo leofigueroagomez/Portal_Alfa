@@ -21,6 +21,24 @@ Estado: fase 1 en codigo (2026-11-23). La migracion `sql/20261123_simulador_audi
 
 Logica en `lib/simuladorAudio/`: `assistant.ts` (preguntas y reglas del asistente), `geometry.ts` (calculo), `speakers.ts` (catalogo), `design.ts` (modelo y validacion del diseño), `access.ts` (pase y codigos), `leads.ts` (prospecto), `email.ts` (correo). Pruebas en `tests/simuladorAudio.test.ts`.
 
+## Como se llega desde el sitio publico
+
+El simulador se anuncia como novedad (2026-11-23). Si se retira la etiqueta "Nuevo", hay que quitarla en estos lugares:
+
+| Lugar | Archivo |
+| --- | --- |
+| Franja superior de la portada ("Nuevo · Simulador de Audio…") | `components/PublicLandingClient.tsx` |
+| Menu "Sistemas & Soluciones" (escritorio y movil), con insignia "Nuevo" | `navSystems` en `components/PublicLandingClient.tsx` |
+| Seccion "Nuevo · Simulador de Audio" de la portada, despues de "Audio premium" | `components/PublicLandingClient.tsx` |
+| Pie de la portada, columna Soluciones | `components/PublicLandingClient.tsx` |
+| Pagina de audio: boton del encabezado, seccion `#simulador`, pregunta frecuente y pie | `app/servicios/audio-video/page.tsx` |
+| Entrada de blog `/blog/simulador-de-audio-cuantas-bocinas-necesita-tu-espacio` (destacada: es la primera de la lista) | `lib/blogData.ts` |
+
+- Los clics de la portada mandan el evento `click_simulador_audio` con `placement` (`home_aviso`, `home_seccion`, `home_imagen`).
+- Las capturas de pantalla viven en `public/simulador/capturas/` (`simulador-plano.jpg`, `asistente-solucion.jpg`, `simulador-volumen.jpg`). Se tomaron del simulador en local el 2026-11-23; si la interfaz cambia, hay que volver a tomarlas.
+- La entrada de blog no muestra precios y dice que el simulador es "sin costo" y que el plano no se sube al servidor. Si alguna de las dos cosas cambia, corregir el articulo.
+- Para que el blog admitiera un segundo articulo, la plantilla `app/blog/[slug]/page.tsx` dejo de traer textos fijos del articulo de lockers: ahora cada articulo define en `lib/blogData.ts` su tema (`topicName`), el recuadro de datos (`quickSpecsTitle`, `fullSpecsTitle`), sus llamadas a la accion (`midCta`, `sidebarCta`, `closingCta`; con `href` son liga interna, sin el abren WhatsApp) y el recuadro del destacado (`spotlight`).
+
 ## Acceso
 
 1. **Con sesion de ALFA** (interno o portal cliente, perfil activo): entra directo. Ligas en el menu de ALFA OS (`components/AdminShell.tsx`) y en el portal cliente (`app/portal/page.tsx`). La sesion vive en el host donde se inicio, asi que la liga es relativa.

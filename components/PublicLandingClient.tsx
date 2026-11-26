@@ -9,6 +9,7 @@ import { getStoredAttribution } from "@/lib/utmTracking";
 import { COVERAGE_LINE, NAP } from "@/lib/localBusiness";
 import {
   ArrowRight,
+  AudioLines,
   Building2,
   Camera,
   CheckCircle2,
@@ -108,6 +109,13 @@ const navSystems = [
     subtitle: "McIntosh, Bowers & Wilkins, Sonos",
     href: "/servicios/audio-video",
     icon: MonitorSpeaker,
+  },
+  {
+    title: "Simulador de Audio",
+    subtitle: "Diseña el sonido de tu espacio en línea",
+    href: "/simulador-audio",
+    icon: AudioLines,
+    badge: "Nuevo",
   },
   {
     title: "Redes e Infraestructura de Alta Velocidad",
@@ -374,6 +382,22 @@ export default function PublicLanding() {
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#0F0F0F] text-white">
+      {/* Aviso de novedad: Simulador de Audio */}
+      <Link
+        href="/simulador-audio"
+        onClick={() => trackEvent("click_simulador_audio", { placement: "home_aviso" })}
+        className="group block bg-[#7A1F2B] px-5 py-2.5 text-center text-xs font-medium text-white transition hover:bg-[#8A2533] sm:text-[13px]"
+      >
+        <span className="mr-2 font-semibold uppercase tracking-[0.2em] text-[#F0B8C0]">
+          Nuevo
+        </span>
+        Simulador de Audio: diseña el sonido de tu espacio en minutos
+        <ArrowRight
+          className="ml-2 inline h-3.5 w-3.5 transition group-hover:translate-x-0.5"
+          aria-hidden="true"
+        />
+      </Link>
+
       {/* Header Bar */}
       <header className="relative border-b border-white/10 px-5 py-5 sm:px-8 lg:px-12 z-40 bg-[#0F0F0F]">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
@@ -839,6 +863,62 @@ export default function PublicLanding() {
               </Link>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Novedad: Simulador de Audio */}
+      <section className="bg-[#F8F7F5] px-5 py-16 text-[#0F0F0F] sm:px-8 sm:py-24 lg:px-12">
+        <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#7A1F2B]">
+              Nuevo · Simulador de Audio
+            </p>
+            <h2 className="mt-5 text-4xl font-semibold leading-tight sm:text-5xl">
+              Diseña el sonido de tu espacio antes de comprar una sola bocina.
+            </h2>
+            <p className="mt-6 text-lg leading-8 text-zinc-700">
+              Cuéntanos qué quieres escuchar y en dónde. El simulador te propone
+              los equipos y te muestra cuántas bocinas son, dónde van y qué tan
+              fuerte se va a oír, sobre tus medidas o sobre tu plano.
+            </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <Link
+                href="/simulador-audio"
+                onClick={() =>
+                  trackEvent("click_simulador_audio", { placement: "home_seccion" })
+                }
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded bg-[#7A1F2B] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#5A1320]"
+              >
+                Abrir el simulador
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+              <Link
+                href="/blog/simulador-de-audio-cuantas-bocinas-necesita-tu-espacio"
+                className="inline-flex min-h-12 items-center justify-center gap-2 px-2 text-sm font-semibold text-[#7A1F2B] transition hover:text-[#B84A5A]"
+              >
+                Cómo funciona
+                <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+              </Link>
+            </div>
+          </div>
+
+          <Link
+            href="/simulador-audio"
+            aria-label="Abrir el Simulador de Audio"
+            onClick={() =>
+              trackEvent("click_simulador_audio", { placement: "home_imagen" })
+            }
+            className="group relative block overflow-hidden rounded-[28px] bg-white shadow-2xl shadow-black/10"
+          >
+            <Image
+              src="/simulador/capturas/simulador-plano.jpg"
+              alt="Simulador de Audio de ALFA con cuatro bocinas de plafón y su cobertura sobre un espacio de 5 por 4 metros"
+              width={1800}
+              height={1200}
+              sizes="(min-width: 1024px) 52vw, 100vw"
+              className="h-auto w-full transition duration-500 ease-out group-hover:scale-[1.02]"
+            />
+          </Link>
         </div>
       </section>
 
@@ -1358,6 +1438,15 @@ export default function PublicLanding() {
                   className="transition hover:text-white"
                 >
                   Audio & Video Profesional
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/simulador-audio"
+                  className="transition hover:text-white flex items-center gap-2"
+                >
+                  <span>Simulador de Audio</span>
+                  <span className="text-[10px] text-[#F0B8C0] bg-[#7A1F2B]/40 px-1.5 py-0.2 rounded font-semibold">Nuevo</span>
                 </Link>
               </li>
               <li>

@@ -6,7 +6,7 @@ import {
 } from "./blogData";
 import { SITE_URL } from "@/lib/siteUrl";
 
-export type { BlogPost, BlogCategory, BlogAuthor, BlogAiDisclosure, BlogSection, BlogSectionImage, BlogFaqItem } from "./blogData";
+export type { BlogPost, BlogCta, BlogCategory, BlogAuthor, BlogAiDisclosure, BlogSection, BlogSectionImage, BlogFaqItem } from "./blogData";
 export { BLOG_CATEGORIES, STATIC_BLOG_POSTS } from "./blogData";
 
 /**
@@ -95,7 +95,7 @@ export function generateBlogArticleJsonLd(
             // Thing, no Product: sin precio Google marca el Product como
             // error de "Fragmentos de productos" (ver generateProductJsonLd).
             "@type": "Thing",
-            name: "Hikvision DS-KLM28-12",
+            name: post.topicName,
             description: post.subtitle,
           },
         ],
