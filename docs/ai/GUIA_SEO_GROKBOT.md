@@ -14,7 +14,7 @@ El trabajo se habilita por fases. **Solo haces lo de la fase en la que estás.**
 
 | Fase | Qué haces | Estado |
 |---|---|---|
-| 0 | Accesos de solo lectura a Search Console, GA4 y PageSpeed, y esta guía. | Guía lista; accesos pendientes. |
+| 0 | Accesos de solo lectura a Search Console, GA4 y PageSpeed, y esta guía. | Search Console y PageSpeed listos (2026-11-26); GA4 pendiente (el sitio no mide visitas). |
 | 1 | Diagnóstico y reporte semanal: qué se busca, qué posiciones hay, qué no se indexa y qué está lento. | Pendiente. |
 | 2 | Propuestas: ideas de artículos, fichas que conviene enriquecer y títulos que conviene reescribir. Leo elige. | Pendiente. |
 | 3 | Preparar los cambios aprobados como pull request (texto, metadatos, enlaces internos, artículos). **Nunca mergear ni desplegar.** | Pendiente. |
@@ -58,9 +58,17 @@ El trabajo se habilita por fases. **Solo haces lo de la fase en la que estás.**
 - Sitemap de 575 URLs, de las cuales 560 son de `/marcas`.
 - Causa principal: poca autoridad del dominio y fichas de catálogo cortas y parecidas entre sí (fichas Hikvision/Tiandy de unas 210 palabras).
 
-### 3.3 Accesos (fase 0, pendientes de configurar)
+Primera lectura por API (2026-11-26, últimos 28 días con datos): **29 clics, 1,088 impresiones, CTR 2.67 % y posición media 11.7**. Casi todo el tráfico es de marca ("alfait", "alfa it", "alfaos") y de modelos sueltos de cámaras; todavía no hay presencia en búsquedas de servicio ("automatización Guadalajara", "instalación de cámaras Zapopan"). PageSpeed móvil de la portada: 94/100.
 
-Todos son **de solo lectura** y gratuitos.
+### 3.3 Accesos (fase 0)
+
+Todos son **de solo lectura** y gratuitos. Estado al 2026-11-26:
+
+- **Proyecto de Google Cloud:** `alfa-seo-agent-515921` ("ALFA SEO Agent"), en la organización alfait.com.mx, administrado con leo@alfait.com.mx. APIs activas: Search Console, Analytics Data y PageSpeed Insights.
+- **Cuenta de servicio:** `alfa-seo-agent@alfa-seo-agent-515921.iam.gserviceaccount.com`, sin roles en el proyecto. Es usuario **restringido** de `sc-domain:alfait.com.mx` (probado: lee rendimiento). La organización bloquea crear llaves de cuentas de servicio; se abrió una excepción temporal solo en este proyecto para crear la llave y se volvió a cerrar. Si hace falta otra llave, Leo tiene que reabrirla.
+- **PageSpeed:** llave de API restringida a esa API (probada).
+- **GA4:** la propiedad "ALFA AV" (`223313825`) **no tiene flujo de datos** y el sitio en producción no carga ninguna etiqueta (las variables `NEXT_PUBLIC_GA_MEASUREMENT_ID` y `NEXT_PUBLIC_GTM_ID` están vacías). Hasta que se configure, no hay datos de visitas ni de contactos. Arreglarlo toca la configuración de producción en Vercel y requiere el "sí" de Leo.
+- El único propietario de Search Console es la cuenta personal de Gmail de Leo; conviene agregar leo@alfait.com.mx como propietario.
 
 | Servicio | Para qué | Cómo se da acceso |
 |---|---|---|
@@ -72,7 +80,8 @@ Credenciales esperadas, en el mismo lugar que las de Meta (hoy, el `.env` del es
 
 | Clave | Uso |
 |---|---|
-| `GOOGLE_SA_JSON_PATH` | Ruta al JSON de la cuenta de servicio. No lo copies a otro lado. |
+| `GOOGLE_SA_JSON_PATH` | Ruta al JSON de la cuenta de servicio. No lo copies a otro lado. Para obtener el token: JWT firmado con la llave, `scope=https://www.googleapis.com/auth/webmasters.readonly`, contra `https://oauth2.googleapis.com/token`. |
+| `GOOGLE_SA_EMAIL` | Correo de la cuenta de servicio (referencia). |
 | `GSC_SITE_URL` | Propiedad de Search Console (`sc-domain:alfait.com.mx` o `https://www.alfait.com.mx/`, la que exista). |
 | `GA4_PROPERTY_ID` | Id numérico de la propiedad GA4. |
 | `PAGESPEED_API_KEY` | Llave de PageSpeed Insights. |
@@ -147,8 +156,8 @@ Cuando se publique un artículo nuevo en el blog, el Community Manager lo convie
 
 | Pendiente | Quién |
 |---|---|
-| Crear la cuenta de servicio en Google Cloud y darle acceso de solo lectura a Search Console y GA4; crear la llave de PageSpeed. | Leo (con ayuda en el navegador) |
-| Confirmar qué propiedad de Search Console existe (dominio o prefijo de URL) y el id de GA4. | Leo |
+| Activar la medición de GA4: crear el flujo web en la propiedad `223313825`, poner el ID en Vercel y luego dar a la cuenta de servicio el rol Lector. | Leo decide |
+| Agregar leo@alfait.com.mx como propietario de Search Console. | Leo |
 | Dónde vive el histórico semanal de SEO. | Leo decide |
 | Acceso de GrokBot al repositorio para la fase 3 (rama y PR, sin permiso de merge). | Leo |
 | Perfil de Negocio de Google: confirmar que existe, quién lo administra y si el agente lo trabaja (fase 4). | Leo |
