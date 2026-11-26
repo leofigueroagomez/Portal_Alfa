@@ -1,19 +1,51 @@
 "use client";
 
 import Script from "next/script";
-import { useEffect } from "react";
+import { usePathname } from "next/navigation";
+import { useEffect, useRef } from "react";
 import { initAttribution } from "@/lib/utmTracking";
+import { isPublicAnalyticsPath } from "@/lib/analyticsScope";
 
 export default function AnalyticsScripts() {
   const gtmId = process.env.NEXT_PUBLIC_GTM_ID;
   const gaId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
   const pixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID;
+  const googleAdsId = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID;
+
+  const pathname = usePathname();
+  // Solo el sitio público se mide. ALFA OS, el portal de clientes y el login
+  // comparten este layout, pero sus títulos y rutas pueden traer datos de
+  // clientes, que no deben llegar a Google ni a Meta.
+  const trackable = isPublicAnalyticsPath(pathname);
+  const firstPageView = useRef(true);
 
   useEffect(() => {
     initAttribution();
   }, []);
 
-  const googleAdsId = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID;
+  // GA4: el script inicial manda la primera vista; aquí se mandan las vistas de
+  // cada navegación pública y se bloquea GA por completo en rutas privadas.
+  // En el flujo de GA4 debe estar apagada la medición mejorada de "cambios de
+  // historial del navegador" para que no se cuelen vistas de rutas privadas.
+  useEffect(() => {
+    if (!gaId) return;
+    const w = window as unknown as Record<string, unknown>;
+    w[`ga-disable-${gaId}`] = !trackable;
+    if (firstPageView.current) {
+      firstPageView.current = false;
+      return;
+    }
+    if (trackable && typeof window.gtag === "function") {
+      window.gtag("event", "page_view", {
+        send_to: gaId,
+        page_location: window.location.href,
+        page_path: pathname,
+        page_title: document.title,
+      });
+    }
+  }, [gaId, pathname, trackable]);
+
+  if (!trackable) return null;
 
   return (
     <>
@@ -58,8 +90,10 @@ export default function AnalyticsScripts() {
               __html: `
                 window.dataLayer = window.dataLayer || [];
                 function gtag(){dataLayer.push(arguments);}
+                window.gtag = gtag;
                 gtag('js', new Date());
-                ${gaId ? `gtag('config', '${gaId}', { page_path: window.location.pathname });` : ""}
+                ${gaId ? `gtag('config', '${gaId}', { send_page_view: false });
+                gtag('event', 'page_view', { send_to: '${gaId}', page_location: window.location.href, page_path: window.location.pathname, page_title: document.title });` : ""}
                 ${googleAdsId ? `gtag('config', '${googleAdsId}');` : ""}
               `,
             }}
