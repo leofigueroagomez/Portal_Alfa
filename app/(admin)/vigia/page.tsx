@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { VIGIA_ENABLED } from "@/lib/vigia/disabled";
 import { getCurrentInternalUserProfile } from "@/services/profile";
 import {
   getVigiaAuditLogs,
@@ -19,6 +20,7 @@ export const metadata: Metadata = {
 };
 
 export default async function VigiaPage() {
+  if (!VIGIA_ENABLED) redirect("/director-dashboard");
   const profile = await getCurrentInternalUserProfile();
   if (!profile) {
     redirect("/portal");

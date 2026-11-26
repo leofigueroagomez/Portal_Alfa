@@ -4,6 +4,8 @@ Contexto operativo para agentes que modifiquen cotizaciones, versiones, aprobaci
 
 Estado inferido: activo y critico para ventas.
 
+> **Cotizacion por voz RETIRADA el 2026-11-26.** Leo la quito porque no le funciono. Se borraron `lib/quotes/voiceDraft.ts`, `app/api/quotes/draft-from-intent/route.ts`, `app/(admin)/quotes/voz/page.tsx`, `components/quotes/VoiceDraftPanel.tsx` y el boton "Dictar" de `/quotes`. Las menciones a "voz", `/quotes/voz` y `draft-from-intent` mas abajo son historicas. Se conserva la tabla `quote_voice_drafts` (historial) solo para `service_role` (`sql/20261126_retiro_cotizacion_por_voz.sql`, aplicada en produccion; rollback incluido). `lib/quotes/draftBuilder.ts` se conserva (lo citan la guia de GrokBot y `.claude/skills/cotizar`). Pendiente para Leo fuera del repo: borrar en Vercel `QUOTE_VOICE_SECRET`, `QUOTE_VOICE_MODEL` y `QUOTE_VOICE_MONTHLY_CAP_USD`, y quitar el Atajo de Siri si se llego a crear. `ANTHROPIC_API_KEY` ya no la usa nadie en el repo salvo el Vigia (apagado): si no se reactiva ninguno, se puede revocar en console.anthropic.com.
+
 > Si vas a **armar o revisar una cotizacion** (no a modificar codigo), lee primero [`COMO_COTIZAMOS.md`](./COMO_COTIZAMOS.md): formato por sistema y ubicacion, mano de obra dentro del equipo y precio por margen o por lista. Es lectura obligatoria.
 
 ## Que Hace

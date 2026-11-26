@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { VIGIA_DISABLED_MESSAGE, VIGIA_ENABLED } from "../disabled";
 import { checkBudget, computeCostUsd } from "./budget";
 import { sendInvestigationEmail } from "./email";
 import { interpret } from "./interpret";
@@ -46,6 +47,7 @@ export async function investigateFinding(
   findingId: number,
   opts: { trigger: "manual" | "auto_critico"; requestedBy: string },
 ): Promise<InvestigationOutcome> {
+  if (!VIGIA_ENABLED) return { ok: false, error: VIGIA_DISABLED_MESSAGE };
   const { data: findingRow, error: findingErr } = await supabase
     .from("vigia_findings")
     .select(FINDING_COLUMNS)
@@ -185,7 +187,7 @@ export async function investigateFinding(
 export async function runAutoInvestigations(
   supabase: SupabaseClient,
 ): Promise<{ attempted: number; completed: number; skipped: number; results: Array<{ findingId: number; ok: boolean; status?: string }> }> {
-  if (process.env.VIGIA_INVESTIGATE_AUTO === "0") {
+  if (!VIGIA_ENABLED || process.env.VIGIA_INVESTIGATE_AUTO === "0") {
     return { attempted: 0, completed: 0, skipped: 0, results: [] };
   }
   const maxPerRun = Math.max(

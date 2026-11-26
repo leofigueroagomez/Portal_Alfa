@@ -11,6 +11,7 @@ import {
 import { normalizeSalesStage } from "@/lib/salesStages";
 import { getCurrentInternalUserProfile } from "@/services/profile";
 import { getVigiaOverview } from "@/lib/vigia/queries";
+import { VIGIA_ENABLED } from "@/lib/vigia/disabled";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -262,7 +263,8 @@ export default async function DirectorDashboardPage() {
       .lt("generated_at", currentMonth.nextIso)
       .in("status", ["generated", "sent"])
       .order("generated_at", { ascending: false }),
-    getVigiaOverview(supabase).catch(() => null),
+    // El Vigia esta apagado (2026-11-26): sin tarjeta ni consultas a vigia_*.
+    VIGIA_ENABLED ? getVigiaOverview(supabase).catch(() => null) : Promise.resolve(null),
   ]);
   let projectsResult = dashboardResults[0];
   const clientsResult = dashboardResults[1];

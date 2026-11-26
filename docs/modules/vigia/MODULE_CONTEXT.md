@@ -2,7 +2,11 @@
 
 Contexto operativo para agentes que quieran entender, mantener o ampliar la capa autonoma de vigilancia. Antes de tocar SQL, RLS o rutas API, revisar [`../../ai/SECURITY_RULES.md`](../../ai/SECURITY_RULES.md).
 
-Estado inferido: activo desde 2026-08-31. Fase 1 en marcha (frentes: integridad de datos y costos/margenes). Riesgo: medio — no toca datos de negocio, pero sus tablas y su cron corren en produccion y envian correo.
+> **DESACTIVADO el 2026-11-26.** Leo lo apago: consumia dinero (llamadas a Claude y correos diarios) y no resulto como esperaba. Cambios: se quito el cron de `vercel.json`; `lib/vigia/disabled.ts` (`VIGIA_ENABLED`, apagado salvo `VIGIA_ENABLED=1`) hace que el cron y `/api/vigia/investigate` respondan 410, que no se llame a Claude (`investigateFinding`/`runAutoInvestigations`), que `/vigia` redirija a `/director-dashboard` y que el dashboard no muestre la tarjeta. En la base (`sql/20261126_seguridad_y_apagado_vigia.sql`, aplicada en produccion): las 22 vistas `vigia_v_*` pasaron a `security_invoker` y solo `service_role` las lee; se quitaron las policies `vigia_authenticated_select` y los grants de `anon`/`authenticated` en las 5 tablas `vigia_*` (antes cualquier usuario con sesion podia leerlas). Se conservan tablas y codigo. Para reactivar: `VIGIA_ENABLED=1`, restaurar el cron y aplicar `..._rollback.sql`. Pendiente para Leo fuera del repo: borrar en Vercel las variables `VIGIA_*` si ya no se usan (no borrar `ANTHROPIC_API_KEY`: la usa la cotizacion por voz).
+>
+> Lo de abajo describe como funcionaba.
+
+Estado inferido (antes del apagado): activo desde 2026-08-31. Fase 1 en marcha (frentes: integridad de datos y costos/margenes). Riesgo: medio — no toca datos de negocio, pero sus tablas y su cron corren en produccion y envian correo.
 
 Plan completo (vision, fases, bandeja de decision): artifact "El Vigia de ALFA OS" - https://claude.ai/code/artifact/321f9ba1-a6ee-471a-a4e5-f05279cf74a4
 

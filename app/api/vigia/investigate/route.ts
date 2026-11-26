@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { normalizeRole } from "@/lib/permissions";
+import { VIGIA_DISABLED_MESSAGE, VIGIA_ENABLED } from "@/lib/vigia/disabled";
 import { investigateFinding, runAutoInvestigations } from "@/lib/vigia/investigate";
 import { getCurrentInternalUserProfile } from "@/services/profile";
 import { createSupabaseAdminClient } from "@/services/supabaseAdmin";
@@ -39,6 +40,10 @@ async function authorize(request: Request): Promise<{ ok: boolean; actor: string
 }
 
 export async function POST(request: Request) {
+  if (!VIGIA_ENABLED) {
+    return NextResponse.json({ ok: false, error: VIGIA_DISABLED_MESSAGE }, { status: 410 });
+  }
+
   const auth = await authorize(request);
   if (!auth.ok) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
