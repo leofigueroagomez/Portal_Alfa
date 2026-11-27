@@ -398,4 +398,148 @@ export const STATIC_BLOG_POSTS: BlogPost[] = [
     relatedSolutionHref: "/servicios/control-de-acceso",
     relatedSolutionLabel: "Control de Acceso & Automatización",
   },
+  {
+    slug: "lutron-radiora-3-iluminacion-residencial-sin-obra",
+    title: "Lutron RadioRA 3: iluminación que se adapta a la casa y no al revés",
+    subtitle:
+      "Escenas, horarios y persianas en una residencia existente, sin abrir muros ni depender del Wi-Fi.",
+    metaDescription:
+      "Cómo Lutron RadioRA 3 permite controlar luz y persianas con escenas y horarios en una casa ya construida, sin abrir muros. Datos técnicos de fuentes oficiales de Lutron.",
+    excerpt:
+      "Una casa bien iluminada se nota en la forma en que cambia a lo largo del día. RadioRA 3 lo logra con escenas, horarios y control inalámbrico sobre una instalación profesional.",
+    category: "Iluminación & Automatización",
+    categorySlug: "iluminacion",
+    tags: ["Lutron", "RadioRA 3", "Iluminación", "Persianas", "Automatización residencial", "Sunnata"],
+    publishedAt: "2026-11-27",
+    publishedAtFormatted: "27 de Noviembre, 2026",
+    readTime: "5 min de lectura",
+    coverImage: "/projects/residencia-premium.jpeg",
+    coverImageAlt: "Interior de una residencia premium con iluminación cálida integrada a la arquitectura",
+    coverImageCaption: "Residencia premium. Imagen ilustrativa del repositorio de ALFA.",
+    author: {
+      name: "Ing. Leonardo Figueroa",
+      role: "Director de Ingeniería e Integración | ALFA High End Services",
+    },
+    aiEditorialDisclosure: {
+      isAiAssisted: true,
+      reviewedBy: "Equipo de Ingeniería y Sistemas de Seguridad de ALFA",
+      role: "Validación de especificaciones de hardware, protocolos de red y directrices de instalación en México",
+      summary:
+        "Este artículo fue investigado y redactado con asistencia de Inteligencia Artificial especializada y revisado exhaustivamente por los ingenieros de ALFA High End Services.",
+      guidelinesNote:
+        "Cumpliendo con los estándares de calidad E-E-A-T de Google Search Central, transparentamos el uso de herramientas de IA en la síntesis de documentación técnica, garantizando exactitud operativa y respaldo profesional.",
+    },
+    whatsappQuoteMessage:
+      "Hola ALFA, leí su artículo sobre Lutron RadioRA 3 y me interesa recibir asesoría para la iluminación de mi proyecto.",
+    technicalSpecs: [
+      { label: "Sistema", value: "Lutron RadioRA 3, control inalámbrico de iluminación y persianas" },
+      { label: "Tecnología inalámbrica", value: "Clear Connect, independiente del Wi-Fi" },
+      { label: "Clear Connect Type X", value: "2.4 a 2.48 GHz, red en malla (dispositivos Sunnata RF)" },
+      { label: "Clear Connect Type A", value: "431 a 437 MHz, requiere repetidores para ampliar alcance" },
+      { label: "Capacidad Type X", value: "Hasta 100 dispositivos por procesador y 200 por sistema" },
+      { label: "Capacidad Type A", value: "Hasta 95 dispositivos por procesador y 190 por sistema" },
+      { label: "Procesadores por sistema", value: "Hasta 4" },
+      { label: "Alcance Type X", value: "Dispositivos a no más de 22.9 m (75 ft) del procesador" },
+      { label: "Programación", value: "Software Lutron Designer en PC; ajustes de escenas y horarios desde la app de Lutron" },
+      { label: "Acabados", value: "Dimmers, interruptores y teclados en más de 20 colores; placas en 25 colores y acabados" },
+    ],
+    tableOfContents: [
+      { id: "una-casa-que-cambia", title: "1. Una casa que cambia durante el día" },
+      { id: "escenas", title: "2. Escenas en lugar de interruptores" },
+      { id: "sin-obra", title: "3. Instalación en una casa ya construida" },
+      { id: "persianas", title: "4. Luz natural y persianas" },
+      { id: "diseno", title: "5. Que el control desaparezca en el muro" },
+      { id: "preguntas-frecuentes", title: "6. Preguntas frecuentes" },
+    ],
+    sections: [
+      {
+        id: "una-casa-que-cambia",
+        title: "1. Una casa que cambia durante el día",
+        content: [
+          "La luz de una residencia bien resuelta no es una sola. Por la mañana pide claridad natural, al mediodía casi nada, por la noche una atmósfera más baja y cálida. Cuando cada luminaria depende de un apagador distinto, esa variación se resuelve a mano, y casi nunca se resuelve.",
+          "RadioRA 3 es el sistema de Lutron pensado para esa necesidad. Según Lutron, es un sistema inalámbrico de control de iluminación, programable desde PC y conectado a la nube, que se instala de manera profesional y que integra controles, iluminación y persianas.",
+          "Para el dueño de la casa, el resultado es simple: la iluminación responde a cómo se vive el espacio. Para el arquitecto, significa que el diseño de luz puede ajustarse después de la obra sin modificar la arquitectura.",
+        ],
+      },
+      {
+        id: "escenas",
+        title: "2. Escenas en lugar de interruptores",
+        content: [
+          "La unidad básica de RadioRA 3 es la escena: una combinación de niveles de luz y de persianas que se activa con una sola acción, desde un teclado en el muro, desde la app o por voz.",
+          "Lutron lo ilustra con un ejemplo: al activar una escena de cine, las luces de la sala bajan, las de la cocina contigua se apagan y las persianas descienden. Quien llega a casa no recuerda circuitos, elige un ambiente.",
+          "El sistema también permite programar horarios y sincronizarlos con el amanecer y el atardecer, de modo que la iluminación se ajusta sola conforme cambian las estaciones.",
+        ],
+        callout: {
+          type: "highlight",
+          title: "El resultado",
+          text: "Menos controles a la vista, menos decisiones al entrar a una habitación y una iluminación coherente en toda la casa.",
+        },
+      },
+      {
+        id: "sin-obra",
+        title: "3. Instalación en una casa ya construida",
+        content: [
+          "RadioRA 3 se comunica mediante la tecnología de radiofrecuencia Clear Connect de Lutron, no por Wi-Fi. Esto importa por dos razones: la iluminación no depende de la red doméstica y no hay que tender cable de control entre los dispositivos.",
+          "Lutron indica que el sistema permite iniciar la instalación en una habitación y ampliarlo con el tiempo, sin abrir muros ni jalar cable. Para una remodelación, eso reduce el polvo, los tiempos y la intervención sobre acabados terminados.",
+        ],
+        bullets: [
+          "Clear Connect Type X trabaja entre 2.4 y 2.48 GHz y forma una red en malla; es la tecnología de los dispositivos Sunnata RF.",
+          "Clear Connect Type A trabaja entre 431 y 437 MHz y usa repetidores para ampliar el alcance; permite incorporar la mayoría de los dispositivos RadioRA 2 existentes.",
+          "Un sistema admite hasta 4 procesadores, con hasta 200 dispositivos Type X o 190 Type A.",
+        ],
+      },
+      {
+        id: "persianas",
+        title: "4. Luz natural y persianas",
+        content: [
+          "La luz artificial es solo una parte de la ecuación. RadioRA 3 incorpora persianas de Lutron, entre ellas las líneas Triathlon y Sivoia QS Wireless, de modo que la luz natural entra al mismo sistema de escenas.",
+          "Lutron propone como ejemplo despertar con la recámara llena de luz natural al subir las persianas, con algunas luces encendidas a nivel bajo. La escena resuelve en un solo gesto lo que antes eran varios.",
+        ],
+      },
+      {
+        id: "diseno",
+        title: "5. Que el control desaparezca en el muro",
+        content: [
+          "Un buen sistema de iluminación no debería competir con la arquitectura. Lutron ofrece dimmers, interruptores y teclados en más de 20 colores con acabados brillante y satinado, y placas en 25 colores y acabados.",
+          "Esto permite que el control se integre al muro y al material del espacio. En ALFA definimos con el arquitecto la ubicación, el acabado y la lógica de escenas antes de instalar, para que la tecnología se perciba por su efecto y no por su presencia.",
+        ],
+        callout: {
+          type: "quote",
+          title: "¿Planeas iluminar o remodelar una residencia?",
+          text: "Escríbenos por WhatsApp. Revisamos el proyecto contigo y con tu arquitecto, y te proponemos una distribución de escenas a la medida.",
+        },
+      },
+      {
+        id: "preguntas-frecuentes",
+        title: "6. Preguntas frecuentes",
+        content: [
+          "Estas son las dudas más comunes antes de iniciar un proyecto de iluminación con RadioRA 3.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "¿RadioRA 3 funciona por Wi-Fi?",
+        answer:
+          "No. Según Lutron, el sistema se comunica mediante la tecnología de radiofrecuencia Clear Connect y sus componentes operan de forma independiente del Wi-Fi.",
+      },
+      {
+        question: "¿Se necesita obra para instalarlo en una casa existente?",
+        answer:
+          "Lutron indica que el sistema puede ampliarse con el tiempo sin abrir muros ni tender cable. La viabilidad concreta depende de cada inmueble, por lo que se confirma en una visita técnica.",
+      },
+      {
+        question: "¿Puedo empezar con una sola habitación?",
+        answer:
+          "Sí. Lutron describe el sistema como escalable: se puede iniciar en un espacio y agregar más áreas posteriormente.",
+      },
+      {
+        question: "¿Qué tan grande puede ser el sistema?",
+        answer:
+          "Un sistema RadioRA 3 admite hasta 4 procesadores, con hasta 200 dispositivos Clear Connect Type X o 190 Type A. Los alcances y la ubicación de los dispositivos se definen en el diseño del proyecto.",
+      },
+    ],
+    relatedSolutionHref: "/servicios/iluminacion",
+    relatedSolutionLabel: "Iluminación & Automatización",
+  },
 ];
