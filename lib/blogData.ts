@@ -75,6 +75,8 @@ export interface BlogPost {
   faq: BlogFaqItem[];
   relatedSolutionHref?: string;
   relatedSolutionLabel?: string;
+  /** Nombre corto del equipo o sistema del artículo; se usa en la ficha rápida y en las tarjetas de cotización. Si se omite, se usa el título. */
+  subjectLabel?: string;
 }
 
 export interface BlogCategory {
@@ -114,6 +116,7 @@ export const BLOG_CATEGORIES: BlogCategory[] = [
 export const STATIC_BLOG_POSTS: BlogPost[] = [
   {
     slug: "lockers-inteligentes-hikvision-ds-klm28-12-control-acceso-facial",
+    subjectLabel: "Hikvision DS-KLM28-12",
     title: "Lockers Inteligentes Hikvision DS-KLM28-12: Automatización, Reconocimiento Facial y Control de Acceso",
     subtitle:
       "Análisis técnico exhaustivo del sistema de casilleros maestro con 12 compartimentos, terminal biométrica táctil de 8 pulgadas, expansión RS-485 y compatibilidad con plataformas corporativas.",
@@ -400,6 +403,7 @@ export const STATIC_BLOG_POSTS: BlogPost[] = [
   },
   {
     slug: "lutron-radiora-3-iluminacion-residencial-sin-obra",
+    subjectLabel: "Lutron RadioRA 3",
     title: "Lutron RadioRA 3: iluminación que se adapta a la casa y no al revés",
     subtitle:
       "Escenas, horarios y persianas en una residencia existente, sin abrir muros ni depender del Wi-Fi.",

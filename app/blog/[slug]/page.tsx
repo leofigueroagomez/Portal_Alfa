@@ -286,7 +286,7 @@ export default async function BlogPostPage({ params }: Props) {
             <div className="rounded-2xl border border-white/10 bg-[#141418] p-6 sm:p-8 space-y-5">
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#F0B8C0]">
                 <Sparkles className="h-4 w-4 text-[#B84A5A]" />
-                <span>Ficha Técnica Rápida · Hikvision DS-KLM28-12</span>
+                <span>Ficha Técnica Rápida · {post.subjectLabel ?? post.title}</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                 {post.technicalSpecs.slice(0, 6).map((spec) => (
@@ -443,7 +443,7 @@ export default async function BlogPostPage({ params }: Props) {
                 <span>Atención Técnica Inmediata</span>
               </div>
               <h2 className="text-2xl sm:text-3xl font-bold font-serif text-white">
-                ¿Deseas implementar el sistema Hikvision DS-KLM28-12 en tu proyecto?
+                ¿Deseas implementar {post.subjectLabel ?? "este sistema"} en tu proyecto?
               </h2>
               <p className="text-sm text-zinc-300 font-light leading-relaxed">
                 Cotiza directamente con nuestros ingenieros certificados de ALFA. Evaluamos las dimensiones de tu inmueble, cálculo de usuarios y requerimientos de red sin costo.
@@ -516,10 +516,14 @@ export default async function BlogPostPage({ params }: Props) {
                   <span>Pedir Cotización por WhatsApp</span>
                 </a>
                 <Link
-                  href="/servicios/control-de-acceso"
+                  href={post.relatedSolutionHref ?? "/servicios/control-de-acceso"}
                   className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-6 text-sm font-semibold uppercase tracking-wider text-white transition hover:bg-white/10"
                 >
-                  <span>Ver Control de Acceso</span>
+                  <span>
+                    {post.relatedSolutionLabel
+                      ? `Ver ${post.relatedSolutionLabel}`
+                      : "Ver Control de Acceso"}
+                  </span>
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </div>
@@ -536,7 +540,7 @@ export default async function BlogPostPage({ params }: Props) {
                   <span>Cotización Inmediata</span>
                 </div>
                 <h3 className="text-lg font-bold font-serif text-white">
-                  Hikvision DS-KLM28-12
+                  {post.subjectLabel ?? post.title}
                 </h3>
                 <p className="text-xs text-zinc-300 font-light leading-relaxed">
                   Solicita presupuesto personalizado con módulos adicionales o programación a la medida.
