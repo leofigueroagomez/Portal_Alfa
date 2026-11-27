@@ -417,9 +417,9 @@ export const STATIC_BLOG_POSTS: BlogPost[] = [
     publishedAt: "2026-11-27",
     publishedAtFormatted: "27 de Noviembre, 2026",
     readTime: "5 min de lectura",
-    coverImage: "/projects/residencia-premium.jpeg",
-    coverImageAlt: "Interior de una residencia premium con iluminación cálida integrada a la arquitectura",
-    coverImageCaption: "Residencia premium. Imagen ilustrativa del repositorio de ALFA.",
+    coverImage: "/blog/lutron-radiora-3/teclado-lutron-muro-nogal.jpg",
+    coverImageAlt: "Dos teclados de control Lutron en acabado negro, empotrados en un muro de nogal",
+    coverImageCaption: "Teclados Lutron instalados por ALFA en un muro de nogal.",
     author: {
       name: "Ing. Leonardo Figueroa",
       role: "Director de Ingeniería e Integración | ALFA High End Services",
@@ -507,6 +507,13 @@ export const STATIC_BLOG_POSTS: BlogPost[] = [
           "Un buen sistema de iluminación no debería competir con la arquitectura. Lutron ofrece dimmers, interruptores y teclados en más de 20 colores con acabados brillante y satinado, y placas en 25 colores y acabados.",
           "Esto permite que el control se integre al muro y al material del espacio. En ALFA definimos con el arquitecto la ubicación, el acabado y la lógica de escenas antes de instalar, para que la tecnología se perciba por su efecto y no por su presencia.",
         ],
+        image: {
+          src: "/blog/lutron-radiora-3/apagador-lutron-muro-nogal.jpg",
+          alt: "Apagador Lutron en acabado negro sobre un muro de nogal",
+          caption: "Apagador Lutron en acabado negro instalado por ALFA sobre nogal.",
+          fit: "cover",
+          aspect: "4/3",
+        },
         callout: {
           type: "quote",
           title: "¿Planeas iluminar o remodelar una residencia?",
